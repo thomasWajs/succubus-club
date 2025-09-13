@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+.venv/
+
+# Build outputs
+dist/
+build/
+
+# Generated files
+*.min.js
+*.min.css
+
+# Package files
+package-lock.json
+yarn.lock
+
+# IDE and editor files
+.vscode/
+.idea/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Coverage reports
+coverage/
+
+# Public assets (usually shouldn't be formatted)
+public/
+
+# API directory (might contain generated files)
+api/
+
+# Vite cache
+.vite/
+
+# Environment files
+.env*
+
+# License and readme files
+LICENSE*
+README*
+*.md

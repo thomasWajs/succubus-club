@@ -1,0 +1,33 @@
+{
+    "$schema": "https://openapi.vercel.sh/vercel.json",
+    "rewrites": [
+        {
+            "source": "/lobby",
+            "destination": "/"
+        },
+        {
+            "source": "/game",
+            "destination": "/"
+        }
+    ],
+    "headers": [
+        {
+            "source": "/assets/tabletopBackground.jpg",
+            "headers": [
+                {
+                    "key": "Cache-Control",
+                    "value": "public, immutable, max-age=43200"
+                }
+            ]
+        },
+        {
+            "source": "/assets/atlas/(.*)",
+            "headers": [
+                {
+                    "key": "Cache-Control",
+                    "value": "public, immutable, max-age=31536000"
+                }
+            ]
+        }
+    ]
+}

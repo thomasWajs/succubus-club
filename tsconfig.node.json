@@ -1,0 +1,13 @@
+{
+    "compilerOptions": {
+        "composite": true,
+        "skipLibCheck": true,
+        "module": "ES2022",
+        "moduleResolution": "bundler",
+        "allowSyntheticDefaultImports": true,
+        "strict": true,
+        "target": "ES2023",
+        "lib": ["ES2023"]
+    },
+    "include": ["vite/**/*.ts", "vite/**/*.mjs"]
+}

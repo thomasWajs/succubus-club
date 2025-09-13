@@ -1,0 +1,67 @@
+{
+    "name": "succubus-club",
+    "version": "0.0.1",
+    "private": true,
+    "type": "module",
+    "description": "A platform to play the card game V:TES in a web browser. Built with Phaser, Vue, and TypeScript.",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/thomasWajs/succubus-club"
+    },
+    "author": "Thomas Wajs",
+    "license": "MIT",
+    "licenseUrl": "https://mit-license.org/",
+    "bugs": {
+        "url": "https://github.com/thomasWajs/succubus-club/issues/"
+    },
+    "homepage": "https://succubus-club.net/",
+    "keywords": [
+        "phaser",
+        "phaser3",
+        "typescript",
+        "vue",
+        "vite"
+    ],
+    "scripts": {
+        "dev": "vite --config vite/config.dev.mjs",
+        "preview": "vite preview",
+        "build": "vite build --config vite/config.prod.mjs",
+        "type:check": "vue-tsc --noEmit",
+        "lint:check": "eslint .",
+        "lint:fix": "eslint . --fix",
+        "format:check": "prettier --check .",
+        "format:fix": "prettier --write ."
+    },
+    "dependencies": {
+        "@sentry/vue": "^9.46.0",
+        "dexie": "^4.2.0",
+        "phaser": "^3.90.0",
+        "phavuer": "^0.16.5",
+        "pinia": "^3.0.3",
+        "safe-stable-stringify": "^2.5.0",
+        "trystero": "^0.21.8",
+        "vue": "^3.5.17",
+        "vue-router": "^4.5.1",
+        "xxhash-wasm": "^1.1.0"
+    },
+    "devDependencies": {
+        "@sentry/vite-plugin": "^3.6.1",
+        "@tsconfig/node20": "^20.1.6",
+        "@types/node": "^20.19.13",
+        "@typescript-eslint/eslint-plugin": "^8.42.0",
+        "@typescript-eslint/parser": "^8.42.0",
+        "@vitejs/plugin-vue": "^6.0.1",
+        "@vue/tsconfig": "^0.7.0",
+        "eslint": "^9.35.0",
+        "eslint-config-prettier": "^10.1.8",
+        "eslint-plugin-prettier": "^5.5.4",
+        "eslint-plugin-vue": "^10.4.0",
+        "prettier": "^3.6.2",
+        "sass": "^1.92.1",
+        "terser": "^5.44.0",
+        "typescript": "~5.8.3",
+        "vite": "^7.1.5",
+        "vite-plugin-vue-devtools": "^7.7.7",
+        "vue-tsc": "^3.0.6"
+    }
+}

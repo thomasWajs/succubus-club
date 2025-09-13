@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <link
+            rel="icon"
+            type="image/png"
+            href="/favicon.png"
+        />
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0"
+        />
+        <title>Succubus Club</title>
+
+        <!-- Preload welcome sign for main menu -->
+        <link
+            rel="preload"
+            href="/assets/welcomeSign.png"
+            as="image"
+        />
+
+        <!-- Prefetch tabletop background for loading display -->
+        <link
+            rel="prefetch"
+            href="/assets/tabletopBackground.jpg"
+            as="image"
+        />
+    </head>
+
+    <body>
+        <div id="mountMe"></div>
+        <script
+            type="module"
+            src="src/main.ts"
+        ></script>
+    </body>
+</html>

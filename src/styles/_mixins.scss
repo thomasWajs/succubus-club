@@ -1,0 +1,129 @@
+@use 'sass:color';
+@use 'variables' as *;
+
+@mixin flex-center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+@mixin button-base {
+    color: $pearl-grey;
+    border: 1px solid $bone-grey;
+    border-radius: 0.25rem;
+    font-weight: 400;
+    font-family: serif;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    padding: 0.75rem 1.5rem;
+
+    &:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+        background: $shadow-grey;
+        color: $mist-grey;
+    }
+
+    &:hover:not(:disabled) {
+        filter: brightness(125%);
+    }
+}
+
+@mixin button-light-grey {
+    @include button-base;
+    background: linear-gradient(135deg, $pale-grey 0%, $mist-grey 100%);
+    color: black;
+}
+
+@mixin button-grey {
+    @include button-base;
+    background: linear-gradient(135deg, $bone-grey 0%, $ash-grey 100%);
+    color: $silver-grey;
+}
+
+@mixin button-dark-grey {
+    @include button-base;
+    background: linear-gradient(135deg, rgba($ash-grey, 0.8) 0%, rgba($shadow-grey, 0.9) 100%);
+    color: $silver-grey;
+}
+
+@mixin button-purple {
+    @include button-base;
+    background: linear-gradient(135deg, $shadow-purple 0%, $deep-purple 100%);
+}
+
+@mixin button-red {
+    @include button-base;
+    background: linear-gradient(135deg, $blood-red 0%, $dark-blood 100%);
+}
+
+@mixin input-base {
+    flex: 1;
+    border-radius: 0.25rem;
+    padding: 0.75rem;
+    border: 1px solid $bone-grey;
+    font-size: 0.9rem;
+    background: $ash-grey;
+    color: white;
+
+    &:focus {
+        outline: none;
+        border-color: $royal-purple;
+    }
+
+    &:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+        background: $shadow-grey;
+        color: $mist-grey;
+    }
+}
+
+@mixin panel {
+    background: $shadow-grey;
+    border: 1px solid $ash-grey;
+    padding: 1.25rem;
+}
+
+@mixin list-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.35rem 0.5rem;
+    background: rgba(black, 0.2);
+    border: 1px solid $ash-grey;
+    border-radius: 0.25rem;
+    transition: all 0.3s ease;
+}
+
+@mixin inline-message {
+    @include flex-center;
+
+    background: $dark-blood;
+    padding: 0.5rem 1rem;
+    font-style: italic;
+
+    font-weight: 500;
+    letter-spacing: 0.3px;
+}
+
+@mixin hero-message {
+    @include flex-center;
+    background: rgba(black, 0.2);
+    border: 1px solid $ash-grey;
+    border-radius: 0.25rem;
+    padding: 2rem 1rem;
+    color: $silver-grey;
+    font-style: italic;
+    text-align: center;
+    min-height: 100px;
+}
+
+@mixin badge {
+    @include flex-center;
+    padding: 0.25rem 0.75rem;
+    border-radius: 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    border: 1px solid $bone-grey;
+}
