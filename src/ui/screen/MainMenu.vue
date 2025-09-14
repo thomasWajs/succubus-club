@@ -5,6 +5,8 @@
         id="MainMenu"
         class="main-content"
     >
+        <div id="Beta">BETA</div>
+
         <img
             id="WelcomeSign"
             src="/assets/welcomeSign.png"
@@ -113,6 +115,21 @@ if (import.meta.env.VITE_FAST_TRACK_TRAIN_GAME) {
 </script>
 
 <style lang="scss" scoped>
+#Beta {
+    position: absolute;
+    top: 80px;
+    left: -95px;
+    font-size: 35px;
+    line-height: 40px;
+    padding: 5px 100px;
+    transform: rotate(-45deg);
+    background: $royal-purple;
+    font-family:
+        Verdana,
+        Tahoma,
+        sans serif;
+}
+
 #MainMenu {
     display: flex;
     flex-direction: column;
