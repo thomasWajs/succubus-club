@@ -28,8 +28,10 @@ if (import.meta.env.DEV) {
     joinRoom = joinRoomFirebase
 }
 
+/*
 const EXPRESSTURN_USERNAME = '000000002072699693'
 const EXPRESSTURN_PASSWORD = 'qnJ5NgcEtteZMI+uSUOA7/hbCco='
+ */
 
 const OPEN_RELAY_USERNAME = 'af2a7571eb916d0bba303c04'
 const OPEN_RELAY_PASSWORD = '05yKxOvj0OwHqmbn'
@@ -45,11 +47,13 @@ export const TRYSTERO_CONFIG = {
             {
                 urls: 'stun:stun.l.google.com:19302',
             },
+            /*
             {
                 urls: 'turn:relay1.expressturn.com:3480',
                 username: EXPRESSTURN_USERNAME,
                 credential: EXPRESSTURN_PASSWORD,
             },
+             */
             {
                 urls: 'turn:standard.relay.metered.ca:80',
                 username: OPEN_RELAY_USERNAME,
