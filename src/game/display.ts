@@ -1,6 +1,12 @@
 import { RIGHT_COLUMN_WIDTH, WORLD_HEIGHT, WORLD_WIDTH } from '@/game/const.ts'
 import { reactive } from 'vue'
 
+export const MIN_WIDTH_TO_PLAY = 1280
+export const MIN_HEIGHT_TO_PLAY = 720
+
+export const screenBigEnough =
+    screen.width >= MIN_WIDTH_TO_PLAY && screen.height >= MIN_HEIGHT_TO_PLAY
+
 function getDisplay() {
     // 1578px
     const targetWidth = WORLD_WIDTH

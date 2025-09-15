@@ -32,6 +32,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ROUTES } from '@/ui/router.ts'
+import { screenBigEnough } from '@/game/display.ts'
 
 const router = useRouter()
 const dialogRef = ref<HTMLDialogElement | null>(null)
@@ -39,8 +40,7 @@ const dialogRef = ref<HTMLDialogElement | null>(null)
 const LOCAL_STORAGE_KEY = 'succubus-club-visited'
 
 function checkFirstVisit() {
-    // Check if feature is disabled via environment variable
-    if (import.meta.env.VITE_DISABLE_WELCOME_MODAL) {
+    if (!screenBigEnough) {
         return
     }
 

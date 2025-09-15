@@ -13,26 +13,40 @@
             alt="Succubus Club"
         />
 
-        <button
-            class="main-menu-button"
-            @click="goToLobby()"
-        >
-            Join Multiplayer Lobby
-        </button>
+        <template v-if="screenBigEnough">
+            <button
+                class="main-menu-button"
+                @click="goToLobby()"
+            >
+                Join Multiplayer Lobby
+            </button>
 
-        <button
-            class="main-menu-button"
-            @click="startTrainGame()"
-        >
-            Start A Training Game
-        </button>
+            <button
+                class="main-menu-button"
+                @click="startTrainGame()"
+            >
+                Start A Training Game
+            </button>
 
-        <button
-            class="main-menu-button"
-            @click="bus.isSavedGamesPanelOpen = true"
+            <button
+                class="main-menu-button"
+                @click="bus.isSavedGamesPanelOpen = true"
+            >
+                Load a saved game
+            </button>
+        </template>
+
+        <div
+            v-else
+            id="MobileMessage"
         >
-            Load a saved game
-        </button>
+            <p>Unfortunately, this game does not run on mobile devices. Please use a desktop.</p>
+
+            <p>
+                You can learn more about the platform and its requirements on the
+                <RouterLink :to="{ name: ROUTES.About }"> About Page </RouterLink>
+            </p>
+        </div>
     </div>
 
     <a
@@ -64,6 +78,7 @@ import WelcomeModal from '@/ui/components/WelcomeModal.vue'
 import TrainBotDisclaimer from '@/ui/components/TrainBotDisclaimer.vue'
 import { ref } from 'vue'
 import * as logging from '@/logging.ts'
+import { screenBigEnough } from '@/game/display.ts'
 
 const core = useCoreStore()
 const bus = useBusStore()
@@ -142,7 +157,7 @@ if (import.meta.env.VITE_FAST_TRACK_TRAIN_GAME) {
     height: 400px;
     width: 400px;
 
-    @media (max-height: 750px) {
+    @media (max-height: 750px) or (max-width: 720px) {
         height: 300px;
         width: 300px;
     }
@@ -227,5 +242,13 @@ if (import.meta.env.VITE_FAST_TRACK_TRAIN_GAME) {
     position: absolute;
     bottom: 5px;
     left: 5px;
+}
+
+#MobileMessage {
+    @include panel;
+    margin: 1.5rem 1rem;
+    padding: 1rem;
+    font-size: 1.1rem;
+    line-height: 1.6;
 }
 </style>

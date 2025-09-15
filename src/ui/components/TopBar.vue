@@ -18,7 +18,10 @@
                 </RouterLink>
             </div>
 
-            <div class="topbar-center">
+            <div
+                v-if="screenBigEnough"
+                class="topbar-center"
+            >
                 <div
                     class="deck-display"
                     :class="{ 'no-deck': !core.selfDeck }"
@@ -29,7 +32,10 @@
                 </div>
             </div>
 
-            <div class="topbar-right">
+            <div
+                v-if="screenBigEnough"
+                class="topbar-right"
+            >
                 <span
                     class="fullscreen-button"
                     :class="{ 'show-hint-arrow': showFullscreenHint }"
@@ -70,7 +76,7 @@ import { useCoreStore } from '@/store/core.ts'
 import UserAvatar from '@/ui/components/UserAvatar.vue'
 import DeckIcon from '@/ui/components/DeckIcon.vue'
 import router, { ROUTES } from '@/ui/router.ts'
-import { display } from '@/game/display.ts'
+import { display, screenBigEnough } from '@/game/display.ts'
 
 const core = useCoreStore()
 const bus = useBusStore()
@@ -96,12 +102,16 @@ onUnmounted(() => document.removeEventListener('fullscreenchange', updateFullscr
 
 /* This function could get collapsed into a single return statements, but then it gets illegible */
 const showFullscreenHint = computed(() => {
-    if (isFullscreen.value || router.currentRoute.value.name != ROUTES.MainMenu) {
+    if (
+        isFullscreen.value ||
+        router.currentRoute.value.name != ROUTES.MainMenu ||
+        !screenBigEnough
+    ) {
         return false
     }
     return (
-        (display.actualWidth < display.targetWidth && window.screen.width >= window.innerWidth) ||
-        (display.actualHeight < display.targetHeight && window.screen.height >= window.innerHeight)
+        (display.actualWidth < display.targetWidth && window.screen.width > window.innerWidth) ||
+        (display.actualHeight < display.targetHeight && window.screen.height > window.innerHeight)
     )
 })
 </script>

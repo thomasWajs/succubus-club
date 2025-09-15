@@ -9,6 +9,7 @@ import * as Sentry from '@sentry/vue'
 import * as logging from '@/logging.ts'
 import router from './ui/router.ts'
 import { useBusStore } from '@/store/bus.ts'
+import { screenBigEnough } from '@/game/display.ts'
 
 const app = createApp(App)
 logging.initSentry(app)
@@ -40,14 +41,16 @@ app.use(router)
 app.mount('#mountMe')
 
 // Load resources in the background
-loadAllResources()
-    .then(() => {
-        useCoreStore().resourcesAreReady = true
-    })
-    .catch(e => {
-        useBusStore().alertError(
-            'Failed to load game resources. The game might not function properly.',
-        )
+if (screenBigEnough) {
+    loadAllResources()
+        .then(() => {
+            useCoreStore().resourcesAreReady = true
+        })
+        .catch(e => {
+            useBusStore().alertError(
+                'Failed to load game resources. The game might not function properly.',
+            )
 
-        logging.captureException(e)
-    })
+            logging.captureException(e)
+        })
+}

@@ -14,7 +14,7 @@ import AboutNavBar from '@/ui/components/AboutNavBar.vue'
 
 <style lang="scss">
 #About {
-    padding-top: calc($topbar-height + $about-navbar-height);
+    padding: calc($topbar-height + $about-navbar-height) 20px 0 20px;
 }
 
 .about-panel {

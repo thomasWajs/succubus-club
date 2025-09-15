@@ -45,6 +45,7 @@ import { ROUTES } from '@/ui/router.ts'
     right: 0;
     height: $about-navbar-height;
     z-index: 800;
+    background: black;
 }
 
 .about-nav-content {
@@ -65,6 +66,21 @@ import { ROUTES } from '@/ui/router.ts'
 
     &:hover {
         filter: brightness(125%);
+    }
+}
+
+@media (max-width: 768px) {
+    .about-nav-bar {
+        position: fixed;
+    }
+
+    .about-nav-content {
+        gap: 1rem;
+        padding: 0;
+    }
+
+    .nav-heading {
+        font-size: 1rem;
     }
 }
 </style>

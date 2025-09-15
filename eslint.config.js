@@ -38,6 +38,7 @@ export default [
                 fetch: 'readonly',
                 crypto: 'readonly',
                 Image: 'readonly',
+                screen: 'readonly',
                 // Node globals
                 process: 'readonly',
                 Buffer: 'readonly',
