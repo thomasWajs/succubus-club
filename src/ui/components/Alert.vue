@@ -65,7 +65,7 @@ const bus = useBusStore()
 
 .alert-container {
     position: fixed;
-    top: 20px;
+    top: 65px;
     left: 50%;
     transform: translateX(-50%);
     z-index: 1100;
