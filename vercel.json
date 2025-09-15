@@ -1,18 +1,14 @@
 {
     "$schema": "https://openapi.vercel.sh/vercel.json",
     "rewrites": [
-        {
-            "source": "/lobby",
-            "destination": "/"
-        },
-        {
-            "source": "/game",
-            "destination": "/"
-        },
-        {
-            "source": "/about/(.*)",
-            "destination": "/"
-        }
+            {
+                "source": "/api/(.*)",
+                "destination": "/api"
+            },
+            {
+                "source": "/(.*)",
+                "destination": "/"
+            }
     ],
     "headers": [
         {
