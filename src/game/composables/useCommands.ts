@@ -228,6 +228,9 @@ export function useCommands() {
         DiscardAtRandom: createCommand({
             keyCodes: [KeyCodes.R],
             repr: 'R',
+            isDisabled: () => {
+                return gameState.selfPlayer.hand.isEmpty
+            },
             trigger: () => {
                 gameMutations.discardAtRandom.actSelf({
                     card: gameState.selfPlayer.hand.getRandomCard(),

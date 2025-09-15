@@ -41,6 +41,7 @@ app.use(router)
 app.mount('#mountMe')
 
 // Load resources in the background
+// Don't bother to pull in 5Mb of resources if the user is on mobile.
 if (screenBigEnough) {
     loadAllResources()
         .then(() => {
