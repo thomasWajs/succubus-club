@@ -81,6 +81,10 @@
                     <span class="action"><kbd>-</kbd></span>
                     <span class="result">Burn blood</span>
                 </div>
+                <div class="control-item">
+                    <span class="action"><kbd>A</kbd></span>
+                    <span class="result">Move to Ash Heap</span>
+                </div>
             </div>
         </section>
 

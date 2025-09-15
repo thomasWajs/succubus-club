@@ -72,6 +72,14 @@
             Play Face Down
         </ContextMenuButton>
 
+        <CommandContextMenuButton
+            v-if="isInPlay || isHand"
+            :command="commands.MoveToAshHeap"
+            :closeOnClick="true"
+        >
+            Move to Ash Heap
+        </CommandContextMenuButton>
+
         <ContextMenuButton
             v-if="!isUncontrolled && !isCrypt"
             :closeOnClick="true"

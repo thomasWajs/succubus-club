@@ -249,6 +249,25 @@ export function useCommands() {
             },
         }),
 
+        MoveToAshHeap: createCardCommand({
+            keyCodes: [KeyCodes.A],
+            repr: 'A',
+            cardAction: (card: Card) => {
+                if (
+                    [RegionName.Hand, RegionName.Controlled, RegionName.Torpor].includes(
+                        card.region.name,
+                    )
+                ) {
+                    gameMutations.moveCardToRegion.actSelf({
+                        card,
+                        fromCardRegion: card.region,
+                        toCardRegion: card.controller.ashHeap,
+                        position: 0,
+                    })
+                }
+            },
+        }),
+
         ResetCamera: createCommand({
             keyCodes: [KeyCodes.M],
             trigger: () => {
