@@ -1451,6 +1451,8 @@ class ResolveBlock extends GameMutation<EmptyParams> {
 
         // Successful block
         if (action.intercept >= action.stealth) {
+            this.previousState.isBlockSuccessful = true
+
             if (gameState.action.minionAction instanceof ActionCardAction) {
                 gameState.action.minionAction.sendCardToAshHeap()
             }
@@ -1478,6 +1480,8 @@ class ResolveBlock extends GameMutation<EmptyParams> {
         }
         // Failed block
         else {
+            this.previousState.isBlockSuccessful = true
+
             action.blockingDecision = null
             action.impulsePlayer = gameState.activePlayer
             action.intercept = 0
@@ -1485,12 +1489,7 @@ class ResolveBlock extends GameMutation<EmptyParams> {
     }
 
     formatForLog() {
-        const gameState = useGameStateStore()
-        if (!gameState.action) {
-            throw new Error('gameState.action is null')
-        }
-        const action = gameState.action
-        return action.intercept >= action.stealth ? `Block successful` : `Block failed`
+        return this.previousState.isBlockSuccessful ? `Block successful` : `Block failed`
     }
 }
 
