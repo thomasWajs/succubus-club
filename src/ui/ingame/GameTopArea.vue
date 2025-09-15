@@ -64,17 +64,17 @@
             :style="{ display: 'flex' }"
         >
             <div>
-                <strong>Action : {{ gameState.action.minionAction.name }}</strong>
+                <strong>Action : {{ gameState.action.minionAction?.name }}</strong>
                 <br />
-                Acting Minion : {{ gameState.action.actingMinion.name }} <br />
-                Is directed ? : {{ gameState.action.minionAction.isDirected }}
+                Acting Minion : {{ gameState.action.actingMinion?.name }} <br />
+                Is directed ? : {{ gameState.action.minionAction?.isDirected }}
                 <br />
                 Target : {{ gameState.action.minionAction.target?.name }} <br />
-                Impulse : {{ gameState.action.impulsePlayer.name }} <br />
+                Impulse : {{ gameState.action.impulsePlayer?.name }} <br />
 
                 Blocking Minion :
                 <span v-if="gameState.action.blockingMinion">
-                    {{ gameState.action.blockingMinion.name }}
+                    {{ gameState.action.blockingMinion?.name }}
                 </span>
                 <span v-else-if="gameState.action.blockingMinion == NO_BLOCK"> No Block </span>
                 <span v-else>?</span>
@@ -108,7 +108,7 @@
                 </button>
                 <br />
 
-                Intercept : {{ gameState.action.intercept }}
+                Intercept : {{ gameState.action?.intercept }}
                 <button
                     class="game-button small"
                     @click="
@@ -133,7 +133,7 @@
                 </button>
                 <br />
 
-                <template v-if="gameState.action.minionAction.isBleed">
+                <template v-if="gameState.action.minionAction?.isBleed">
                     Bleed : {{ gameState.action.bleed }}
                     <button
                         class="game-button small"
@@ -159,7 +159,7 @@
                     </button>
                     <br />
                 </template>
-                <template v-if="gameState.action.minionAction.isHunt">
+                <template v-if="gameState.action.minionAction?.isHunt">
                     Hunt : {{ gameState.action.hunt }}
                     <button
                         class="game-button small"
@@ -225,12 +225,12 @@
         <div v-if="gameState.combat">
             <strong>Combat</strong>
 
-            Acting Minion : {{ gameState.combat.acting.minion.name }} <br />
-            Strength : {{ gameState.combat.acting.strength }} <br />
+            Acting Minion : {{ gameState.combat?.acting?.minion?.name }} <br />
+            Strength : {{ gameState.combat?.acting?.strength }} <br />
 
-            Defending Minion : {{ gameState.combat.defending.minion.name }}
+            Defending Minion : {{ gameState.combat?.defending?.minion?.name }}
             <br />
-            Strength : {{ gameState.combat.defending.strength }} <br />
+            Strength : {{ gameState.combat?.defending?.strength }} <br />
         </div>
 
         <CommandButton
