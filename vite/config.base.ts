@@ -33,7 +33,7 @@ const atlasJsonHash = hashFile('public/assets/atlas/frequent.json')
 
 // https://vitejs.dev/config/
 export default defineConfig({
-    base: './',
+    base: '/',
     plugins: [vue(), cache_plugin],
     define: {
         ATLAS_TEXTURE_HASH: JSON.stringify(atlasTextureHash),
