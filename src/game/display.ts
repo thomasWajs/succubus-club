@@ -8,8 +8,7 @@ export const screenBigEnough =
     screen.width >= MIN_WIDTH_TO_PLAY && screen.height >= MIN_HEIGHT_TO_PLAY
 
 function getDisplay() {
-    // 1578px
-    const targetWidth = WORLD_WIDTH
+    const targetWidth = WORLD_WIDTH // 1578px
     const actualWidth = window.innerWidth - RIGHT_COLUMN_WIDTH
 
     const targetHeight = WORLD_HEIGHT

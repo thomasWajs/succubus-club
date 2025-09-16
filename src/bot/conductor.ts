@@ -271,13 +271,5 @@ export class Conductor {
         } else if (decision == NEXT_TURN) {
             this.endTurnDecision()
         }
-
-        // The bot did not take a decision, check if we need to fallback.
-        /*
-        if (!decision) {
-            this.decisionFallback()
-            return
-        }
-         */
     }
 }

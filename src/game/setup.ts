@@ -21,6 +21,7 @@ import { useHistoryStore } from '@/store/history.ts'
 import { DeckList } from '@/gateway/deck.ts'
 import { useGameBusStore } from '@/store/bus.ts'
 
+const NB_BOTS = 1
 export const BOT_NAME = 'Bot'
 export const BOT_PERM_ID = 'Bot'
 
@@ -94,7 +95,6 @@ export function setupTrainGame() {
     gameState.usersToPlayer[core.userProfile.permanentId] = selfPlayer.oid
     setupPlayArea(selfPlayer, core.selfDeck.cards)
 
-    const NB_BOTS = 1
     for (let i = 0; i < NB_BOTS; i++) {
         const botPlayer = gameState.createPlayer(
             `${BOT_NAME}${i + 1}`,

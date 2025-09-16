@@ -24,7 +24,7 @@ import {
 export abstract class MinionAction {
     abstract name: string
 
-    constructor(
+    protected constructor(
         public actingMinion: Minion,
         public target?: Card | Minion | Player,
     ) {}

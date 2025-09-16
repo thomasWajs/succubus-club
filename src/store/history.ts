@@ -20,6 +20,9 @@ export type ChatMessage = {
     player: Player
 }
 
+export type HistoryStore = ReturnType<typeof useHistoryStore>
+export type History = HistoryStore['$state']
+
 export const useHistoryStore = defineStore('gameHistory', {
     state: () => ({
         logEntries: [] as LogEntry[],
@@ -126,10 +129,6 @@ export const useHistoryStore = defineStore('gameHistory', {
         },
     },
 })
-
-export type HistoryStore = ReturnType<typeof useHistoryStore>
-export type History = HistoryStore['$state']
-export type HistoryKey = keyof History
 
 if (import.meta.hot) {
     import.meta.hot.accept(acceptHMRUpdate(useHistoryStore, import.meta.hot))

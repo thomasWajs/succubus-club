@@ -6,6 +6,7 @@ import { shuffleArray } from '@/utils.ts'
 
 // Alias to specify the expected objects through the codebase
 export type CardRegionOid = ObjectId
+export type AnyCardRegion = CardRegion<Card>
 
 export class CardRegion<CardType extends Card> extends BaseModel {
     constructor(
@@ -87,5 +88,3 @@ export class CardRegion<CardType extends Card> extends BaseModel {
         this.cardsOid = this.generateShuffledCardsOrder()
     }
 }
-
-export type AnyCardRegion = CardRegion<Card>

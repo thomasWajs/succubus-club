@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Script to download VDB resource files from GitHub repository.
 Downloads specific JSON files needed for the project.

@@ -4,6 +4,8 @@
 
 @use 'normalize';
 
+/** General Styles **/
+
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background-color: black;
@@ -33,21 +35,14 @@ kbd {
     top: -1px;
 }
 
+/** Menu styles **/
+
 .main-content {
     margin-top: 60px; // Account for fixed topbar height
     min-height: calc(100vh - 60px); // Account for fixed topbar height
 }
 
-.blood-list {
-    padding-left: 1.5rem;
-
-    li::marker {
-        content: '🩸  ';
-        font-size: 0.9rem;
-    }
-}
-
-.inline-message{
+.inline-message {
     @include inline-message;
 }
 
@@ -89,7 +84,18 @@ kbd {
     background: $shadow-purple;
 }
 
-.game-button-teal {
+.blood-list {
+    padding-left: 1.5rem;
+
+    li::marker {
+        content: '🩸  ';
+        font-size: 0.9rem;
+    }
+}
+
+/** Game styles **/
+
+.game-button {
     padding: 5px 5px;
 
     border: 1px solid $shadow-grey;
@@ -135,10 +141,6 @@ kbd {
     &.is-danger {
         background: $burgundy-red;
     }
-}
-
-.game-button {
-    @extend .game-button-teal;
 }
 
 .floating-menu {

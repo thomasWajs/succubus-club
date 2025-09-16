@@ -94,6 +94,7 @@ export default [
                 },
             ],
             'vue/attribute-hyphenation': 'off',
+            'vue/require-default-prop': 'off',
 
             // TypeScript-specific rules
             '@typescript-eslint/no-unused-vars': [
@@ -300,6 +301,6 @@ export default [
         },
     },
     {
-        ignores: ['dist/**', 'node_modules/**', '**/*.d.ts'],
+        ignores: ['dist/**', 'node_modules/**', '**/*.d.ts', '.venv/**'],
     },
 ]

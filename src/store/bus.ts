@@ -17,14 +17,14 @@ export enum AlertState {
     Success = 'success',
 }
 
-export interface AlertMessage {
+export type AlertMessage = {
     message: string
     type: AlertState
     dismissible: boolean
     blockInteraction: boolean
 }
 
-export interface CardDragEvent {
+export type CardDragEvent = {
     originCard: Card
     pointer: Pointer
     dragX?: number
@@ -32,7 +32,7 @@ export interface CardDragEvent {
     droppedOn?: GameObjects.GameObject
 }
 
-export interface HandleableCard {
+export type HandleableCard = {
     card: Card
     isUnderSelectionArea: () => boolean
     onDragStart: (event: CardDragEvent) => void

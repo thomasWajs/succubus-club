@@ -39,10 +39,11 @@ import { MutationSyncMode, VersionningId, VersionningTarget } from '@/multiplaye
 import { hashObject } from '@/gateway/serialization.ts'
 
 export type GameMutationId = number
-
 export interface GameMutationParams {
     [key: string]: unknown
 }
+export type AnyGameMutation = GameMutation<GameMutationParams>
+export type GameMutationName = keyof typeof gameMutations
 
 export abstract class GameMutation<ParamsType extends GameMutationParams> {
     readonly id: GameMutationId // Used to identify mutation when cancelling it
@@ -163,8 +164,6 @@ export abstract class GameMutation<ParamsType extends GameMutationParams> {
     }
 }
 
-export type AnyGameMutation = GameMutation<GameMutationParams>
-
 /**
  * Common Params
  */
@@ -239,16 +238,6 @@ function validateCardMovement(movement: CardMovement, cardRegion: AnyCardRegion)
     }
 
     if (position !== undefined) {
-        /*
-        if (
-            [RegionName.Controlled, RegionName.Torpor, RegionName.Uncontrolled].includes(
-                cardRegion.name,
-            )
-        ) {
-            return Invalid(`Position cannot be used in ${cardRegion.name}`)
-        }
-         */
-
         if (position < 0) {
             return Invalid(`Position must be positive`)
         }
@@ -256,18 +245,6 @@ function validateCardMovement(movement: CardMovement, cardRegion: AnyCardRegion)
             return Invalid(`Position must be less than ${cardRegion.length}`)
         }
     }
-
-    /*
-    if (x != undefined && y != undefined) {
-        if (
-            ![RegionName.Controlled, RegionName.Torpor, RegionName.Uncontrolled].includes(
-                cardRegion.name,
-            )
-        ) {
-            return Invalid(`Coordinates cannot be used in ${cardRegion.name}`)
-        }
-    }
-     */
 
     return VALID
 }
@@ -710,11 +687,6 @@ class Influence extends ChangeCounterMutation {
     readonly syncMode = MutationSyncMode.Merge
 
     getValidity() {
-        /*
-        if (gameState.turnPhase != TurnPhase.Influence) {
-            return Invalid('Influence must be done during Influence Phase')
-        }
-         */
         if (this.params.card.region.name != RegionName.Uncontrolled) {
             return Invalid('Influence must be done on uncontrolled vampires')
         }
@@ -1662,5 +1634,3 @@ for (const [mutationName, mutationDefinition] of Object.entries(gameMutations)) 
     }
     mutationDefinition.gameMutationClass.prototype.mutationName = mutationName
 }
-
-export type GameMutationName = keyof typeof gameMutations

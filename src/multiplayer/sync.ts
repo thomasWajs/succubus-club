@@ -159,20 +159,6 @@ function _unsafeApplyPeerMutation(gameMutationMessage: GameMutationMessage) {
     }
 }
 
-/*
-function resync() {
-    const gameState = useGameStateStore()
-
-    let gameStateHash = gameState.hash()
-    if (gameStateHash != gameMutationMessage.hashBefore) {
-        logging.captureMessage('Game state hash mismatch before dispatching', 'warning')
-        requestResyncGameState()
-        return
-    }
-}
-
- */
-
 /**
  * State Resync
  */

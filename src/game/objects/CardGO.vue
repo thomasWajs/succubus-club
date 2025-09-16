@@ -92,7 +92,7 @@
         :key="`${marker}${index}`"
     >
         <Rectangle
-            :ref="el => registerMarkersRectangles(index, el)"
+            :ref="el => registerMarkersRectangles(index, el as typeof Rectangle | null)"
             :originX="0.5"
             :originY="0.5"
             :x="markersPosition.x"
@@ -103,7 +103,7 @@
             :fillAlpha="MARKERS_FILL_COLOR.alphaGL"
         />
         <Text
-            :ref="el => registerMarkersTexts(index, el)"
+            :ref="el => registerMarkersTexts(index, el as typeof Text | null)"
             :originX="0.5"
             :originY="0.5"
             :x="markersPosition.x"

@@ -7,11 +7,6 @@ import { useMultiplayerStore } from '@/store/multiplayer.ts'
 import { useBusStore } from '@/store/bus.ts'
 import { SerializedGame, SerializedGameMutation } from '@/gateway/serialization.ts'
 
-/*
-import { joinRoom as joinRoomNostr } from 'trystero/nostr'
-import { joinRoom as joinRoomTorrent } from 'trystero/torrent'
- */
-
 /**
  * Trystero Config
  */

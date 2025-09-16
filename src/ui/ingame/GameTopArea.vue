@@ -50,13 +50,6 @@
 
                 <CommandButton :command="commands.AdvanceTurnPhase" />
             </div>
-
-            <!--
-            <br />
-            MPA : {{ gameState.turnResources.mpa }} | Transfers :
-            {{ gameState.turnResources.transfers }} | DPA :
-            {{ gameState.turnResources.dpa }}
-            -->
         </div>
 
         <div
@@ -229,16 +222,6 @@
                         Pass impulse
                     </button>
                 </div>
-
-                <!--
-                <button
-                    class="gameMutation"
-                    :disabled="!gameState.action"
-                    @click="gameMutations.ACTION_declareBlock.actSelf({blockingDecision: BLOCK_DECLINED})"
-                >
-                    Attempt block...
-                </button>
-                -->
             </div>
         </div>
 

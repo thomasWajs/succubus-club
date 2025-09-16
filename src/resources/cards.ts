@@ -45,9 +45,8 @@ type SetAndPrecons = {
     }
 }
 
-// const BASE_URL = import.meta.env.VITE_BASE_URL
-export const BASE_URL = ''
-export const ASSETS_URL = `${BASE_URL}/assets`
+const BASE_URL = import.meta.env.BASE_URL
+export const ASSETS_URL = `${BASE_URL}assets`
 export const CARDS_PATH = `${ASSETS_URL}/cards/en-EN`
 export const ATLAS_PATH = `${ASSETS_URL}/atlas`
 export const ATLAS_FREQUENT = 'frequent'

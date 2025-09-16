@@ -20,6 +20,10 @@ import {
 } from '@/state/types.ts'
 import { PermanentId } from '@/multiplayer/common.ts'
 
+export type GameStateStore = ReturnType<typeof useGameStateStore>
+export type GameState = GameStateStore['$state']
+export type GameStateKey = keyof GameState
+
 export const useGameStateStore = defineStore('gameState', {
     state: () => ({
         nextOid: 1,
@@ -32,7 +36,7 @@ export const useGameStateStore = defineStore('gameState', {
          * Allow to match Users to their Player when loading a gameState
          * ( Resync, Reconnect, Game loading... )
          */
-        usersToPlayer: {} as Record<string, PlayerOid>,
+        usersToPlayer: {} as Record<PermanentId, PlayerOid>,
 
         turnOrder: [] as PlayerOid[], // Turn order at the start of the game, not impacted by ousted players
         activePlayerIndex: 0, // Index into state.competingPlayers
@@ -213,10 +217,6 @@ export const useGameStateStore = defineStore('gameState', {
         },
     },
 })
-
-export type GameStateStore = ReturnType<typeof useGameStateStore>
-export type GameState = GameStateStore['$state']
-export type GameStateKey = keyof GameState
 
 if (import.meta.hot) {
     import.meta.hot.accept(acceptHMRUpdate(useGameStateStore, import.meta.hot))

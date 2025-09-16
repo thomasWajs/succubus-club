@@ -9,7 +9,7 @@ import { PermanentId } from '@/multiplayer/common.ts'
 // Alias to specify the expected objects through the codebase
 export type PlayerOid = ObjectId
 
-export interface PlayerCardRegions {
+export type PlayerCardRegions = {
     // Library contains only library cards
     library: CardRegion<LibraryCard>
     // Crypt contains only library cards

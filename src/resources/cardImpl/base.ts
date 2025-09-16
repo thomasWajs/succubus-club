@@ -4,12 +4,12 @@ import { DisciplineLevel } from '@/model/const.ts'
 import { Validity } from '@/state/types.ts'
 
 // Needs to be evolved to account for multi-discipline cards and multi-type cards
-export interface ActionCardUsage {
+export type ActionCardUsage = {
     level?: DisciplineLevel
     target?: Card | Minion | Player
 }
 
-export interface ActionModifierUsage {
+export type ActionModifierUsage = {
     level?: DisciplineLevel
 }
 

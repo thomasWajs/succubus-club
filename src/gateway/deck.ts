@@ -6,7 +6,7 @@ import { convertFromText, fetchVdb } from '@/resources/krcg.ts'
 // A deck list in a simple format {KrcgId: nbOccurence}
 export type DeckList = Record<KrcgId, number>
 
-export interface Deck {
+export type Deck = {
     name: string
     cards: DeckList
 }

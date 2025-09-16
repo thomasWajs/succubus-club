@@ -9,7 +9,7 @@ import { DeckList } from '@/gateway/deck.ts'
 
 export const GovernDeck = <DeckList>{
     [GOVERN_ID]: 48,
-    [LOST_IN_CROWDS_ID]: 0, //12,
+    [LOST_IN_CROWDS_ID]: 12,
 
     '201634': 1,
     '201626': 1,
@@ -142,10 +142,12 @@ export class GovernBot extends Bot {
         const actingVampire = gameState.action.actingMinion
         const lostInCrowds = this.getCardInHand(LOST_IN_CROWDS_ID)
 
+        // TODO : remember the action modifier played this action to prevent double lost in crowd
         if (
             lostInCrowds &&
             gameState.action.blockingMinion &&
-            gameState.action.intercept >= gameState.action.stealth
+            gameState.action.intercept >= gameState.action.stealth &&
+            gameState.action.stealth <= 1
         ) {
             return new ActionModifier(lostInCrowds, {
                 level: actingVampire.disciplines[Discipline.Obfuscate],

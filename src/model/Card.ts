@@ -34,6 +34,8 @@ import { useCoreStore } from '@/store/core.ts'
 // Alias to specify the expected objects through the codebase
 export type CardOid = ObjectId
 
+export type AnyCard = LibraryCard | CryptCard
+
 export type CardTexture = {
     textureName: string
     frameName?: string
@@ -358,5 +360,3 @@ export class LibraryCard extends Card {
         return LIB_CARD_IMPLEMENTATIONS[this.krcgId]
     }
 }
-
-export type AnyCard = LibraryCard | CryptCard

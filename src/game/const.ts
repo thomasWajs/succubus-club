@@ -52,7 +52,7 @@ export const CARD_GLOW_TWEEN_OUTER_STRENGTH = 5
  */
 
 export const RIGHT_COLUMN_WIDTH = 342
-export const WORLD_WIDTH = HD_WIDTH - RIGHT_COLUMN_WIDTH // 1578
+export const WORLD_WIDTH = HD_WIDTH - RIGHT_COLUMN_WIDTH // 1578 px
 export const WORLD_HEIGHT = 1000
 
 export const GRID_SIZE = 20
