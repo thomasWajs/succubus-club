@@ -36,11 +36,11 @@ If you encounter any issues or have suggestions, please use the in-game feedback
 
 ### Tech Stack
 
-- **Frontend**: Vue 3 + TypeScript
-- **Game Engine**: Phaser 3 + Phavuer
-- **State Management**: Pinia
-- **Build Tool**: Vite
-- **Scripting**: Python
+- **Frontend**: [Vue 3](https://vuejs.org/) + [TypeScript](https://www.typescriptlang.org/)
+- **Game Engine**: [Phaser 3](https://phaser.io/) + [Phavuer](https://github.com/laineus/phavuer)
+- **State Management**: [Pinia](https://pinia.vuejs.org/)
+- **Build Tool**: [Vite](https://vite.dev/)
+- **Scripting**: [Python](https://www.python.org/)
 - **Hosting**: Currently on Vercel, may change depending on needs
 
 ### Development
@@ -63,6 +63,11 @@ npm run build
 Most of the game resources used in this app are provided by [smeea](https://github.com/smeea) through its awesome [VDB project](https://github.com/smeea/vdb). Many thanks to him for his work !
 
 By transitivity, thanks to all the [people who have contributed to VDB](https://github.com/smeea/vdb?tab=readme-ov-file#acknowledgments)
+
+Thanks to the creator&contributors of those awesome libs who saved me tons of time and headache :
+ - [laineus](https://github.com/laineus) for [Phavuer](https://github.com/laineus/phavuer)
+ - [dmotz](https://github.com/dmotz) & [jeremyckahn](https://github.com/jeremyckahn) for [Trystero](https://github.com/dmotz/trystero)
+ - [Phaser Studio](https://github.com/phaserjs) for [Phaser](https://github.com/phaserjs/phaser)
 
 ---
 
