@@ -23,6 +23,15 @@ The project is built with modern web technologies and features real-time P2P mul
 3. Choose a preconstructed deck, load your own, or import from [VDB](https://github.com/smeea/vdb)
 4. Train against the bot or find opponents and start playing
 
+## 📜 Change log
+
+You can see the latest change by checking the [CHANGELOG](CHANGELOG.md).
+
+
+## 🆘 Feedback and Support
+
+If you encounter any issues or have suggestions, please use the in-game feedback tool or visit the [GitHub issues page](https://github.com/thomasWajs/succubus-club/issues/).
+
 ## 🤓 For Developers
 
 ### Tech Stack
@@ -48,10 +57,6 @@ npm run dev
 # Build for production
 npm run build
 ```
-
-## 🆘 Feedback and Support
-
-If you encounter any issues or have suggestions, please use the in-game feedback tool or visit the [GitHub issues page](https://github.com/thomasWajs/succubus-club/issues/).
 
 ## 🙏 Acknowledgements
 
