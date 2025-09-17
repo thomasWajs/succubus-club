@@ -51,10 +51,19 @@
                 >
                     [CANCELLED]
                 </span>
+                <!-- Use v-html only with mutation logs -->
                 <span
+                    v-if="logEntry.mutationId"
                     class="mutation"
                     v-html="logEntry.text"
                 />
+                <!-- Escape text from chat to avoid XSS -->
+                <span
+                    v-else
+                    class="mutation"
+                >
+                    {{ logEntry.text }}
+                </span>
             </div>
         </div>
 
