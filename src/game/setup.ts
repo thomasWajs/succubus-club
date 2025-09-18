@@ -75,6 +75,7 @@ export function resetState() {
     core.gameIsStarted = false
     core.phaserIsReady = false
     core.gameStateIsReady = false
+    core.conductor = null
 }
 
 export function setupTrainGame() {
