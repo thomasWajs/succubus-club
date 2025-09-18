@@ -155,6 +155,26 @@
         </button>
     </div>
 
+    <!--Heads-up on the Manual tab for first-time users -->
+    <div
+        v-if="showManualHeadsUp"
+        class="manual-heads-up"
+        :class="{ enlarged: isEnlarged }"
+    >
+        <div class="heads-up-content">
+            <div class="heads-up-message">
+                📖 Check out the <strong>Manual</strong> tab for help & game commands !
+            </div>
+            <button
+                class="heads-up-button"
+                @click="dismissManualHeadsUp"
+            >
+                Got it
+            </button>
+        </div>
+        <div class="heads-up-arrow" />
+    </div>
+
     <!-- Overlay backdrop when enlarged -->
     <div
         v-if="isEnlarged"
@@ -164,7 +184,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue'
+import { ref, watch, nextTick, computed } from 'vue'
 import { useBusStore, useGameBusStore } from '@/store/bus.ts'
 import { LogEntry, useHistoryStore } from '@/store/history.ts'
 import { saveGame, SavingState } from '@/gateway/savedGames.ts'
@@ -237,6 +257,22 @@ function sendChatMessage() {
     if (core.gameType == GameType.Multiplayer) {
         broadcastChatMessage(chatMessage)
     }
+}
+
+/** Manual Heads-up Management **/
+
+const MANUAL_HEADSUP_STORAGE_KEY = 'manual-headsup-dismissed'
+// Check if user has already seen the manual heads-up
+const dismissed = localStorage.getItem(MANUAL_HEADSUP_STORAGE_KEY)
+const hasSeenManualHeadsUp = ref(dismissed === 'true')
+
+const showManualHeadsUp = computed(() => {
+    return !hasSeenManualHeadsUp.value && !isEnlarged.value
+})
+
+function dismissManualHeadsUp() {
+    hasSeenManualHeadsUp.value = true
+    localStorage.setItem(MANUAL_HEADSUP_STORAGE_KEY, 'true')
 }
 </script>
 
@@ -430,6 +466,68 @@ function sendChatMessage() {
     }
     100% {
         background-color: transparent;
+    }
+}
+
+.manual-heads-up {
+    position: absolute;
+    bottom: 10px;
+    right: 210px;
+    z-index: 1002;
+    animation: headsUpAppear 0.5s ease-out;
+
+    &.enlarged {
+        display: none;
+    }
+
+    .heads-up-content {
+        background: $shadow-purple;
+        padding: 12px 16px;
+        min-width: 260px;
+        max-width: 300px;
+        color: $ghost-white;
+        font-size: 14px;
+        line-height: 1.4;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .heads-up-message {
+        text-align: left;
+
+        strong {
+            color: #ffd700;
+        }
+    }
+
+    .heads-up-button {
+        @include button-grey;
+        align-self: flex-end;
+        color: $ghost-white;
+        padding: 6px 12px;
+    }
+
+    .heads-up-arrow {
+        position: absolute;
+        right: -8px;
+        bottom: 0;
+        width: 0;
+        height: 0;
+        border-top: 8px solid transparent;
+        border-bottom: 8px solid transparent;
+        border-left: 8px solid $shadow-purple;
+    }
+}
+
+@keyframes headsUpAppear {
+    0% {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateX(0);
     }
 }
 </style>
