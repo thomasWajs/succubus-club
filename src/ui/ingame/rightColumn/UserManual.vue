@@ -88,6 +88,8 @@
             </div>
         </section>
 
+        <!-- Commented pending camera fixes. See https://github.com/thomasWajs/succubus-club/issues/12 -->
+        <!--
         <section class="manual-section">
             <h2 class="section-title">Camera</h2>
             <div class="controls-list">
@@ -107,6 +109,7 @@
                 </div>
             </div>
         </section>
+        -->
     </div>
 </template>
 
