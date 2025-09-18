@@ -72,9 +72,7 @@ function makeRoomActions(room: Room) {
     }
 }
 
-function canUserBeAPlayer(gameRoom?: GameRoom, user?: User): boolean {
-    if (!gameRoom || !user) return false
-
+function canUserBeAPlayer(gameRoom: GameRoom, user: User): boolean {
     if (gameRoom.isStarted) {
         // Started games only accept players existing in the seating
         return gameRoom.seating.includes(user.permId)
@@ -125,9 +123,22 @@ export function joinGameRoom(gameRoom: GameRoom) {
 
 function onPeerJoin(peerId: PeerId) {
     const multiplayer = useMultiplayerStore()
+    const bus = useBusStore()
     const user = multiplayer.getUser(peerId)
-    if (user && canUserBeAPlayer(multiplayer.currentGameRoom, user)) {
+    const gameRoom = multiplayer.currentGameRoom
+
+    if (!user || !gameRoom) {
+        return
+    }
+
+    if (canUserBeAPlayer(gameRoom, user)) {
         multiplayer.upsertGameRoomPlayer(user)
+    }
+
+    // If a peer join while the game is started AND he can be a player,
+    // then it's a reconnection
+    if (gameRoom.isStarted && gameRoom.seating.includes(user.permId)) {
+        bus.alertSuccess(`${user.name} has reconnected into the game room.`)
     }
 }
 
