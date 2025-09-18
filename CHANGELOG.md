@@ -1,3 +1,13 @@
+## [0.1.2] - 2025-09-18
+
+Features:
+- Add a head's up to the Manual on first game startup
+- Reconnection alert
+- Disable camera controls while waiting for a better UX
+
+Bugfix:
+- Fix an XSS vulnerability in the chat
+
 ## [0.1.1] - 2025-09-16
 
 First fixes after public release :
