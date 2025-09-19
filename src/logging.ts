@@ -9,6 +9,7 @@ export function initSentry(app: App) {
         enabled: true, // import.meta.env.PROD,
         environment: import.meta.env.PROD ? 'production' : 'development',
         tunnel: '/api/sentryTunnel',
+        normalizeDepth: 4,
 
         integrations: [
             Sentry.feedbackIntegration({
