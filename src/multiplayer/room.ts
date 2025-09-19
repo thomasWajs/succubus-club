@@ -21,7 +21,7 @@ import {
     serializeGame,
     serializeObject,
 } from '@/gateway/serialization.ts'
-import { shuffleArray, waitUntil } from '@/utils.ts'
+import { shuffleArray, TimeoutError, waitUntil } from '@/utils.ts'
 import { useBusStore } from '@/store/bus.ts'
 import * as logging from '@/logging.ts'
 import { lobbyActions } from '@/multiplayer/lobby.ts'
@@ -263,33 +263,51 @@ export async function reconnectIntoGame(gameRoom?: GameRoom) {
         joinGameRoom(gameRoom)
 
         // Wait to be connected with other players to continue
-        await waitUntil(
-            () => {
-                if (!multiplayer.currentGameRoom || !currentRoom) {
-                    return false
-                }
-
-                // The peerId of the trystero room
-                const peerIds = Object.keys(currentRoom.getPeers() ?? [])
-
-                // For each player connected in the game room
-                for (const playerPermId of multiplayer.currentGameRoom.players) {
-                    // Ignore ourself
-                    if (playerPermId == multiplayer.selfUser.permId) {
-                        continue
-                    }
-                    // If we're not connected to that player yet...
-                    if (!peerIds.includes(multiplayer.users[playerPermId].peerId)) {
-                        // ...wait until we are
+        try {
+            // First : try to connect to all players
+            await waitUntil(
+                () => {
+                    if (!multiplayer.currentGameRoom || !currentRoom) {
                         return false
                     }
+
+                    // The peerId of the trystero room
+                    const peerIds = Object.keys(currentRoom.getPeers() ?? [])
+
+                    // For each player connected in the game room
+                    for (const playerPermId of multiplayer.currentGameRoom.players) {
+                        // Ignore ourself
+                        if (playerPermId == multiplayer.selfUser.permId) {
+                            continue
+                        }
+                        // If we're not connected to that player yet...
+                        if (!peerIds.includes(multiplayer.users[playerPermId].peerId)) {
+                            // ...wait until we are
+                            return false
+                        }
+                    }
+                    // We've seen every player, we can go on with the resync
+                    return true
+                },
+                200,
+                30,
+            )
+        } catch (error) {
+            // If we're connected to at least one player, we still go on with the resync,
+            // hoping to connect to the other players later
+            if (error instanceof TimeoutError && currentRoom && multiplayer.currentGameRoom) {
+                const peerIds = Object.keys(currentRoom.getPeers() ?? [])
+                const nbPlayersConnected = multiplayer.currentGameRoom.players.filter(
+                    playerPermId => peerIds.includes(multiplayer.users[playerPermId].peerId),
+                ).length
+                // Nope, no players connected, we can't go on with the resync'
+                if (nbPlayersConnected == 0) {
+                    throw error
                 }
-                // We've seen every player, we can go on with the resync
-                return true
-            },
-            200,
-            50,
-        )
+            } else {
+                throw error
+            }
+        }
     }
 
     bus.isResyncing = true

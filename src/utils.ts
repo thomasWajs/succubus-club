@@ -1,3 +1,5 @@
+export class TimeoutError extends Error {}
+
 export function waitUntil(
     isTrue: () => boolean,
     interval: number,
@@ -17,7 +19,7 @@ export function waitUntil(
 
                 if (maxTry > 0 && ++attempts >= maxTry) {
                     clearInterval(intervalId)
-                    reject(new Error('Timeout'))
+                    reject(new TimeoutError('Timeout'))
                 }
             }
         }, interval)
