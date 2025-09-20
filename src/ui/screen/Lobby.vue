@@ -2,6 +2,13 @@
     <TopBar />
 
     <div class="lobby-container main-content">
+        <div class="connectivity-banner">
+            <span
+                >I'm aware of connectivity issues in multiplayer game and working to resolve them as
+                fast as possible. Thanks for your comprehension ! Thomas</span
+            >
+        </div>
+
         <div
             v-if="showReconnectSuggestion"
             class="reconnect-banner"
@@ -481,6 +488,25 @@ if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
 <style lang="scss" scoped>
 .lobby-container {
     background: black;
+}
+
+.connectivity-banner {
+    @include flex-center;
+    background: linear-gradient(
+        135deg,
+        rgba($vibrant-emerald, 0.2) 0%,
+        rgba($dark-forest, 0.3) 100%
+    );
+    border: 1px solid $vibrant-emerald;
+    padding: 1rem 1.5rem;
+    text-align: center;
+    border-radius: 0.25rem;
+    margin: 1rem;
+    color: $pearl-grey;
+    font-size: 0.95rem;
+    font-weight: 300;
+    letter-spacing: 0.3px;
+    line-height: 1.4;
 }
 
 /**
