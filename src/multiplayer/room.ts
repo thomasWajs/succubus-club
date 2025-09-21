@@ -281,7 +281,8 @@ export async function reconnectIntoGame(gameRoom?: GameRoom) {
                             continue
                         }
                         // If we're not connected to that player yet...
-                        if (!peerIds.includes(multiplayer.users[playerPermId].peerId)) {
+                        const user = multiplayer.users[playerPermId]
+                        if (!user || !peerIds.includes(user.peerId)) {
                             // ...wait until we are
                             return false
                         }
