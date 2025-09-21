@@ -1,6 +1,6 @@
 import { BaseModel, ObjectId } from '@/model/BaseModel.ts'
 import { AnyCardRegion, CardRegion } from '@/model/CardRegion.ts'
-import { CardRegionVisibility, INITIAL_HAND_SIZE, RegionName } from '@/model/const.ts'
+import { CardRegionVisibility, RegionName } from '@/model/const.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
 import { Card, CryptCard, LibraryCard, Minion, Vampire } from '@/model/Card.ts'
 import Phaser from 'phaser'
@@ -40,7 +40,8 @@ export class Player extends BaseModel {
         public pool: number,
         public victoryPoints = 0,
         public isOusted = false,
-        public handSize = INITIAL_HAND_SIZE,
+        // Not currently in use
+        // public handSize = INITIAL_HAND_SIZE,
     ) {
         super(oid)
     }

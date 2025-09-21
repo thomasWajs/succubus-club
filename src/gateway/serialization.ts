@@ -234,7 +234,7 @@ export function loadGame(serializedGame: SerializedGame) {
             playerData.pool,
             playerData.victoryPoints,
             playerData.isOusted,
-            playerData.handSize,
+            // playerData.handSize,
         )
     }
     gameState.players = players

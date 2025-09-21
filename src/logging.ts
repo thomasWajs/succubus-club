@@ -1,6 +1,9 @@
 import type { SeverityLevel } from '@sentry/vue'
 import * as Sentry from '@sentry/vue'
 import { App } from 'vue'
+import { Pinia } from 'pinia'
+import { useCoreStore } from '@/store/core.ts'
+import { useMultiplayerStore } from '@/store/multiplayer.ts'
 
 export function initSentry(app: App) {
     Sentry.init({
@@ -19,6 +22,39 @@ export function initSentry(app: App) {
             }),
         ],
     })
+}
+
+export function initSentryPiniPlugin(pinia: Pinia) {
+    pinia.use(
+        Sentry.createSentryPiniaPlugin({
+            stateTransformer: state => {
+                const transformedState = {
+                    ...state,
+                }
+
+                const core = transformedState.core as ReturnType<typeof useCoreStore>
+                const multiplayer = transformedState.multiplayer as ReturnType<
+                    typeof useMultiplayerStore
+                >
+
+                if (core.userProfile?.avatar) {
+                    core.userProfile.avatar = '[stripped]'
+                }
+
+                if (multiplayer.users) {
+                    multiplayer.users = Object.fromEntries(
+                        Object.entries(multiplayer.users).map(([permId, user]) => {
+                            if (user.avatar) {
+                                user.avatar = '[stripped]'
+                            }
+                            return [permId, user]
+                        }),
+                    )
+                }
+                return transformedState
+            },
+        }),
+    )
 }
 
 export function captureException(exception: unknown) {

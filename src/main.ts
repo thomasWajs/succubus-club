@@ -5,11 +5,11 @@ import { createPinia } from 'pinia'
 import App from './SuccubusApp.vue'
 import { loadAllResources } from '@/resources/cards.ts'
 import { useCoreStore } from '@/store/core.ts'
-import * as Sentry from '@sentry/vue'
 import * as logging from '@/logging.ts'
 import router from './ui/router.ts'
 import { useBusStore } from '@/store/bus.ts'
 import { screenBigEnough } from '@/game/display.ts'
+import { initSentryPiniPlugin } from '@/logging.ts'
 
 const app = createApp(App)
 logging.initSentry(app)
@@ -34,7 +34,7 @@ if (widgetActor) {
 }
 
 const pinia = createPinia()
-pinia.use(Sentry.createSentryPiniaPlugin())
+initSentryPiniPlugin(pinia)
 app.use(pinia)
 app.use(router)
 
