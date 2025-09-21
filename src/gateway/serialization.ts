@@ -151,6 +151,10 @@ export function deserializeGameMutation(gameMutationJson: SerializedGameMutation
     const GameMutationClass = definition.gameMutationClass
 
     const author = gameState.players[gameMutationJson.authorOid]
+    if (!author) {
+        throw new Error(`Unknown player : ${gameMutationJson.authorOid}`)
+    }
+
     return new GameMutationClass(
         deserializeObject(gameMutationJson.params),
         new Date(gameMutationJson.timestamp),
