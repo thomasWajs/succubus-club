@@ -413,10 +413,10 @@ class ChangeTheEdgeControl extends GameMutation<ChangeTheEdgeControlParams> {
     }
 
     formatForLog() {
-        if (this.params.newController === undefined) {
-            return `Burn the Edge`
-        } else {
+        if (this.params.newController) {
             return `${this.params.newController.name} gain the Edge`
+        } else {
+            return `Burn the Edge`
         }
     }
 
