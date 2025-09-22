@@ -95,7 +95,13 @@ const cardAttrs = computed((): CardAttrs => {
     let center_y = HAND_ARC_ORIGIN_Y
 
     // If there's too much cards in hand, reduce the scale and up the center
-    if (hand.length > 9) {
+    if (hand.length > 13) {
+        scale *= 0.6
+        center_y -= 220
+    } else if (hand.length > 11) {
+        scale *= 0.68
+        center_y -= 180
+    } else if (hand.length > 9) {
         scale *= 0.75
         center_y -= 120
     } else if (hand.length > 7) {
