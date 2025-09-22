@@ -10,6 +10,7 @@ import {
     User,
     GameMutationMessage,
     GameStateSyncMessage,
+    alertReconnectAfterDelay,
 } from '@/multiplayer/common.ts'
 import { resetState, setupMultiplayerGame, startGame } from '@/game/setup.ts'
 import { GameType } from '@/state/types.ts'
@@ -123,7 +124,6 @@ export function joinGameRoom(gameRoom: GameRoom) {
 
 function onPeerJoin(peerId: PeerId) {
     const multiplayer = useMultiplayerStore()
-    const bus = useBusStore()
     const user = multiplayer.getUser(peerId)
     const gameRoom = multiplayer.currentGameRoom
 
@@ -131,14 +131,10 @@ function onPeerJoin(peerId: PeerId) {
         return
     }
 
+    alertReconnectAfterDelay(gameRoom, user)
+
     if (canUserBeAPlayer(gameRoom, user)) {
         multiplayer.upsertGameRoomPlayer(user)
-    }
-
-    // If a peer join while the game is started AND he can be a player,
-    // then it's a reconnection
-    if (gameRoom.isStarted && gameRoom.seating.includes(user.permId)) {
-        bus.alertSuccess(`${user.name} has reconnected into the game room.`)
     }
 }
 

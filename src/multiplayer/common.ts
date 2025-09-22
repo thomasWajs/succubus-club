@@ -173,18 +173,56 @@ export function makeNetAction<T extends DataPayload>(
     return { send, receive }
 }
 
+const CONNECTION_ALERT_DELAY = 5 * 1000 // 5 seconds
+
+const last_disconnect_alert = {} as Record<PermanentId, Date>
+
+function alertDisconnectAfterDelay(user: User) {
+    const bus = useBusStore()
+    const multiplayer = useMultiplayerStore()
+
+    if (
+        multiplayer.currentGameRoom?.isStarted &&
+        multiplayer.currentGameRoom.players.includes(user.permId)
+    ) {
+        setTimeout(() => {
+            // Alert only if the user has not reconnected
+            if (!multiplayer.users[user.permId]) {
+                bus.alertWarning(`${user.name} has left the game.`)
+                last_disconnect_alert[user.permId] = new Date()
+            }
+        }, CONNECTION_ALERT_DELAY)
+    }
+}
+
+export function alertReconnectAfterDelay(gameRoom: GameRoom, user: User) {
+    const bus = useBusStore()
+    const multiplayer = useMultiplayerStore()
+
+    // Alert the reconnection if a peer join while :
+    // the game is started AND he's seated AND he was disconnected AND we alerted the disconnection,
+    if (
+        gameRoom.isStarted &&
+        gameRoom.seating.includes(user.permId) &&
+        !gameRoom.players.includes(user.permId) &&
+        last_disconnect_alert[user.permId]
+    ) {
+        setTimeout(() => {
+            // Alert only if the user is still connected
+            if (multiplayer.users[user.permId]) {
+                bus.alertSuccess(`${user.name} has reconnected into the game room.`)
+                delete last_disconnect_alert[user.permId]
+            }
+        }, CONNECTION_ALERT_DELAY)
+    }
+}
+
 export function onPeerDisconnect(peerId: PeerId, fromLobby: boolean) {
     const multiplayer = useMultiplayerStore()
-    const bus = useBusStore()
 
     const user = multiplayer.getUser(peerId)
     if (user) {
-        if (
-            multiplayer.currentGameRoom?.isStarted &&
-            multiplayer.currentGameRoom.players.includes(user.permId)
-        ) {
-            bus.alertWarning(`${user.name} has left the game.`)
-        }
+        alertDisconnectAfterDelay(user)
 
         multiplayer.removeGameRoomPlayer(user)
 
