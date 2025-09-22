@@ -14,7 +14,7 @@ import { stringify as stableStringify } from 'safe-stable-stringify'
 import { useHistoryStore } from '@/store/history.ts'
 import { useCoreStore } from '@/store/core.ts'
 
-const GAME_STATE_VERSION = 1
+const GAME_STATE_VERSION = 2
 
 export type JsonObject = { [key: string]: JsonValue }
 
@@ -37,6 +37,7 @@ export type SerializedGameMutation = {
     timestamp: string
     params: JsonObject
     authorOid: number
+    previousState: JsonObject
     cancelsMutationId?: GameMutationId
 }
 
@@ -137,6 +138,7 @@ export function serializeGameMutation(gameMutation: AnyGameMutation): Serialized
         timestamp: gameMutation.timestamp.toISOString(),
         params: serializeObject(gameMutation.params),
         authorOid: gameMutation.author.oid,
+        previousState: serializeObject(gameMutation.previousState),
         cancelsMutationId: gameMutation.cancelsMutationId,
     }
 }
@@ -155,12 +157,14 @@ export function deserializeGameMutation(gameMutationJson: SerializedGameMutation
         throw new Error(`Unknown player : ${gameMutationJson.authorOid}`)
     }
 
-    return new GameMutationClass(
+    const gameMutation = new GameMutationClass(
         deserializeObject(gameMutationJson.params),
         new Date(gameMutationJson.timestamp),
         author,
         gameMutationJson.cancelsMutationId,
     )
+    gameMutation.previousState = deserializeObject(gameMutationJson.previousState)
+    return gameMutation
 }
 
 export function serializeHistory(): SerializedHistory {
