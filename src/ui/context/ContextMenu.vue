@@ -157,8 +157,9 @@ const isAshHeap = computed(() => regionName.value == RegionName.AshHeap)
 const singleCard = computed(() =>
     gameBus.contextMenu.cards.length == 1 ? gameBus.contextMenu.cards[0] : null,
 )
+// For now, disable the check on minions, as library cards are not yet detected ( allies, embraces... )
 const singleMinion = computed(() =>
-    singleCard.value && singleCard.value instanceof Minion ? singleCard.value : null,
+    singleCard.value /*&& singleCard.value instanceof Minion*/ ? singleCard.value : null,
 )
 </script>
 
