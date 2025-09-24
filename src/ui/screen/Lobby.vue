@@ -400,7 +400,12 @@ onMounted(() => {
  */
 
 function onCreateGameRoom() {
-    createGameRoom(roomName.value)
+    const cleanedRoomName = roomName.value.trim()
+    if (!cleanedRoomName) {
+        return
+    }
+
+    createGameRoom(cleanedRoomName)
     roomName.value = ''
 }
 
