@@ -99,13 +99,9 @@ function getConflictingMutations(
             return false
         }
 
-        const author = m.author.permId
-        const localTickForMutation = mutationVersion[author] ?? 0
-        const remoteTickForAuthor = remoteVersion[author] ?? 0
-
-        // This mutation is part of the conflict if its own tick is greater than
-        // what the remote peer has seen from its author.
-        return localTickForMutation > remoteTickForAuthor
+        // A mutation is conflicting if its vector clock is concurrent with the remote one.
+        const mutationClock = new VectorClock(mutationVersion)
+        return mutationClock.compare(remoteVersion) === ClockCompare.Concurrent
     }) as AnyGameMutation[]
 }
 
@@ -124,14 +120,6 @@ function applyPeerMutation(gameMutation: AnyGameMutation, remoteVersion?: Vector
             )
 
             const winningPermId = findPlayerWinningConflict(localConflictingMutations, gameMutation)
-
-            /*
-            console.log('-----')
-            console.log('localVersion', clock.version)
-            console.log('remoteVersion', remoteVersion)
-            console.log('winningPermId', winningPermId)
-            console.log('localConflictingMutations', localConflictingMutations)
-             */
 
             // Handle mutations from losing players, in reverse order
             for (const localMutation of localConflictingMutations.toReversed()) {
