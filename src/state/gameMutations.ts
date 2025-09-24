@@ -35,7 +35,7 @@ import { useCoreStore } from '@/store/core.ts'
 import { broadcastGameMutation } from '@/multiplayer/room.ts'
 import { useBusStore } from '@/store/bus.ts'
 import { BOT_PERM_ID } from '@/game/setup.ts'
-import { MutationSyncMode, VersionningId, VersionningTarget } from '@/multiplayer/common.ts'
+import { MutationSyncMode, VersioningId, VersioningTarget } from '@/multiplayer/common.ts'
 import { hashObject } from '@/gateway/serialization.ts'
 
 export type GameMutationId = number
@@ -48,7 +48,8 @@ export type GameMutationName = keyof typeof gameMutations
 export abstract class GameMutation<ParamsType extends GameMutationParams> {
     readonly id: GameMutationId // Used to identify mutation when cancelling it
     abstract readonly syncMode: MutationSyncMode
-    isCancellable = true
+    isUserCancellable = true
+    cancelToResolveConflict = false // will be set to true if the mutation is cancelled to resolve a conflict
 
     canSeeTargetCard = false
     // Store as needed the previous state of the game to be able to make the cancel diff
@@ -82,13 +83,13 @@ export abstract class GameMutation<ParamsType extends GameMutationParams> {
         return null
     }
 
-    get versioningId(): VersionningId {
-        if (this.syncMode != MutationSyncMode.LWW) {
-            throw new Error('versioningId is only available for LWW mutations')
+    get versioningId(): VersioningId {
+        if (this.syncMode != MutationSyncMode.Ordered) {
+            throw new Error('versioningId is only available for Ordered mutations')
         }
         return this._versioningId
     }
-    protected get _versioningId(): VersionningId {
+    protected get _versioningId(): VersioningId {
         return ''
     }
 
@@ -133,13 +134,13 @@ export abstract class GameMutation<ParamsType extends GameMutationParams> {
      */
 
     cancel() {
-        if (!this.isCancellable) {
+        if (!this.isUserCancellable) {
             throw new Error('Cannot cancel this type of mutation')
         }
         dispatchMutation(this.getCancelMutation())
     }
 
-    protected getCancelMutation(): AnyGameMutation {
+    getCancelMutation(): AnyGameMutation {
         throw new Error('getCancelMutation is not implemented')
     }
 
@@ -322,10 +323,10 @@ interface ChangeMarkerParams extends GameMutationParams {
 }
 
 class ChangeMarker extends GameMutation<ChangeMarkerParams> {
-    readonly syncMode = MutationSyncMode.LWW
+    readonly syncMode = MutationSyncMode.Ordered
 
-    protected get _versioningId(): VersionningId {
-        return `${VersionningTarget.Marker}-${this.params.card.oid}-${this.params.marker}`
+    protected get _versioningId(): VersioningId {
+        return `${VersioningTarget.Marker}-${this.params.card.oid}`
     }
 
     protected updateGameState() {
@@ -392,10 +393,10 @@ interface ChangeTheEdgeControlParams extends GameMutationParams {
 }
 
 class ChangeTheEdgeControl extends GameMutation<ChangeTheEdgeControlParams> {
-    readonly syncMode = MutationSyncMode.LWW
+    readonly syncMode = MutationSyncMode.Ordered
 
-    protected get _versioningId(): VersionningId {
-        return `${VersionningTarget.TheEdge}`
+    protected get _versioningId(): VersioningId {
+        return `${VersioningTarget.TheEdge}`
     }
 
     getValidity() {
@@ -583,10 +584,10 @@ class DrawLibrary extends TargetPlayerMutation {
  */
 
 class GoToTurn extends GameMutation<ChangeIndexParams> {
-    readonly syncMode = MutationSyncMode.LWW
+    readonly syncMode = MutationSyncMode.Ordered
 
-    protected get _versioningId(): VersionningId {
-        return `${VersionningTarget.Turn}`
+    protected get _versioningId(): VersioningId {
+        return `${VersioningTarget.Turn}`
     }
 
     getValidity() {
@@ -648,10 +649,10 @@ class GoToTurn extends GameMutation<ChangeIndexParams> {
 }
 
 class GoToTurnPhase extends GameMutation<ChangeIndexParams> {
-    readonly syncMode = MutationSyncMode.LWW
+    readonly syncMode = MutationSyncMode.Ordered
 
-    protected get _versioningId(): VersionningId {
-        return `${VersionningTarget.TurnPhase}`
+    protected get _versioningId(): VersioningId {
+        return `${VersioningTarget.TurnPhase}`
     }
 
     getValidity() {
@@ -738,11 +739,11 @@ class Influence extends ChangeCounterMutation {
 type MoveCardParams = CardMovement
 
 class MoveCard extends GameMutation<MoveCardParams> {
-    isCancellable = false
-    readonly syncMode = MutationSyncMode.LWW
+    isUserCancellable = false
+    readonly syncMode = MutationSyncMode.Ordered
 
-    protected get _versioningId(): VersionningId {
-        return `${VersionningTarget.Move}-${this.params.card.oid}`
+    protected get _versioningId(): VersioningId {
+        return `${VersioningTarget.Card}-${this.params.card.oid}`
     }
 
     getValidity() {
@@ -750,6 +751,12 @@ class MoveCard extends GameMutation<MoveCardParams> {
     }
 
     protected updateGameState() {
+        this.previousState = {
+            position: this.params.card.position,
+            x: this.params.card.x,
+            y: this.params.card.y,
+        }
+
         if (this.params.position != undefined) {
             this.params.card.region.move(this.params.card, this.params.position)
         }
@@ -760,6 +767,17 @@ class MoveCard extends GameMutation<MoveCardParams> {
 
     get targetCard() {
         return this.params.card
+    }
+
+    // Users can't cancel these mutations, but we still need to implement the cancel mutation
+    // for conflict resolution
+    getCancelMutation(): AnyGameMutation {
+        return gameMutations.moveCard.createCancelMutation(this, {
+            card: this.params.card,
+            position: this.previousState.position as number,
+            x: this.previousState.x as number,
+            y: this.previousState.y as number,
+        })
     }
 }
 
@@ -772,10 +790,10 @@ interface MoveCardToRegionParams extends CardMovement {
 }
 
 class MoveCardToRegion extends GameMutation<MoveCardToRegionParams> {
-    readonly syncMode = MutationSyncMode.LWW
+    readonly syncMode = MutationSyncMode.Ordered
 
-    protected get _versioningId(): VersionningId {
-        return `${VersionningTarget.Move}-${this.params.card.oid}`
+    protected get _versioningId(): VersioningId {
+        return `${VersioningTarget.Card}-${this.params.card.oid}`
     }
 
     getValidity() {
@@ -854,10 +872,10 @@ interface MoveToBottomParams extends GameMutationParams {
 }
 
 class MoveToBottom extends GameMutation<MoveToBottomParams> {
-    readonly syncMode = MutationSyncMode.LWW
+    readonly syncMode = MutationSyncMode.Ordered
 
-    protected get _versioningId(): VersionningId {
-        return `${VersionningTarget.Move}-${this.params.card.oid}`
+    protected get _versioningId(): VersioningId {
+        return `${VersioningTarget.Card}-${this.params.card.oid}`
     }
 
     getValidity() {
@@ -932,10 +950,10 @@ class MoveToBottom extends GameMutation<MoveToBottomParams> {
  */
 
 class PlayFaceDown extends TargetCardMutation {
-    readonly syncMode = MutationSyncMode.LWW
+    readonly syncMode = MutationSyncMode.Ordered
 
-    protected get _versioningId(): VersionningId {
-        return `${VersionningTarget.Move}-${this.params.card.oid}`
+    protected get _versioningId(): VersioningId {
+        return `${VersioningTarget.Card}-${this.params.card.oid}`
     }
 
     protected updateGameState(gameState: GameStateStore) {
@@ -986,11 +1004,10 @@ interface RevealParams extends GameMutationParams {
 }
 
 class Reveal extends GameMutation<RevealParams> {
-    // Should this be a Merge Sync ?
-    readonly syncMode = MutationSyncMode.LWW
+    readonly syncMode = MutationSyncMode.Ordered
 
-    protected get _versioningId(): VersionningId {
-        return `${VersionningTarget.Reveal}-${this.params.target.oid}`
+    protected get _versioningId(): VersioningId {
+        return `${VersioningTarget.Reveal}-${this.params.target.oid}`
     }
 
     protected updateGameState(gameState: GameStateStore) {
@@ -1050,10 +1067,10 @@ class Reveal extends GameMutation<RevealParams> {
  */
 
 class SetFlip extends ChangeCardBoolMutation {
-    readonly syncMode = MutationSyncMode.Merge
+    readonly syncMode = MutationSyncMode.Ordered
 
-    protected get _versioningId(): VersionningId {
-        return `${VersionningTarget.Flip}-${this.params.card.oid}`
+    protected get _versioningId(): VersioningId {
+        return `${VersioningTarget.Card}-${this.params.card.oid}`
     }
 
     getValidity() {
@@ -1085,10 +1102,10 @@ class SetFlip extends ChangeCardBoolMutation {
  */
 
 class SetLock extends ChangeCardBoolMutation {
-    readonly syncMode = MutationSyncMode.LWW
+    readonly syncMode = MutationSyncMode.Ordered
 
-    protected get _versioningId(): VersionningId {
-        return `${VersionningTarget.ChangeLock}-${this.params.card.oid}`
+    protected get _versioningId(): VersioningId {
+        return `${VersioningTarget.Card}-${this.params.card.oid}`
     }
 
     getValidity() {
@@ -1124,11 +1141,11 @@ interface ShuffleParams extends GameMutationParams {
 }
 
 class Shuffle extends GameMutation<ShuffleParams> {
-    isCancellable = false
-    readonly syncMode = MutationSyncMode.LWW
+    isUserCancellable = false
+    readonly syncMode = MutationSyncMode.Ordered
 
-    protected get _versioningId(): VersionningId {
-        return `${VersionningTarget.Shuffle}-${this.params.cardRegion.oid}`
+    protected get _versioningId(): VersioningId {
+        return `${VersioningTarget.Shuffle}-${this.params.cardRegion.oid}`
     }
 
     protected updateGameState() {
@@ -1144,7 +1161,7 @@ class Shuffle extends GameMutation<ShuffleParams> {
  * Unlock ALl
  */
 class UnlockAll extends TargetPlayerMutation {
-    isCancellable = false
+    isUserCancellable = false
     readonly syncMode = MutationSyncMode.Exclusive
 
     get allowedPlayer() {
@@ -1208,7 +1225,7 @@ interface DeclareActionParams extends GameMutationParams {
 }
 
 class DeclareAction extends GameMutation<DeclareActionParams> {
-    isCancellable = false
+    isUserCancellable = false
     readonly syncMode = MutationSyncMode.Exclusive
 
     get allowedPlayer() {
@@ -1243,7 +1260,7 @@ interface DeclareActionModifierParams extends GameMutationParams {
 }
 
 class DeclareActionModifier extends GameMutation<DeclareActionModifierParams> {
-    isCancellable = false
+    isUserCancellable = false
     readonly syncMode = MutationSyncMode.Exclusive
 
     get allowedPlayer() {
@@ -1284,7 +1301,7 @@ interface DeclareBlockParams extends GameMutationParams {
 }
 
 class DeclareBlock extends GameMutation<DeclareBlockParams> {
-    isCancellable = false
+    isUserCancellable = false
     readonly syncMode = MutationSyncMode.Exclusive
 
     get allowedPlayer() {
@@ -1325,7 +1342,7 @@ interface DeclareReactionParams extends GameMutationParams {
 }
 
 class DeclareReaction extends GameMutation<DeclareReactionParams> {
-    isCancellable = false
+    isUserCancellable = false
     readonly syncMode = MutationSyncMode.Exclusive
 
     get allowedPlayer() {
@@ -1361,7 +1378,7 @@ class DeclareReaction extends GameMutation<DeclareReactionParams> {
  */
 
 class ResolveAction extends GameMutation<EmptyParams> {
-    isCancellable = false
+    isUserCancellable = false
     readonly syncMode = MutationSyncMode.Exclusive
     minionActionName = ''
 
@@ -1393,7 +1410,7 @@ class ResolveAction extends GameMutation<EmptyParams> {
  */
 
 class ResolveBlock extends GameMutation<EmptyParams> {
-    isCancellable = false
+    isUserCancellable = false
     readonly syncMode = MutationSyncMode.Exclusive
 
     get allowedPlayer() {

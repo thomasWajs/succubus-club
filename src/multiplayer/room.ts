@@ -30,9 +30,9 @@ import { watch, WatchHandle } from 'vue'
 import { useCoreStore } from '@/store/core.ts'
 import {
     applyGameResync,
-    applyPeerMutation,
     makeMutationMessage,
     makeResyncGameStateMessage,
+    receiveMutationMessage,
     startGameResync,
 } from '@/multiplayer/sync.ts'
 import { AnyGameMutation } from '@/state/gameMutations.ts'
@@ -334,7 +334,7 @@ async function onReceiveGameMutation(gameMutationMessage: GameMutationMessage) {
         return
     }
 
-    await applyPeerMutation(gameMutationMessage)
+    await receiveMutationMessage(gameMutationMessage)
 }
 
 /** State Sync Messages */

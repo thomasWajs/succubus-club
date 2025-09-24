@@ -1,8 +1,16 @@
 import { defineStore } from 'pinia'
 import { useCoreStore } from '@/store/core.ts'
-import { GameRoom, PeerId, PermanentId, User, VersionningId } from '@/multiplayer/common.ts'
+import {
+    GameRoom,
+    PeerId,
+    PermanentId,
+    User,
+    VectorClockVersion,
+    VersioningId,
+} from '@/multiplayer/common.ts'
 import { selfId } from 'trystero'
-import { LamportClock } from '@/multiplayer/sync.ts'
+import { LamportClock, VectorClock } from '@/multiplayer/clock.ts'
+import { GameMutationId } from '@/state/gameMutations.ts'
 
 export const useMultiplayerStore = defineStore('multiplayer', {
     state: () => ({
@@ -28,12 +36,11 @@ export const useMultiplayerStore = defineStore('multiplayer', {
         // Global Lamport to resolve whole state resync
         globalClock: new LamportClock(useCoreStore().userProfile.permanentId),
 
-        // Per-object Lamport versions for LWW mutations
-        objectVersions: {} as Record<VersionningId, LamportClock>,
+        // Per-object Vector Clock Versions
+        objectClocks: {} as Record<VersioningId, VectorClock>,
 
-        // dedup for non-LLW mutations
-        // A bit overkill, because trystero is reliable delivery
-        // seenMutations: new Set(),
+        // Per-mutation Vector Clock Versions, GameMutationId -> Version
+        mutationVersions: {} as Record<GameMutationId, VectorClockVersion>,
     }),
     getters: {
         selfUser: (state): User => {

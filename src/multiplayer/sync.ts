@@ -5,20 +5,21 @@ import {
     serializeGame,
     serializeGameMutation,
 } from '@/gateway/serialization.ts'
-import { AnyGameMutation, applyMutationLocally } from '@/state/gameMutations.ts'
+import { AnyGameMutation, applyMutationLocally, GameMutationId } from '@/state/gameMutations.ts'
 import { Mutex } from '@/utils.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
 import { useBusStore } from '@/store/bus.ts'
 import * as logging from '@/logging.ts'
 import {
-    ClockVersion,
     GameMutationMessage,
-    VersionningId,
-    PermanentId,
-    MutationSyncMode,
     GameStateSyncMessage,
+    MutationSyncMode,
+    PermanentId,
+    VectorClockVersion,
+    VersioningId,
 } from '@/multiplayer/common.ts'
-import { useCoreStore } from '@/store/core.ts'
+import { ClockCompare, VectorClock } from '@/multiplayer/clock.ts'
+import { useHistoryStore } from '@/store/history.ts'
 
 const DESYNC_MESSAGE_MINIMUM_TIME_VISIBLE = 2000 // 2 seconds in milliseconds
 
@@ -27,53 +28,173 @@ const DESYNC_MESSAGE_MINIMUM_TIME_VISIBLE = 2000 // 2 seconds in milliseconds
 const stateMutex = new Mutex()
 
 /**
- * Lamport Clock
- */
-
-export class LamportClock implements ClockVersion {
-    constructor(
-        public permId: PermanentId,
-        public tick: number = 0, // Increment when we advance the clock
-    ) {}
-
-    // Advance when we send local mutations
-    advance(): ClockVersion {
-        // Increment tick
-        this.tick++
-        // We made the mutation, set our permid
-        this.permId = useCoreStore().userProfile.permanentId
-        return this
-    }
-
-    // Update when we receive remote mutations
-    update(remote: ClockVersion): ClockVersion {
-        // Update the tick
-        this.tick = Math.max(this.tick, remote.tick) + 1
-        // Set remote permId
-        this.permId = remote.permId
-        return this
-    }
-
-    compare(remote: ClockVersion): number {
-        // Baseline case : ordered mutations
-        if (this.tick !== remote.tick) {
-            return this.tick - remote.tick
-        }
-        // Concurrent case : arbitrary consistent tie-breaker with permId
-        return this.permId.localeCompare(remote.permId)
-    }
-}
-
-/**
  * Game Mutations
  */
 
-function ensureClock(versionningId: VersionningId) {
+type ReceivedMutation = {
+    gameMutation: AnyGameMutation
+    version: VectorClockVersion
+}
+const appliedMutations: Set<GameMutationId> = new Set()
+let pendingMutations: ReceivedMutation[] = []
+
+function ensureClock(versioningId: VersioningId) {
+    useMultiplayerStore().objectClocks[versioningId] ??= new VectorClock()
+}
+
+function canApplyOrderedMutation(receivedMutation: ReceivedMutation) {
+    const clock = useMultiplayerStore().objectClocks[receivedMutation.gameMutation.versioningId]
+    return clock.isNextMutation(
+        receivedMutation.version,
+        receivedMutation.gameMutation.author.permId,
+    )
+}
+
+function findPlayerWinningConflict(
+    localConflictingMutations: AnyGameMutation[],
+    remoteMutation: AnyGameMutation,
+): PermanentId {
+    const gameState = useGameStateStore()
+    const conflictingAuthors = new Set(localConflictingMutations.map(m => m.author.permId))
+    conflictingAuthors.add(remoteMutation.author.permId)
+
+    const numPlayers = gameState.orderedPlayers.length
+    for (let i = 0; i < numPlayers; i++) {
+        const playerIndex = (gameState.activePlayerIndex + i) % numPlayers
+        const player = gameState.orderedPlayers[playerIndex]
+        if (conflictingAuthors.has(player.permId)) {
+            return player.permId
+        }
+    }
+
+    // This case should not be reached if there's a conflict.
+    logging.captureMessage(
+        `Could not determine a winning player in a conflict. Defaulting to active player.`,
+        'error',
+    )
+    return gameState.activePlayer.permId
+}
+
+function getConflictingMutations(
+    remoteVersion: VectorClockVersion,
+    versioningId: VersioningId,
+): AnyGameMutation[] {
+    const historyStore = useHistoryStore()
+    const multiplayerStore = useMultiplayerStore()
+
+    // Find all local mutations that the remote peer has not seen.
+    return historyStore.gameMutations.filter(m => {
+        // Must be an ordered mutation for the same object.
+        if (
+            m.syncMode !== MutationSyncMode.Ordered ||
+            m.versioningId !== versioningId ||
+            m.cancelToResolveConflict
+        ) {
+            return false
+        }
+
+        // Retrieve the version for this mutation from the store.
+        const mutationVersion = multiplayerStore.mutationVersions[m.id]
+        if (!mutationVersion) {
+            return false
+        }
+
+        const author = m.author.permId
+        const localTickForMutation = mutationVersion[author] ?? 0
+        const remoteTickForAuthor = remoteVersion[author] ?? 0
+
+        // This mutation is part of the conflict if its own tick is greater than
+        // what the remote peer has seen from its author.
+        return localTickForMutation > remoteTickForAuthor
+    }) as AnyGameMutation[]
+}
+
+function applyPeerMutation(gameMutation: AnyGameMutation, remoteVersion?: VectorClockVersion) {
     const multiplayer = useMultiplayerStore()
 
-    multiplayer.objectVersions[versionningId] ??= new LamportClock(
-        useCoreStore().userProfile.permanentId,
-    )
+    // remoteVersion should always be defined, we checked in _unsafeReceiveMutationMessage
+    if (gameMutation.syncMode == MutationSyncMode.Ordered && remoteVersion) {
+        const clock = multiplayer.objectClocks[gameMutation.versioningId]
+
+        // There's a conflict to resolve
+        if (clock.compare(remoteVersion) == ClockCompare.Concurrent) {
+            const localConflictingMutations = getConflictingMutations(
+                remoteVersion,
+                gameMutation.versioningId,
+            )
+
+            const winningPermId = findPlayerWinningConflict(localConflictingMutations, gameMutation)
+
+            /*
+            console.log('-----')
+            console.log('localVersion', clock.version)
+            console.log('remoteVersion', remoteVersion)
+            console.log('winningPermId', winningPermId)
+            console.log('localConflictingMutations', localConflictingMutations)
+             */
+
+            // Handle mutations from losing players, in reverse order
+            for (const localMutation of localConflictingMutations.toReversed()) {
+                if (localMutation.author.permId !== winningPermId) {
+                    // Cancel mutations that were already applied, but only locally.
+                    // Broadcasting is not needed as other peers will run the same conflict resolution.
+                    const cancelMutation = localMutation.getCancelMutation()
+                    // display in the logs there was a conflict to decrease user surprise
+                    cancelMutation.cancelToResolveConflict = true
+                    applyMutationLocally(cancelMutation)
+                }
+            }
+
+            // If the incoming mutation is from a losing player, discard it and stop.
+            if (gameMutation.author.permId !== winningPermId) {
+                // Merge the clock to acknowledge the loser's version and prevent repeated conflicts
+                clock.merge(remoteVersion)
+                appliedMutations.add(gameMutation.id)
+                return // Stop processing this mutation
+            }
+        }
+    }
+
+    const validity = gameMutation.canApply()
+    if (!validity.isValid) {
+        logging.captureMessage(
+            `Received an invalid game mutation : ${validity.reason} | ${JSON.stringify(gameMutation)}`,
+            'warning',
+        )
+
+        // TODO: this can happen when screwing up the game state due to concurrency/conflict. Force a state resync
+        // In the meantime, update the clock state to prevent further conflicts
+        if (gameMutation.syncMode == MutationSyncMode.Ordered && remoteVersion) {
+            multiplayer.objectClocks[gameMutation.versioningId].merge(remoteVersion)
+        }
+
+        return
+    }
+
+    applyMutationLocally(gameMutation)
+    appliedMutations.add(gameMutation.id)
+
+    // remoteVersion should always be defined, we checked in _unsafeReceiveMutationMessage
+    if (gameMutation.syncMode == MutationSyncMode.Ordered && remoteVersion) {
+        multiplayer.objectClocks[gameMutation.versioningId].merge(remoteVersion)
+    }
+}
+
+function flushPendingMutations() {
+    let changed = true
+    while (changed) {
+        changed = false
+        const stillPending: ReceivedMutation[] = []
+        for (const mutation of pendingMutations) {
+            if (canApplyOrderedMutation(mutation)) {
+                applyPeerMutation(mutation.gameMutation, mutation.version)
+                changed = true
+            } else {
+                stillPending.push(mutation)
+            }
+        }
+        pendingMutations = stillPending
+    }
 }
 
 // Wraps mutation making around a Mutex to avoid concurrent updates
@@ -93,64 +214,68 @@ function _unsafeMakeMutationMessage(gameMutation: AnyGameMutation): GameMutation
         globalVersion: multiplayer.globalClock.advance(),
     }
 
-    // Add version to LWW mutations
-    if (gameMutation.syncMode == MutationSyncMode.LWW) {
+    // Add version to Ordered mutations
+    if (gameMutation.syncMode == MutationSyncMode.Ordered) {
         ensureClock(gameMutation.versioningId)
-        const clock = multiplayer.objectVersions[gameMutation.versioningId]
+        const clock = multiplayer.objectClocks[gameMutation.versioningId]
         message.version = clock.advance()
+        multiplayer.mutationVersions[gameMutation.id] = message.version
     }
 
     return message
 }
 
-// Wraps mutation dispatching around a Mutex to avoid concurrent updates
-export async function applyPeerMutation(gameMutationMessage: GameMutationMessage) {
-    // Protected call to _unsafeApplyPeerMutation
-    return await stateMutex.withLock(() => _unsafeApplyPeerMutation(gameMutationMessage))
+// Wraps mutation receiving around a Mutex to avoid concurrent updates
+export async function receiveMutationMessage(gameMutationMessage: GameMutationMessage) {
+    // Protected call to _unsafeReceiveMutationMessage
+    await stateMutex.withLock(() => _unsafeReceiveMutationMessage(gameMutationMessage))
 }
 
-function _unsafeApplyPeerMutation(gameMutationMessage: GameMutationMessage) {
+function _unsafeReceiveMutationMessage(gameMutationMessage: GameMutationMessage) {
     const multiplayer = useMultiplayerStore()
 
     try {
-        // Update our global clock when we receive a remote mutation
+        const gameMutation = deserializeGameMutation(gameMutationMessage.gameMutation)
+
+        // Don't apply twice the same mutation
+        if (appliedMutations.has(gameMutation.id)) {
+            return
+        }
+
+        // Update our global clock when we receive a non-applied remote mutation,
+        // whatever the result ( pending, applied, invalid )
         multiplayer.globalClock.update(gameMutationMessage.globalVersion)
 
-        const gameMutation = deserializeGameMutation(gameMutationMessage.gameMutation)
         const remoteVersion = gameMutationMessage.version
 
-        let lwwDiscard = false // Should we ignore this mutation because of LWW ?
-        if (gameMutation.syncMode == MutationSyncMode.LWW) {
+        if (gameMutation.syncMode == MutationSyncMode.Ordered) {
             if (!remoteVersion) {
-                logging.captureMessage(`Missing version for LWW mutation`, 'error')
+                logging.captureMessage(`Missing version for Ordered mutation`, 'error')
                 return
             }
 
+            // Store the version from the message in the multiplayer store
+            if (gameMutationMessage.version) {
+                multiplayer.mutationVersions[gameMutation.id] = remoteVersion
+            }
+
             ensureClock(gameMutation.versioningId)
-            const clock = multiplayer.objectVersions[gameMutation.versioningId]
-            // Apply LWW here with Lamport clock comparison
-            lwwDiscard = clock.compare(remoteVersion) > 0
+
+            const receivedMutation: ReceivedMutation = {
+                gameMutation,
+                version: remoteVersion,
+            }
+
+            // Buffer out-of-order mutations
+            if (!canApplyOrderedMutation(receivedMutation)) {
+                pendingMutations.push(receivedMutation)
+                return
+            }
         }
 
-        if (lwwDiscard) {
-            return
-        }
-
-        const validity = gameMutation.canApply()
-        if (!validity.isValid) {
-            logging.captureMessage(
-                `Received an invalid game mutation : ${validity.reason} | ${JSON.stringify(gameMutationMessage.gameMutation)}`,
-                'warning',
-            )
-            return
-        }
-
-        applyMutationLocally(gameMutation)
-
-        // We know we have a remoteVersion, but typescript can't understand it, so we add a useless check
-        if (gameMutation.syncMode == MutationSyncMode.LWW && remoteVersion) {
-            multiplayer.objectVersions[gameMutation.versioningId].update(remoteVersion)
-        }
+        applyPeerMutation(gameMutation, remoteVersion)
+        // Check if applying this mutation allows to release pending mutations
+        flushPendingMutations()
     } catch (e) {
         logging.captureException(e)
         // TODO : Should we resync on error ?
@@ -184,14 +309,21 @@ export function startGameResync(isUserRequest: boolean) {
     desyncDate = new Date()
 }
 
-export async function makeResyncGameStateMessage() {
+export async function makeResyncGameStateMessage(): Promise<GameStateSyncMessage> {
     return stateMutex.withLock(() => {
         // TODO : synchronize History Log as well ==> need to handle card visibility
         const multiplayer = useMultiplayerStore()
+        const objectClocks = Object.fromEntries(
+            Object.entries(multiplayer.objectClocks).map(([versioningId, clock]) => [
+                versioningId,
+                clock.version,
+            ]),
+        )
         return {
             serializedGame: serializeGame(),
             globalVersion: multiplayer.globalClock.advance(),
-            objectVersions: multiplayer.objectVersions,
+            objectClocks,
+            mutationVersions: multiplayer.mutationVersions,
             hash: useGameStateStore().hash(),
         }
     })
@@ -215,14 +347,12 @@ export async function applyGameResync(syncMessage: GameStateSyncMessage) {
             multiplayer.globalClock.update(syncMessage.globalVersion)
 
             // Sync the object clocks
-            for (const [versionningId, clockVersion] of Object.entries(
-                syncMessage.objectVersions,
-            )) {
-                multiplayer.objectVersions[versionningId] = new LamportClock(
-                    clockVersion.permId,
-                    clockVersion.tick,
-                )
+            for (const [versioningId, clockVersion] of Object.entries(syncMessage.objectClocks)) {
+                multiplayer.objectClocks[versioningId] = new VectorClock(clockVersion)
             }
+
+            // Sync the mutation versions
+            multiplayer.mutationVersions = syncMessage.mutationVersions
         }
 
         // Let the message visible at least 2 seconds

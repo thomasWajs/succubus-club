@@ -23,14 +23,19 @@ export type ChatMessage = {
 export type HistoryStore = ReturnType<typeof useHistoryStore>
 export type History = HistoryStore['$state']
 
+const authorFromPlayer = (player: Player) => ({
+    authorName: player.name,
+    authorColorRgba: player.color.clone().lighten(50).desaturate(50).rgba,
+})
+
 export const useHistoryStore = defineStore('gameHistory', {
     state: () => ({
         logEntries: [] as LogEntry[],
         gameMutations: [] as AnyGameMutation[],
     }),
     getters: {
-        orderedLogEntries: state =>
-            state.logEntries.toSorted((e1, e2) => e1.timestamp.getTime() - e2.timestamp.getTime()),
+        // TODO: order on global lamport clock ?
+        orderedLogEntries: state => state.logEntries,
 
         gameMutationsMap: state => Object.fromEntries(state.gameMutations.map(m => [m.id, m])),
 
@@ -54,7 +59,7 @@ export const useHistoryStore = defineStore('gameHistory', {
 
                 // Stop there if mutation is not cancellable,
                 // ( except for card moves which are ignored )
-                if (!mutation.isCancellable) {
+                if (!mutation.isUserCancellable) {
                     return null
                 }
 
@@ -70,25 +75,6 @@ export const useHistoryStore = defineStore('gameHistory', {
         },
     },
     actions: {
-        addLogEntry(
-            text: string,
-            timestamp: Date,
-            player: Player,
-            cancelText?: string,
-            closeUpCard?: Card,
-            mutationId?: GameMutationId,
-        ) {
-            this.logEntries.push({
-                text,
-                cancelText,
-                timestamp,
-                authorName: player.name,
-                authorColorRgba: player.color.clone().lighten(50).desaturate(50).rgba,
-                closeUpCard,
-                mutationId,
-            })
-        },
-
         addGameMutation(gameMutation: AnyGameMutation) {
             this.gameMutations.push(gameMutation)
             if (gameMutation.cancelsMutationId) {
@@ -97,6 +83,7 @@ export const useHistoryStore = defineStore('gameHistory', {
 
             const text = gameMutation.formatForLog()
             let cancelText, closeUpCard
+            let { authorName, authorColorRgba } = authorFromPlayer(gameMutation.author)
             if (text) {
                 if (gameMutation.cancelsMutationId) {
                     const cancelledMutation = this.gameMutationsMap[gameMutation.cancelsMutationId]
@@ -107,6 +94,11 @@ export const useHistoryStore = defineStore('gameHistory', {
                         )?.text
                         // strip tags from cancel text
                         cancelText = cancelText?.replace(/<\/?[^>]+(>|$)/g, '')
+
+                        if (gameMutation.cancelToResolveConflict) {
+                            authorName = 'Conflict resolver'
+                            authorColorRgba = 'rgba(255, 0, 0, 0.5)'
+                        }
                     }
                 }
 
@@ -114,18 +106,23 @@ export const useHistoryStore = defineStore('gameHistory', {
                     closeUpCard = gameMutation.targetCard ?? undefined
                 }
 
-                this.addLogEntry(
+                this.logEntries.push({
                     text,
-                    gameMutation.timestamp,
-                    gameMutation.author,
+                    timestamp: gameMutation.timestamp,
+                    authorName,
+                    authorColorRgba,
                     cancelText,
                     closeUpCard,
-                    gameMutation.id,
-                )
+                    mutationId: gameMutation.id,
+                })
             }
         },
         addChatMessage(chatMessage: ChatMessage) {
-            this.addLogEntry(chatMessage.text, chatMessage.timestamp, chatMessage.player)
+            this.logEntries.push({
+                text: chatMessage.text,
+                timestamp: chatMessage.timestamp,
+                ...authorFromPlayer(chatMessage.player),
+            })
         },
     },
 })

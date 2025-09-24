@@ -6,6 +6,7 @@ import { DeckList } from '@/gateway/deck.ts'
 import { useMultiplayerStore } from '@/store/multiplayer.ts'
 import { useBusStore } from '@/store/bus.ts'
 import { SerializedGame, SerializedGameMutation } from '@/gateway/serialization.ts'
+import { GameMutationId } from '@/state/gameMutations.ts'
 
 /**
  * Trystero Config
@@ -59,7 +60,7 @@ export const TRYSTERO_CONFIG = {
 }
 
 /**
- * Types
+ * Types for user matching
  */
 
 export type PermanentId = string
@@ -90,46 +91,59 @@ export type GameRoom = {
 
 export enum MutationSyncMode {
     LWW = 'LWW', // Last Write Wins
+    Ordered = 'Ordered', // Must apply in order
     Merge = 'Merge', // Always apply all mutations to merge them
     Exclusive = 'Exclusive', // Cannot happen concurrently, only one Player is allowed to do it
 }
 
+export type Tick = number
+
 // Versioning with Lamport Clock
-export type ClockVersion = {
-    tick: number
+export type LamportClockVersion = {
+    tick: Tick
     permId: PermanentId
 }
 
-// Identify target of mutations that must be synced
-export type VersionningId = string
+// Versioning with Lamport Clock
+export type VectorClockVersion = Record<PermanentId, Tick>
 
-export enum VersionningTarget {
+// Identify target of mutations that must be synced
+export type VersioningId = string
+
+export enum VersioningTarget {
     Turn = 'Turn',
     TurnPhase = 'TurnPhase',
     TheEdge = 'TheEdge',
-    Flip = 'Flip',
-    ChangeLock = 'ChangeLock',
     Marker = 'Marker',
-    Move = 'Move',
+    Card = 'Card',
     Reveal = 'Reveal',
     Shuffle = 'Shuffle',
 }
 
 export type GameMutationMessage = {
     gameMutation: SerializedGameMutation
-    globalVersion: ClockVersion // Always needed
-    version?: ClockVersion // Only needed for LWW mutations
+    globalVersion: LamportClockVersion // Always needed
+    version?: VectorClockVersion // Only needed for Ordered mutations
 }
 
 export type GameStateSyncMessage = {
     serializedGame: SerializedGame
-    globalVersion: ClockVersion
-    objectVersions: Record<VersionningId, ClockVersion>
+    globalVersion: LamportClockVersion
+    objectClocks: Record<VersioningId, VectorClockVersion>
+    mutationVersions: Record<GameMutationId, VectorClockVersion>
     hash: number
 }
 
 /**
  * Trystero Actions
+ */
+
+/*
+function simulateNetworkDelay(): Promise<void> {
+    return new Promise(resolve =>
+        setTimeout(resolve, useGameStateStore().selfPlayerSeatingIndex * 3000),
+    )
+}
  */
 
 type NetActionReceiveHandler<T> = Parameters<ActionReceiver<T>>[0]
@@ -154,12 +168,18 @@ export function makeNetAction<T extends DataPayload>(
         }
     })
 
-    const send: ActionSender<T> = (
+    const send: ActionSender<T> = async (
         data: T,
         targetPeers?: TargetPeers,
         metadata?: JsonValue,
         progress?: (percent: number, peerId: string) => void,
     ) => {
+        /*
+        if (actionName == 'b7tMutation') {
+            await simulateNetworkDelay()
+        }
+         */
+
         // Capture all errors on senders
         try {
             return sendRaw(data, targetPeers, metadata, progress)
@@ -172,6 +192,10 @@ export function makeNetAction<T extends DataPayload>(
     }
     return { send, receive }
 }
+
+/**
+ * Connection / Disconnection
+ */
 
 const CONNECTION_ALERT_DELAY = 5 * 1000 // 5 seconds
 
