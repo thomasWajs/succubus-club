@@ -1,3 +1,12 @@
+## [0.1.3] - 2025-09-24
+
+Features:
+- Vastly improved network code
+
+Bugfix:
+- Any card can attempt to block
+- Display greater hand size
+
 ## [0.1.2] - 2025-09-18
 
 Features:
