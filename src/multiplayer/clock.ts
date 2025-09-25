@@ -51,12 +51,10 @@ export enum ClockCompare {
 }
 
 export class VectorClock {
-    public readonly _version: VectorClockVersion
-    private readonly selfPermId: PermanentId
+    private readonly _version: VectorClockVersion
 
     constructor(initial?: VectorClockVersion) {
         this._version = {}
-        this.selfPermId = useCoreStore().userProfile.permanentId
 
         if (initial) {
             this.merge(initial)
@@ -75,7 +73,8 @@ export class VectorClock {
 
     /** Increment the counter for a player */
     advance(): VectorClockVersion {
-        this._version[this.selfPermId] = this.get(this.selfPermId) + 1
+        const selfPermId = useCoreStore().userProfile.permanentId
+        this._version[selfPermId] = this.get(selfPermId) + 1
         return this.version
     }
 
