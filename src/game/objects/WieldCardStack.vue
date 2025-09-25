@@ -84,7 +84,7 @@ import {
 } from '@/game/const.ts'
 import { Container, Rectangle, useScene } from 'phavuer'
 import { useGameBusStore } from '@/store/bus.ts'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import CardInWieldCardStack from '@/game/objects/CardInWieldCardStack.vue'
 import { AnyCardRegion } from '@/model/CardRegion.ts'
 import Phaser, { GameObjects } from 'phaser'
@@ -148,6 +148,7 @@ const cards = computed(() => {
     }
     return cards
 })
+watch(cards, updateScrollbar)
 
 /**
  * Setup wheel scrolling
@@ -254,5 +255,7 @@ function onWheel({}, {}, deltaX: number, {}, {}) {
  */
 function onOverlayPointerDown() {
     gameBus.wieldCardStack.show = false
+    gameBus.wieldCardStack.cardRegion = null
+    gameBus.wieldCardStack.searchString = ''
 }
 </script>
