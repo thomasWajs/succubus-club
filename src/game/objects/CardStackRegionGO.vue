@@ -120,8 +120,8 @@ import { useGameBusStore } from '@/store/bus.ts'
 import Color = Phaser.Display.Color
 import Pointer = Phaser.Input.Pointer
 import { PhaserDataKey } from '@/game/types.ts'
-import { AnyCard } from '@/model/Card.ts'
 import { RegionName } from '@/model/const.ts'
+import { getDraggedCard } from '@/game/utils.ts'
 
 const props = defineProps<{
     x: number
@@ -157,7 +157,7 @@ function closeUpAshHeap() {
  */
 
 function onBoundariesCreate(boundaries: GameObjects.Rectangle) {
-    boundaries.setData(PhaserDataKey.CardRegion, props.cardRegion)
+    boundaries.setData(PhaserDataKey.CardRegionOid, props.cardRegion.oid)
 
     // boundaries is already interactive because it declare a dropZone
     // so we update its cursor property instead of using setInteractive()
@@ -170,7 +170,7 @@ function onBoundariesCreate(boundaries: GameObjects.Rectangle) {
         Phaser.Input.Events.DRAG_ENTER,
         ({}, cardImage: GameObjects.Image, target: GameObjects.Rectangle) => {
             // Highlight target region if it's different from the source region
-            const card = cardImage.getData(PhaserDataKey.Card) as AnyCard
+            const card = getDraggedCard(cardImage)
             if (target == boundaries && card.region.oid != props.cardRegion.oid) {
                 isDraggedOver.value = true
             }

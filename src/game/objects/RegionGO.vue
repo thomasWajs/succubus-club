@@ -50,7 +50,7 @@ import CardGO from '@/game/objects/CardGO.vue'
 import { AnyCardRegion } from '@/model/CardRegion.ts'
 import Color = Phaser.Display.Color
 import { PhaserDataKey } from '@/game/types.ts'
-import { AnyCard } from '@/model/Card.ts'
+import { getDraggedCard } from '@/game/utils.ts'
 
 const props = defineProps<{
     x: number
@@ -64,14 +64,14 @@ const props = defineProps<{
 const isDraggedOver = ref(false)
 
 function onBoundariesCreate(boundaries: GameObjects.Rectangle) {
-    boundaries.setData(PhaserDataKey.CardRegion, props.cardRegion)
+    boundaries.setData(PhaserDataKey.CardRegionOid, props.cardRegion.oid)
 
     const scene = useScene()
     scene.input.on(
         Phaser.Input.Events.DRAG_ENTER,
         ({}, cardImage: GameObjects.Image, target: GameObjects.Rectangle) => {
             // Highlight target region if it's different from the source region
-            const card = cardImage.getData(PhaserDataKey.Card) as AnyCard
+            const card = getDraggedCard(cardImage)
             if (target == boundaries && card.region.oid != props.cardRegion.oid) {
                 isDraggedOver.value = true
             }

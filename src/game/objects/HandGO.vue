@@ -30,7 +30,7 @@ import { Circle, Container, useScene } from 'phavuer'
 
 import CardInHandGO from '@/game/objects/CardInHandGO.vue'
 import { useGameStateStore } from '@/store/gameState.ts'
-import { nextTick, ref } from 'vue'
+import { nextTick, ref, computed } from 'vue'
 import {
     HAND_ARC_ORIGIN_X,
     HAND_ARC_ORIGIN_Y,
@@ -42,14 +42,16 @@ import {
 import { useGameBusStore } from '@/store/bus.ts'
 import Pointer = Phaser.Input.Pointer
 import { CardAttrs, PhaserDataKey } from '@/game/types.ts'
-import { AnyCard, CardOid } from '@/model/Card.ts'
+import { CardOid } from '@/model/Card.ts'
 
-import { dropCoordinates } from '@/game/utils.ts'
+import { dropCoordinates, getDraggedCard } from '@/game/utils.ts'
 
 const gameState = useGameStateStore()
 const gameBus = useGameBusStore()
 const isDraggedOver = ref(false)
-const hand = gameState.selfPlayer.hand
+
+// Can't link directly to selfPlayer.hand because resync will change the object
+const hand = computed(() => gameState.selfPlayer.hand)
 
 /**
  * Vue DOES NOT guarantee iterating order on ref arrays ( https://vuejs.org/guide/essentials/template-refs#refs-inside-v-for ).
@@ -69,7 +71,7 @@ function registerCardInHandGO(cardInHandGO: typeof CardInHandGO) {
 }
 
 function getOrderedCardsInHand() {
-    return gameState.selfPlayer.hand.cards.map(card => cardInHandMap[card.oid]).filter(card => card)
+    return hand.value.cards.map(card => cardInHandMap[card.oid]).filter(card => card)
 }
 
 /**
@@ -84,7 +86,7 @@ function sortCardInHandsVisibility() {
 }
 
 function onBoundariesCreate(boundaries: GameObjects.Arc) {
-    boundaries.setData(PhaserDataKey.CardRegion, hand)
+    boundaries.setData(PhaserDataKey.CardRegionOid, hand.value.oid)
 
     const scene = useScene()
     scene.input.on(Phaser.Input.Events.DRAG_START, () => {
@@ -94,8 +96,8 @@ function onBoundariesCreate(boundaries: GameObjects.Arc) {
         Phaser.Input.Events.DRAG_ENTER,
         ({}, cardImage: GameObjects.Image, target: GameObjects.Arc) => {
             // Highlight target region if it's different from the source region
-            const card = cardImage.getData(PhaserDataKey.Card) as AnyCard
-            if (target == boundaries && card.region.oid != hand.oid) {
+            const card = getDraggedCard(cardImage)
+            if (target == boundaries && card.region.oid != hand.value.oid) {
                 isDraggedOver.value = true
             }
         },

@@ -4,6 +4,10 @@ import Vector2Like = Phaser.Types.Math.Vector2Like
 import TransformXY = Phaser.Math.TransformXY
 import Pointer = Phaser.Input.Pointer
 import { display } from '@/game/display.ts'
+import { PhaserDataKey } from '@/game/types.ts'
+import { AnyCardRegion, CardRegionOid } from '@/model/CardRegion.ts'
+import { useGameStateStore } from '@/store/gameState.ts'
+import { AnyCard, CardOid } from '@/model/Card.ts'
 
 export function dropCoordinates(pointer: Pointer, toContainer: GameObjects.Container) {
     return TransformXY(
@@ -72,4 +76,39 @@ export function positionContextMenu(
 
         set(x, y)
     }, 0)
+}
+
+export function getDropCardRegion(droppedOn: GameObjects.GameObject): AnyCardRegion | null {
+    const gameState = useGameStateStore()
+
+    const cardRegionOid = droppedOn.getData(PhaserDataKey.CardRegionOid) as CardRegionOid
+    // Not dropped on any region
+    if (!cardRegionOid) {
+        return null
+    }
+
+    const cardRegion = gameState.cardRegions[cardRegionOid] as AnyCardRegion
+    // Dropped on a region that doesn't exist in the game state, that should never happen
+    if (!cardRegion) {
+        throw new Error(`onDrop: targetCardRegion not found for oid ${cardRegionOid}`)
+    }
+
+    return cardRegion
+}
+
+export function getDraggedCard(cardImage: GameObjects.Image): AnyCard {
+    const gameState = useGameStateStore()
+
+    const cardOid = cardImage.getData(PhaserDataKey.CardOid) as CardOid
+    if (!cardOid) {
+        throw new Error(`getDraggedCard: cardImage does not have a valid CardOid`)
+    }
+
+    const card = gameState.cards[cardOid] as AnyCard
+    // Dropped on a region that doesn't exist in the game state, that should never happen
+    if (!card) {
+        throw new Error(`onDrop: card not found for oid ${cardOid}`)
+    }
+
+    return card
 }

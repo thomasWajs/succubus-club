@@ -126,7 +126,7 @@ const cardAttrs = computed((): CardAttrs => {
  */
 
 function onImageCreate(image: GameObjects.Image) {
-    image.setData(PhaserDataKey.Card, card)
+    image.setData(PhaserDataKey.CardOid, card.oid)
     image.setData(PhaserDataKey.CardAttrs, cardAttrs)
 
     // Watch for usable and dragging state changes to toggle glow

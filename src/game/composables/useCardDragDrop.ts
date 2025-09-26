@@ -2,11 +2,9 @@ import { Card } from '@/model/Card.ts'
 import { ComputedRef, reactive, ref, Ref } from 'vue'
 import Phaser, { GameObjects } from 'phaser'
 import Pointer = Phaser.Input.Pointer
-import { PhaserDataKey } from '@/game/types.ts'
-import { AnyCardRegion } from '@/model/CardRegion.ts'
 import { CardMovement, gameMutations } from '@/state/gameMutations.ts'
 import { useGameBusStore } from '@/store/bus.ts'
-import { dropCoordinatesSnapped } from '@/game/utils.ts'
+import { dropCoordinatesSnapped, getDropCardRegion } from '@/game/utils.ts'
 
 export function useCardDragDrop(
     card: Card,
@@ -55,8 +53,7 @@ export function useCardDragDrop(
      */
 
     function onDrop(pointer: Pointer, droppedOn: GameObjects.Rectangle) {
-        const targetCardRegion = droppedOn.getData(PhaserDataKey.CardRegion) as AnyCardRegion
-
+        const targetCardRegion = getDropCardRegion(droppedOn)
         // Not dropped on any region, abort
         if (!targetCardRegion) {
             return

@@ -1,7 +1,7 @@
 export enum PhaserDataKey {
-    Card = 'card',
+    CardOid = 'card',
     CardAttrs = 'cardAttrs',
-    CardRegion = 'cardRegion',
+    CardRegionOid = 'cardRegion',
 }
 
 export enum CardCategory {

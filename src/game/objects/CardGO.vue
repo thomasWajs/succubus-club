@@ -143,12 +143,11 @@ import { gameMutations } from '@/state/gameMutations.ts'
 import Vector2Like = Phaser.Types.Math.Vector2Like
 import Pointer = Phaser.Input.Pointer
 import { CardAttrs, CardCategory, PhaserDataKey } from '@/game/types.ts'
-import { AnyCardRegion } from '@/model/CardRegion.ts'
 import { RegionName } from '@/model/const.ts'
 import { useCardClick } from '@/game/composables/useCardClick.ts'
 import { useCardOutline } from '@/game/composables/useCardOutline.ts'
 import { Validity } from '@/state/types.ts'
-import { dropCoordinatesSnapped } from '@/game/utils.ts'
+import { dropCoordinatesSnapped, getDropCardRegion } from '@/game/utils.ts'
 
 const { card, regionName } = defineProps<{
     card: Card
@@ -205,7 +204,7 @@ const cardAttrs = computed((): CardAttrs => {
  */
 
 function onImageCreate(image: GameObjects.Image) {
-    image.setData(PhaserDataKey.Card, card)
+    image.setData(PhaserDataKey.CardOid, card.oid)
     image.setData(PhaserDataKey.CardAttrs, cardAttrs)
 }
 
@@ -427,9 +426,8 @@ function onDrop(event: CardDragEvent) {
         return
     }
 
-    const targetCardRegion = event.droppedOn.getData(PhaserDataKey.CardRegion) as AnyCardRegion
-
-    // Not dropped on a card region
+    const targetCardRegion = getDropCardRegion(event.droppedOn)
+    // Not dropped on any region, abort
     if (!targetCardRegion) {
         return
     }

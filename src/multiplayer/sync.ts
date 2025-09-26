@@ -239,18 +239,17 @@ function _unsafeReceiveMutationMessage(gameMutationMessage: GameMutationMessage)
     const multiplayer = useMultiplayerStore()
 
     try {
-        const gameMutation = deserializeGameMutation(gameMutationMessage.gameMutation)
-
         // Don't process twice the same mutation
-        if (receivedMutations.has(gameMutation.id)) {
+        if (receivedMutations.has(gameMutationMessage.gameMutationId)) {
             return
         }
-        receivedMutations.add(gameMutation.id)
+        receivedMutations.add(gameMutationMessage.gameMutationId)
 
         // Update our global clock when we receive a non-applied remote mutation,
         // whatever the result ( pending, applied, invalid )
         multiplayer.globalClock.update(gameMutationMessage.globalVersion)
 
+        const gameMutation = deserializeGameMutation(gameMutationMessage.gameMutation)
         const remoteVersion = gameMutationMessage.version
 
         if (gameMutation.syncMode == MutationSyncMode.Ordered) {
@@ -343,8 +342,9 @@ export async function applyGameResync(syncMessage: GameStateSyncMessage) {
         // Actually load game only if remote state is newer than ours,
         // and only if hashes are different
         if (
-            multiplayer.globalClock.compare(syncMessage.globalVersion) <= 0 &&
-            syncMessage.hash != useGameStateStore().hash()
+            true ||
+            (multiplayer.globalClock.compare(syncMessage.globalVersion) <= 0 &&
+                syncMessage.hash != useGameStateStore().hash())
         ) {
             loadGame(syncMessage.serializedGame)
 
