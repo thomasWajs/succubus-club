@@ -9,6 +9,7 @@ import {
     TRYSTERO_CONFIG,
     User,
     PermanentId,
+    garbageCollectRTCConnections,
 } from '@/multiplayer/common.ts'
 import { joinGameRoom, leaveGameRoom } from '@/multiplayer/room.ts'
 import { useBusStore } from '@/store/bus.ts'
@@ -132,6 +133,9 @@ function onPeerJoin(peerId: PeerId) {
         .then(() => {
             broadcastCurrentGameRoom(peerId)
         })
+
+    // Trigger garbage collection to prevent chromium bug https://issues.chromium.org/issues/41378764
+    garbageCollectRTCConnections()
 }
 
 function onPeerLeave(peerId: PeerId) {

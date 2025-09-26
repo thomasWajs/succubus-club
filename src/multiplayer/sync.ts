@@ -161,7 +161,7 @@ function applyPeerMutation(gameMutation: AnyGameMutation, remoteVersion?: Vector
             'warning',
         )
 
-        // TODO: this can happen when screwing up the game state due to concurrency/conflict. Force a state resync
+        // TODO: this can happen when screwing up the game state due to concurrency/conflict. Force a state resync ?
         // In the meantime, update the clock state to prevent further conflicts
         if (gameMutation.syncMode == MutationSyncMode.Ordered && remoteVersion) {
             multiplayer.objectClocks[gameMutation.versioningId].merge(remoteVersion)

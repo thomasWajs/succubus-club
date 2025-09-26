@@ -6,6 +6,32 @@ import vueParser from 'vue-eslint-parser'
 import prettier from 'eslint-plugin-prettier'
 import prettierConfig from 'eslint-config-prettier'
 
+const browserGlobals = {
+    defineProps: 'readonly',
+    defineEmits: 'readonly',
+    defineExpose: 'readonly',
+    withDefaults: 'readonly',
+    // Browser globals
+    window: 'readonly',
+    document: 'readonly',
+    console: 'readonly',
+    setTimeout: 'readonly',
+    setInterval: 'readonly',
+    clearTimeout: 'readonly',
+    clearInterval: 'readonly',
+    fetch: 'readonly',
+    crypto: 'readonly',
+    Image: 'readonly',
+    screen: 'readonly',
+    queueMicrotask: 'readonly',
+    localStorage: 'readonly',
+    // Node globals
+    process: 'readonly',
+    // Cache-busting globals
+    ATLAS_TEXTURE_HASH: 'readonly',
+    ATLAS_JSON_HASH: 'readonly',
+}
+
 export default [
     js.configs.recommended,
     ...vue.configs['flat/recommended'],
@@ -22,32 +48,7 @@ export default [
                 project: './tsconfig.json',
                 extraFileExtensions: ['.vue'],
             },
-            globals: {
-                defineProps: 'readonly',
-                defineEmits: 'readonly',
-                defineExpose: 'readonly',
-                withDefaults: 'readonly',
-                // Browser globals
-                window: 'readonly',
-                document: 'readonly',
-                console: 'readonly',
-                setTimeout: 'readonly',
-                setInterval: 'readonly',
-                clearTimeout: 'readonly',
-                clearInterval: 'readonly',
-                fetch: 'readonly',
-                crypto: 'readonly',
-                Image: 'readonly',
-                screen: 'readonly',
-                // Node globals
-                process: 'readonly',
-                Buffer: 'readonly',
-                global: 'readonly',
-                localStorage: 'readonly',
-                // Cache-busting globals
-                ATLAS_TEXTURE_HASH: 'readonly',
-                ATLAS_JSON_HASH: 'readonly',
-            },
+            globals: browserGlobals,
         },
         plugins: {
             '@typescript-eslint': typescript,
@@ -132,24 +133,7 @@ export default [
                 sourceType: 'module',
                 project: './tsconfig.json',
             },
-            globals: {
-                // Browser globals
-                window: 'readonly',
-                document: 'readonly',
-                console: 'readonly',
-                setTimeout: 'readonly',
-                setInterval: 'readonly',
-                clearTimeout: 'readonly',
-                clearInterval: 'readonly',
-                fetch: 'readonly',
-                // Node globals
-                process: 'readonly',
-                Buffer: 'readonly',
-                global: 'readonly',
-                // Cache-busting globals
-                ATLAS_TEXTURE_HASH: 'readonly',
-                ATLAS_JSON_HASH: 'readonly',
-            },
+            globals: browserGlobals,
         },
         plugins: {
             '@typescript-eslint': typescript,

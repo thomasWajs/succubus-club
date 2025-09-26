@@ -202,7 +202,18 @@ const CONNECTION_ALERT_DELAY = 5 * 1000 // 5 seconds
 
 const last_disconnect_alert = {} as Record<PermanentId, Date>
 
-export function garbageCollectRTCConnections() {}
+// https://issues.chromium.org/issues/41378764
+// Thanks to https://stackoverflow.com/questions/66546934/how-to-clear-closed-rtcpeerconnection-with-workaround/66546935#66546935
+export function garbageCollectRTCConnections() {
+    queueMicrotask(() => {
+        let img: HTMLImageElement | null = document.createElement('img')
+        img.src = window.URL.createObjectURL(new Blob([new ArrayBuffer(5e7)])) // 50Mo
+        img.onerror = function () {
+            window.URL.revokeObjectURL(this.src)
+            img = null
+        }
+    })
+}
 
 function alertDisconnectAfterDelay(user: User) {
     const bus = useBusStore()

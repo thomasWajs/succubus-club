@@ -1,3 +1,8 @@
+## [0.1.3] - 2025-09-26
+
+Enhancements on the network code.
+Minor bugfixes.
+
 ## [0.1.3] - 2025-09-24
 
 Features:

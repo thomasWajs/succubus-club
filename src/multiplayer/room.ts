@@ -11,6 +11,7 @@ import {
     GameMutationMessage,
     GameStateSyncMessage,
     alertReconnectAfterDelay,
+    garbageCollectRTCConnections,
 } from '@/multiplayer/common.ts'
 import { resetState, setupMultiplayerGame, startGame } from '@/game/setup.ts'
 import { GameType } from '@/state/types.ts'
@@ -136,6 +137,9 @@ function onPeerJoin(peerId: PeerId) {
     if (canUserBeAPlayer(gameRoom, user)) {
         multiplayer.upsertGameRoomPlayer(user)
     }
+
+    // Trigger garbage collection to prevent chromium bug https://issues.chromium.org/issues/41378764
+    garbageCollectRTCConnections()
 }
 
 function onPeerLeave(peerId: PeerId) {
