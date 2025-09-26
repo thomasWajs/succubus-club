@@ -7,6 +7,7 @@ import { useMultiplayerStore } from '@/store/multiplayer.ts'
 import { useBusStore } from '@/store/bus.ts'
 import { SerializedGame, SerializedGameMutation } from '@/gateway/serialization.ts'
 import { GameMutationId } from '@/state/gameMutations.ts'
+import { useGameStateStore } from '@/store/gameState.ts'
 
 /**
  * Trystero Config
@@ -122,6 +123,7 @@ export enum VersioningTarget {
 
 export type GameMutationMessage = {
     gameMutation: SerializedGameMutation
+    gameMutationId: GameMutationId
     globalVersion: LamportClockVersion // Always needed
     version?: VectorClockVersion // Only needed for Ordered mutations
 }
@@ -138,13 +140,9 @@ export type GameStateSyncMessage = {
  * Trystero Actions
  */
 
-/*
-function simulateNetworkDelay(): Promise<void> {
-    return new Promise(resolve =>
-        setTimeout(resolve, useGameStateStore().selfPlayerSeatingIndex * 3000),
-    )
+export function simulateNetworkDelay(time: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, time))
 }
- */
 
 type NetActionReceiveHandler<T> = Parameters<ActionReceiver<T>>[0]
 type NetAction<T extends DataPayload> = {
@@ -176,7 +174,10 @@ export function makeNetAction<T extends DataPayload>(
     ) => {
         /*
         if (actionName == 'b7tMutation') {
-            await simulateNetworkDelay()
+            await simulateNetworkDelay(useGameStateStore().selfPlayerSeatingIndex * 1500)
+        }
+        if (actionName == 'resync') {
+            await simulateNetworkDelay(6000)
         }
          */
 
@@ -200,6 +201,8 @@ export function makeNetAction<T extends DataPayload>(
 const CONNECTION_ALERT_DELAY = 5 * 1000 // 5 seconds
 
 const last_disconnect_alert = {} as Record<PermanentId, Date>
+
+export function garbageCollectRTCConnections() {}
 
 function alertDisconnectAfterDelay(user: User) {
     const bus = useBusStore()

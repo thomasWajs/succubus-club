@@ -20,6 +20,7 @@ import router, { ROUTES } from '@/ui/router.ts'
 import { useHistoryStore } from '@/store/history.ts'
 import { DeckList } from '@/gateway/deck.ts'
 import { useGameBusStore } from '@/store/bus.ts'
+import { resetSync } from '@/multiplayer/sync.ts'
 
 const NB_BOTS = 1
 export const BOT_NAME = 'Bot'
@@ -67,6 +68,8 @@ function setupPlayArea(player: Player, deck: DeckList) {
 
 export function resetState() {
     const core = useCoreStore()
+
+    resetSync()
 
     useGameStateStore().$reset()
     useHistoryStore().$reset()

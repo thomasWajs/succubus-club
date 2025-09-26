@@ -295,7 +295,9 @@ export async function reconnectIntoGame(gameRoom?: GameRoom) {
             if (error instanceof TimeoutError && currentRoom && multiplayer.currentGameRoom) {
                 const peerIds = Object.keys(currentRoom.getPeers() ?? [])
                 const nbPlayersConnected = multiplayer.currentGameRoom.players.filter(
-                    playerPermId => peerIds.includes(multiplayer.users[playerPermId].peerId),
+                    playerPermId =>
+                        multiplayer.users[playerPermId] &&
+                        peerIds.includes(multiplayer.users[playerPermId].peerId),
                 ).length
                 // Nope, no players connected, we can't go on with the resync'
                 if (nbPlayersConnected == 0) {

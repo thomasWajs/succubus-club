@@ -68,8 +68,12 @@ export const useHistoryStore = defineStore('gameHistory', {
                     continue
                 }
 
-                // If we found a cancellable mutation AND self player is the author, returns it
-                return mutation.author == gameState.selfPlayer ? mutation : null
+                if (mutation.author != gameState.selfPlayer) {
+                    continue
+                }
+
+                // We found a cancellable mutation
+                return mutation
             }
             return null
         },
@@ -77,45 +81,45 @@ export const useHistoryStore = defineStore('gameHistory', {
     actions: {
         addGameMutation(gameMutation: AnyGameMutation) {
             this.gameMutations.push(gameMutation)
-            if (gameMutation.cancelsMutationId) {
-                this.cancelledMutations.add(gameMutation.cancelsMutationId)
-            }
 
             const text = gameMutation.formatForLog()
+            if (!text) {
+                return
+            }
+
             let cancelText, closeUpCard
             let { authorName, authorColorRgba } = authorFromPlayer(gameMutation.author)
-            if (text) {
-                if (gameMutation.cancelsMutationId) {
-                    const cancelledMutation = this.gameMutationsMap[gameMutation.cancelsMutationId]
-                    if (cancelledMutation) {
-                        // Find the text at the moment the mutation was applied
-                        cancelText = this.logEntries.find(
-                            l => l.mutationId == cancelledMutation.id,
-                        )?.text
-                        // strip tags from cancel text
-                        cancelText = cancelText?.replace(/<\/?[^>]+(>|$)/g, '')
 
-                        if (gameMutation.cancelToResolveConflict) {
-                            authorName = 'Conflict resolver'
-                            authorColorRgba = 'rgba(255, 0, 0, 0.5)'
-                        }
+            if (gameMutation.cancelsMutationId) {
+                const cancelledMutation = this.gameMutationsMap[gameMutation.cancelsMutationId]
+                if (cancelledMutation) {
+                    // Find the text at the moment the mutation was applied
+                    cancelText = this.logEntries.find(
+                        l => l.mutationId == cancelledMutation.id,
+                    )?.text
+                    // strip tags from cancel text
+                    cancelText = cancelText?.replace(/<\/?[^>]+(>|$)/g, '')
+
+                    if (gameMutation.cancelToResolveConflict) {
+                        authorName = 'Conflict resolver'
+                        authorColorRgba = 'rgba(255, 0, 0, 0.5)'
                     }
                 }
-
-                if (gameMutation.canSeeTargetCard) {
-                    closeUpCard = gameMutation.targetCard ?? undefined
-                }
-
-                this.logEntries.push({
-                    text,
-                    timestamp: gameMutation.timestamp,
-                    authorName,
-                    authorColorRgba,
-                    cancelText,
-                    closeUpCard,
-                    mutationId: gameMutation.id,
-                })
             }
+
+            if (gameMutation.canSeeTargetCard) {
+                closeUpCard = gameMutation.targetCard ?? undefined
+            }
+
+            this.logEntries.push({
+                text,
+                timestamp: gameMutation.timestamp,
+                authorName,
+                authorColorRgba,
+                cancelText,
+                closeUpCard,
+                mutationId: gameMutation.id,
+            })
         },
         addChatMessage(chatMessage: ChatMessage) {
             this.logEntries.push({
