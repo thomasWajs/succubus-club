@@ -9,7 +9,7 @@ import * as logging from '@/logging.ts'
 import router from './ui/router.ts'
 import { useBusStore } from '@/store/bus.ts'
 import { screenBigEnough } from '@/game/display.ts'
-import { initSentryPiniPlugin } from '@/logging.ts'
+import { initSentryPiniaPlugin } from '@/logging.ts'
 
 const app = createApp(App)
 logging.initSentry(app)
@@ -34,7 +34,7 @@ if (widgetActor) {
 }
 
 const pinia = createPinia()
-initSentryPiniPlugin(pinia)
+initSentryPiniaPlugin(pinia)
 app.use(pinia)
 app.use(router)
 

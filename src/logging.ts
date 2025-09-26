@@ -24,7 +24,7 @@ export function initSentry(app: App) {
     })
 }
 
-export function initSentryPiniPlugin(pinia: Pinia) {
+export function initSentryPiniaPlugin(pinia: Pinia) {
     pinia.use(
         Sentry.createSentryPiniaPlugin({
             stateTransformer: state => {
@@ -38,18 +38,30 @@ export function initSentryPiniPlugin(pinia: Pinia) {
                 >
 
                 if (core.userProfile?.avatar) {
-                    core.userProfile.avatar = '[stripped]'
+                    transformedState.core = {
+                        ...core,
+                        userProfile: {
+                            ...core.userProfile,
+                            avatar: '[stripped]',
+                        },
+                    }
                 }
 
                 if (multiplayer.users) {
-                    multiplayer.users = Object.fromEntries(
-                        Object.entries(multiplayer.users).map(([permId, user]) => {
-                            if (user.avatar) {
-                                user.avatar = '[stripped]'
-                            }
-                            return [permId, user]
-                        }),
-                    )
+                    transformedState.multiplayer = {
+                        ...multiplayer,
+                        users: Object.fromEntries(
+                            Object.entries(multiplayer.users).map(([permId, user]) => {
+                                if (user.avatar) {
+                                    user = {
+                                        ...user,
+                                        avatar: '[stripped]',
+                                    }
+                                }
+                                return [permId, user]
+                            }),
+                        ),
+                    }
                 }
                 return transformedState
             },
