@@ -7,7 +7,7 @@ import { useGameBusStore } from '@/store/bus.ts'
 import { dropCoordinatesSnapped, getDropCardRegion } from '@/game/utils.ts'
 
 export function useCardDragDrop(
-    card: Card,
+    cardRef: Ref<Card>,
     cardAttrs: ComputedRef<{ x: number; y: number }>,
     image: Ref<GameObjects.Image | undefined>,
     cardOutline: Ref<GameObjects.Rectangle | undefined>,
@@ -53,6 +53,7 @@ export function useCardDragDrop(
      */
 
     function onDrop(pointer: Pointer, droppedOn: GameObjects.Rectangle) {
+        const card = cardRef.value
         const targetCardRegion = getDropCardRegion(droppedOn)
         // Not dropped on any region, abort
         if (!targetCardRegion) {

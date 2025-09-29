@@ -46,7 +46,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, toRef } from 'vue'
 import { GameObjects } from 'phaser'
 import { Image, Rectangle, refObj } from 'phavuer'
 
@@ -92,21 +92,28 @@ function onImageCreate(image: GameObjects.Image) {
  * Outline on pointer over / selection area
  */
 
-const { onPointerOver, onPointerOut, getCardOutlineColor } = useCardOutline(card, image, false)
+const { onPointerOver, onPointerOut, getCardOutlineColor } = useCardOutline(
+    toRef(() => card),
+    image,
+    false,
+)
 
 /**
  * Select/Deselect on simple click
  * Context Menu on right click
  */
 
-const { onPointerDown } = useCardClick(card, false)
+const { onPointerDown } = useCardClick(
+    toRef(() => card),
+    false,
+)
 
 /**
  * Drag'n'Drop
  */
 
 const { isDragging, dragPosition, onDragStart, onDrag, onDragEnd, onDrop } = useCardDragDrop(
-    card,
+    toRef(() => card),
     cardAttrs,
     image,
     cardOutline,

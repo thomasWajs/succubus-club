@@ -3,23 +3,25 @@
  * Lock on double click
  * Context Menu on right click
  */
-
+import { Ref } from 'vue'
 import Phaser from 'phaser'
 import Pointer = Phaser.Input.Pointer
 import { useScene } from 'phavuer'
-import { Card } from '@/model/Card.ts'
 import { useGameBusStore } from '@/store/bus.ts'
 import { gameMutations } from '@/state/gameMutations.ts'
 import { positionContextMenu } from '@/game/utils.ts'
+import { Card } from '@/model/Card.ts'
 
 const DOUBLE_CLICK_DELAY = 300
 let lastClickTime = 0
 
-export function useCardClick(card: Card, invertLockOnDoubleClick: boolean) {
+export function useCardClick(cardRef: Ref<Card>, invertLockOnDoubleClick: boolean) {
     const scene = useScene()
     const gameBus = useGameBusStore()
 
     function onLeftClick(pointer: Pointer) {
+        const card = cardRef.value
+
         // if the card is not already selected...
         if (!card.isSelected()) {
             // ctrl + click or shift + click ==> multiple selection
@@ -47,6 +49,8 @@ export function useCardClick(card: Card, invertLockOnDoubleClick: boolean) {
     }
 
     function onRightClick(pointer: Pointer) {
+        const card = cardRef.value
+
         // If this card is not already selected, the context menu apply only to this card
         if (!card.isSelected()) {
             gameBus.selectedCards = [card]

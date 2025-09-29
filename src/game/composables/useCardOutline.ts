@@ -7,7 +7,7 @@ import { Card } from '@/model/Card.ts'
 import { useScene } from 'phavuer'
 
 export function useCardOutline(
-    card: Card,
+    cardRef: Ref<Card>,
     image: Ref<GameObjects.Image | undefined>,
     withSelectionArea: boolean,
 ) {
@@ -29,7 +29,7 @@ export function useCardOutline(
 
     function onPointerOver() {
         isHovered.value = true
-        gameBus.setCloseUpCard(card)
+        gameBus.setCloseUpCard(cardRef.value)
     }
 
     function onPointerOut() {
@@ -45,7 +45,7 @@ export function useCardOutline(
         if (isHovered.value || isUnderSelectionArea()) {
             return CARD_OUTLINE_COLOR_HOVER.color
         } else {
-            return card.isSelected() ? CARD_OUTLINE_COLOR_SELECTED.color : undefined
+            return cardRef.value.isSelected() ? CARD_OUTLINE_COLOR_SELECTED.color : undefined
         }
     })
 

@@ -115,7 +115,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, watch, toRef } from 'vue'
 import Phaser, { GameObjects } from 'phaser'
 import { Circle, Image, Rectangle, refObj, Text } from 'phavuer'
 
@@ -272,7 +272,7 @@ const markersPosition = computed(() => {
  */
 
 const { isUnderSelectionArea, onPointerOver, onPointerOut, getCardOutlineColor } = useCardOutline(
-    card,
+    toRef(() => card),
     image,
     true,
 )
@@ -283,7 +283,10 @@ const { isUnderSelectionArea, onPointerOver, onPointerOut, getCardOutlineColor }
  * Context Menu on right click
  */
 
-const { onPointerDown } = useCardClick(card, true)
+const { onPointerDown } = useCardClick(
+    toRef(() => card),
+    true,
+)
 
 /**
  * Dispatch Drag/Drop events to other cards, for group dragging

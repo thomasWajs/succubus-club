@@ -46,7 +46,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onUnmounted, ref, watchEffect } from 'vue'
+import { computed, onUnmounted, ref, watchEffect, watch, toRef } from 'vue'
 import Phaser, { GameObjects } from 'phaser'
 import { Image, Rectangle, refObj, useScene } from 'phavuer'
 
@@ -198,7 +198,7 @@ function onPointerDown(pointer: Pointer) {
  */
 
 const { isDragging, dragPosition, onDragStart, onDragEnd, onDrop } = useCardDragDrop(
-    card,
+    toRef(() => card),
     cardAttrs,
     image,
     cardOutline,
