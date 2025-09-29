@@ -1,4 +1,9 @@
-## [0.1.3] - 2025-09-26
+## [0.1.5] - 2025-09-26
+
+Bugfix:
+- Fix incorrect behaviour after resync
+
+## [0.1.4] - 2025-09-26
 
 Enhancements on the network code.
 Minor bugfixes.
