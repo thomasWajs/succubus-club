@@ -1,6 +1,6 @@
 import { Raw, Component } from 'vue'
 import { acceptHMRUpdate, defineStore } from 'pinia'
-import { Card } from '@/model/Card.ts'
+import { Card, CardOid } from '@/model/Card.ts'
 import Phaser, { GameObjects } from 'phaser'
 import { Player } from '@/model/Player.ts'
 import { AnyCardRegion } from '@/model/CardRegion.ts'
@@ -33,7 +33,7 @@ export type CardDragEvent = {
 }
 
 export type HandleableCard = {
-    card: Card
+    cardOid: CardOid
     isUnderSelectionArea: () => boolean
     onDragStart: (event: CardDragEvent) => void
     onDrag: (event: CardDragEvent) => void
@@ -162,8 +162,9 @@ export const useGameBusStore = defineStore('gameBus', {
 
             return new Rectangle(x, y, width, height)
         },
-        selectedHandleableCards(state) {
-            return state.handleableCards.filter(hc => state.selectedCards.includes(hc.card))
+        selectedHandleableCards(state): HandleableCard[] {
+            const selectedIds = state.selectedCards.map(c => c.oid)
+            return state.handleableCards.filter(hc => selectedIds.includes(hc.cardOid))
         },
     },
 

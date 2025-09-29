@@ -11,6 +11,7 @@ import { useGameBusStore } from '@/store/bus.ts'
 import { gameMutations } from '@/state/gameMutations.ts'
 import { positionContextMenu } from '@/game/utils.ts'
 import { Card } from '@/model/Card.ts'
+import { useGameStateStore } from '@/store/gameState.ts'
 
 const DOUBLE_CLICK_DELAY = 300
 let lastClickTime = 0
@@ -18,6 +19,7 @@ let lastClickTime = 0
 export function useCardClick(cardRef: Ref<Card>, invertLockOnDoubleClick: boolean) {
     const scene = useScene()
     const gameBus = useGameBusStore()
+    const gameState = useGameStateStore()
 
     function onLeftClick(pointer: Pointer) {
         const card = cardRef.value
@@ -39,9 +41,10 @@ export function useCardClick(cardRef: Ref<Card>, invertLockOnDoubleClick: boolea
             lastClickTime = scene.time.now
             if (clickDelay < DOUBLE_CLICK_DELAY) {
                 for (const handleableCard of gameBus.selectedHandleableCards) {
+                    const card = gameState.cards[handleableCard.cardOid]
                     gameMutations.setLock.actSelf({
-                        card: handleableCard.card,
-                        newValue: !handleableCard.card.isLocked,
+                        card,
+                        newValue: !card.isLocked,
                     })
                 }
             }

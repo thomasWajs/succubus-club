@@ -8,7 +8,7 @@ import {
 import { AnyGameMutation, applyMutationLocally, GameMutationId } from '@/state/gameMutations.ts'
 import { Mutex } from '@/utils.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
-import { useBusStore } from '@/store/bus.ts'
+import { useBusStore, useGameBusStore } from '@/store/bus.ts'
 import * as logging from '@/logging.ts'
 import {
     GameMutationMessage,
@@ -18,7 +18,7 @@ import {
     VectorClockVersion,
     VersioningId,
 } from '@/multiplayer/common.ts'
-import { ClockCompare, VectorClock } from '@/multiplayer/clock.ts'
+import { ClockCompare, LamportClock, VectorClock } from '@/multiplayer/clock.ts'
 import { useHistoryStore } from '@/store/history.ts'
 import { useCoreStore } from '@/store/core.ts'
 
@@ -45,6 +45,11 @@ let pendingGameMutationMessage: GameMutationMessage[] = []
 export function resetSync() {
     receivedMutations = new Set()
     pendingMutations = []
+
+    const multiplayer = useMultiplayerStore()
+    multiplayer.globalClock = new LamportClock(useCoreStore().userProfile.permanentId)
+    multiplayer.objectClocks = {}
+    multiplayer.mutationVersions = {}
 }
 
 function ensureClock(versioningId: VersioningId): VectorClock {
@@ -126,6 +131,8 @@ function applyPeerMutation(gameMutation: AnyGameMutation, remoteVersion?: Vector
 
         // There's a conflict to resolve
         if (clock.compare(remoteVersion) == ClockCompare.Concurrent) {
+            multiplayer.stats.conflicts++
+
             const localConflictingMutations = getConflictingMutations(
                 remoteVersion,
                 gameMutation.versioningId,
@@ -271,6 +278,7 @@ function _unsafeReceiveMutationMessage(gameMutationMessage: GameMutationMessage)
             // Buffer out-of-order mutations
             if (!canApplyOrderedMutation(receivedMutation)) {
                 pendingMutations.push(receivedMutation)
+                multiplayer.stats.pendingMutations++
                 return
             }
         }
@@ -297,6 +305,9 @@ export function startGameResync(isUserRequest: boolean) {
 
     bus.isResyncing = true
 
+    useGameStateStore().$reset()
+    useHistoryStore().$reset()
+    useGameBusStore().$reset()
     resetSync()
 
     if (isUserRequest) {
@@ -342,9 +353,8 @@ export async function applyGameResync(syncMessage: GameStateSyncMessage) {
         // Actually load game only if remote state is newer than ours,
         // and only if hashes are different
         if (
-            true ||
-            (multiplayer.globalClock.compare(syncMessage.globalVersion) <= 0 &&
-                syncMessage.hash != useGameStateStore().hash())
+            multiplayer.globalClock.compare(syncMessage.globalVersion) <= 0 &&
+            syncMessage.hash != useGameStateStore().hash()
         ) {
             loadGame(syncMessage.serializedGame)
 

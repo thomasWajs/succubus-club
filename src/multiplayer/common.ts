@@ -7,7 +7,6 @@ import { useMultiplayerStore } from '@/store/multiplayer.ts'
 import { useBusStore } from '@/store/bus.ts'
 import { SerializedGame, SerializedGameMutation } from '@/gateway/serialization.ts'
 import { GameMutationId } from '@/state/gameMutations.ts'
-import { useGameStateStore } from '@/store/gameState.ts'
 
 /**
  * Trystero Config

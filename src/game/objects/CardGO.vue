@@ -487,8 +487,8 @@ function onDrop(event: CardDragEvent) {
  * Register onto the gameBus
  */
 
-const selectableCard = {
-    card,
+const handleableCard = {
+    cardOid: card.oid,
     isUnderSelectionArea,
     onDragStart,
     onDrag,
@@ -496,10 +496,10 @@ const selectableCard = {
     onDrop,
 }
 onMounted(() => {
-    gameBus.handleableCards.push(selectableCard)
+    gameBus.handleableCards.push(handleableCard)
 })
 onBeforeUnmount(() => {
-    const index = gameBus.handleableCards.indexOf(selectableCard)
+    const index = gameBus.handleableCards.indexOf(handleableCard)
     if (index != -1) {
         gameBus.handleableCards.splice(index, 1)
     }

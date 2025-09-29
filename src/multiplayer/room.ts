@@ -140,10 +140,14 @@ function onPeerJoin(peerId: PeerId) {
 
     // Trigger garbage collection to prevent chromium bug https://issues.chromium.org/issues/41378764
     garbageCollectRTCConnections()
+
+    multiplayer.stats.peerJoins++
 }
 
 function onPeerLeave(peerId: PeerId) {
     onPeerDisconnect(peerId, false)
+
+    useMultiplayerStore().stats.peerLeaves++
 }
 
 export function setupGameRoomWatcher() {

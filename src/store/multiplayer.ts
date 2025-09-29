@@ -41,6 +41,15 @@ export const useMultiplayerStore = defineStore('multiplayer', {
 
         // Per-mutation Vector Clock Versions, GameMutationId -> Version
         mutationVersions: {} as Record<GameMutationId, VectorClockVersion>,
+
+        /** Simple stats to get insights on crashes */
+
+        stats: {
+            pendingMutations: 0,
+            conflicts: 0,
+            peerJoins: 0,
+            peerLeaves: 0,
+        },
     }),
     getters: {
         selfUser: (state): User => {

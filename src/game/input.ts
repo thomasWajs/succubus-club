@@ -4,6 +4,7 @@ import Phaser, { GameObjects } from 'phaser'
 import { DRAG_DISTANCE_THRESHOLD } from '@/game/const.ts'
 import { useCommands } from '@/game/composables/useCommands.ts'
 import { display } from '@/game/display.ts'
+import { useGameStateStore } from '@/store/gameState.ts'
 
 /**
  * Pointer Inputs
@@ -65,12 +66,15 @@ function onPointerDown(pointer: Pointer, gameObjects: GameObjects.GameObject[]) 
 
 function onPointerUp({}, {}) {
     const gameBus = useGameBusStore()
+    const gameState = useGameStateStore()
 
     // If we're currently making a selection area...
     if (gameBus.selectionArea.show) {
         // ...select all cards under the selection area
         gameBus.selectedCards = [
-            ...gameBus.handleableCards.filter(s => s.isUnderSelectionArea()).map(s => s.card),
+            ...gameBus.handleableCards
+                .filter(s => s.isUnderSelectionArea())
+                .map(s => gameState.cards[s.cardOid]),
         ]
         // then reset it
         resetSelectionArea()
