@@ -4,8 +4,9 @@
     <div class="lobby-container main-content">
         <div class="connectivity-banner">
             <span
-                >I'm aware of connectivity issues in multiplayer game and working to resolve them as
-                fast as possible. Thanks for your comprehension ! Thomas</span
+                >Most of the connectivity issues in multiplayer should be resolved now. If you
+                encounter any additionnal issue, please contact me on Discord or bug tracker. Thanks
+                for your patience ! Thomas</span
             >
         </div>
 
@@ -502,11 +503,10 @@ if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
         rgba($vibrant-emerald, 0.2) 0%,
         rgba($dark-forest, 0.3) 100%
     );
-    border: 1px solid $vibrant-emerald;
+    border-bottom: 1px solid $vibrant-emerald;
     padding: 1rem 1.5rem;
     text-align: center;
-    border-radius: 0.25rem;
-    margin: 1rem;
+    margin: 1rem 0;
     color: $pearl-grey;
     font-size: 0.95rem;
     font-weight: 300;
