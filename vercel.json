@@ -28,6 +28,15 @@
                     "value": "public, immutable, max-age=31536000"
                 }
             ]
+        },
+        {
+            "source": "/(.*)\\.(jpg|jpeg|gif|png|svg)",
+            "headers": [
+                {
+                    "key": "Cache-Control",
+                    "value": "public, s-maxage=86400, max-age=86400, must-revalidate"
+                }
+            ]
         }
     ]
 }
