@@ -13,12 +13,11 @@ import { LibraryCard, Minion } from '@/model/Card.ts'
 import { GRID_SIZE } from '@/game/const.ts'
 import * as logging from '@/logging.ts'
 
-// 500ms between bot decisions to let the human player look at what happens
-export const BOT_PAUSE_TIME = 150
+// small pause between bot decisions to let the human player look at what happens
+export const BOT_PAUSE_TIME = 125
 
 export class Conductor {
     turnInitDone = false
-    isApplyingADecision = false
 
     constructor(public bot: Bot) {}
 
@@ -53,18 +52,12 @@ export class Conductor {
     }
 
     _applyBotDecision(decisionCallback: () => void) {
-        this.isApplyingADecision = true
-
         setTimeout(() => {
             try {
                 decisionCallback()
             } catch (error) {
                 logging.captureException(error)
             }
-
-            this.isApplyingADecision = false
-
-            this.runDecisionMaking()
         }, BOT_PAUSE_TIME)
     }
 
@@ -163,11 +156,6 @@ export class Conductor {
 
     runDecisionMaking() {
         if (this.mustStopPlaying()) {
-            return
-        }
-
-        // We're already doing something, don't run again in parallel
-        if (this.isApplyingADecision) {
             return
         }
 

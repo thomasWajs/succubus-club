@@ -44,6 +44,7 @@ import { BOT_PERM_ID } from '@/game/setup.ts'
 import { MutationSyncMode, VersioningId, VersioningTarget } from '@/multiplayer/common.ts'
 import { hashObject } from '@/gateway/serialization.ts'
 import { isRevealedToViewer } from '@/state/cardVisibility.ts'
+import { botModeEnqueueMutation } from '@/bot/mutationQueue.ts'
 
 export type GameMutationId = number
 export interface GameMutationParams {
@@ -1509,18 +1510,22 @@ export function createMutation<
 /**
  * Apply the mutation locally, if it's valid.
  */
-export function applyMutationLocally(gameMutation: AnyGameMutation) {
-    const core = useCoreStore()
-
+export function applyMutationIfValid(gameMutation: AnyGameMutation) {
     const validity = gameMutation.canApply()
     if (validity.isValid) {
         gameMutation.apply()
     }
+}
 
-    // Is this the best place to put that ?
-    // Replace with a watch ? Or an event ?
-    if (core.gameType == GameType.TrainBot) {
-        core.conductor?.runDecisionMaking()
+/**
+ * In multiplayer, apply immediately.
+ * With TrainBot, enqueue the mutation to maintain correct ordering.
+ */
+export function applyMutationLocally(gameMutation: AnyGameMutation) {
+    if (useCoreStore().gameType == GameType.TrainBot) {
+        botModeEnqueueMutation(gameMutation)
+    } else {
+        applyMutationIfValid(gameMutation)
     }
 }
 
