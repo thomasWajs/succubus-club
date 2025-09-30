@@ -37,17 +37,65 @@
         @create="onCardsPanelCreate"
         @wheel="onWheel"
     >
+        <!-- Top Indicator -->
+        <Rectangle
+            key="topIndicator"
+            :origin="0"
+            :x="WIELD_X"
+            :y="0"
+            :width="INDICATOR_WIDTH"
+            :height="cardsPanelHeight - (hasScroll ? WIELD_SCROLLBAR_HEIGHT : 0)"
+            :fillColor="WIELD_BORDER_COLOR.color"
+            :fillAlpha="0.8"
+        />
+        <Text
+            key="topIndicatorText"
+            text="T o p"
+            :style="INDICATOR_TEXT_STYLE"
+            :originY="0.5"
+            :originX="0.25"
+            :x="WIELD_X + INDICATOR_WIDTH / 2"
+            :y="cardsPanelHeight / 2"
+        />
+
         <template
             v-for="(card, index) in cards"
             :key="index + cardRegion.name + card.oid"
         >
             <CardInWieldCardStack
                 :card="card"
-                :x="index * CARD_DISPLAY_WIDTH + CARDS_OFFSET"
+                :x="WIELD_X + index * CARD_DISPLAY_WIDTH + CARDS_OFFSET + INDICATOR_WIDTH"
                 :y="10"
                 @wheel="onWheel"
             />
         </template>
+
+        <!-- Bottom Indicator -->
+        <Rectangle
+            key="bottomIndicator"
+            :origin="0"
+            :x="WIELD_X + cards.length * CARD_DISPLAY_WIDTH + CARDS_OFFSET + INDICATOR_WIDTH"
+            :y="0"
+            :width="INDICATOR_WIDTH"
+            :height="cardsPanelHeight - (hasScroll ? WIELD_SCROLLBAR_HEIGHT : 0)"
+            :fillColor="WIELD_BORDER_COLOR.color"
+            :fillAlpha="0.8"
+        />
+        <Text
+            key="bottomIndicatorText"
+            text="B o t t o m"
+            :style="INDICATOR_TEXT_STYLE"
+            :originY="0.5"
+            :originX="0.25"
+            :x="
+                WIELD_X +
+                cards.length * CARD_DISPLAY_WIDTH +
+                CARDS_OFFSET +
+                INDICATOR_WIDTH / 2 +
+                INDICATOR_WIDTH
+            "
+            :y="cardsPanelHeight / 2"
+        />
     </Container>
 
     <Rectangle
@@ -82,7 +130,7 @@ import {
     WORLD_HEIGHT,
     WORLD_WIDTH,
 } from '@/game/const.ts'
-import { Container, Rectangle, useScene } from 'phavuer'
+import { Container, Rectangle, Text, useScene } from 'phavuer'
 import { useGameBusStore } from '@/store/bus.ts'
 import { computed, onMounted, ref, watch } from 'vue'
 import CardInWieldCardStack from '@/game/objects/CardInWieldCardStack.vue'
@@ -110,6 +158,14 @@ const cardsPanelHeight = height
 
 const CARD_DISPLAY_WIDTH = WIELD_CARD_SCALE * CARD_WIDTH + 8
 const CARDS_OFFSET = 15
+
+const INDICATOR_WIDTH = 25
+const INDICATOR_TEXT_STYLE = {
+    color: 'white',
+    fontStyle: 'bold',
+    fontSize: '14px',
+    wordWrap: { width: 1 },
+}
 
 /** Wield Actions positionning */
 
@@ -163,11 +219,15 @@ const scrollbarY = WIELD_Y + cardsPanelHeight - WIELD_SCROLLBAR_HEIGHT
 const scrollbarWidth = ref(0)
 
 const totalCardsWidth = computed(() => {
-    return cards.value.length * CARD_DISPLAY_WIDTH + CARDS_OFFSET
+    return cards.value.length * CARD_DISPLAY_WIDTH + CARDS_OFFSET + INDICATOR_WIDTH * 2
+})
+
+const hasScroll = computed(() => {
+    return totalCardsWidth.value > cardsPanelWidth
 })
 
 function updateScrollbar() {
-    if (totalCardsWidth.value <= cardsPanelWidth) {
+    if (!hasScroll.value) {
         // Reset position when no scrolling is needed
         cardsPanel.x = 0
         return
@@ -200,6 +260,7 @@ function onCardsPanelCreate(cardsPanel_: GameObjects.Container) {
     const mask = new Phaser.Display.Masks.GeometryMask(scene, graphics)
     cardsPanel.setMask(mask)
 
+    cardsPanel.x = 0
     // Create scrollbar
     updateScrollbar()
 }
