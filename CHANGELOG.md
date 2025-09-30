@@ -1,4 +1,15 @@
-## [0.1.5] - 2025-09-26
+## [0.1.6] - 2025-09-30
+
+Features:
+- Show top/bottom of stack
+- Better image caching
+
+Bugfix:
+- Don't leak data through logs after a resync
+- +/= shortcut for add blood on non-firefox browsers
+- Correct bot log ordering
+
+## [0.1.5] - 2025-09-29
 
 Bugfix:
 - Fix incorrect behaviour after resync
