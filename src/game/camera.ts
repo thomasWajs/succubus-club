@@ -13,7 +13,9 @@ export function setupCamera(_scene: Phaser.Scene) {
     scene.scale.on('resize', resetCamera)
 
     // Commented pending camera fixes. See https://github.com/thomasWajs/succubus-club/issues/12
-    // setupCameraControls(scene)
+    if (import.meta.env.VITE_ENABLE_CAMERA) {
+        setupCameraControls(scene)
+    }
 }
 
 export function resetCamera() {
