@@ -3,6 +3,7 @@ import { Card } from '@/model/Card.ts'
 import { AnyGameMutation, GameMutationId } from '@/state/gameMutations.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
 import { Player } from '@/model/Player.ts'
+import { PlayerVision } from '@/state/types.ts'
 
 export type LogEntry = {
     text: string
@@ -10,7 +11,8 @@ export type LogEntry = {
     authorName: string
     authorColorRgba: string
     cancelText?: string
-    closeUpCard?: Card
+    playerVision?: PlayerVision
+    targetCard?: Card
     mutationId?: GameMutationId
 }
 
@@ -34,7 +36,6 @@ export const useHistoryStore = defineStore('gameHistory', {
         gameMutations: [] as AnyGameMutation[],
     }),
     getters: {
-        // TODO: order on global lamport clock ?
         orderedLogEntries: state => state.logEntries,
 
         gameMutationsMap: state => Object.fromEntries(state.gameMutations.map(m => [m.id, m])),
@@ -87,7 +88,7 @@ export const useHistoryStore = defineStore('gameHistory', {
                 return
             }
 
-            let cancelText, closeUpCard
+            let cancelText
             let { authorName, authorColorRgba } = authorFromPlayer(gameMutation.author)
 
             if (gameMutation.cancelsMutationId) {
@@ -107,17 +108,14 @@ export const useHistoryStore = defineStore('gameHistory', {
                 }
             }
 
-            if (gameMutation.canSeeTargetCard) {
-                closeUpCard = gameMutation.targetCard ?? undefined
-            }
-
             this.logEntries.push({
                 text,
                 timestamp: gameMutation.timestamp,
                 authorName,
                 authorColorRgba,
                 cancelText,
-                closeUpCard,
+                playerVision: gameMutation.playerVision,
+                targetCard: gameMutation.targetCard ?? undefined,
                 mutationId: gameMutation.id,
             })
         },

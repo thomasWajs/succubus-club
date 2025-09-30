@@ -2,6 +2,10 @@ import { Discipline, DisciplineLevel, LibraryCardType, Sect } from '@/model/cons
 import { DeckList } from '@/gateway/deck.ts'
 import { BACK_TEXTURE_CRYPT, BACK_TEXTURE_LIB, WIELD_CARD_STACK_ICON } from '@/game/const.ts'
 
+/**
+ * Resource types
+ */
+
 export type setName = string
 export type deckName = string
 // Some resource json use card id in string format, so we'll use string everywhere instead of the integer
@@ -44,6 +48,15 @@ type SetAndPrecons = {
         }
     }
 }
+
+export function isCryptId(krcgId: KrcgId) {
+    // Krcg id of crypt card begins by 2, library begins by 1
+    return krcgId[0] == '2'
+}
+
+/**
+ * Resource loading
+ */
 
 const BASE_URL = import.meta.env.BASE_URL
 export const ASSETS_URL = `${BASE_URL}assets`

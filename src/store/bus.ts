@@ -171,7 +171,7 @@ export const useGameBusStore = defineStore('gameBus', {
     actions: {
         setCloseUpCard(card: Card | null, canView?: boolean | undefined) {
             if (canView === undefined) {
-                canView = card ? card.canSee() || card.canPeek() : false
+                canView = card ? card.selfCanSeeOrPeek : false
             }
             this.closeUpCard = { card, canView }
         },

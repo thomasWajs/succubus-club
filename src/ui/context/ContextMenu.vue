@@ -128,7 +128,7 @@
 import { useGameBusStore } from '@/store/bus.ts'
 import { gameMutations } from '@/state/gameMutations.ts'
 import { computed } from 'vue'
-import { Card, Minion } from '@/model/Card.ts'
+import { Card } from '@/model/Card.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
 import { RegionName } from '@/model/const.ts'
 import { useCoreStore } from '@/store/core.ts'

@@ -163,3 +163,5 @@ export const BACK_TEXTURE_CRYPT = 'cardbackCrypt'
 export const BACK_TEXTURE_LIB = 'cardbackLibrary'
 
 export const DRAG_DISTANCE_THRESHOLD = 5
+
+export const CARD_LOG_PLACEHOLDER = '[CARD]'

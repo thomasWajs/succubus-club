@@ -21,6 +21,15 @@ export class Validity {
 export const VALID = new Validity(true, '')
 export const Invalid = (reason: string) => new Validity(false, reason)
 
+/** Card Visibility **/
+
+/**
+ * Store which player can or cannot see a given card
+ */
+export type PlayerVision = {
+    [key: PlayerOid]: boolean
+}
+
 /** Card Revelation **/
 
 export const ALL_PLAYERS = 'all'

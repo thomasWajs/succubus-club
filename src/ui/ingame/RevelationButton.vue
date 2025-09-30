@@ -15,19 +15,18 @@ import { ALL_PLAYERS, CardRevelationViewer } from '@/state/types.ts'
 import { gameMutations } from '@/state/gameMutations.ts'
 import { AnyCardRegion } from '@/model/CardRegion.ts'
 import { computed } from 'vue'
-import { useGameStateStore } from '@/store/gameState.ts'
+import { isRevealedToViewer } from '@/state/cardVisibility.ts'
 
 const props = defineProps<{
     viewer: CardRevelationViewer
     cardRegion: AnyCardRegion
 }>()
 
-const gameState = useGameStateStore()
 const gameBus = useGameBusStore()
 
 const isActive = computed(() => {
     const target = gameBus.selectedCards.length > 0 ? gameBus.selectedCards[0] : props.cardRegion
-    return gameState.isRevealed(target, props.viewer)
+    return isRevealedToViewer(target, props.viewer)
 })
 
 function reveal() {

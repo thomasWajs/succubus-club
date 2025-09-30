@@ -11,13 +11,7 @@ import { useCoreStore } from '@/store/core.ts'
 import { hashGameState } from '@/gateway/serialization.ts'
 import Phaser from 'phaser'
 import Color = Phaser.Display.Color
-import {
-    CardRevelation,
-    CardRevelationTarget,
-    CardRevelationTargetOid,
-    CardRevelationViewer,
-    getViewerKey,
-} from '@/state/types.ts'
+import { CardRevelation, CardRevelationTargetOid } from '@/state/types.ts'
 import { PermanentId } from '@/multiplayer/common.ts'
 
 export type GameStateStore = ReturnType<typeof useGameStateStore>
@@ -147,17 +141,6 @@ export const useGameStateStore = defineStore('gameState', {
                 return this.orderedPlayers[
                     (this.selfPlayerSeatingIndex + n) % this.orderedPlayers.length
                 ]
-            }
-        },
-
-        /**
-         * Tell if a target (Card or CardRegion) is revealed
-         * for a given viewer ( Player or ALL_PLAYERS )
-         */
-        isRevealed(state) {
-            return (target: CardRevelationTarget, viewer: CardRevelationViewer): boolean => {
-                const targetRevelation = state.revelations[target.oid] ?? {}
-                return targetRevelation[getViewerKey(viewer)]
             }
         },
     },

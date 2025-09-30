@@ -42,12 +42,6 @@ export class CardRegion<CardType extends Card> extends BaseModel {
         return useGameStateStore().regionOwners[this.oid]
     }
 
-    get isRevealedToSelf() {
-        const gameState = useGameStateStore()
-        const revelation = gameState.revelations[this.oid] ?? {}
-        return revelation.all || revelation[gameState.selfPlayer.oid]
-    }
-
     indexOf(card: CardType): number {
         return this.cardsOid.indexOf(card.oid)
     }

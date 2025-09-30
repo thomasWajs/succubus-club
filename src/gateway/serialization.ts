@@ -13,6 +13,7 @@ import xxhash, { XXHashAPI } from 'xxhash-wasm'
 import { stringify as stableStringify } from 'safe-stable-stringify'
 import { useHistoryStore } from '@/store/history.ts'
 import { useCoreStore } from '@/store/core.ts'
+import { isCryptId } from '@/resources/cards.ts'
 
 const GAME_STATE_VERSION = 2
 
@@ -203,8 +204,7 @@ export function loadGame(serializedGame: SerializedGame) {
     const cards = {} as Record<CardOid, Card>
 
     for (const cardData of Object.values(jsonCards)) {
-        // Krcg id of crypt card begins by 2, library begins by 1
-        const CardClass = cardData.krcgId[0] === '2' ? CryptCard : LibraryCard
+        const CardClass = isCryptId(cardData.krcgId) ? CryptCard : LibraryCard
         const card = new CardClass(cardData.oid, cardData.krcgId, cardData.controllerOid)
         Object.assign(card, cardData)
         cards[card.oid] = card

@@ -13,12 +13,10 @@ import {
 } from '@/resources/cards.ts'
 import {
     ACTION_TYPES,
-    CardRegionVisibility,
     Discipline,
     DisciplineLevel,
     LibraryCardType,
     Marker,
-    RegionName,
     TurnPhase,
 } from '@/model/const.ts'
 import { useGameBusStore } from '@/store/bus.ts'
@@ -30,6 +28,7 @@ import {
 import { CryptCardImplementation } from '@/resources/cardImpl/base.ts'
 import { PlayerOid } from '@/model/Player.ts'
 import { useCoreStore } from '@/store/core.ts'
+import * as cardVisibility from '@/state/cardVisibility.ts'
 
 // Alias to specify the expected objects through the codebase
 export type CardOid = ObjectId
@@ -61,14 +60,12 @@ export abstract class Card extends BaseModel {
 
     abstract get resource(): CardResource
 
-    abstract get cssClass(): string
-
     get name() {
         return this.resource.name
     }
 
     get secureName() {
-        return this.canSeeOrPeak() ? this.name : 'Hidden Card'
+        return this.selfCanSeeOrPeek ? this.name : 'Hidden Card'
     }
 
     get controller() {
@@ -83,10 +80,16 @@ export abstract class Card extends BaseModel {
         return this.region.indexOf(this)
     }
 
-    get isRevealedToSelf() {
-        const gameState = useGameStateStore()
-        const revelation = gameState.revelations[this.oid] ?? {}
-        return revelation.all || revelation[gameState.selfPlayer.oid]
+    get selfCanSee() {
+        return cardVisibility.canSee(useGameStateStore().selfPlayer, this)
+    }
+
+    get selfCanSeeOrPeek() {
+        return cardVisibility.canSeeOrPeek(useGameStateStore().selfPlayer, this)
+    }
+
+    getPlayerVision() {
+        return cardVisibility.getPlayerVision(this)
     }
 
     setCoordinates(x: number, y: number) {
@@ -126,43 +129,6 @@ export abstract class Card extends BaseModel {
 
     hasMarker(marker: Marker) {
         return this.markers.includes(marker)
-    }
-
-    canSee() {
-        // Flipping a Card allow only to hide it while in play ( or uncontrolled, for banishment ),
-        // not to mess with visibility in all regions
-        if (
-            this.isFlipped &&
-            [RegionName.Controlled, RegionName.Torpor, RegionName.Uncontrolled].includes(
-                this.region.name,
-            )
-        ) {
-            return false
-        }
-
-        // Check revelations
-        if (this.region.isRevealedToSelf || this.isRevealedToSelf) {
-            // CardRegion or Card was revealed, we can see the Card.
-            return true
-        }
-
-        // No revelations, let's check normal visibility rules
-        return (
-            this.region.visibility == CardRegionVisibility.VisibleToAll ||
-            (this.region.visibility == CardRegionVisibility.VisibleToController &&
-                this.controllerOid == useGameStateStore().selfPlayer.oid)
-        )
-    }
-
-    canPeek() {
-        return (
-            this.region.visibility != CardRegionVisibility.Hidden &&
-            this.controllerOid == useGameStateStore().selfPlayer.oid
-        )
-    }
-
-    canSeeOrPeak() {
-        return this.canSee() || this.canPeek()
     }
 
     isSelected() {
@@ -206,7 +172,7 @@ export abstract class Card extends BaseModel {
     }
 
     get displayedTexture() {
-        return this.canSee() ? this.texture : this.backTexture
+        return this.selfCanSee ? this.texture : this.backTexture
     }
 }
 
@@ -288,10 +254,6 @@ export class CryptCard extends Vampire {
         }
     }
 
-    get cssClass() {
-        return 'cryptCard'
-    }
-
     get implementation(): CryptCardImplementation | undefined {
         return CRYPT_CARD_IMPLEMENTATIONS[this.krcgId]
     }
@@ -350,10 +312,6 @@ export class LibraryCard extends Card {
         return {
             textureName: BACK_TEXTURE_LIB,
         }
-    }
-
-    get cssClass() {
-        return 'libCard'
     }
 
     get implementation(): AllImplementationsType | undefined {

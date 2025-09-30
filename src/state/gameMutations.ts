@@ -11,7 +11,12 @@ import {
     RegionName,
     TurnSequence,
 } from '@/model/const.ts'
-import { CONTROLLED_ZONE_HEIGHT, GRID_SIZE, PLAY_AREA_WIDTH } from '@/game/const.ts'
+import {
+    CARD_LOG_PLACEHOLDER,
+    CONTROLLED_ZONE_HEIGHT,
+    GRID_SIZE,
+    PLAY_AREA_WIDTH,
+} from '@/game/const.ts'
 import {
     ActionProperty,
     ActionState,
@@ -27,6 +32,7 @@ import {
     GameType,
     getViewerKey,
     Invalid,
+    PlayerVision,
     VALID,
     Validity,
 } from '@/state/types.ts'
@@ -37,6 +43,7 @@ import { useBusStore } from '@/store/bus.ts'
 import { BOT_PERM_ID } from '@/game/setup.ts'
 import { MutationSyncMode, VersioningId, VersioningTarget } from '@/multiplayer/common.ts'
 import { hashObject } from '@/gateway/serialization.ts'
+import { isRevealedToViewer } from '@/state/cardVisibility.ts'
 
 export type GameMutationId = number
 export interface GameMutationParams {
@@ -51,7 +58,7 @@ export abstract class GameMutation<ParamsType extends GameMutationParams> {
     isUserCancellable = true
     cancelToResolveConflict = false // will be set to true if the mutation is cancelled to resolve a conflict
 
-    canSeeTargetCard = false
+    playerVision = {} as PlayerVision
     // Store as needed the previous state of the game to be able to make the cancel diff
     previousState = {} as { [key: string]: unknown }
 
@@ -119,11 +126,16 @@ export abstract class GameMutation<ParamsType extends GameMutationParams> {
     }
 
     apply() {
-        // We show the card name in the logs if we can see/peek the card
+        // A player have vision on the card if it can see/peek the card
         // either before or after updating the gameState
-        this.canSeeTargetCard = this.targetCard?.canSeeOrPeak() ?? false
+        const visionBefore = this.targetCard?.getPlayerVision() ?? {}
         this.updateGameState(useGameStateStore())
-        this.canSeeTargetCard = (this.canSeeTargetCard || this.targetCard?.canSeeOrPeak()) ?? false
+        const visionAfter = this.targetCard?.getPlayerVision() ?? {}
+
+        this.playerVision = {}
+        for (const playerOid in visionAfter) {
+            this.playerVision[playerOid] = visionBefore[playerOid] || visionAfter[playerOid]
+        }
         useHistoryStore().addGameMutation(this)
     }
 
@@ -150,14 +162,6 @@ export abstract class GameMutation<ParamsType extends GameMutationParams> {
 
     formatForLog(): string | null {
         return null
-    }
-
-    formatCardForLog() {
-        if (this.targetCard && this.canSeeTargetCard) {
-            return `<span class="${this.targetCard.cssClass}">${this.targetCard.name}</span>`
-        } else {
-            return '<span class="hidden">hidden card</span>'
-        }
     }
 
     formatPlayerStateForLog(player: Player) {
@@ -269,7 +273,7 @@ class ChangeBlood extends ChangeCounterMutation {
     }
 
     formatForLog() {
-        return `${this.params.amount > 0 ? '+' : ''}${this.params.amount} blood on ${this.formatCardForLog()}`
+        return `${this.params.amount > 0 ? '+' : ''}${this.params.amount} blood on ${CARD_LOG_PLACEHOLDER}`
     }
 
     getCancelMutation(): AnyGameMutation {
@@ -302,7 +306,7 @@ class ChangeGreenCounter extends ChangeCounterMutation {
     }
 
     formatForLog() {
-        return `${this.params.amount > 0 ? '+' : ''}${this.params.amount} green counter on ${this.formatCardForLog()}`
+        return `${this.params.amount > 0 ? '+' : ''}${this.params.amount} green counter on ${CARD_LOG_PLACEHOLDER}`
     }
 
     getCancelMutation(): AnyGameMutation {
@@ -342,7 +346,7 @@ class ChangeMarker extends GameMutation<ChangeMarkerParams> {
     }
 
     formatForLog() {
-        return `${this.params.operation} ${this.params.marker} on ${this.formatCardForLog()}`
+        return `${this.params.operation} ${this.params.marker} on ${CARD_LOG_PLACEHOLDER}`
     }
 
     get targetCard() {
@@ -453,7 +457,7 @@ class Discard extends TargetCardMutation {
     }
 
     formatForLog() {
-        return `Discard ${this.formatCardForLog()} ${this.formatPlayerStateForLog(this.params.card.controller)}`
+        return `Discard ${CARD_LOG_PLACEHOLDER} ${this.formatPlayerStateForLog(this.params.card.controller)}`
     }
 
     getCancelMutation(): AnyGameMutation {
@@ -490,7 +494,7 @@ class DiscardAtRandom extends TargetCardMutation {
     }
 
     formatForLog() {
-        return `Discard at random ${this.formatCardForLog()} ${this.formatPlayerStateForLog(this.params.card.controller)}`
+        return `Discard at random ${CARD_LOG_PLACEHOLDER} ${this.formatPlayerStateForLog(this.params.card.controller)}`
     }
 
     getCancelMutation(): AnyGameMutation {
@@ -721,7 +725,7 @@ class Influence extends ChangeCounterMutation {
     }
 
     formatForLog() {
-        return `Influence ${this.params.amount} on ${this.formatCardForLog()}`
+        return `Influence ${this.params.amount} on ${CARD_LOG_PLACEHOLDER}`
     }
 
     getCancelMutation(): AnyGameMutation {
@@ -837,14 +841,14 @@ class MoveCardToRegion extends GameMutation<MoveCardToRegionParams> {
     formatForLog() {
         if (this.params.fromCardRegion.name === RegionName.Hand) {
             if (this.params.toCardRegion.name === RegionName.Controlled) {
-                return `Play ${this.formatCardForLog()}`
+                return `Play ${CARD_LOG_PLACEHOLDER}`
             }
             if (this.params.toCardRegion.name === RegionName.AshHeap) {
-                return `Discard ${this.formatCardForLog()} ${this.formatPlayerStateForLog(this.params.card.controller)}`
+                return `Discard ${CARD_LOG_PLACEHOLDER} ${this.formatPlayerStateForLog(this.params.card.controller)}`
             }
         }
 
-        return `Move ${this.formatCardForLog()} from ${this.params.fromCardRegion.owner.name}'s ${this.params.fromCardRegion.name} to ${this.params.toCardRegion.owner.name}'s ${this.params.toCardRegion.name}`
+        return `Move ${CARD_LOG_PLACEHOLDER} from ${this.params.fromCardRegion.owner.name}'s ${this.params.fromCardRegion.name} to ${this.params.toCardRegion.owner.name}'s ${this.params.toCardRegion.name}`
     }
 
     get targetCard() {
@@ -926,7 +930,7 @@ class MoveToBottom extends GameMutation<MoveToBottomParams> {
     }
 
     formatForLog() {
-        return `Move ${this.formatCardForLog()} to the bottom of ${this.params.toCardRegion.name}`
+        return `Move ${CARD_LOG_PLACEHOLDER} to the bottom of ${this.params.toCardRegion.name}`
     }
 
     get targetCard() {
@@ -970,7 +974,7 @@ class PlayFaceDown extends TargetCardMutation {
     }
 
     formatForLog() {
-        return `Play ${this.formatCardForLog()} Face Down `
+        return `Play ${CARD_LOG_PLACEHOLDER} Face Down `
     }
 
     getCancelMutation(): AnyGameMutation {
@@ -1023,8 +1027,6 @@ class Reveal extends GameMutation<RevealParams> {
     }
 
     formatForLog() {
-        const gameState = useGameStateStore()
-
         const viewerString =
             this.params.viewer === ALL_PLAYERS ? 'All players' : this.params.viewer.name
 
@@ -1035,7 +1037,7 @@ class Reveal extends GameMutation<RevealParams> {
         const cardRegionString = `${cardRegion.owner.name}'s ${cardRegion.name}`
 
         let verb, particle
-        if (gameState.isRevealed(this.params.target, this.params.viewer)) {
+        if (isRevealedToViewer(this.params.target, this.params.viewer)) {
             verb = 'Reveal'
             particle = 'to'
         } else {
@@ -1086,7 +1088,7 @@ class SetFlip extends ChangeCardBoolMutation {
     }
 
     formatForLog() {
-        return `Flip ${this.formatCardForLog()}`
+        return `Flip ${CARD_LOG_PLACEHOLDER}`
     }
 
     getCancelMutation(): AnyGameMutation {
@@ -1121,7 +1123,7 @@ class SetLock extends ChangeCardBoolMutation {
     }
 
     formatForLog() {
-        return `${this.params.card.isLocked ? 'Lock' : 'Unlock'} ${this.formatCardForLog()}`
+        return `${this.params.card.isLocked ? 'Lock' : 'Unlock'} ${CARD_LOG_PLACEHOLDER}`
     }
 
     getCancelMutation(): AnyGameMutation {
@@ -1243,7 +1245,7 @@ class DeclareAction extends GameMutation<DeclareActionParams> {
     }
 
     formatForLog() {
-        return `Declare ${this.params.minionAction.name} with ${this.formatCardForLog()}`
+        return `Declare ${this.params.minionAction.name} with ${CARD_LOG_PLACEHOLDER}`
     }
 
     get targetCard(): Card | null {
@@ -1282,7 +1284,7 @@ class DeclareActionModifier extends GameMutation<DeclareActionModifierParams> {
         if (this.params.actionModifier === NO_ACTION_MODIFIER) {
             return `No Action Modifier`
         } else {
-            return `Action modifier : ${this.formatCardForLog()}`
+            return `Action modifier : ${CARD_LOG_PLACEHOLDER}`
         }
     }
 
@@ -1324,7 +1326,7 @@ class DeclareBlock extends GameMutation<DeclareBlockParams> {
         if (this.params.blockingMinion === NO_BLOCK) {
             return `No Block`
         } else {
-            return `Block attempt with ${this.formatCardForLog()}`
+            return `Block attempt with ${CARD_LOG_PLACEHOLDER}`
         }
     }
 
@@ -1364,7 +1366,7 @@ class DeclareReaction extends GameMutation<DeclareReactionParams> {
         if (this.params.reaction === NO_REACTION) {
             return `No Reaction`
         } else {
-            return `Reaction : ${this.formatCardForLog()}`
+            return `Reaction : ${CARD_LOG_PLACEHOLDER}`
         }
     }
 

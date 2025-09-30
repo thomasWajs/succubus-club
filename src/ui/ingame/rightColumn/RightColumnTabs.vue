@@ -8,63 +8,12 @@
             ref="logLines"
             class="log-lines"
         >
-            <div
+            <LogLine
                 v-for="(logEntry, index) in history.orderedLogEntries"
                 :key="'logEntry-' + index"
-                class="log-line"
-                :class="{ 'most-recent': index === history.logEntries.length - 1 }"
-                @mouseover="onLogLineHover(logEntry)"
-            >
-                <span
-                    v-if="
-                        logEntry.mutationId &&
-                        logEntry.mutationId == history.nextCancellableMutation?.id
-                    "
-                    class="cancel-arrow"
-                    @click="history.nextCancellableMutation?.cancel()"
-                >
-                    ↩
-                </span>
-                <span class="time">
-                    [{{ logEntry.timestamp.getHours().toString().padStart(2, '0') }}:{{
-                        logEntry.timestamp.getMinutes().toString().padStart(2, '0')
-                    }}]
-                </span>
-                <span
-                    class="author"
-                    :style="{ background: logEntry.authorColorRgba }"
-                >
-                    {{ logEntry.authorName }}
-                </span>
-                <span v-if="!logEntry.mutationId"> 🗩 </span>
-                <span
-                    v-if="logEntry.cancelText"
-                    class="cancel-text"
-                >
-                    [Cancels <span v-html="logEntry.cancelText" />]
-                </span>
-                <span
-                    v-if="
-                        logEntry.mutationId && history.cancelledMutations.has(logEntry.mutationId)
-                    "
-                    class="cancel-text"
-                >
-                    [CANCELLED]
-                </span>
-                <!-- Use v-html only with mutation logs -->
-                <span
-                    v-if="logEntry.mutationId"
-                    class="mutation"
-                    v-html="logEntry.text"
-                />
-                <!-- Escape text from chat to avoid XSS -->
-                <span
-                    v-else
-                    class="mutation"
-                >
-                    {{ logEntry.text }}
-                </span>
-            </div>
+                :logEntry="logEntry"
+                :index="index"
+            />
         </div>
 
         <div class="chat-box">
@@ -186,13 +135,14 @@
 <script setup lang="ts">
 import { ref, watch, nextTick, computed } from 'vue'
 import { useBusStore, useGameBusStore } from '@/store/bus.ts'
-import { LogEntry, useHistoryStore } from '@/store/history.ts'
+import { useHistoryStore } from '@/store/history.ts'
 import { saveGame, SavingState } from '@/gateway/savedGames.ts'
 import { GameType } from '@/state/types.ts'
 import { useCoreStore } from '@/store/core.ts'
 import { broadcastChatMessage, requestResyncGameState } from '@/multiplayer/room.ts'
 import UserManual from '@/ui/ingame/rightColumn/UserManual.vue'
 import { useGameStateStore } from '@/store/gameState.ts'
+import LogLine from '@/ui/ingame/rightColumn/LogLine.vue'
 
 const core = useCoreStore()
 const gameState = useGameStateStore()
@@ -218,14 +168,6 @@ function toggleEnlarged() {
 /** Logs Tab **/
 
 const logLines = ref<HTMLDivElement>()
-
-function onLogLineHover(logEntry: LogEntry) {
-    if (logEntry.closeUpCard) {
-        // If there's a closeUpCard, that means it was visible at the time of log,
-        // so we force canView = true, even if it's not visible anymore
-        gameBus.setCloseUpCard(logEntry.closeUpCard, true)
-    }
-}
 
 function scrollLog() {
     nextTick(() => {
@@ -344,54 +286,6 @@ function dismissManualHeadsUp() {
 
     &.enlarged {
         font-size: 16px;
-    }
-
-    .log-line {
-        margin-bottom: 2px;
-
-        &.most-recent {
-            animation: logAppear 1s linear;
-        }
-    }
-
-    .cancel-arrow {
-        font-weight: bold;
-        color: $blood-red;
-        cursor: pointer;
-    }
-
-    .time {
-        margin: 0;
-    }
-
-    .author {
-        margin: 0 2px;
-        padding: 0 1px;
-        font-weight: bold;
-    }
-
-    .cancel-text {
-        font-style: italic;
-        color: $dark-blood;
-    }
-
-    .mutation {
-        display: inline;
-    }
-
-    :is(.cryptCard) {
-        color: $crypt-orange;
-        font-weight: bold;
-    }
-
-    :is(.libCard) {
-        color: $library-green;
-        font-weight: bold;
-    }
-
-    :is(.hidden) {
-        color: $royal-purple;
-        font-weight: bold;
     }
 }
 

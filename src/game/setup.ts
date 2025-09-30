@@ -21,6 +21,7 @@ import { useHistoryStore } from '@/store/history.ts'
 import { DeckList } from '@/gateway/deck.ts'
 import { useGameBusStore } from '@/store/bus.ts'
 import { resetSync } from '@/multiplayer/sync.ts'
+import { isCryptId } from '@/resources/cards.ts'
 
 const NB_BOTS = 1
 export const BOT_NAME = 'Bot'
@@ -30,8 +31,7 @@ function loadDeck(player: Player, deck: DeckList) {
     const gameState = useGameStateStore()
 
     for (const [krcgId, quantity] of Object.entries(deck)) {
-        // Krcg id of crypt card begins by 2, library begins by 1
-        if (krcgId[0] == '2') {
+        if (isCryptId(krcgId)) {
             for (let i = 0; i < quantity; i++) {
                 gameState.createCryptCard(krcgId, player, player.crypt)
             }
