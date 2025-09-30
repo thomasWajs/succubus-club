@@ -8,7 +8,7 @@ import { Card, Vampire } from '@/model/Card.ts'
 import { resetCamera } from '@/game/camera.ts'
 import { useHistoryStore } from '@/store/history.ts'
 
-const KEYCODE_EQUALS_PLUS = 61
+const KEYCODE_EQUALS_PLUS_FIREFOX = 61
 const KEYCODE_PLUS = 171
 const KEYCODE_MINUS_FIREFOX = 173
 
@@ -135,7 +135,12 @@ export function useCommands() {
         }),
 
         GainBlood: createCardCommand({
-            keyCodes: [KeyCodes.NUMPAD_ADD, KEYCODE_PLUS, KEYCODE_EQUALS_PLUS],
+            keyCodes: [
+                KeyCodes.PLUS,
+                KeyCodes.NUMPAD_ADD,
+                KEYCODE_PLUS,
+                KEYCODE_EQUALS_PLUS_FIREFOX,
+            ],
             repr: '+',
             cardAction: (card: Card) => {
                 gameMutations.changeBlood.actSelf({
