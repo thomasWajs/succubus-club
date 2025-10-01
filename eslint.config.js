@@ -3,7 +3,6 @@ import typescript from '@typescript-eslint/eslint-plugin'
 import typescriptParser from '@typescript-eslint/parser'
 import vue from 'eslint-plugin-vue'
 import vueParser from 'vue-eslint-parser'
-import prettier from 'eslint-plugin-prettier'
 import prettierConfig from 'eslint-config-prettier'
 
 const browserGlobals = {
@@ -54,14 +53,10 @@ export default [
         plugins: {
             '@typescript-eslint': typescript,
             vue: vue,
-            prettier: prettier,
         },
         rules: {
             // TypeScript recommended rules
             ...typescript.configs.recommended.rules,
-
-            // Prettier integration
-            'prettier/prettier': 'error',
 
             // Disable all indentation rules - let Prettier handle formatting
             indent: 'off',
@@ -138,14 +133,10 @@ export default [
         },
         plugins: {
             '@typescript-eslint': typescript,
-            prettier: prettier,
         },
         rules: {
             // TypeScript recommended rules
             ...typescript.configs.recommended.rules,
-
-            // Prettier integration
-            'prettier/prettier': 'error',
 
             // Disable indentation rules - let Prettier handle experimental ternaries
             indent: 'off',
@@ -206,13 +197,7 @@ export default [
                 AbortSignal: 'readonly',
             },
         },
-        plugins: {
-            prettier: prettier,
-        },
         rules: {
-            // Prettier integration
-            'prettier/prettier': 'error',
-
             // Disable indentation rules
             indent: 'off',
 
@@ -259,12 +244,8 @@ export default [
         },
         plugins: {
             '@typescript-eslint': typescript,
-            prettier: prettier,
         },
         rules: {
-            // Prettier integration
-            'prettier/prettier': 'error',
-
             // Disable indentation rules
             indent: 'off',
             '@typescript-eslint/indent': 'off',
