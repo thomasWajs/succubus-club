@@ -3,7 +3,7 @@
     The v-if handle the case of reconnecting into a multiplayer game,
     and the state is not synced yet.
     In this case, there's no gameState.activePlayer, and that trigger errors.
-     -->
+    -->
     <div
         v-if="!bus.isResyncing"
         v-show="!gameBus.wieldCardStack.show"

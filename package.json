@@ -45,6 +45,7 @@
         "xxhash-wasm": "^1.1.0"
     },
     "devDependencies": {
+        "@eslint/js": "^9.36.0",
         "@sentry/vite-plugin": "^3.6.1",
         "@tsconfig/node20": "^20.1.6",
         "@types/node": "^20.19.13",
@@ -62,6 +63,7 @@
         "typescript": "~5.8.3",
         "vite": "^7.1.5",
         "vite-plugin-vue-devtools": "^7.7.7",
+        "vue-eslint-parser": "^10.2.0",
         "vue-tsc": "^3.0.6"
     }
 }
