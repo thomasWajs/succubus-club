@@ -35,3 +35,20 @@ export const display = reactive(getDisplay())
 window.addEventListener('resize', () => {
     Object.assign(display, getDisplay())
 })
+
+export const isCrawler = () => {
+    const userAgent = navigator.userAgent.toLowerCase()
+
+    const crawlers = [
+        'bot',
+        'crawler',
+        'spider',
+        'slurp',
+        'facebookexternalhit',
+        'whatsapp',
+        'chatgpt',
+        'anthropic-ai',
+    ]
+
+    return crawlers.some(crawler => userAgent.includes(crawler))
+}

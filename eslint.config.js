@@ -25,6 +25,7 @@ const browserGlobals = {
     screen: 'readonly',
     queueMicrotask: 'readonly',
     localStorage: 'readonly',
+    navigator: 'readonly',
     // Node globals
     process: 'readonly',
     // Cache-busting globals

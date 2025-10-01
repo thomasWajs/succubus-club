@@ -13,7 +13,19 @@
             alt="Succubus Club"
         />
 
-        <template v-if="screenBigEnough">
+        <div
+            v-if="showMobileMessage"
+            id="MobileMessage"
+        >
+            <p>Unfortunately, this game does not run on mobile devices. Please use a desktop.</p>
+
+            <p>
+                You can learn more about the platform and its requirements on the
+                <RouterLink :to="{ name: ROUTES.About }"> About Page </RouterLink>
+            </p>
+        </div>
+
+        <template v-else>
             <button
                 class="main-menu-button"
                 @click="goToLobby()"
@@ -35,18 +47,6 @@
                 Load a saved game
             </button>
         </template>
-
-        <div
-            v-else
-            id="MobileMessage"
-        >
-            <p>Unfortunately, this game does not run on mobile devices. Please use a desktop.</p>
-
-            <p>
-                You can learn more about the platform and its requirements on the
-                <RouterLink :to="{ name: ROUTES.About }"> About Page </RouterLink>
-            </p>
-        </div>
     </div>
 
     <a
@@ -78,7 +78,7 @@ import WelcomeModal from '@/ui/components/WelcomeModal.vue'
 import TrainBotDisclaimer from '@/ui/components/TrainBotDisclaimer.vue'
 import { ref } from 'vue'
 import * as logging from '@/logging.ts'
-import { screenBigEnough } from '@/game/display.ts'
+import { isCrawler, screenBigEnough } from '@/game/display.ts'
 
 const core = useCoreStore()
 const bus = useBusStore()
@@ -127,6 +127,13 @@ if (import.meta.env.VITE_FAST_TRACK_TRAIN_GAME) {
         startTrainGame()
     })
 }
+
+/**
+ *  Mobile Message
+ */
+
+// Combined check: hide game if mobile device OR screen too small (but not if crawler)
+const showMobileMessage = !screenBigEnough && !isCrawler()
 </script>
 
 <style lang="scss" scoped>
