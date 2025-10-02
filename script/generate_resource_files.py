@@ -21,7 +21,10 @@ def is_crypt(card_dict):
 def get_card_image_name(card_dict):
     canonical = re.sub(r'\W', '', card_dict['ascii']).lower()
     if is_crypt(card_dict):
-        canonical += f"g{card_dict['group'].lower()}{'adv' if card_dict['adv'] else ''}"
+        adv = card_dict.get('adv')
+        is_advanced = adv and adv[0]
+        canonical += f"g{card_dict['group'].lower()}{'adv' if is_advanced else ''}"
+
     return canonical
 
 
