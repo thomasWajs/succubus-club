@@ -1,3 +1,8 @@
+## [0.1.7] - 2025-10-02
+
+Bugfix:
+- Fix base/advanced vampire detection
+
 ## [0.1.6] - 2025-09-30
 
 Features:
