@@ -31,9 +31,7 @@ export function canSee(player: Player, card: Card) {
     // to not mess with visibility in the other regions
     if (
         card.isFlipped &&
-        [RegionName.Controlled, RegionName.Torpor, RegionName.Uncontrolled].includes(
-            card.region.name,
-        )
+        [RegionName.Ready, RegionName.Torpor, RegionName.Uncontrolled].includes(card.region.name)
     ) {
         return false
     }

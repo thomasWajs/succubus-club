@@ -2,6 +2,8 @@
 import { Player, PlayerOid } from '@/model/Player.ts'
 import { Card, CardOid } from '@/model/Card.ts'
 import { AnyCardRegion, CardRegionOid } from '@/model/CardRegion.ts'
+import Phaser from 'phaser'
+import Vector2Like = Phaser.Types.Math.Vector2Like
 
 export enum GameType {
     TrainBot = 'TrainBot',
@@ -43,4 +45,16 @@ export type CardRevelation = {
 
 export function getViewerKey(viewer: CardRevelationViewer) {
     return viewer == ALL_PLAYERS ? ALL_PLAYERS : viewer.oid
+}
+
+/** Target Declaration ( Arrow ) **/
+
+export type TargetDeclaration = {
+    originOid: CardOid
+    targetOid: CardOid | PlayerOid
+}
+
+export type Arrow = {
+    from: Vector2Like
+    to: Vector2Like
 }

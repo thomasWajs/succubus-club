@@ -22,10 +22,7 @@ function resetSelectionArea() {
     const gameBus = useGameBusStore()
 
     gameBus.selectionArea.show = false
-    gameBus.selectionArea.startX = 0
-    gameBus.selectionArea.startY = 0
-    gameBus.selectionArea.endX = 0
-    gameBus.selectionArea.endY = 0
+    gameBus.selectionArea.origin = null
 }
 
 function onPointerDown(pointer: Pointer, gameObjects: GameObjects.GameObject[]) {
@@ -44,17 +41,20 @@ function onPointerDown(pointer: Pointer, gameObjects: GameObjects.GameObject[]) 
     // CardGO handle clicks on themselves.
     // Here we handle click outside a CardGO
     if (gameObjects.length == 0 || gameObjects[0].type != 'Image') {
-        // Clear card selection and context menu after a click outside a card
+        // Here it's a click outside a card :
+        // clear card selection, context menu, declaring target,
         gameBus.selectedCards = []
+        gameBus.declaringTargetOrigin = null
         gameBus.contextMenu.cards = []
         gameBus.hideContextMenu()
 
         // Start a selection area on left click
         if (pointer.leftButtonDown()) {
-            resetSelectionArea()
             gameBus.selectionArea.show = true
-            gameBus.selectionArea.startX = gameBus.selectionArea.endX = pointer.x / display.scale
-            gameBus.selectionArea.startY = gameBus.selectionArea.endY = pointer.y / display.scale
+            gameBus.selectionArea.origin = {
+                x: pointer.x / display.scale,
+                y: pointer.y / display.scale,
+            }
         }
     }
 
@@ -71,22 +71,18 @@ function onPointerUp({}, {}) {
     // If we're currently making a selection area...
     if (gameBus.selectionArea.show) {
         // ...select all cards under the selection area
-        gameBus.selectedCards = [
-            ...gameBus.handleableCards
-                .filter(s => s.isUnderSelectionArea())
-                .map(s => gameState.cards[s.cardOid]),
-        ]
+        gameBus.selectedCards = Object.values(gameBus.handleableCards)
+            .filter(hc => hc.isUnderSelectionArea())
+            .map(hc => gameState.cards[hc.cardOid])
         // then reset it
         resetSelectionArea()
     }
 }
 
 function onPointerMove(pointer: Pointer, {}) {
-    const gameBus = useGameBusStore()
-
-    if (gameBus.selectionArea.show) {
-        gameBus.selectionArea.endX = pointer.x / display.scale
-        gameBus.selectionArea.endY = pointer.y / display.scale
+    useGameBusStore().pointerPosition = {
+        x: pointer.x / display.scale,
+        y: pointer.y / display.scale,
     }
 }
 

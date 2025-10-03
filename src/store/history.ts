@@ -12,7 +12,7 @@ export type LogEntry = {
     authorColorRgba: string
     cancelText?: string
     playerVision?: PlayerVision
-    targetCard?: Card
+    card?: Card
     mutationId?: GameMutationId
 }
 
@@ -115,7 +115,7 @@ export const useHistoryStore = defineStore('gameHistory', {
                 authorColorRgba,
                 cancelText,
                 playerVision: gameMutation.playerVision,
-                targetCard: gameMutation.targetCard ?? undefined,
+                card: gameMutation.card ?? undefined,
                 mutationId: gameMutation.id,
             })
         },

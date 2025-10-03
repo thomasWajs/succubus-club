@@ -90,7 +90,7 @@
     />
 
     <div
-        v-show="drawHoverAttrs.isHovered"
+        v-show="drawHoverAttrs.isHovered && !cardRegion.isEmpty"
         class="tooltip"
         :style="{
             left: drawHoverAttrs.x - 40 + 'px',

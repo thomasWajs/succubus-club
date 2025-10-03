@@ -3,7 +3,7 @@ import Phaser from 'phaser'
 import KeyCodes = Phaser.Input.Keyboard.KeyCodes
 import { useGameBusStore } from '@/store/bus.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
-import { RegionName, TurnSequence } from '@/model/const.ts'
+import { TurnSequence } from '@/model/const.ts'
 import { Card, Vampire } from '@/model/Card.ts'
 import { resetCamera } from '@/game/camera.ts'
 import { useHistoryStore } from '@/store/history.ts'
@@ -193,14 +193,10 @@ export function useCommands() {
             keyCodes: [KeyCodes.I],
             repr: 'I',
             isDisabled: () => {
-                return (
-                    gameBus.selectedCards.filter(
-                        card => card.region.name == RegionName.Uncontrolled,
-                    ).length == 0
-                )
+                return gameBus.selectedCards.filter(card => card.isIn.uncontrolled).length == 0
             },
             cardAction: (card: Card) => {
-                if (card instanceof Vampire && card.region.name == RegionName.Uncontrolled) {
+                if (card instanceof Vampire && card.isIn.uncontrolled) {
                     gameMutations.influence.actSelf({
                         card,
                         amount: 1,
@@ -258,11 +254,7 @@ export function useCommands() {
             keyCodes: [KeyCodes.A],
             repr: 'A',
             cardAction: (card: Card) => {
-                if (
-                    [RegionName.Hand, RegionName.Controlled, RegionName.Torpor].includes(
-                        card.region.name,
-                    )
-                ) {
+                if (card.isIn.controlled || card.isIn.hand) {
                     gameMutations.moveCardToRegion.actSelf({
                         card,
                         fromCardRegion: card.region,
@@ -277,6 +269,28 @@ export function useCommands() {
             keyCodes: [KeyCodes.M],
             trigger: () => {
                 resetCamera()
+            },
+        }),
+
+        DeclareTarget: createCardCommand({
+            keyCodes: [KeyCodes.T],
+            repr: 'T',
+            isDisabled: () => {
+                return gameBus.selectedCards.length != 1
+            },
+            cardAction: (card: Card) => {
+                gameBus.declaringTargetOrigin = card
+            },
+        }),
+
+        ClearDeclaredTargets: createCommand({
+            keyCodes: [KeyCodes.X],
+            repr: 'X',
+            isDisabled: () => {
+                return gameState.targetDeclarations.length == 0
+            },
+            trigger: () => {
+                gameMutations.arrowClear.actSelf({})
             },
         }),
     }

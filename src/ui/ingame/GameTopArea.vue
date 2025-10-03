@@ -264,11 +264,16 @@
         </div>
 
         <div class="game-mutations">
-            <CommandButton :command="commands.GainBlood"> Gain Blood </CommandButton>
-            <CommandButton :command="commands.BurnBlood"> Burn Blood </CommandButton>
+            <CommandButton :command="commands.GainBlood">
+                <img src="/assets/blood1.png" />
+            </CommandButton>
+            <CommandButton :command="commands.BurnBlood">
+                <img src="/assets/blood1.png" />
+            </CommandButton>
             <CommandButton :command="commands.Influence"> Influence </CommandButton>
             <CommandButton :command="commands.UnlockAll"> Unlock All </CommandButton>
             <CommandButton :command="commands.DiscardAtRandom"> Discard At Random </CommandButton>
+            <CommandButton :command="commands.ClearDeclaredTargets"> Clear Targets </CommandButton>
             <CommandButton
                 class="is-danger"
                 :command="commands.Cancel"
@@ -450,5 +455,21 @@ const style = computed(() => {
 .game-mutations {
     display: flex;
     justify-content: space-between;
+
+    .game-button {
+        font-size: 12px;
+    }
+
+    .game-button:has(kbd):has(img) {
+        padding: 0 5px;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+
+        img {
+            height: 22px;
+            width: auto;
+        }
+    }
 }
 </style>

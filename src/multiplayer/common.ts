@@ -90,7 +90,6 @@ export type GameRoom = {
  */
 
 export enum MutationSyncMode {
-    LWW = 'LWW', // Last Write Wins
     Ordered = 'Ordered', // Must apply in order
     Merge = 'Merge', // Always apply all mutations to merge them
     Exclusive = 'Exclusive', // Cannot happen concurrently, only one Player is allowed to do it
@@ -118,6 +117,7 @@ export enum VersioningTarget {
     Card = 'Card',
     Reveal = 'Reveal',
     Shuffle = 'Shuffle',
+    Arrow = 'Arrow',
 }
 
 export type GameMutationMessage = {

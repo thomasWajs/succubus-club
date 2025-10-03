@@ -1,13 +1,7 @@
 import { Card, LibraryCard, Minion } from '@/model/Card.ts'
 import { Player } from '@/model/Player.ts'
 import { gameMutations } from '@/state/gameMutations.ts'
-import {
-    Discipline,
-    DisciplineLevel,
-    LEAVE_TORPOR_COST,
-    LibraryCardType,
-    RegionName,
-} from '@/model/const.ts'
+import { Discipline, DisciplineLevel, LEAVE_TORPOR_COST, LibraryCardType } from '@/model/const.ts'
 import {
     ActionCardImplementation,
     ActionCardUsage,
@@ -149,7 +143,7 @@ export class LeaveTorporAction extends MinionAction {
     }
 
     canDeclare() {
-        if (this.actingMinion.region.name != RegionName.Torpor) {
+        if (!this.actingMinion.isIn.torpor) {
             return Invalid('Acting vampire must be in torpor')
         }
         if (this.actingMinion.blood < LEAVE_TORPOR_COST) {
@@ -166,7 +160,7 @@ export class LeaveTorporAction extends MinionAction {
         gameMutations.moveCardToRegion.act(this.actingMinion.controller, {
             card: this.actingMinion,
             fromCardRegion: this.actingMinion.region,
-            toCardRegion: this.actingMinion.controller.controlled,
+            toCardRegion: this.actingMinion.controller.ready,
             x: 0,
             y: 0,
         })
@@ -190,10 +184,10 @@ export class RescueFromTorporAction extends MinionAction {
     }
 
     canDeclare() {
-        if (this.actingMinion.region.name != RegionName.Controlled) {
+        if (!this.actingMinion.isIn.ready) {
             return Invalid('Acting vampire must be ready')
         }
-        if (this.rescuedMinion.region.name != RegionName.Torpor) {
+        if (!this.rescuedMinion.isIn.torpor) {
             return Invalid('Rescued vampire must be in torpor')
         }
         if (this.actingMinion.blood + this.rescuedMinion.blood < LEAVE_TORPOR_COST) {
@@ -214,7 +208,7 @@ export class RescueFromTorporAction extends MinionAction {
         gameMutations.moveCardToRegion.act(this.actingMinion.controller, {
             card: this.rescuedMinion,
             fromCardRegion: this.rescuedMinion.region,
-            toCardRegion: this.rescuedMinion.controller.controlled,
+            toCardRegion: this.rescuedMinion.controller.ready,
             x: 0,
             y: 0,
         })

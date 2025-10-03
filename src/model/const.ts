@@ -6,7 +6,7 @@ export enum RegionName {
     Hand = 'Hand',
     Uncontrolled = 'Uncontrolled',
     Torpor = 'Torpor',
-    Controlled = 'Controlled',
+    Ready = 'Ready',
 }
 
 export enum CardRegionVisibility {

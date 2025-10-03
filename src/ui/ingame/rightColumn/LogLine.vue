@@ -69,17 +69,14 @@ const { logEntry, index } = defineProps<{
 }>()
 
 const selfHasVision = computed(
-    () =>
-        logEntry.targetCard &&
-        logEntry.playerVision &&
-        logEntry.playerVision[gameState.selfPlayerOid],
+    () => logEntry.card && logEntry.playerVision && logEntry.playerVision[gameState.selfPlayerOid],
 )
 
 const mutationLogHtml = computed(() => {
     let cardText
-    if (selfHasVision.value && logEntry.targetCard) {
-        const cssClass = isCryptId(logEntry.targetCard.krcgId) ? 'cryptCard' : 'libCard'
-        cardText = `<span class="${cssClass}">${logEntry.targetCard.name}</span>`
+    if (selfHasVision.value && logEntry.card) {
+        const cssClass = isCryptId(logEntry.card.krcgId) ? 'cryptCard' : 'libCard'
+        cardText = `<span class="${cssClass}">${logEntry.card.name}</span>`
     } else {
         cardText = `<span class="hidden">hidden card</span>`
     }
@@ -87,10 +84,10 @@ const mutationLogHtml = computed(() => {
 })
 
 function onLogLineHover(logEntry: LogEntry) {
-    if (selfHasVision.value && logEntry.targetCard) {
+    if (selfHasVision.value && logEntry.card) {
         // If there was a player vision at the time of the view,
         // we force canView = true, even if it's not visible anymore
-        gameBus.setCloseUpCard(logEntry.targetCard, true)
+        gameBus.setCloseUpCard(logEntry.card, true)
     }
 }
 </script>

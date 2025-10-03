@@ -25,11 +25,11 @@ import { Card } from '@/model/Card.ts'
 import { Marker, Markers } from '@/model/const.ts'
 import { gameMutations } from '@/state/gameMutations.ts'
 
-function toggleMarker(targetCard: Card, marker: Marker) {
+function toggleMarker(card: Card, marker: Marker) {
     gameMutations.changeMarker.actSelf({
-        card: targetCard,
+        card,
         marker,
-        operation: targetCard.hasMarker(marker) ? 'Remove' : 'Add',
+        operation: card.hasMarker(marker) ? 'Remove' : 'Add',
     })
 }
 </script>

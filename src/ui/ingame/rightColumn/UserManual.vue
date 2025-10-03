@@ -85,6 +85,10 @@
                     <span class="action"><kbd>A</kbd></span>
                     <span class="result">Move to Ash Heap</span>
                 </div>
+                <div class="control-item">
+                    <span class="action"><kbd>T</kbd></span>
+                    <span class="result">Declare Target</span>
+                </div>
             </div>
         </section>
 

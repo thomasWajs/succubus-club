@@ -176,6 +176,7 @@ const getCardOutlineColor = computed(() => {
  */
 
 function onRightClick(pointer: Pointer) {
+    gameBus.selectedCards = [card]
     gameBus.contextMenu.cards = [card]
     gameBus.contextMenu.show = true
 

@@ -484,6 +484,20 @@ function onDrop(event: CardDragEvent) {
 }
 
 /**
+ * World position ( for arrows )
+ */
+
+function getWorldPosition() {
+    if (!image.value || !image.value.parentContainer) {
+        return null
+    }
+
+    return image.value.parentContainer
+        .getWorldTransformMatrix()
+        .transformPoint(cardAttrs.value.x, cardAttrs.value.y)
+}
+
+/**
  * Register onto the gameBus
  */
 
@@ -494,14 +508,12 @@ const handleableCard = {
     onDrag,
     onDragEnd,
     onDrop,
+    getWorldPosition,
 }
 onMounted(() => {
-    gameBus.handleableCards.push(handleableCard)
+    gameBus.handleableCards[card.oid] = handleableCard
 })
 onBeforeUnmount(() => {
-    const index = gameBus.handleableCards.indexOf(handleableCard)
-    if (index != -1) {
-        gameBus.handleableCards.splice(index, 1)
-    }
+    delete gameBus.handleableCards[card.oid]
 })
 </script>

@@ -8,6 +8,7 @@ import { useCoreStore } from '@/store/core.ts'
 import { SavingState } from '@/gateway/savedGames.ts'
 import Rectangle = Phaser.Geom.Rectangle
 import Pointer = Phaser.Input.Pointer
+import Vector2Like = Phaser.Types.Math.Vector2Like
 
 type CleanupCallback = () => void
 
@@ -39,6 +40,7 @@ export type HandleableCard = {
     onDrag: (event: CardDragEvent) => void
     onDragEnd: (event: CardDragEvent) => void
     onDrop: (event: CardDragEvent) => void
+    getWorldPosition: () => Vector2Like | null
 }
 
 export const useBusStore = defineStore('bus', {
@@ -88,23 +90,28 @@ export const useBusStore = defineStore('bus', {
 
 export const useGameBusStore = defineStore('gameBus', {
     state: () => ({
+        /** Close-up card **/
         closeUpCard: {
             card: null as Card | null,
             canView: false,
         },
 
+        /** Card selection and target declaration **/
+        pointerPosition: null as Vector2Like | null,
+        handleableCards: {} as Record<CardOid, HandleableCard>,
+
         selectedCards: [] as Card[],
         selectionArea: {
             show: false,
-            startX: 0,
-            startY: 0,
-            endX: 0,
-            endY: 0,
+            origin: null as Vector2Like | null,
         },
-        handleableCards: [] as HandleableCard[],
 
+        declaringTargetOrigin: null as Card | null,
+
+        /** Hand **/
         handDropGapPosition: null as null | number,
 
+        /** Menus **/
         contextMenu: {
             show: false,
             cards: [] as Card[],
@@ -130,6 +137,7 @@ export const useGameBusStore = defineStore('gameBus', {
             searchString: '',
         },
 
+        /** Saving **/
         savingState: SavingState.None,
     }),
 
@@ -148,8 +156,16 @@ export const useGameBusStore = defineStore('gameBus', {
             return core.phaserGame.textures.getBase64(texture.textureName, texture.frameName)
         },
         selectionAreaRect(state) {
-            let [x, y] = [state.selectionArea.startX, state.selectionArea.startY]
-            let [width, height] = [state.selectionArea.endX - x, state.selectionArea.endY - y]
+            if (
+                !state.selectionArea.show ||
+                !state.pointerPosition ||
+                !state.selectionArea.origin
+            ) {
+                return null
+            }
+
+            let { x, y } = state.selectionArea.origin
+            let [width, height] = [state.pointerPosition.x - x, state.pointerPosition.y - y]
 
             if (width < 0) {
                 x += width
@@ -163,8 +179,7 @@ export const useGameBusStore = defineStore('gameBus', {
             return new Rectangle(x, y, width, height)
         },
         selectedHandleableCards(state): HandleableCard[] {
-            const selectedIds = state.selectedCards.map(c => c.oid)
-            return state.handleableCards.filter(hc => selectedIds.includes(hc.cardOid))
+            return state.selectedCards.map(c => state.handleableCards[c.oid])
         },
     },
 

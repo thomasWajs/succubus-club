@@ -156,6 +156,14 @@ export const WIELD_SCROLLBAR_COLOR = new Color(60, 60, 60)
 export const WIELD_SCROLLBAR_ALPHA = 0.6
 
 /**
+ * Arrows
+ */
+
+export const ARROW_HEAD_WIDTH = 20
+export const ARROW_HEAD_HEIGHT = 20
+export const ARROW_COLOR = new Color(135, 45, 60)
+
+/**
  * Misc
  */
 

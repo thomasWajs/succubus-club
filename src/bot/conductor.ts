@@ -25,7 +25,7 @@ export class Conductor {
         gameMutations.moveCardToRegion.act(this.bot.player, {
             card,
             fromCardRegion: card.region,
-            toCardRegion: this.bot.player.controlled,
+            toCardRegion: this.bot.player.ready,
             x: actingMinion ? actingMinion.x : 0,
             y: actingMinion ? actingMinion.y - 6 * GRID_SIZE : 0,
         })

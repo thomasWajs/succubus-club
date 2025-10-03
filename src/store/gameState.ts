@@ -11,7 +11,7 @@ import { useCoreStore } from '@/store/core.ts'
 import { hashGameState } from '@/gateway/serialization.ts'
 import Phaser from 'phaser'
 import Color = Phaser.Display.Color
-import { CardRevelation, CardRevelationTargetOid } from '@/state/types.ts'
+import { TargetDeclaration, CardRevelation, CardRevelationTargetOid } from '@/state/types.ts'
 import { PermanentId } from '@/multiplayer/common.ts'
 
 export type GameStateStore = ReturnType<typeof useGameStateStore>
@@ -22,33 +22,41 @@ export const useGameStateStore = defineStore('gameState', {
     state: () => ({
         nextOid: 1,
 
+        /** Main objects **/
         players: {} as Record<PlayerOid, Player>,
         cards: {} as Record<CardOid, Card>,
 
         /**
-         * Map User.permanentId -> Player Oid
          * Allow to match Users to their Player when loading a gameState
          * ( Resync, Reconnect, Game loading... )
          */
         usersToPlayer: {} as Record<PermanentId, PlayerOid>,
 
+        /** Turn / Phase **/
         turnOrder: [] as PlayerOid[], // Turn order at the start of the game, not impacted by ousted players
         activePlayerIndex: 0, // Index into state.competingPlayers
         turnNumber: 1,
         turnPhaseIndex: 0,
 
+        /** Revelations **/
         revelations: {} as Record<CardRevelationTargetOid, CardRevelation>,
 
+        /** The edge **/
         theEdgeControllerOid: undefined as PlayerOid | undefined,
 
+        /** Resources for the bot **/
         turnResources: {
             mpa: DEFAULT_MPA, // masterPhaseActions
             transfers: 1,
             dpa: DEFAULT_DPA, // discardPhaseActions
         },
 
+        /** Action and combat state for the bot **/
         action: null as ActionState | null,
         combat: null as CombatState | null,
+
+        /** Target Declaration **/
+        targetDeclarations: [] as TargetDeclaration[],
     }),
     getters: {
         /**

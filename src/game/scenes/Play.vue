@@ -63,16 +63,26 @@
             :y="PLAY_AREA_Y"
         />
 
+        <!-- Menus -->
         <ContextMenu v-show="sceneReady" />
         <ContextSubmenu v-show="sceneReady" />
+
+        <!-- Card Stack -->
         <WieldCardStack
             v-if="gameBus.wieldCardStack.show"
             :cardRegion="gameBus.wieldCardStack.cardRegion!"
         />
 
+        <!-- Arrows -->
+        <ArrowGo
+            v-for="(arrow, index) in arrows"
+            :key="'arrow' + index"
+            :arrow="arrow"
+        />
+
         <!-- Selection Area -->
         <Rectangle
-            v-if="gameBus.selectionArea.show"
+            v-if="gameBus.selectionAreaRect"
             :origin="0"
             :x="gameBus.selectionAreaRect.x"
             :y="gameBus.selectionAreaRect.y"
@@ -111,6 +121,9 @@ import WieldCardStack from '@/game/objects/WieldCardStack.vue'
 import { useCoreStore } from '@/store/core.ts'
 import { setupKeyboardHandlers, setupPointerHandlers } from '@/game/input.ts'
 import { setupCamera } from '@/game/camera.ts'
+import ArrowGo from '@/game/objects/ArrowGo.vue'
+import { CardOid } from '@/model/Card.ts'
+import { Arrow } from '@/state/types.ts'
 
 const core = useCoreStore()
 const gameState = useGameStateStore()
@@ -151,5 +164,37 @@ const playerSeats = computed(() => {
             : null,
         bottomRight: gameState.orderedPlayers.length >= 5 ? gameState.getNthNeighbour(4) : null,
     }
+})
+
+/**
+ * Arrows
+ */
+
+function getWorldPosition(cardOid?: CardOid) {
+    if (!cardOid || !gameBus.handleableCards[cardOid]) {
+        return null
+    }
+    return gameBus.handleableCards[cardOid].getWorldPosition()
+}
+
+const arrows = computed(() => {
+    const _arrows = [
+        // The current declarating target, if any
+        {
+            from: getWorldPosition(gameBus.declaringTargetOrigin?.oid),
+            to: {
+                x: gameBus.pointerPosition?.x,
+                y: gameBus.pointerPosition?.y,
+            },
+        },
+        // The already declared targets
+        ...gameState.targetDeclarations.map(arrow => {
+            return {
+                from: getWorldPosition(arrow.originOid),
+                to: getWorldPosition(arrow.targetOid),
+            }
+        }),
+    ]
+    return _arrows.filter(arrow => arrow.from && arrow.to) as Arrow[]
 })
 </script>

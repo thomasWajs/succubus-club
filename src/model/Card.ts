@@ -17,6 +17,7 @@ import {
     DisciplineLevel,
     LibraryCardType,
     Marker,
+    RegionName,
     TurnPhase,
 } from '@/model/const.ts'
 import { useGameBusStore } from '@/store/bus.ts'
@@ -74,6 +75,23 @@ export abstract class Card extends BaseModel {
 
     get region() {
         return useGameStateStore().cardLocations[this.oid]
+    }
+
+    // Shortcuts to check this card's region
+    get isIn() {
+        const rName = this.region.name
+        return {
+            play: [RegionName.Ready, RegionName.Torpor, RegionName.Uncontrolled].includes(rName),
+            controlled: [RegionName.Ready, RegionName.Torpor].includes(rName),
+            ready: rName == RegionName.Ready,
+            torpor: rName == RegionName.Torpor,
+            uncontrolled: rName == RegionName.Uncontrolled,
+            crypt: rName == RegionName.Crypt,
+            library: rName == RegionName.Library,
+            hand: rName == RegionName.Hand,
+            ashHeap: rName == RegionName.AshHeap,
+            removed: rName == RegionName.Removed,
+        }
     }
 
     get position() {

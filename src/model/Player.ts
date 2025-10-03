@@ -26,8 +26,8 @@ export type PlayerCardRegions = {
 
     // Torpor contains both type of cards ( library can end up here, e.g.: an embrace wounded )
     torpor: CardRegion<Card>
-    // Controlled contains both type of cards
-    controlled: CardRegion<Card>
+    // Ready contains both type of cards
+    ready: CardRegion<Card>
 }
 
 export class Player extends BaseModel {
@@ -84,9 +84,9 @@ export class Player extends BaseModel {
                 RegionName.Torpor,
                 CardRegionVisibility.VisibleToAll,
             ),
-            controlled: new CardRegion(
+            ready: new CardRegion(
                 gameState.getNextOid(),
-                RegionName.Controlled,
+                RegionName.Ready,
                 CardRegionVisibility.VisibleToAll,
             ),
         }
@@ -123,8 +123,8 @@ export class Player extends BaseModel {
         return this.cardRegions.torpor
     }
 
-    get controlled() {
-        return this.cardRegions.controlled
+    get ready() {
+        return this.cardRegions.ready
     }
 
     get allCardRegions(): AnyCardRegion[] {
@@ -152,7 +152,7 @@ export class Player extends BaseModel {
     }
 
     get minionsReady() {
-        return this.controlled.cards.filter(c => c instanceof Minion) as Minion[]
+        return this.ready.cards.filter(c => c instanceof Minion) as Minion[]
     }
 
     get minionsReadyUnlocked() {
@@ -164,7 +164,7 @@ export class Player extends BaseModel {
     }
 
     get vampiresReady() {
-        return this.controlled.cards.filter(c => c instanceof Minion) as Vampire[]
+        return this.ready.cards.filter(c => c instanceof Minion) as Vampire[]
     }
 
     get vampiresReadyUnlocked() {

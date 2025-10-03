@@ -1,13 +1,13 @@
 <template>
     <Container ref="playArea">
         <RegionGO
-            key="Controlled"
+            key="Ready"
             :x="0"
             :y="0"
             :width="PLAY_AREA_WIDTH"
             :height="CONTROLLED_ZONE_HEIGHT"
             :color="player.color"
-            :cardRegion="player.controlled"
+            :cardRegion="player.ready"
         />
 
         <RegionGO

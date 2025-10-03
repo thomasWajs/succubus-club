@@ -10,42 +10,50 @@
         @mousedown.stop
     >
         <CommandContextMenuButton
-            v-if="isUncontrolled"
+            v-if="firstCard.isIn.controlled"
+            :closeOnClick="true"
+            :command="commands.DeclareTarget"
+        >
+            Declare target
+        </CommandContextMenuButton>
+
+        <CommandContextMenuButton
+            v-if="firstCard.isIn.uncontrolled"
             :command="commands.Influence"
         >
             Influence
         </CommandContextMenuButton>
 
         <CommandContextMenuButton
-            v-if="isInPlay || isUncontrolled"
+            v-if="firstCard.isIn.play"
             :command="commands.GainBlood"
         >
             Gain Blood
         </CommandContextMenuButton>
 
         <CommandContextMenuButton
-            v-if="isInPlay || isUncontrolled"
+            v-if="firstCard.isIn.play"
             :command="commands.BurnBlood"
         >
             Burn Blood
         </CommandContextMenuButton>
 
         <CommandContextMenuButton
-            v-if="isInPlay"
+            v-if="firstCard.isIn.controlled"
             :command="commands.GainGreenCounter"
         >
             +1 Green Counter
         </CommandContextMenuButton>
 
         <CommandContextMenuButton
-            v-if="isInPlay"
+            v-if="firstCard.isIn.controlled"
             :command="commands.BurnGreenCounter"
         >
             -1 Green Counter
         </CommandContextMenuButton>
 
         <CommandContextMenuButton
-            v-if="isInPlay"
+            v-if="firstCard.isIn.controlled"
             :command="commands.Flip"
             :closeOnClick="true"
         >
@@ -53,14 +61,14 @@
         </CommandContextMenuButton>
 
         <SubmenuContextMenuButton
-            v-if="isInPlay"
+            v-if="firstCard.isIn.controlled"
             :submenuComponent="MarkersSubmenu"
         >
             Add/Remove Markers
         </SubmenuContextMenuButton>
 
         <ContextMenuButton
-            v-if="isHand || isLibrary || isAshHeap"
+            v-if="firstCard.isIn.hand || firstCard.isIn.library || firstCard.isIn.ashHeap"
             :closeOnClick="true"
             :cardAction="
                 (card: Card) =>
@@ -73,7 +81,7 @@
         </ContextMenuButton>
 
         <CommandContextMenuButton
-            v-if="isInPlay || isHand"
+            v-if="firstCard.isIn.controlled || firstCard.isIn.hand"
             :command="commands.MoveToAshHeap"
             :closeOnClick="true"
         >
@@ -81,7 +89,7 @@
         </CommandContextMenuButton>
 
         <ContextMenuButton
-            v-if="!isUncontrolled && !isCrypt"
+            v-if="!firstCard.isIn.uncontrolled && !firstCard.isIn.crypt"
             :closeOnClick="true"
             :cardAction="
                 (card: Card) =>
@@ -95,7 +103,7 @@
         </ContextMenuButton>
 
         <ContextMenuButton
-            v-if="isInPlay || isCrypt || isUncontrolled"
+            v-if="firstCard.isIn.play || firstCard.isIn.crypt"
             :closeOnClick="true"
             :cardAction="
                 (card: Card) =>
@@ -109,7 +117,7 @@
         </ContextMenuButton>
 
         <ContextMenuButton
-            v-if="isInPlay && core.gameType == GameType.TrainBot"
+            v-if="firstCard.isIn.controlled && core.gameType == GameType.TrainBot"
             :closeOnClick="true"
             :disabled="!singleMinion || !gameState.action?.canAttemptBlock"
             :cardAction="
@@ -130,7 +138,6 @@ import { gameMutations } from '@/state/gameMutations.ts'
 import { computed } from 'vue'
 import { Card } from '@/model/Card.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
-import { RegionName } from '@/model/const.ts'
 import { useCoreStore } from '@/store/core.ts'
 import { useCommands } from '@/game/composables/useCommands.ts'
 import { GameType } from '@/state/types.ts'
@@ -144,19 +151,8 @@ const gameState = useGameStateStore()
 const gameBus = useGameBusStore()
 const commands = useCommands()
 
-const regionName = computed(() => gameBus.contextMenu.cards[0]?.region.name)
-const isInPlay = computed(() =>
-    [RegionName.Controlled, RegionName.Torpor].includes(regionName.value),
-)
-const isUncontrolled = computed(() => regionName.value == RegionName.Uncontrolled)
-const isCrypt = computed(() => regionName.value == RegionName.Crypt)
-const isLibrary = computed(() => regionName.value == RegionName.Library)
-const isHand = computed(() => regionName.value == RegionName.Hand)
-const isAshHeap = computed(() => regionName.value == RegionName.AshHeap)
-
-const singleCard = computed(() =>
-    gameBus.contextMenu.cards.length == 1 ? gameBus.contextMenu.cards[0] : null,
-)
+const firstCard = computed(() => gameBus.contextMenu.cards[0])
+const singleCard = computed(() => (gameBus.contextMenu.cards.length == 1 ? firstCard : null))
 // For now, disable the check on minions, as library cards are not yet detected ( allies, embraces... )
 const singleMinion = computed(() =>
     singleCard.value /*&& singleCard.value instanceof Minion*/ ? singleCard.value : null,
