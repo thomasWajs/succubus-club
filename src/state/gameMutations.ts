@@ -44,7 +44,7 @@ import { BOT_PERM_ID } from '@/game/setup.ts'
 import { MutationSyncMode, VersioningId, VersioningTarget } from '@/multiplayer/common.ts'
 import { hashObject } from '@/gateway/serialization.ts'
 import { isRevealedToViewer } from '@/state/cardVisibility.ts'
-import { botModeEnqueueMutation } from '@/bot/mutationQueue.ts'
+import { enqueueBotMutation } from '@/bot/mutationQueue.ts'
 
 export type GameMutationId = number
 export interface GameMutationParams {
@@ -799,7 +799,7 @@ class Influence extends ChangeCounterMutation {
     readonly syncMode = MutationSyncMode.Merge
 
     getValidity() {
-        if (this.params.card.isIn.uncontrolled) {
+        if (!this.params.card.isIn.uncontrolled) {
             return Invalid('Influence must be done on uncontrolled vampires')
         }
         return VALID
@@ -1629,7 +1629,7 @@ export function applyMutationIfValid(gameMutation: AnyGameMutation) {
  */
 export function applyMutationLocally(gameMutation: AnyGameMutation) {
     if (useCoreStore().gameType == GameType.TrainBot) {
-        botModeEnqueueMutation(gameMutation)
+        enqueueBotMutation(gameMutation)
     } else {
         applyMutationIfValid(gameMutation)
     }

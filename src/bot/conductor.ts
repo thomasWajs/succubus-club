@@ -106,15 +106,8 @@ export class Conductor {
         const gameState = useGameStateStore()
 
         // An ousted bot doesn't play anymore
-        if (this.bot.player.isOusted) {
-            return true
-        }
         // Stop playing if we're the last one in game
-        if (gameState.competingPlayers.length == 1) {
-            return true
-        }
-
-        return false
+        return this.bot.player.isOusted || gameState.competingPlayers.length == 1
     }
 
     decisionFallback() {
