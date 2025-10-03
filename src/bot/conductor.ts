@@ -84,6 +84,16 @@ export class Conductor {
                 minionAction: action,
             })
 
+            if (action.target) {
+                gameMutations.arrowAdd.act(this.bot.player, {
+                    origin:
+                        action instanceof ActionCardAction ?
+                            action.actionCard
+                        :   action.actingMinion,
+                    target: action.target,
+                })
+            }
+
             if (action instanceof ActionCardAction) {
                 this.playCard(action.actionCard, action.actingMinion)
             }

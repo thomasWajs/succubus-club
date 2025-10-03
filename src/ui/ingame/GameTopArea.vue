@@ -200,7 +200,9 @@
 
                     <button
                         class="game-button"
-                        :disabled="!gameState.action.canAttemptBlock"
+                        :disabled="
+                            !gameState.action.selfHasImpulse || !gameState.action.canAttemptBlock
+                        "
                         @click="
                             gameMutations.ACTION_declareBlock.actSelf({
                                 blockingMinion: NO_BLOCK,
@@ -212,7 +214,9 @@
 
                     <button
                         class="game-button"
-                        :disabled="gameState.action.canAttemptBlock"
+                        :disabled="
+                            !gameState.action.selfHasImpulse || gameState.action.canAttemptBlock
+                        "
                         @click="
                             gameMutations.ACTION_declareReaction.actSelf({
                                 reaction: NO_REACTION,

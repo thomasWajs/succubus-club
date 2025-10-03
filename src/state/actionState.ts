@@ -46,6 +46,10 @@ export class ActionState {
         return this.blockingDecision instanceof Minion ? this.blockingDecision : null
     }
 
+    get selfHasImpulse() {
+        return this.impulsePlayer == useGameStateStore().selfPlayer
+    }
+
     get canAttemptBlock() {
         return this.blockingDecision == null
     }

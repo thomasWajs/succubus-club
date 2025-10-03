@@ -275,13 +275,6 @@ class ArrowAdd extends GameMutation<TargetDeclarationParams> {
         return this.params.target instanceof Card ? this.params.target : null
     }
 
-    getValidity() {
-        if (!this.params.origin.isIn.controlled) {
-            return Invalid(`${this.params.origin.name} must be controlled to declare a target`)
-        }
-        return VALID
-    }
-
     protected updateGameState(gameState: GameStateStore) {
         gameState.targetDeclarations.push({
             originOid: this.params.origin.oid,
