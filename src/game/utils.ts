@@ -1,7 +1,5 @@
 import { CARD_HEIGHT, CARD_IN_PLAY_SCALE, CARD_WIDTH, GRID_SIZE } from '@/game/const.ts'
 import Phaser, { GameObjects } from 'phaser'
-import Vector2Like = Phaser.Types.Math.Vector2Like
-import TransformXY = Phaser.Math.TransformXY
 import Pointer = Phaser.Input.Pointer
 import { display } from '@/game/display.ts'
 import { PhaserDataKey } from '@/game/types.ts'
@@ -10,18 +8,7 @@ import { useGameStateStore } from '@/store/gameState.ts'
 import { AnyCard, CardOid } from '@/model/Card.ts'
 
 export function dropCoordinates(pointer: Pointer, toContainer: GameObjects.Container) {
-    // Fix #43 before uncommenting this
-    //return toContainer.getLocalPoint(pointer.x / display.scale, pointer.y / display.scale)
-
-    return TransformXY(
-        pointer.x / display.scale,
-        pointer.y / display.scale,
-        toContainer.x,
-        toContainer.y,
-        toContainer.rotation,
-        toContainer.scaleX,
-        toContainer.scaleY,
-    ) as Vector2Like
+    return toContainer.getLocalPoint(pointer.x / display.scale, pointer.y / display.scale)
 }
 
 export function dropCoordinatesSnapped(pointer: Pointer, toContainer: GameObjects.Container) {
