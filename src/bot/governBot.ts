@@ -6,6 +6,7 @@ import { useGameStateStore } from '@/store/gameState.ts'
 import { Discipline, DisciplineLevel } from '@/model/const.ts'
 import { NO_ACTION_MODIFIER, NO_BLOCK, NO_COMBAT } from '@/state/actionState.ts'
 import { DeckList } from '@/gateway/deck.ts'
+import { GRID_SIZE } from '@/game/const.ts'
 
 export const GovernDeck = <DeckList>{
     [GOVERN_ID]: 48,
@@ -29,7 +30,9 @@ export class GovernBot extends Bot {
     static deck = GovernDeck
 
     getUncontrolledSortedCapaDescending() {
-        return this.player.vampiresInUncontrolled.toSorted((v1, v2) => v2.capacity - v1.capacity)
+        return this.player.vampiresInUncontrolled.toSorted(
+            (v1, v2) => v2.minionAttrs.capacity - v1.minionAttrs.capacity,
+        )
     }
 
     unlockPhase() {
@@ -59,15 +62,18 @@ export class GovernBot extends Bot {
         if (govern && this.player.minionsReadyUnlocked.length > 0) {
             // From oldest to youngest unlocked ready vampire
             const actingVampire = this.player.vampiresReadyUnlocked.toSorted(
-                (v1, v2) => v2.capacity - v1.capacity,
+                (v1, v2) => v2.minionAttrs.capacity - v1.minionAttrs.capacity,
             )[0]
             // If it has dominate sup and there's a younger vampire in uncontrolled with more than 3 blood remaining
-            if (actingVampire.disciplines[Discipline.Dominate] == DisciplineLevel.SUPERIOR) {
+            if (
+                actingVampire.minionAttrs.disciplines[Discipline.Dominate] ==
+                DisciplineLevel.SUPERIOR
+            ) {
                 const uncontrolledVampires = this.getUncontrolledSortedCapaDescending()
                 for (const vampire of uncontrolledVampires) {
                     if (
-                        vampire.capacity < actingVampire.capacity &&
-                        vampire.capacity - vampire.blood > 3
+                        vampire.minionAttrs.capacity < actingVampire.minionAttrs.capacity &&
+                        vampire.minionAttrs.capacity - vampire.blood > 3
                     ) {
                         // govern sup
                         return new ActionCardAction(actingVampire, govern, {
@@ -79,7 +85,10 @@ export class GovernBot extends Bot {
             }
 
             // If we're here, either the vampire lack DOM, either there's no target for Govern Sup.
-            if (actingVampire.disciplines[Discipline.Dominate] >= DisciplineLevel.INFERIOR) {
+            if (
+                actingVampire.minionAttrs.disciplines[Discipline.Dominate] >=
+                DisciplineLevel.INFERIOR
+            ) {
                 // govern inf
                 return new ActionCardAction(actingVampire, govern, {
                     level: DisciplineLevel.INFERIOR,
@@ -101,16 +110,31 @@ export class GovernBot extends Bot {
         }
 
         const transfers = gameState.turnResources.transfers
+
         // If we have transfer left and any vampire in uncontrolled
         if (transfers > 0 && this.player.vampiresInUncontrolled.length > 0) {
-            // Find highest-capa vampire in crypt
-            const oldestVampire = this.getUncontrolledSortedCapaDescending()[0]
+            // Find highest-capa vampire in crypt, not already maxed-out
+            const uncontrolledVampires = this.getUncontrolledSortedCapaDescending()
 
-            if (oldestVampire) {
-                // influence him up to the transfers available OR its capacity
-                return gameMutations.influence.createMutation(this.player, {
-                    card: oldestVampire,
-                    amount: Math.min(transfers, oldestVampire.capacity - oldestVampire.blood),
+            for (const vampire of uncontrolledVampires) {
+                if (vampire.minionAttrs.capacity > vampire.blood) {
+                    return gameMutations.influence.createMutation(this.player, {
+                        card: vampire,
+                        amount: Math.min(transfers, vampire.minionAttrs.capacity - vampire.blood),
+                    })
+                }
+            }
+        }
+
+        // Move full vampires to the ready region
+        for (const vampire of this.player.vampiresInUncontrolled) {
+            if (vampire.blood == vampire.minionAttrs.capacity) {
+                return gameMutations.moveCardToRegion.createMutation(this.player, {
+                    card: vampire,
+                    fromCardRegion: this.player.uncontrolled,
+                    toCardRegion: this.player.ready,
+                    x: GRID_SIZE * 6 * this.player.ready.cards.length,
+                    y: GRID_SIZE * 6,
                 })
             }
         }
@@ -150,7 +174,7 @@ export class GovernBot extends Bot {
             gameState.action.stealth <= 1
         ) {
             return new ActionModifier(lostInCrowds, {
-                level: actingVampire.disciplines[Discipline.Obfuscate],
+                level: actingVampire.minionAttrs.disciplines[Discipline.Obfuscate],
             })
         }
 

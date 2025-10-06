@@ -43,7 +43,7 @@
         :strokeColor="getCardOutlineColor"
     />
 
-    <template v-if="card.blood > 0">
+    <template v-if="card.blood > 0 || card.isMinion()">
         <Circle
             ref="bloodCounterCircle"
             :radius="COUNTER_RADIUS"

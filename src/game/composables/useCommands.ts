@@ -4,7 +4,7 @@ import KeyCodes = Phaser.Input.Keyboard.KeyCodes
 import { useGameBusStore } from '@/store/bus.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
 import { TurnSequence } from '@/model/const.ts'
-import { Card, Vampire } from '@/model/Card.ts'
+import { Card } from '@/model/Card.ts'
 import { resetCamera } from '@/game/camera.ts'
 import { useHistoryStore } from '@/store/history.ts'
 
@@ -196,7 +196,7 @@ export function useCommands() {
                 return gameBus.selectedCards.filter(card => card.isIn.uncontrolled).length == 0
             },
             cardAction: (card: Card) => {
-                if (card instanceof Vampire && card.isIn.uncontrolled) {
+                if (card.isVampire() && card.isIn.uncontrolled) {
                     gameMutations.influence.actSelf({
                         card,
                         amount: 1,

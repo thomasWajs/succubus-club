@@ -17,10 +17,7 @@ export function useCardOutline(
     const isHovered = ref(false)
 
     const isUnderSelectionArea = () => {
-        if (!withSelectionArea) {
-            return false
-        }
-        if (!image.value || !gameBus.selectionArea.show) {
+        if (!withSelectionArea || !image.value || !gameBus.selectionAreaRect) {
             return false
         }
 

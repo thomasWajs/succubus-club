@@ -3,6 +3,6 @@ import { CryptCard } from '@/model/Card.ts'
 
 export class JasonSonNewberryG6 extends CryptCardImplementation {
     adapt(card: CryptCard) {
-        card.bleed = 2
+        card.minionAttrs.bleed = 2
     }
 }

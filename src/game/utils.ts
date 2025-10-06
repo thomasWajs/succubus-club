@@ -5,7 +5,7 @@ import { display } from '@/game/display.ts'
 import { PhaserDataKey } from '@/game/types.ts'
 import { AnyCardRegion, CardRegionOid } from '@/model/CardRegion.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
-import { AnyCard, CardOid } from '@/model/Card.ts'
+import { CardOid } from '@/model/Card.ts'
 
 export function dropCoordinates(pointer: Pointer, toContainer: GameObjects.Container) {
     return toContainer.getLocalPoint(pointer.x / display.scale, pointer.y / display.scale)
@@ -86,7 +86,7 @@ export function getDropCardRegion(droppedOn: GameObjects.GameObject): AnyCardReg
     return cardRegion
 }
 
-export function getDraggedCard(cardImage: GameObjects.Image): AnyCard {
+export function getDraggedCard(cardImage: GameObjects.Image) {
     const gameState = useGameStateStore()
 
     const cardOid = cardImage.getData(PhaserDataKey.CardOid) as CardOid
@@ -94,7 +94,7 @@ export function getDraggedCard(cardImage: GameObjects.Image): AnyCard {
         throw new Error(`getDraggedCard: cardImage does not have a valid CardOid`)
     }
 
-    const card = gameState.cards[cardOid] as AnyCard
+    const card = gameState.cards[cardOid]
     // Dropped on a region that doesn't exist in the game state, that should never happen
     if (!card) {
         throw new Error(`onDrop: card not found for oid ${cardOid}`)

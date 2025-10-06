@@ -1,4 +1,4 @@
-import { Minion } from '@/model/Card.ts'
+import { Card, Minion } from '@/model/Card.ts'
 import { Player } from '@/model/Player.ts'
 import { MinionAction } from '@/state/minionActions.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
@@ -7,10 +7,10 @@ import { gameMutations } from '@/state/gameMutations.ts'
 /**
  * Flags for Conductor
  */
-export const NO_BLOCK = 'NO_BLOCK' // No block for this impulse
-export const NO_ACTION_MODIFIER = 'NO_ACTION_MODIFIER' // No action modifier for this impulse
-export const NO_COMBAT = 'NO_COMBAT' // No combat card for this impulse
-export const NO_REACTION = 'NO_REACTION' // No reaction for this impulse
+export const NO_BLOCK = 'NO_BLOCK' as const // No block for this impulse
+export const NO_ACTION_MODIFIER = 'NO_ACTION_MODIFIER' as const // No action modifier for this impulse
+export const NO_COMBAT = 'NO_COMBAT' as const // No combat card for this impulse
+export const NO_REACTION = 'NO_REACTION' as const // No reaction for this impulse
 
 export enum ActionProperty {
     stealth = 'stealth',
@@ -32,9 +32,9 @@ export class ActionState {
     impulsePlayer: Player
 
     constructor(public minionAction: MinionAction) {
-        this.stealth = this.actingMinion.stealth + minionAction.defaultStealth
-        this.bleed = this.actingMinion.bleed
-        this.hunt = this.actingMinion.hunt
+        this.stealth = this.actingMinion.minionAttrs.stealth + minionAction.defaultStealth
+        this.bleed = this.actingMinion.minionAttrs.bleed
+        this.hunt = this.actingMinion.minionAttrs.hunt
         this.impulsePlayer = this.actingMinion.controller
     }
 
@@ -43,7 +43,7 @@ export class ActionState {
     }
 
     get blockingMinion(): Minion | null {
-        return this.blockingDecision instanceof Minion ? this.blockingDecision : null
+        return this.blockingDecision instanceof Card ? (this.blockingDecision as Minion) : null
     }
 
     get selfHasImpulse() {
@@ -67,7 +67,7 @@ export class ActionState {
                 // On directed action, the impulse goes to the target
                 if (this.minionAction.target instanceof Player) {
                     this.impulsePlayer = this.minionAction.target
-                } else if (this.minionAction.target instanceof Minion) {
+                } else if (this.minionAction.target instanceof Card) {
                     this.impulsePlayer = this.minionAction.target.controller
                 }
             }

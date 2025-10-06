@@ -2,7 +2,7 @@ import { Player } from '@/model/Player.ts'
 import { useHistoryStore } from '@/store/history.ts'
 import { GameStateStore, useGameStateStore } from '@/store/gameState.ts'
 import { AnyCardRegion, CardRegion } from '@/model/CardRegion.ts'
-import { Card, CardOid, CryptCard, LibraryCard, Minion, Vampire } from '@/model/Card.ts'
+import { Card, CardOid, CryptCard, LibraryCard, Minion } from '@/model/Card.ts'
 import {
     DEFAULT_DPA,
     DEFAULT_MPA,
@@ -11,12 +11,7 @@ import {
     RegionName,
     TurnSequence,
 } from '@/model/const.ts'
-import {
-    CARD_LOG_PLACEHOLDER,
-    CONTROLLED_ZONE_HEIGHT,
-    GRID_SIZE,
-    PLAY_AREA_WIDTH,
-} from '@/game/const.ts'
+import { CARD_LOG_PLACEHOLDER, CONTROLLED_ZONE_HEIGHT, PLAY_AREA_WIDTH } from '@/game/const.ts'
 import {
     ActionProperty,
     ActionState,
@@ -40,7 +35,6 @@ import { CombatantMinion, CombatState } from '@/state/combatState.ts'
 import { useCoreStore } from '@/store/core.ts'
 import { broadcastGameMutation } from '@/multiplayer/room.ts'
 import { useBusStore } from '@/store/bus.ts'
-import { BOT_PERM_ID } from '@/game/setup.ts'
 import { MutationSyncMode, VersioningId, VersioningTarget } from '@/multiplayer/common.ts'
 import { hashObject } from '@/gateway/serialization.ts'
 import { isRevealedToViewer } from '@/state/cardVisibility.ts'
@@ -791,29 +785,10 @@ class Influence extends ChangeCounterMutation {
     }
 
     protected updateGameState(gameState: GameStateStore) {
-        const core = useCoreStore()
-
-        const minion = this.params.card
-        minion.changeBlood(this.params.amount)
-        minion.controller.changePool(-this.params.amount)
+        const card = this.params.card
+        card.changeBlood(this.params.amount)
+        card.controller.changePool(-this.params.amount)
         gameState.turnResources.transfers -= this.params.amount
-
-        // TODO : Move this to Conductor/Bot
-        // Special case for TrainBot : move full vampire to controlled region
-        if (
-            core.gameType == GameType.TrainBot &&
-            minion.controller.permId.startsWith(BOT_PERM_ID)
-        ) {
-            // In this case, we know it's a vampire, so we can cast it
-            const vampire = minion as Vampire
-            if (vampire.blood == vampire.capacity) {
-                vampire.setCoordinates(
-                    GRID_SIZE * 6 * vampire.controller.ready.cards.length,
-                    GRID_SIZE * 6,
-                )
-                gameState.moveCardToRegion(vampire, vampire.controller.ready)
-            }
-        }
     }
 
     formatForLog() {
@@ -1381,7 +1356,7 @@ class DeclareActionModifier extends GameMutation<DeclareActionModifierParams> {
     }
 
     get card() {
-        return this.params.actionModifier instanceof Card ? this.params.actionModifier : null
+        return this.params.actionModifier == NO_ACTION_MODIFIER ? null : this.params.actionModifier
     }
 }
 
@@ -1423,7 +1398,7 @@ class DeclareBlock extends GameMutation<DeclareBlockParams> {
     }
 
     get card() {
-        return this.params.blockingMinion instanceof Card ? this.params.blockingMinion : null
+        return this.params.blockingMinion == NO_BLOCK ? null : this.params.blockingMinion
     }
 }
 
@@ -1463,7 +1438,7 @@ class DeclareReaction extends GameMutation<DeclareReactionParams> {
     }
 
     get card() {
-        return this.params.reaction instanceof Card ? this.params.reaction : null
+        return this.params.reaction == NO_REACTION ? null : this.params.reaction
     }
 }
 
@@ -1515,7 +1490,12 @@ class ResolveBlock extends GameMutation<EmptyParams> {
         if (!gameState.action) {
             return Invalid('Must be applied during an action')
         }
-        if (!(gameState.action.blockingMinion instanceof Minion)) {
+        if (
+            !(
+                gameState.action.blockingMinion instanceof Card &&
+                gameState.action.blockingMinion.isMinion()
+            )
+        ) {
             return Invalid('Need a blocking minion to resolve a block')
         }
         return VALID
@@ -1552,8 +1532,8 @@ class ResolveBlock extends GameMutation<EmptyParams> {
              * VERY TEMPORARY, handle combat as two hand strike for 1
              * TODO: remove this
              */
-            gameState.action.actingMinion.inflictDamage(1)
-            blockingMinion.inflictDamage(1)
+            gameState.combat.acting.inflictDamage(1)
+            gameState.combat.defending.inflictDamage(1)
             gameState.combat = null
             /**
              * END OF TEMPORARY

@@ -34,11 +34,28 @@ import * as cardVisibility from '@/state/cardVisibility.ts'
 // Alias to specify the expected objects through the codebase
 export type CardOid = ObjectId
 
-export type AnyCard = LibraryCard | CryptCard
-
 export type CardTexture = {
     textureName: string
     frameName?: string
+}
+
+class MinionAttributes {
+    capacity = 0 // capacity for vampire, starting life for allies
+    disciplines = {} as Disciplines // Some allies can play card as a vampire with a discipline
+
+    bleed = 1
+    stealth = 0
+    intercept = 0
+    strength = 1
+    hunt = 1
+}
+
+class VampireAttributes {
+    clan = ''
+    sect = ''
+    title = ''
+    vote = 0
+    //traits: Trait[]
 }
 
 export abstract class Card extends BaseModel {
@@ -46,12 +63,16 @@ export abstract class Card extends BaseModel {
     y = 0 // This is relative to its container, with origin=0
     isLocked = false
     isFlipped = false
+
     blood = 0
     greenCounter = 0
 
     markers = [] as string[]
 
-    constructor(
+    minionAttrs?: MinionAttributes
+    vampireAttrs?: VampireAttributes
+
+    protected constructor(
         public oid: CardOid,
         public readonly krcgId: KrcgId,
         public controllerOid: PlayerOid,
@@ -106,6 +127,29 @@ export abstract class Card extends BaseModel {
         return cardVisibility.canSeeOrPeek(useGameStateStore().selfPlayer, this)
     }
 
+    isMinion(): this is Minion {
+        return !!this.minionAttrs
+    }
+
+    isVampire(): this is Vampire {
+        return !!this.vampireAttrs
+    }
+
+    becomeMinion() {
+        if (!this.minionAttrs) {
+            this.minionAttrs = new MinionAttributes()
+        }
+    }
+
+    becomeVampire() {
+        if (!this.minionAttrs) {
+            this.minionAttrs = new MinionAttributes()
+        }
+        if (!this.vampireAttrs) {
+            this.vampireAttrs = new VampireAttributes()
+        }
+    }
+
     getPlayerVision() {
         return cardVisibility.getPlayerVision(this)
     }
@@ -147,6 +191,15 @@ export abstract class Card extends BaseModel {
 
     hasMarker(marker: Marker) {
         return this.markers.includes(marker)
+    }
+
+    // Shortcut to check for discipline
+    hasDiscipline(discipline: Discipline, level: DisciplineLevel) {
+        return (
+            this.isMinion() &&
+            this.minionAttrs.disciplines[discipline] &&
+            this.minionAttrs.disciplines[discipline] >= level
+        )
     }
 
     isSelected() {
@@ -194,48 +247,9 @@ export abstract class Card extends BaseModel {
     }
 }
 
-export abstract class Minion extends Card {
-    capacity: number // capacity for vampire, starting life for allies
-    disciplines: Disciplines // Some allies can play card as a vampire with a discipline
-
-    bleed: number
-    stealth: number
-    intercept: number
-    strength: number
-    hunt: number
-
-    // Shortcut to check for discipline
-    hasDiscipline(discipline: Discipline, level: DisciplineLevel) {
-        const vampireLevel = this.disciplines[discipline]
-        return vampireLevel && vampireLevel >= level
-    }
-
-    // TODO : handle aggravated, handle wounded, handle going to torpor for vampire or burn for allies
-    inflictDamage(amountRegular: number, amountAggravated: number = 0) {
-        this.blood -= amountRegular
-        this.blood -= amountAggravated
-    }
-}
-
-export abstract class Vampire extends Minion {
-    clan: string
-    sect: string
-
-    title: string
-    //traits: Trait[]
-}
-
-export class CryptCard extends Vampire {
-    disciplines = {} as Disciplines
-    capacity = 0
-    clan = ''
-    sect = ''
-    bleed = 1
-    stealth = 0
-    intercept = 0
-    strength = 1
-    hunt = 1
-    vote = 0
+export class CryptCard extends Card {
+    minionAttrs: MinionAttributes
+    vampireAttrs: VampireAttributes
 
     constructor(
         public oid: CardOid,
@@ -246,14 +260,14 @@ export class CryptCard extends Vampire {
 
         const cardResource = this.resource
 
-        // Clone the disciplines object
-        this.disciplines = { ...cardResource.disciplines }
+        this.minionAttrs = new MinionAttributes()
+        this.minionAttrs.capacity = cardResource.capacity
+        this.minionAttrs.disciplines = { ...cardResource.disciplines } // Clone the disciplines object
 
-        this.capacity = cardResource.capacity
-        this.clan = cardResource.clan
-        this.sect = cardResource.sect
-
-        this.title = cardResource.title
+        this.vampireAttrs = new VampireAttributes()
+        this.vampireAttrs.clan = cardResource.clan
+        this.vampireAttrs.sect = cardResource.sect
+        this.vampireAttrs.title = cardResource.title
 
         this.implementation?.adapt(this)
     }
@@ -279,8 +293,6 @@ export class CryptCard extends Vampire {
 
 export class LibraryCard extends Card {
     disciplines = [] as string[]
-    //sect = ""
-    //title = []
 
     constructor(
         public oid: CardOid,
@@ -290,6 +302,10 @@ export class LibraryCard extends Card {
         super(oid, krcgId, controllerOid)
 
         this.disciplines = this.resource.discipline.split('/')
+
+        if (this.resource.type == LibraryCardType.Ally) {
+            this.minionAttrs = new MinionAttributes()
+        }
     }
 
     get resource() {
@@ -336,3 +352,6 @@ export class LibraryCard extends Card {
         return LIB_CARD_IMPLEMENTATIONS[this.krcgId]
     }
 }
+
+export type Minion = Card & { minionAttrs: MinionAttributes }
+export type Vampire = Minion & { vampireAttrs: VampireAttributes }

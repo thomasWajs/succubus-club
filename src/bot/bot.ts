@@ -8,8 +8,8 @@ import { LibraryCard } from '@/model/Card.ts'
 /**
  * Flags for Conductor
  */
-export const NEXT_PHASE = 'NEXT_PHASE' // Go forward to the next turn phase
-export const NEXT_TURN = 'NEXT_TURN' // Go forward to the next turn ( end current turn )
+export const NEXT_PHASE = 'NEXT_PHASE' as const // Go forward to the next turn phase
+export const NEXT_TURN = 'NEXT_TURN' as const // Go forward to the next turn ( end current turn )
 
 export type BotDecision =
     | typeof NEXT_PHASE

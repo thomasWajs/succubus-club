@@ -130,6 +130,22 @@
         >
             Attempt block
         </ContextMenuButton>
+
+        <ContextMenuButton
+            v-if="singleCard && !singleCard.isVampire()"
+            :closeOnClick="true"
+            :cardAction="(card: Card) => card.becomeVampire()"
+        >
+            Become an vampire
+        </ContextMenuButton>
+
+        <ContextMenuButton
+            v-if="singleCard && !singleCard.isMinion()"
+            :closeOnClick="true"
+            :cardAction="(card: Card) => card.becomeMinion()"
+        >
+            Become an ally
+        </ContextMenuButton>
     </div>
 </template>
 
@@ -137,7 +153,7 @@
 import { useGameBusStore } from '@/store/bus.ts'
 import { gameMutations } from '@/state/gameMutations.ts'
 import { computed } from 'vue'
-import { Card } from '@/model/Card.ts'
+import { Card, Minion } from '@/model/Card.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
 import { useCoreStore } from '@/store/core.ts'
 import { useCommands } from '@/game/composables/useCommands.ts'
@@ -155,9 +171,8 @@ const commands = useCommands()
 
 const firstCard = computed(() => gameBus.contextMenu.cards[0])
 const singleCard = computed(() => (gameBus.contextMenu.cards.length == 1 ? firstCard.value : null))
-// For now, disable the check on minions, as library cards are not yet detected ( allies, embraces... )
-const singleMinion = computed(() =>
-    singleCard.value /*&& singleCard.value instanceof Minion*/ ? singleCard.value : null,
+const singleMinion = computed<Minion | null>(() =>
+    singleCard.value && singleCard.value.isMinion() ? singleCard.value : null,
 )
 </script>
 

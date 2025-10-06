@@ -152,7 +152,7 @@ export class Player extends BaseModel {
     }
 
     get minionsReady() {
-        return this.ready.cards.filter(c => c instanceof Minion) as Minion[]
+        return this.ready.cards.filter(c => c.isMinion()) as Minion[]
     }
 
     get minionsReadyUnlocked() {
@@ -164,7 +164,7 @@ export class Player extends BaseModel {
     }
 
     get vampiresReady() {
-        return this.ready.cards.filter(c => c instanceof Minion) as Vampire[]
+        return this.ready.cards.filter(c => c.isVampire()) as Vampire[]
     }
 
     get vampiresReadyUnlocked() {
@@ -176,11 +176,11 @@ export class Player extends BaseModel {
     }
 
     get vampiresInTorpor() {
-        return this.torpor.cards.filter(c => c instanceof Vampire) as Vampire[]
+        return this.torpor.cards.filter(c => c.isVampire()) as Vampire[]
     }
 
     get vampiresInUncontrolled() {
-        return this.uncontrolled.cards as Vampire[]
+        return this.uncontrolled.cards.filter(c => c.isVampire()) as Vampire[]
     }
 
     changePool(amount: number) {
