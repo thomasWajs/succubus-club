@@ -99,12 +99,12 @@ export enum Path {
     PathOfPower = 'Path Of Power',
 }
 
-export const Markers = {
+export const MainMarkers = {
     Sect: [Sect.Anarch, Sect.Camarilla, Sect.Independent, Sect.Laibon, Sect.Sabbat],
     Trait: [Trait.BlackHand, Trait.Infernal, Trait.RedList, Trait.Seraph],
     Path: [Path.PathOfCaine, Path.PathOfCathari, Path.PathOfDeath, Path.PathOfPower],
 }
-export type Marker = (typeof Markers)[keyof typeof Markers][number]
+export type Marker = string
 
 export enum Discipline {
     Abombwe = 'Abombwe',

@@ -49,7 +49,7 @@ export abstract class Card extends BaseModel {
     blood = 0
     greenCounter = 0
 
-    markers = [] as Marker[]
+    markers = [] as string[]
 
     constructor(
         public oid: CardOid,
