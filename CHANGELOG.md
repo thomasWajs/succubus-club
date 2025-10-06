@@ -1,3 +1,13 @@
+## [0.2.0] - 2025-10-06
+
+Features:
+- Target declaration
+
+Bugfix:
+- Card revelation after a drag outside stack
+- Stack scroll and hand reordering when zoomed out
+- No pause time for humans in train mode
+
 ## [0.1.7] - 2025-10-02
 
 Bugfix:
