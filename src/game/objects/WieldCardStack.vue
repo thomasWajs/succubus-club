@@ -269,7 +269,7 @@ function onScrollbarPointerDown(pointer: Phaser.Input.Pointer, {}, {}, event: Ev
     event.stopPropagation()
 
     isDraggingScrollbar = true
-    dragScrollbarStartX = pointer.x
+    dragScrollbarStartX = pointer.x / display.scale
     // Calculate the offset relative to the scrollbar's current position, not the container
     initialScrollbarX = scrollbarX.value - WIELD_X
 
@@ -282,7 +282,7 @@ function onScrollbarPointerMove(pointer: Phaser.Input.Pointer) {
         return
     }
 
-    const deltaX = pointer.x - dragScrollbarStartX
+    const deltaX = pointer.x / display.scale - dragScrollbarStartX
     const scrollProgress = Phaser.Math.Clamp(
         (initialScrollbarX + deltaX) / (cardsPanelWidth - scrollbarWidth.value),
         0,

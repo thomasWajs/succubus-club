@@ -309,10 +309,6 @@ class ArrowRemove extends GameMutation<TargetDeclarationParams> {
         return this.params.target instanceof Card ? this.params.target : null
     }
 
-    getValidity() {
-        return VALID
-    }
-
     protected updateGameState(gameState: GameStateStore) {
         gameState.targetDeclarations = gameState.targetDeclarations.filter(
             arrow =>
@@ -339,10 +335,6 @@ class ArrowClear extends GameMutation<EmptyParams> {
 
     protected get _versioningId(): VersioningId {
         return VersioningTarget.Arrow
-    }
-
-    getValidity() {
-        return VALID
     }
 
     protected updateGameState(gameState: GameStateStore) {
