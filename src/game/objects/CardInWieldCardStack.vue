@@ -26,7 +26,7 @@
         @pointerdown="onPointerDown"
         @dragstart="onDragStart"
         @drag="onDrag"
-        @dragend="onDragEnd"
+        @dragend="onDragEndFromStack"
         @drop="onDrop"
         @wheel="(...args: [WheelEvent]) => emit('wheel', ...args)"
     />
@@ -56,6 +56,9 @@ import { CardAttrs, CardCategory, PhaserDataKey } from '@/game/types.ts'
 import { useCardClick } from '@/game/composables/useCardClick.ts'
 import { useCardOutline } from '@/game/composables/useCardOutline.ts'
 import { useCardDragDrop } from '@/game/composables/useCardDragDrop.ts'
+import { useGameBusStore } from '@/store/bus.ts'
+
+const gameBus = useGameBusStore()
 
 const { card, x, y } = defineProps<{
     card: Card
@@ -118,6 +121,12 @@ const { isDragging, dragPosition, onDragStart, onDrag, onDragEnd, onDrop } = use
     image,
     cardOutline,
 )
+
+// A modified version of onDragEnd that unselect the card at the end of the drag.
+function onDragEndFromStack() {
+    onDragEnd()
+    gameBus.selectedCards = []
+}
 
 /**
  * Expose/Emit
