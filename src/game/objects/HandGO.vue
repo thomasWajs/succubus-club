@@ -45,6 +45,7 @@ import { CardAttrs, PhaserDataKey } from '@/game/types.ts'
 import { CardOid } from '@/model/Card.ts'
 
 import { dropCoordinates, getDraggedCard } from '@/game/utils.ts'
+import { display } from '@/game/display.ts'
 
 const gameState = useGameStateStore()
 const gameBus = useGameBusStore()
@@ -120,7 +121,7 @@ function onBoundariesCreate(boundaries: GameObjects.Arc) {
     scene.input.on(
         Phaser.Input.Events.DRAG,
         (pointer: Pointer, cardImage: GameObjects.Image, dragX: number, {}) => {
-            const VERTICAL_MARGIN = 25
+            const vertical_margin = 25 / display.scale
             // Deactivate horizontal travel for now by setting its value to 0
             const HORIZONTAL_TRAVEL = 0
 
@@ -129,11 +130,11 @@ function onBoundariesCreate(boundaries: GameObjects.Arc) {
             const draggedCardAttrs = cardImage.getData(PhaserDataKey.CardAttrs).value as CardAttrs
             const bounds = boundaries.getBounds()
             // Add some margin to reorder when the pointer is atop of the cards
-            bounds.y -= VERTICAL_MARGIN
+            bounds.y -= vertical_margin
 
             if (
                 // Reorder only if we're in the bounds of the hand circle
-                bounds.contains(pointer.x, pointer.y) &&
+                bounds.contains(pointer.x / display.scale, pointer.y / display.scale) &&
                 // Reorder only if we've travelled far enough horizontally
                 Math.abs(dragX - draggedCardAttrs.x) >= HORIZONTAL_TRAVEL
             ) {
