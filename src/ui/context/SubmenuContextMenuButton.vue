@@ -3,6 +3,7 @@
         ref="buttonComponent"
         class="submenu-button"
         :closeOnClick="false"
+        :disabled="disabled"
         @mouseenter="showSubmenu"
         @click="showSubmenu"
     >
@@ -19,14 +20,15 @@ import { positionContextMenu } from '@/game/utils.ts'
 
 const gameBus = useGameBusStore()
 
-const { submenuComponent } = defineProps<{
+const { submenuComponent, disabled } = defineProps<{
     submenuComponent: Component // Vue component for submenu content
+    disabled?: boolean
 }>()
 
 const buttonComponent = ref<typeof ContextMenuButton>()
 
 function calculateSubmenuPosition() {
-    if (!buttonComponent.value) return
+    if (!buttonComponent.value || disabled) return
 
     const rect = buttonComponent.value.$el.getBoundingClientRect()
 
@@ -47,7 +49,7 @@ function calculateSubmenuPosition() {
 }
 
 function showSubmenu() {
-    if (!gameBus.contextMenu.submenu.show) {
+    if (!gameBus.contextMenu.submenu.show && !disabled) {
         gameBus.contextMenu.submenu.component = markRaw(submenuComponent)
         calculateSubmenuPosition()
     }

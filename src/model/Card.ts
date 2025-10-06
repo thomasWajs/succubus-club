@@ -196,7 +196,7 @@ export abstract class Card extends BaseModel {
 
 export abstract class Minion extends Card {
     capacity: number // capacity for vampire, starting life for allies
-    disciplines: Disciplines // Somme allies can play card as a vampire with a discipline
+    disciplines: Disciplines // Some allies can play card as a vampire with a discipline
 
     bleed: number
     stealth: number

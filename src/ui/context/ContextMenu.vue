@@ -62,6 +62,7 @@
 
         <SubmenuContextMenuButton
             v-if="firstCard.isIn.controlled"
+            :disabled="!singleCard"
             :submenuComponent="MarkersSubmenu"
         >
             Add/Remove Markers
@@ -123,7 +124,7 @@
             :cardAction="
                 () =>
                     gameMutations.ACTION_declareBlock.actSelf({
-                        blockingMinion: singleMinion!,
+                        blockingMinion: singleMinion ?? NO_BLOCK,
                     })
             "
         >
@@ -145,6 +146,7 @@ import ContextMenuButton from '@/ui/context/ContextMenuButton.vue'
 import CommandContextMenuButton from '@/ui/context/CommandContextMenuButton.vue'
 import SubmenuContextMenuButton from '@/ui/context/SubmenuContextMenuButton.vue'
 import MarkersSubmenu from '@/ui/context/MarkersSubmenu.vue'
+import { NO_BLOCK } from '@/state/actionState.ts'
 
 const core = useCoreStore()
 const gameState = useGameStateStore()
@@ -152,7 +154,7 @@ const gameBus = useGameBusStore()
 const commands = useCommands()
 
 const firstCard = computed(() => gameBus.contextMenu.cards[0])
-const singleCard = computed(() => (gameBus.contextMenu.cards.length == 1 ? firstCard : null))
+const singleCard = computed(() => (gameBus.contextMenu.cards.length == 1 ? firstCard.value : null))
 // For now, disable the check on minions, as library cards are not yet detected ( allies, embraces... )
 const singleMinion = computed(() =>
     singleCard.value /*&& singleCard.value instanceof Minion*/ ? singleCard.value : null,

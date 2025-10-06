@@ -5,12 +5,12 @@ import { useGameStateStore } from '@/store/gameState.ts'
 import { gameMutations } from '@/state/gameMutations.ts'
 
 /**
- * Markers for Conductor
+ * Flags for Conductor
  */
-export class NO_BLOCK {} // No block for this impulse
-export class NO_ACTION_MODIFIER {} // No action modifier for this impulse
-export class NO_COMBAT {} // No combat card for this impulse
-export class NO_REACTION {} // No reaction for this impulse
+export const NO_BLOCK = 'NO_BLOCK' // No block for this impulse
+export const NO_ACTION_MODIFIER = 'NO_ACTION_MODIFIER' // No action modifier for this impulse
+export const NO_COMBAT = 'NO_COMBAT' // No combat card for this impulse
+export const NO_REACTION = 'NO_REACTION' // No reaction for this impulse
 
 export enum ActionProperty {
     stealth = 'stealth',
@@ -22,7 +22,7 @@ export enum ActionProperty {
 // TODO: make mutations for all the state modifier methods
 // TODO: handle multiple player who declines ( prey/predator )
 export class ActionState {
-    blockingDecision = null as Minion | NO_BLOCK | null
+    blockingDecision = null as Minion | typeof NO_BLOCK | null
 
     stealth = 0
     intercept = 0

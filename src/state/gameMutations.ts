@@ -1350,7 +1350,7 @@ class DeclareAction extends GameMutation<DeclareActionParams> {
  */
 
 interface DeclareActionModifierParams extends GameMutationParams {
-    actionModifier: Card | NO_ACTION_MODIFIER
+    actionModifier: Card | typeof NO_ACTION_MODIFIER
 }
 
 class DeclareActionModifier extends GameMutation<DeclareActionModifierParams> {
@@ -1391,7 +1391,7 @@ class DeclareActionModifier extends GameMutation<DeclareActionModifierParams> {
 
 // TODO: handle multiple player who declines ( prey/predator)
 interface DeclareBlockParams extends GameMutationParams {
-    blockingMinion: Minion | NO_BLOCK
+    blockingMinion: Minion | typeof NO_BLOCK
 }
 
 class DeclareBlock extends GameMutation<DeclareBlockParams> {
@@ -1432,7 +1432,7 @@ class DeclareBlock extends GameMutation<DeclareBlockParams> {
  */
 
 interface DeclareReactionParams extends GameMutationParams {
-    reaction: Card | NO_REACTION
+    reaction: Card | typeof NO_REACTION
 }
 
 class DeclareReaction extends GameMutation<DeclareReactionParams> {

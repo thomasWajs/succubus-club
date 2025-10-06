@@ -6,18 +6,18 @@ import { KrcgId } from '@/resources/cards.ts'
 import { LibraryCard } from '@/model/Card.ts'
 
 /**
- * Markers for Conductor
+ * Flags for Conductor
  */
-export class NEXT_PHASE {} // Go forward to the next turn phase
-export class NEXT_TURN {} // Go forward to the next turn ( end current turn )
+export const NEXT_PHASE = 'NEXT_PHASE' // Go forward to the next turn phase
+export const NEXT_TURN = 'NEXT_TURN' // Go forward to the next turn ( end current turn )
 
 export type BotDecision =
-    | NEXT_PHASE
-    | NEXT_TURN
-    | NO_COMBAT
-    | NO_BLOCK
-    | NO_REACTION
-    | NO_ACTION_MODIFIER
+    | typeof NEXT_PHASE
+    | typeof NEXT_TURN
+    | typeof NO_COMBAT
+    | typeof NO_BLOCK
+    | typeof NO_REACTION
+    | typeof NO_ACTION_MODIFIER
     | AnyGameMutation
     | MinionAction
     | ActionModifier
@@ -35,21 +35,21 @@ export abstract class Bot {
     // Callback to clean state
     endTurn() {}
 
-    abstract unlockPhase(): NEXT_PHASE | AnyGameMutation
+    abstract unlockPhase(): typeof NEXT_PHASE | AnyGameMutation
 
-    abstract masterPhase(): NEXT_PHASE | AnyGameMutation
+    abstract masterPhase(): typeof NEXT_PHASE | AnyGameMutation
 
-    abstract minionPhase(): NEXT_PHASE | MinionAction | AnyGameMutation
+    abstract minionPhase(): typeof NEXT_PHASE | MinionAction | AnyGameMutation
 
-    abstract influencePhase(): NEXT_PHASE | AnyGameMutation
+    abstract influencePhase(): typeof NEXT_PHASE | AnyGameMutation
 
-    abstract discardPhase(): NEXT_TURN | AnyGameMutation
+    abstract discardPhase(): typeof NEXT_TURN | AnyGameMutation
 
-    abstract actionModifier(): NO_ACTION_MODIFIER | ActionModifier
+    abstract actionModifier(): typeof NO_ACTION_MODIFIER | ActionModifier
 
-    abstract combat(): NO_COMBAT
+    abstract combat(): typeof NO_COMBAT
 
-    abstract reaction(): NO_BLOCK | NO_REACTION
+    abstract reaction(): typeof NO_BLOCK | typeof NO_REACTION
 
     getCardInHand(krcgId: KrcgId) {
         for (const card of this.player.hand.cards) {
