@@ -36,6 +36,18 @@
             </div>
 
             <div class="player-right">
+                <button
+                    class="game-button small"
+                    @click="
+                        gameMutations.changePool.actSelf({
+                            player: player,
+                            amount: -1,
+                        })
+                    "
+                >
+                    -
+                </button>
+
                 <div class="pool-diamond">
                     <span>{{ player.pool }}</span>
                 </div>
@@ -49,19 +61,9 @@
                         })
                     "
                 >
-                    +1
+                    +
                 </button>
-                <button
-                    class="game-button small"
-                    @click="
-                        gameMutations.changePool.actSelf({
-                            player: player,
-                            amount: -1,
-                        })
-                    "
-                >
-                    -1
-                </button>
+
                 <button
                     class="game-button small"
                     @click.stop="gameBus.changePool = { show: true, player: player }"
@@ -275,7 +277,7 @@ $window-right: 340px;
         line-height: 18px;
         font-weight: bold;
         font-size: 12px;
-        margin-right: 5px;
+        margin: 0 3px;
 
         // Counter-rotate the text so it appears upright
         span {
