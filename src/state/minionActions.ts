@@ -311,19 +311,6 @@ export class ActionCardAction extends MinionAction {
 
         super.resolve()
         this.implementation.resolve()
-
-        // Send the action card to ash heap
-        this.sendCardToAshHeap()
-    }
-
-    sendCardToAshHeap() {
-        gameMutations.moveCardToRegion.act(this.actingMinion.controller, {
-            card: this.actionCard,
-            fromCardRegion: this.actionCard.region,
-            toCardRegion: this.actingMinion.controller.ashHeap,
-            x: 0,
-            y: 0,
-        })
     }
 }
 

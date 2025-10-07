@@ -19,7 +19,7 @@ import {
     NO_BLOCK,
     NO_REACTION,
 } from '@/state/actionState.ts'
-import { ActionCardAction, MinionAction } from '@/state/minionActions.ts'
+import { MinionAction } from '@/state/minionActions.ts'
 import {
     ALL_PLAYERS,
     CardRevelationTarget,
@@ -1515,11 +1515,6 @@ class ResolveBlock extends GameMutation<EmptyParams> {
         // Successful block
         if (action.intercept >= action.stealth) {
             this.previousState.isBlockSuccessful = true
-
-            if (gameState.action.minionAction instanceof ActionCardAction) {
-                gameState.action.minionAction.sendCardToAshHeap()
-            }
-
             blockingMinion.lock()
 
             // start combat

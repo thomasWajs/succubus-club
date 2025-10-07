@@ -19,6 +19,9 @@ export const BOT_PAUSE_TIME = 125
 export class Conductor {
     turnInitDone = false
 
+    // Cards played during an action, that must be discarded at the end of the action
+    cardsPlayed = [] as LibraryCard[]
+
     constructor(public bot: Bot) {}
 
     playCard(card: LibraryCard, actingMinion?: Minion) {
@@ -35,6 +38,22 @@ export class Conductor {
         gameMutations.drawLibrary.act(this.bot.player, {
             player: this.bot.player,
         })
+
+        this.cardsPlayed.push(card)
+    }
+
+    onActionResolve() {
+        // Send played cards to ash heap
+        for (const card of this.cardsPlayed) {
+            gameMutations.moveCardToRegion.act(card.controller, {
+                card,
+                fromCardRegion: card.region,
+                toCardRegion: card.controller.ashHeap,
+                x: 0,
+                y: 0,
+            })
+        }
+        this.cardsPlayed = []
     }
 
     startTurn() {

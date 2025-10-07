@@ -3,6 +3,7 @@ import { Player } from '@/model/Player.ts'
 import { MinionAction } from '@/state/minionActions.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
 import { gameMutations } from '@/state/gameMutations.ts'
+import { useCoreStore } from '@/store/core.ts'
 
 /**
  * Flags for Conductor
@@ -103,5 +104,7 @@ export class ActionState {
         else {
             gameMutations.ACTION_resolveAction.act(gameState.activePlayer, {})
         }
+
+        useCoreStore().conductor?.onActionResolve()
     }
 }
