@@ -5,6 +5,8 @@ import { DRAG_DISTANCE_THRESHOLD } from '@/game/const.ts'
 import { useCommands } from '@/game/composables/useCommands.ts'
 import { display } from '@/game/display.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
+import { gameMutations } from '@/state/gameMutations.ts'
+import { PhaserDataKey } from '@/game/types.ts'
 
 /**
  * Pointer Inputs
@@ -39,8 +41,27 @@ function onPointerDown(pointer: Pointer, gameObjects: GameObjects.GameObject[]) 
     }
 
     // CardGO handle clicks on themselves.
-    // Here we handle click outside a CardGO
-    if (gameObjects.length == 0 || gameObjects[0].type != 'Image') {
+
+    // Handle declaring player as a target
+    if (
+        gameBus.declaringTargetOrigin &&
+        gameObjects.length == 1 &&
+        gameObjects[0].type == 'Rectangle' &&
+        pointer.leftButtonDown()
+    ) {
+        const gameObject = gameObjects[0]
+        const player = gameObject?.parentContainer?.getData(PhaserDataKey.Player)
+        if (player) {
+            gameMutations.arrowAdd.actSelf({
+                origin: gameBus.declaringTargetOrigin,
+                target: player,
+            })
+            gameBus.declaringTargetOrigin = null
+        }
+    }
+
+    // Here we handle other clicks outside a CardGO
+    else if (gameObjects.length == 0 || gameObjects[0].type != 'Image') {
         // Here it's a click outside a card :
         // clear card selection, context menu, declaring target,
         gameBus.selectedCards = []
@@ -71,7 +92,7 @@ function onPointerUp({}, {}) {
     // If we're currently making a selection area...
     if (gameBus.selectionArea.show) {
         // ...select all cards under the selection area
-        gameBus.selectedCards = Object.values(gameBus.handleableCards)
+        gameBus.selectedCards = Object.values(gameBus.cardsInGame)
             .filter(hc => hc.isUnderSelectionArea())
             .map(hc => gameState.cards[hc.cardOid])
         // then reset it

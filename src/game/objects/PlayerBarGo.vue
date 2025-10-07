@@ -10,7 +10,8 @@
         :strokeColor="color.color"
         :strokeAlpha="color.alphaGL"
         :fillColor="playerColor.color"
-        :fillAlpha="0.75"
+        :fillAlpha="0.5"
+        @create="onBoundariesCreate"
     />
 
     <!-- Player Name -->
@@ -28,6 +29,7 @@
 
     <!-- Current Pool -->
     <Polygon
+        ref="poolDiamond"
         :points="[
             [-19, 0],
             [0, 15],
@@ -35,7 +37,7 @@
             [0, -15],
         ]"
         :fillColor="WHITE.color"
-        :fillAlpha="0.7"
+        :fillAlpha="0.6"
         :lineWidth="COUNTER_OUTLINE_THICKNESS"
         :strokeColor="BLACK.color"
         :origin="0"
@@ -79,12 +81,14 @@
 </template>
 
 <script setup lang="ts">
-import Phaser from 'phaser'
-import { Polygon, Rectangle, Text } from 'phavuer'
+import { onBeforeUnmount, onMounted } from 'vue'
+import Phaser, { GameObjects } from 'phaser'
+import { Polygon, Rectangle, Text, refObj } from 'phavuer'
 import { BLACK, COUNTER_OUTLINE_THICKNESS, COUNTER_TEXT_STYLE, WHITE } from '@/game/const.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
 import { Player } from '@/model/Player.ts'
 import Color = Phaser.Display.Color
+import { useGameBusStore } from '@/store/bus.ts'
 
 const props = defineProps<{
     x: number
@@ -96,8 +100,44 @@ const props = defineProps<{
 }>()
 
 const gameState = useGameStateStore()
+const gameBus = useGameBusStore()
 
-const playerColor = props.player.color.clone().darken(10).desaturate(60)
+const playerColor = props.player.color.clone().darken(20).desaturate(60)
+
+const poolDiamond = refObj<GameObjects.Polygon>()
+
+function onBoundariesCreate(boundaries: GameObjects.Rectangle) {
+    boundaries.setInteractive({ draggable: false })
+}
+
+/**
+ * World position ( for arrows )
+ */
+
+function getWorldPosition() {
+    const poolObject = poolDiamond.value
+    if (!poolObject || !poolObject.parentContainer) {
+        return null
+    }
+    return poolObject.parentContainer
+        .getWorldTransformMatrix()
+        .transformPoint(poolObject.x, poolObject.y)
+}
+
+/**
+ * Register onto the gameBus
+ */
+
+const playerInGame = {
+    playerOid: props.player.oid,
+    getWorldPosition,
+}
+onMounted(() => {
+    gameBus.playersInGame[props.player.oid] = playerInGame
+})
+onBeforeUnmount(() => {
+    delete gameBus.cardsInGame[props.player.oid]
+})
 </script>
 
 <style lang="scss"></style>

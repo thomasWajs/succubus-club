@@ -306,8 +306,8 @@ function dispatchDragEvent(
         dragY,
         droppedOn,
     }
-    for (const handleableCard of gameBus.selectedHandleableCards) {
-        handleableCard[eventName](event)
+    for (const cardInGame of gameBus.selectedCardsInGame) {
+        cardInGame[eventName](event)
     }
 }
 
@@ -503,19 +503,20 @@ function getWorldPosition() {
  * Register onto the gameBus
  */
 
-const handleableCard = {
+const cardInGame = {
     cardOid: card.oid,
+    getWorldPosition,
+    bringToTop: bringCardToTop,
     isUnderSelectionArea,
     onDragStart,
     onDrag,
     onDragEnd,
     onDrop,
-    getWorldPosition,
 }
 onMounted(() => {
-    gameBus.handleableCards[card.oid] = handleableCard
+    gameBus.cardsInGame[card.oid] = cardInGame
 })
 onBeforeUnmount(() => {
-    delete gameBus.handleableCards[card.oid]
+    delete gameBus.cardsInGame[card.oid]
 })
 </script>

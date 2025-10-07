@@ -124,6 +124,8 @@ import { setupCamera } from '@/game/camera.ts'
 import ArrowGo from '@/game/objects/ArrowGo.vue'
 import { CardOid } from '@/model/Card.ts'
 import { Arrow } from '@/state/types.ts'
+import { PlayerOid } from '@/model/Player.ts'
+import Vector2Like = Phaser.Types.Math.Vector2Like
 
 const core = useCoreStore()
 const gameState = useGameStateStore()
@@ -170,11 +172,20 @@ const playerSeats = computed(() => {
  * Arrows
  */
 
-function getWorldPosition(cardOid?: CardOid) {
-    if (!cardOid || !gameBus.handleableCards[cardOid]) {
+function getWorldPosition(objectId?: CardOid | PlayerOid): Vector2Like | null {
+    if (!objectId) {
         return null
     }
-    return gameBus.handleableCards[cardOid].getWorldPosition()
+
+    if (objectId in gameBus.cardsInGame) {
+        return gameBus.cardsInGame[objectId].getWorldPosition()
+    }
+
+    if (objectId in gameBus.playersInGame) {
+        return gameBus.playersInGame[objectId].getWorldPosition()
+    }
+
+    return null
 }
 
 const arrows = computed(() => {

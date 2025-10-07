@@ -40,8 +40,8 @@ export function useCardClick(cardRef: Ref<Card>, invertLockOnDoubleClick: boolea
             const clickDelay = scene.time.now - lastClickTime
             lastClickTime = scene.time.now
             if (clickDelay < DOUBLE_CLICK_DELAY) {
-                for (const handleableCard of gameBus.selectedHandleableCards) {
-                    const card = gameState.cards[handleableCard.cardOid]
+                for (const cardInGame of gameBus.selectedCardsInGame) {
+                    const card = gameState.cards[cardInGame.cardOid]
                     gameMutations.setLock.actSelf({
                         card,
                         newValue: !card.isLocked,

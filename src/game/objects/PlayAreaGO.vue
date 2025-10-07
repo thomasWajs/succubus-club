@@ -1,5 +1,8 @@
 <template>
-    <Container ref="playArea">
+    <Container
+        ref="playArea"
+        @create="onContainerCreate"
+    >
         <PlayerBarGo
             :x="0"
             :y="0"
@@ -106,15 +109,34 @@
                 fontStyle: 'bold',
             }"
         />
+
+        <Rectangle
+            ref="playerOutline"
+            :origin="0"
+            :x="0"
+            :y="0"
+            :visible="!!gameBus.declaringTargetOrigin"
+            :height="PLAY_AREA_HEIGHT"
+            :width="PLAY_AREA_WIDTH"
+            :lineWidth="playerIsOutlined ? CARD_OUTLINE_THICKNESS : 1"
+            :strokeColor="playerIsOutlined ? CARD_OUTLINE_COLOR_HOVER.color : player.color.color"
+            @pointerover="onPointerOver"
+            @pointerout="onPointerOut"
+        />
     </Container>
 </template>
 
 <script setup lang="ts">
-import { Container, Text } from 'phavuer'
+import { ref, computed, onMounted } from 'vue'
+import { GameObjects } from 'phaser'
+import { Container, Text, Rectangle } from 'phavuer'
 import {
+    CARD_OUTLINE_COLOR_HOVER,
+    CARD_OUTLINE_THICKNESS,
     CARD_STACKS_HEIGHT,
     CARD_STACKS_Y,
     CONTROLLED_ZONE_HEIGHT,
+    PLAY_AREA_HEIGHT,
     PLAY_AREA_WIDTH,
     PLAYER_BAR_HEIGHT,
     TORPOR_ZONE_HEIGHT,
@@ -125,10 +147,37 @@ import CardStackRegionGO from '@/game/objects/CardStackRegionGO.vue'
 import { Player } from '@/model/Player.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
 import PlayerBarGo from '@/game/objects/PlayerBarGo.vue'
+import { PhaserDataKey } from '@/game/types.ts'
+import { useGameBusStore } from '@/store/bus.ts'
 
-defineProps<{
+const { player } = defineProps<{
     player: Player
 }>()
 
 const gameState = useGameStateStore()
+const gameBus = useGameBusStore()
+
+function onContainerCreate(container: GameObjects.Container) {
+    container.setData(PhaserDataKey.Player, player)
+}
+
+const isHovered = ref(false)
+function onPointerOver() {
+    isHovered.value = true
+}
+function onPointerOut() {
+    isHovered.value = false
+}
+const playerIsOutlined = computed(() => {
+    return (
+        isHovered.value && gameBus.declaringTargetOrigin != null && player != gameState.selfPlayer
+    )
+})
+
+onMounted(() => {
+    // Bring all the cards on top of the outline rectangle
+    for (const card of Object.values(gameBus.cardsInGame)) {
+        card.bringToTop()
+    }
+})
 </script>

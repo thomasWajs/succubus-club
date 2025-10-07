@@ -18,7 +18,7 @@ import { useGameBusStore } from '@/store/bus.ts'
 import { resetSync } from '@/multiplayer/sync.ts'
 import { isCryptId } from '@/resources/cards.ts'
 
-const NB_BOTS = 4
+const NB_BOTS = 1
 export const BOT_NAME = 'Bot'
 export const BOT_PERM_ID = 'Bot'
 

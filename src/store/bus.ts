@@ -2,7 +2,7 @@ import { Raw, Component } from 'vue'
 import { acceptHMRUpdate, defineStore } from 'pinia'
 import { Card, CardOid } from '@/model/Card.ts'
 import Phaser, { GameObjects } from 'phaser'
-import { Player } from '@/model/Player.ts'
+import { Player, PlayerOid } from '@/model/Player.ts'
 import { AnyCardRegion } from '@/model/CardRegion.ts'
 import { useCoreStore } from '@/store/core.ts'
 import { SavingState } from '@/gateway/savedGames.ts'
@@ -33,14 +33,20 @@ export type CardDragEvent = {
     droppedOn?: GameObjects.GameObject
 }
 
-export type HandleableCard = {
+type PositionGetter = () => Vector2Like | null
+export type PlayerInGame = {
+    playerOid: PlayerOid
+    getWorldPosition: PositionGetter
+}
+export type CardInGame = {
     cardOid: CardOid
+    getWorldPosition: PositionGetter
+    bringToTop: () => void
     isUnderSelectionArea: () => boolean
     onDragStart: (event: CardDragEvent) => void
     onDrag: (event: CardDragEvent) => void
     onDragEnd: (event: CardDragEvent) => void
     onDrop: (event: CardDragEvent) => void
-    getWorldPosition: () => Vector2Like | null
 }
 
 export const useBusStore = defineStore('bus', {
@@ -98,7 +104,8 @@ export const useGameBusStore = defineStore('gameBus', {
 
         /** Card selection and target declaration **/
         pointerPosition: null as Vector2Like | null,
-        handleableCards: {} as Record<CardOid, HandleableCard>,
+        cardsInGame: {} as Record<CardOid, CardInGame>,
+        playersInGame: {} as Record<PlayerOid, PlayerInGame>,
 
         selectedCards: [] as Card[],
         selectionArea: {
@@ -178,8 +185,8 @@ export const useGameBusStore = defineStore('gameBus', {
 
             return new Rectangle(x, y, width, height)
         },
-        selectedHandleableCards(state): HandleableCard[] {
-            return state.selectedCards.map(c => state.handleableCards[c.oid])
+        selectedCardsInGame(state): CardInGame[] {
+            return state.selectedCards.map(c => state.cardsInGame[c.oid])
         },
     },
 
