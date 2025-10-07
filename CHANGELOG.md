@@ -1,3 +1,13 @@
+## [0.2.1] - 2025-10-07
+
+Features:
+- Player target declaration
+- Custom markers
+
+Bugfix:
+- Discard bot's action modifier
+- Blocking the bot work again
+
 ## [0.2.0] - 2025-10-06
 
 Features:
