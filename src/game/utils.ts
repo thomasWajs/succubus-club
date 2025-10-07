@@ -20,10 +20,12 @@ export function dropCoordinatesSnapped(pointer: Pointer, toContainer: GameObject
             coord.x - (CARD_WIDTH / 2) * CARD_IN_PLAY_SCALE * toContainer.scaleX,
             GRID_SIZE,
         ),
-        y: Phaser.Math.Snap.To(
-            coord.y - (CARD_HEIGHT / 2) * CARD_IN_PLAY_SCALE * toContainer.scaleY,
-            GRID_SIZE,
-        ),
+        y:
+            Phaser.Math.Snap.To(
+                coord.y - (CARD_HEIGHT / 2) * CARD_IN_PLAY_SCALE * toContainer.scaleY,
+                GRID_SIZE,
+            ) -
+            GRID_SIZE / 2,
     }
 }
 

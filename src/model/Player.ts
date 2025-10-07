@@ -194,10 +194,10 @@ export class Player extends BaseModel {
         this.pool = Math.max(0, this.pool + amount)
 
         if (this.pool <= 0) {
-            this.isOusted = true
             if (this.predator) {
                 this.predator.victoryPoints++
             }
+            this.isOusted = true
         }
     }
 }

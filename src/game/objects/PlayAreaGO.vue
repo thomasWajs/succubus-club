@@ -1,9 +1,18 @@
 <template>
     <Container ref="playArea">
+        <PlayerBarGo
+            :x="0"
+            :y="0"
+            :width="PLAY_AREA_WIDTH"
+            :height="PLAYER_BAR_HEIGHT"
+            :color="player.color"
+            :player="player"
+        />
+
         <RegionGO
             key="Ready"
             :x="0"
-            :y="0"
+            :y="PLAYER_BAR_HEIGHT"
             :width="PLAY_AREA_WIDTH"
             :height="CONTROLLED_ZONE_HEIGHT"
             :color="player.color"
@@ -13,7 +22,7 @@
         <RegionGO
             key="Torpor"
             :x="0"
-            :y="CONTROLLED_ZONE_HEIGHT"
+            :y="TORPOR_ZONE_Y"
             :width="PLAY_AREA_WIDTH / 2"
             :height="TORPOR_ZONE_HEIGHT"
             :color="player.color"
@@ -23,7 +32,7 @@
         <RegionGO
             key="Uncontrolled"
             :x="PLAY_AREA_WIDTH / 2"
-            :y="CONTROLLED_ZONE_HEIGHT"
+            :y="TORPOR_ZONE_Y"
             :width="PLAY_AREA_WIDTH / 2"
             :height="TORPOR_ZONE_HEIGHT"
             :color="player.color"
@@ -107,12 +116,15 @@ import {
     CARD_STACKS_Y,
     CONTROLLED_ZONE_HEIGHT,
     PLAY_AREA_WIDTH,
+    PLAYER_BAR_HEIGHT,
     TORPOR_ZONE_HEIGHT,
+    TORPOR_ZONE_Y,
 } from '@/game/const.ts'
 import RegionGO from '@/game/objects/RegionGO.vue'
 import CardStackRegionGO from '@/game/objects/CardStackRegionGO.vue'
 import { Player } from '@/model/Player.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
+import PlayerBarGo from '@/game/objects/PlayerBarGo.vue'
 
 defineProps<{
     player: Player

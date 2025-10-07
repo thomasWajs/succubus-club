@@ -28,7 +28,7 @@
 
     <Text
         ref="cardCount"
-        :text="cardRegion.cards.length + ''"
+        :text="cardRegion.cards.length.toString()"
         :style="{
             color: '#000',
             fontStyle: 'Bold',
@@ -43,8 +43,8 @@
         :visible="isRegionHovered"
         :texture="WIELD_CARD_STACK_ICON"
         :origin="0.5"
-        :x="x + width - 25"
-        :y="y + height / 2"
+        :x="x + width - 50"
+        :y="y + 25"
         :displayWidth="40"
         :displayHeight="40"
     />

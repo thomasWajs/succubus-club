@@ -34,7 +34,7 @@ export const CARD_HEIGHT = 500
 export const CARD_WIDTH = 358
 
 export const CARD_IN_PLAY_SCALE = 0.2
-export const CARD_IN_STACK_SCALE = 0.2
+export const CARD_IN_STACK_SCALE = 0.15
 export const CARD_IN_HAND_SCALE = 0.4
 export const CARD_DRAGGING_ALPHA = 0.7
 
@@ -57,12 +57,14 @@ export const WORLD_HEIGHT = 1000
 
 export const GRID_SIZE = 20
 
-export const PLAY_AREA_X = GRID_SIZE * 23
-export const PLAY_AREA_Y = GRID_SIZE * 10
+export const PLAYER_BAR_HEIGHT = GRID_SIZE * 1.5
+export const PLAY_AREA_X = GRID_SIZE * 23.5
+export const PLAY_AREA_Y = GRID_SIZE * 9
 export const PLAY_AREA_WIDTH = GRID_SIZE * 32
 export const CONTROLLED_ZONE_HEIGHT = GRID_SIZE * 18
+export const TORPOR_ZONE_Y = PLAYER_BAR_HEIGHT + CONTROLLED_ZONE_HEIGHT
 export const TORPOR_ZONE_HEIGHT = GRID_SIZE * 6
-export const CARD_STACKS_Y = CONTROLLED_ZONE_HEIGHT + TORPOR_ZONE_HEIGHT
+export const CARD_STACKS_Y = TORPOR_ZONE_Y + TORPOR_ZONE_HEIGHT
 export const CARD_STACKS_HEIGHT = CARD_IN_STACK_SCALE * CARD_WIDTH + 10
 
 export const HAND_X = PLAY_AREA_X
@@ -71,7 +73,7 @@ export const HAND_ARC_ORIGIN_X = PLAY_AREA_WIDTH / 2
 export const HAND_ARC_ORIGIN_Y = 450
 export const HAND_ARC_RADIUS = HAND_ARC_ORIGIN_Y + 25
 
-export const OTHER_PLAYERS_GUTTER = GRID_SIZE * 1.5
+export const OTHER_PLAYERS_GUTTER = 25
 export const OTHER_PLAYERS_SCALE = 0.75
 
 /**
@@ -80,7 +82,7 @@ export const OTHER_PLAYERS_SCALE = 0.75
 
 export const REGION_ALPHA = OPAQUE_ALPHA * 0.75
 export const REGION_BACKGROUND_COLOR = new Color(128, 128, 128, REGION_ALPHA)
-export const REGION_BACKGROUND_COLOR_DRAG_OVER = new Color(104, 104, 104, REGION_ALPHA)
+export const REGION_BACKGROUND_COLOR_DRAG_OVER = new Color(115, 115, 115, REGION_ALPHA)
 
 export const PLAYER_COLORS = {
     purple: new Color(60, 20, 95, 255), // dark purple
@@ -119,7 +121,6 @@ export const COUNTER_TEXT_STYLE = {
 }
 export const BLOOD_COUNTER_FILL_COLOR = new Color(150, 0, 0)
 export const GREEN_COUNTER_FILL_COLOR = new Color(0, 150, 0)
-
 /**
  * Markers
  */

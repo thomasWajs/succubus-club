@@ -156,14 +156,21 @@ export abstract class Card extends BaseModel {
 
     setCoordinates(x: number, y: number) {
         x = Phaser.Math.Snap.To(x, GRID_SIZE)
-        y = Phaser.Math.Snap.To(y, GRID_SIZE)
+        y = Phaser.Math.Snap.To(y, GRID_SIZE / 2)
 
-        // If we overlap another card, slide us on the corner
+        // If we overlap another card
         for (let i = 0; i < this.region.cards.length; i++) {
             const card = this.region.cards[i]
             if (card.x == x && card.y == y && card.oid != this.oid) {
-                x += GRID_SIZE
-                y -= GRID_SIZE
+                // In uncontrolled, only slide on the right
+                if (this.isIn.uncontrolled) {
+                    x += GRID_SIZE * 4
+                }
+                // In other regions, slide on the corner
+                else {
+                    x += GRID_SIZE
+                    y -= GRID_SIZE
+                }
                 // Re-run the loop from the start
                 i = -1
             }

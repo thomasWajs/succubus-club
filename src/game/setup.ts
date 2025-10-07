@@ -1,9 +1,4 @@
-import {
-    CONTROLLED_ZONE_HEIGHT,
-    ORDERED_PLAYER_COLORS,
-    PLAY_AREA_WIDTH,
-    GRID_SIZE,
-} from '@/game/const.ts'
+import { ORDERED_PLAYER_COLORS, PLAY_AREA_WIDTH, GRID_SIZE, TORPOR_ZONE_Y } from '@/game/const.ts'
 import { GovernBot } from '@/bot/governBot.ts'
 import { Conductor } from '@/bot/conductor.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
@@ -23,7 +18,7 @@ import { useGameBusStore } from '@/store/bus.ts'
 import { resetSync } from '@/multiplayer/sync.ts'
 import { isCryptId } from '@/resources/cards.ts'
 
-const NB_BOTS = 1
+const NB_BOTS = 4
 export const BOT_NAME = 'Bot'
 export const BOT_PERM_ID = 'Bot'
 
@@ -54,14 +49,13 @@ function setupPlayArea(player: Player, deck: DeckList) {
     // Draw 7 library cards
     for (let i = 0; i < INITIAL_HAND_SIZE; i++) {
         const card = player.library.firstCard
-        card.x = GRID_SIZE * 5 * i
-        gameState.moveCardToRegion(card, player.hand)
+        gameState.moveCardToRegion(card, player.hand, i)
     }
     // Draw 4 crypt cards
     for (let i = 0; i < INITIAL_CRYPT_SIZE; i++) {
         const card = player.crypt.firstCard
         card.x = PLAY_AREA_WIDTH / 2 + GRID_SIZE * 4 * i
-        card.y = CONTROLLED_ZONE_HEIGHT
+        card.y = TORPOR_ZONE_Y
         gameState.moveCardToRegion(card, player.uncontrolled)
     }
 }

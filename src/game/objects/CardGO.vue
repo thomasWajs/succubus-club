@@ -400,10 +400,12 @@ function onDrag(event: CardDragEvent) {
         event.dragX + dragAttrs.deltaX - image.value.displayWidth / 2,
         GRID_SIZE,
     )
-    dragAttrs.y = Phaser.Math.Snap.To(
-        event.dragY + dragAttrs.deltaY - image.value.displayHeight / 2,
-        GRID_SIZE,
-    )
+    dragAttrs.y =
+        Phaser.Math.Snap.To(
+            event.dragY + dragAttrs.deltaY - image.value.displayHeight / 2,
+            GRID_SIZE,
+        ) -
+        GRID_SIZE / 2
 }
 
 function onDragEnd() {

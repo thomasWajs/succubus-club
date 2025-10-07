@@ -11,7 +11,12 @@ import {
     RegionName,
     TurnSequence,
 } from '@/model/const.ts'
-import { CARD_LOG_PLACEHOLDER, CONTROLLED_ZONE_HEIGHT, PLAY_AREA_WIDTH } from '@/game/const.ts'
+import {
+    CARD_LOG_PLACEHOLDER,
+    CONTROLLED_ZONE_HEIGHT,
+    PLAY_AREA_WIDTH,
+    TORPOR_ZONE_Y,
+} from '@/game/const.ts'
 import {
     ActionProperty,
     ActionState,
@@ -611,7 +616,7 @@ class DrawCrypt extends PlayerMutation {
     protected updateGameState(gameState: GameStateStore) {
         const card = this.params.player.crypt.firstCard
         gameState.moveCardToRegion(card, this.params.player.uncontrolled)
-        card.setCoordinates(PLAY_AREA_WIDTH / 2, CONTROLLED_ZONE_HEIGHT)
+        card.setCoordinates(PLAY_AREA_WIDTH / 2, TORPOR_ZONE_Y)
 
         this.previousState.cardDrawed = card
     }
