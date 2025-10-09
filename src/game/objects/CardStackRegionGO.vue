@@ -243,6 +243,9 @@ function onImageCreate(image: GameObjects.Image) {
  */
 
 function onImagePointerDown() {
+    if (!gameState.selfPlayer) {
+        return
+    }
     if (props.draw == 'library') {
         gameMutations.drawLibrary.actSelf({
             player: gameState.selfPlayer,

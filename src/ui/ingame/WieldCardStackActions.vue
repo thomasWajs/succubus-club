@@ -46,6 +46,7 @@
                 />
 
                 <RevelationButton
+                    v-if="gameState.selfPlayer"
                     :viewer="gameState.selfPlayer"
                     :cardRegion="cardRegion"
                 />

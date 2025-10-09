@@ -94,10 +94,12 @@
             :closeOnClick="true"
             :cardAction="
                 (card: Card) =>
-                    gameMutations.moveToBottom.actSelf({
-                        card: card,
-                        toCardRegion: gameState.selfPlayer.library,
-                    })
+                    gameState.selfPlayer ?
+                        gameMutations.moveToBottom.actSelf({
+                            card: card,
+                            toCardRegion: gameState.selfPlayer.library,
+                        })
+                    :   null
             "
         >
             Move to Bottom of Library
@@ -108,10 +110,12 @@
             :closeOnClick="true"
             :cardAction="
                 (card: Card) =>
-                    gameMutations.moveToBottom.actSelf({
-                        card: card,
-                        toCardRegion: gameState.selfPlayer.crypt,
-                    })
+                    gameState.selfPlayer ?
+                        gameMutations.moveToBottom.actSelf({
+                            card: card,
+                            toCardRegion: gameState.selfPlayer.crypt,
+                        })
+                    :   null
             "
         >
             Move to Bottom of Crypt

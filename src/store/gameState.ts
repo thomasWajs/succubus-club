@@ -117,11 +117,12 @@ export const useGameStateStore = defineStore('gameState', {
 
         selfPlayerOid: (state): PlayerOid =>
             state.usersToPlayer[useCoreStore().userProfile.permanentId],
-        selfPlayer(state): Player {
+        // Self player might be undefined at some point during multiplayer games
+        selfPlayer(state): Player | undefined {
             return state.players[this.selfPlayerOid]
         },
         selfIsActive(): boolean {
-            return this.selfPlayer == this.activePlayer
+            return this.selfPlayerOid == this.activePlayer.oid
         },
         selfPlayerSeatingIndex(state): number {
             return state.turnOrder.findIndex(playerOid => playerOid === this.selfPlayerOid)

@@ -52,7 +52,7 @@ const gameBus = useGameBusStore()
 const isDraggedOver = ref(false)
 
 // Can't link directly to selfPlayer.hand because resync will change the object
-const hand = computed(() => gameState.selfPlayer.hand)
+const hand = computed(() => gameState.selfPlayer?.hand)
 
 /**
  * Vue DOES NOT guarantee iterating order on ref arrays ( https://vuejs.org/guide/essentials/template-refs#refs-inside-v-for ).
@@ -72,7 +72,7 @@ function registerCardInHandGO(cardInHandGO: typeof CardInHandGO) {
 }
 
 function getOrderedCardsInHand() {
-    return hand.value.cards.map(card => cardInHandMap[card.oid]).filter(card => card)
+    return hand.value?.cards.map(card => cardInHandMap[card.oid]).filter(card => card) ?? []
 }
 
 /**
@@ -87,7 +87,7 @@ function sortCardInHandsVisibility() {
 }
 
 function onBoundariesCreate(boundaries: GameObjects.Arc) {
-    boundaries.setData(PhaserDataKey.CardRegionOid, hand.value.oid)
+    boundaries.setData(PhaserDataKey.CardRegionOid, hand.value?.oid)
 
     const scene = useScene()
     scene.input.on(Phaser.Input.Events.DRAG_START, () => {
@@ -98,7 +98,7 @@ function onBoundariesCreate(boundaries: GameObjects.Arc) {
         ({}, cardImage: GameObjects.Image, target: GameObjects.Arc) => {
             // Highlight target region if it's different from the source region
             const card = getDraggedCard(cardImage)
-            if (target == boundaries && card.region.oid != hand.value.oid) {
+            if (target == boundaries && card.region.oid != hand.value?.oid) {
                 isDraggedOver.value = true
             }
         },

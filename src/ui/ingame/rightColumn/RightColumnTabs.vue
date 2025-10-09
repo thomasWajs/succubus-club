@@ -184,7 +184,7 @@ const chatInput = ref<HTMLInputElement>()
 
 function sendChatMessage() {
     // No message to send...
-    if (!chatMessageText.value) {
+    if (!chatMessageText.value || !gameState.selfPlayer) {
         return
     }
     const chatMessage = {

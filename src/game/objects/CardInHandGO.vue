@@ -88,6 +88,11 @@ const key = computed(() => `hand${card.oid.toString()}`)
 
 const cardAttrs = computed((): CardAttrs => {
     const category = CardCategory.CardInHand
+
+    if (!gameState.selfPlayer) {
+        return { category, x: 0, y: 0, rotation: 0, scale: 1 }
+    }
+
     const hand = gameState.selfPlayer.hand
 
     let scale = CARD_IN_HAND_SCALE

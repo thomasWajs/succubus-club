@@ -116,9 +116,12 @@ export function useCommands() {
             keyCodes: [KeyCodes.C],
             repr: 'C',
             isDisabled: () => {
-                return gameState.selfPlayer.crypt.isEmpty
+                return gameState.selfPlayer?.crypt.isEmpty ?? true
             },
             trigger: () => {
+                if (!gameState.selfPlayer) {
+                    return
+                }
                 gameMutations.drawCrypt.actSelf({ player: gameState.selfPlayer })
             },
         }),
@@ -127,9 +130,12 @@ export function useCommands() {
             keyCodes: [KeyCodes.D],
             repr: 'D',
             isDisabled: () => {
-                return gameState.selfPlayer.library.isEmpty
+                return gameState.selfPlayer?.library.isEmpty ?? true
             },
             trigger: () => {
+                if (!gameState.selfPlayer) {
+                    return
+                }
                 gameMutations.drawLibrary.actSelf({ player: gameState.selfPlayer })
             },
         }),
@@ -220,6 +226,9 @@ export function useCommands() {
             keyCodes: [KeyCodes.U],
             repr: 'U',
             trigger: () => {
+                if (!gameState.selfPlayer) {
+                    return
+                }
                 gameMutations.unlockAll.actSelf({
                     player: gameState.selfPlayer,
                 })
@@ -230,9 +239,12 @@ export function useCommands() {
             keyCodes: [KeyCodes.R],
             repr: 'R',
             isDisabled: () => {
-                return gameState.selfPlayer.hand.isEmpty
+                return gameState.selfPlayer?.hand.isEmpty ?? true
             },
             trigger: () => {
+                if (!gameState.selfPlayer) {
+                    return
+                }
                 gameMutations.discardAtRandom.actSelf({
                     card: gameState.selfPlayer.hand.getRandomCard(),
                 })

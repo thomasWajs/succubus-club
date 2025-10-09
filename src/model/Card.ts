@@ -120,11 +120,15 @@ export abstract class Card extends BaseModel {
     }
 
     get selfCanSee() {
-        return cardVisibility.canSee(useGameStateStore().selfPlayer, this)
+        const gameState = useGameStateStore()
+        return gameState.selfPlayer ? cardVisibility.canSee(gameState.selfPlayer, this) : false
     }
 
     get selfCanSeeOrPeek() {
-        return cardVisibility.canSeeOrPeek(useGameStateStore().selfPlayer, this)
+        const gameState = useGameStateStore()
+        return gameState.selfPlayer ?
+                cardVisibility.canSeeOrPeek(gameState.selfPlayer, this)
+            :   false
     }
 
     isMinion(): this is Minion {
