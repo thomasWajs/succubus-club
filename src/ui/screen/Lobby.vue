@@ -4,9 +4,10 @@
     <div class="lobby-container main-content">
         <div class="connectivity-banner">
             <span
-                >Most of the connectivity issues in multiplayer should be resolved now. If you
-                encounter any additionnal issue, please contact me on Discord or bug tracker. Thanks
-                for your patience ! Thomas</span
+                >Connectivity issues are affecting all Chromium-based browser ( Chrome, Edge ,
+                Opera, Brave... ) due to a known bug on their side. I'm actively looking for a
+                workaround. In the meantime, an quick fix is to switch to a non-Chromium browser (
+                Firefox or Safari ).</span
             >
         </div>
 
