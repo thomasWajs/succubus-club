@@ -19,12 +19,15 @@ import { waitUntil } from '@/utils.ts'
 
 export const LOBBY_ROOM = 'Lobby'
 const HEARTBEAT_INTERVAL = 1000 * 15 // 15 seconds
+const GARBAGE_COLLECTION_INTERVAL = 1000 * 30 // 30 seconds
 
 let lobby: Room | null = null
 type LobbyActions = ReturnType<typeof makeLobbyActions>
 export let lobbyActions: LobbyActions | null = null
 let unwatchSelfUser: WatchHandle | null = null
-let selfUserHeartbeatIntervalId: ReturnType<typeof setInterval> | null = null
+type IntervalId = ReturnType<typeof setInterval> | null
+let selfUserHeartbeatIntervalId: IntervalId = null
+let garbageCollectionIntervalId: IntervalId = null
 
 function makeLobbyActions(lobby: Room) {
     return {
@@ -69,6 +72,13 @@ function setupSelfUserHeartbeat() {
     }, HEARTBEAT_INTERVAL)
 }
 
+// Trigger garbage collection regularly to prevent chromium bug https://issues.chromium.org/issues/41378764
+function setupGarbageCollection() {
+    garbageCollectionIntervalId = setInterval(() => {
+        garbageCollectRTCConnections()
+    }, GARBAGE_COLLECTION_INTERVAL)
+}
+
 export function joinLobby() {
     const multiplayer = useMultiplayerStore()
     const bus = useBusStore()
@@ -101,6 +111,7 @@ export function joinLobby() {
 
     setupSelfUserWatcher()
     setupSelfUserHeartbeat()
+    setupGarbageCollection()
 }
 
 export function leaveLobby() {
@@ -116,6 +127,11 @@ export function leaveLobby() {
     lobbyActions = null
     if (selfUserHeartbeatIntervalId) {
         clearInterval(selfUserHeartbeatIntervalId)
+        selfUserHeartbeatIntervalId = null
+    }
+    if (garbageCollectionIntervalId) {
+        clearInterval(garbageCollectionIntervalId)
+        garbageCollectionIntervalId = null
     }
 }
 
@@ -133,9 +149,6 @@ function onPeerJoin(peerId: PeerId) {
         .then(() => {
             broadcastCurrentGameRoom(peerId)
         })
-
-    // Trigger garbage collection to prevent chromium bug https://issues.chromium.org/issues/41378764
-    garbageCollectRTCConnections()
 }
 
 function onPeerLeave(peerId: PeerId) {
