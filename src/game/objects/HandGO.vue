@@ -133,6 +133,7 @@ function onBoundariesCreate(boundaries: GameObjects.Arc) {
             bounds.y -= vertical_margin
 
             if (
+                boundaries.parentContainer &&
                 // Reorder only if we're in the bounds of the hand circle
                 bounds.contains(pointer.x / display.scale, pointer.y / display.scale) &&
                 // Reorder only if we've travelled far enough horizontally

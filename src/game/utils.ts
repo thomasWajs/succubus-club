@@ -8,6 +8,9 @@ import { useGameStateStore } from '@/store/gameState.ts'
 import { CardOid } from '@/model/Card.ts'
 
 export function dropCoordinates(pointer: Pointer, toContainer: GameObjects.Container) {
+    if (!pointer || !toContainer) {
+        return { x: 0, y: 0 }
+    }
     return toContainer.getLocalPoint(pointer.x / display.scale, pointer.y / display.scale)
 }
 
