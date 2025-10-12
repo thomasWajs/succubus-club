@@ -10,6 +10,7 @@ import router from './ui/router.ts'
 import { useBusStore } from '@/store/bus.ts'
 import { screenBigEnough } from '@/game/display.ts'
 import { initSentryPiniaPlugin } from '@/logging.ts'
+import { startIdleMonitoring } from '@/multiplayer/idle.ts'
 
 const app = createApp(App)
 logging.initSentry(app)
@@ -39,6 +40,8 @@ app.use(pinia)
 app.use(router)
 
 app.mount('#mountMe')
+
+startIdleMonitoring()
 
 // Load resources in the background
 // Don't bother to pull in 5Mb of resources if the user is on mobile.

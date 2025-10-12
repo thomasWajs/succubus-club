@@ -60,6 +60,7 @@
         />
     </a>
 
+    <IdleModal />
     <ChangelogModal />
     <WelcomeModal />
     <TrainBotDisclaimer ref="trainBotDisclaimerRef" />
@@ -78,6 +79,7 @@ import { ROUTES } from '@/ui/router.ts'
 import WelcomeModal from '@/ui/components/WelcomeModal.vue'
 import ChangelogModal from '@/ui/components/ChangelogModal.vue'
 import TrainBotDisclaimer from '@/ui/components/TrainBotDisclaimer.vue'
+import IdleModal from '@/ui/components/IdleModal.vue'
 import { ref } from 'vue'
 import * as logging from '@/logging.ts'
 import { isCrawler, screenBigEnough } from '@/game/display.ts'

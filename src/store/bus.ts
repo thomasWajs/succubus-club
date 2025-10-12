@@ -59,6 +59,7 @@ export const useBusStore = defineStore('bus', {
         isSavedGamesPanelOpen: false,
 
         isResyncing: false,
+        hasBeenIdle: false,
     }),
     actions: {
         onDestroyGame(cleanupCallback: CleanupCallback) {

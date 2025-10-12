@@ -1,0 +1,33 @@
+import IdleJs from 'idle-js'
+import { ROUTES } from '@/ui/router.ts'
+import { useRouter } from 'vue-router'
+import { leaveLobby } from '@/multiplayer/lobby.ts'
+import { leaveGameRoom } from '@/multiplayer/room.ts'
+import { useMultiplayerStore } from '@/store/multiplayer.ts'
+import { useBusStore } from '@/store/bus.ts'
+
+const IDLE_TIME = 15 * 60 * 1000 // 15 minutes
+const events = ['keydown', 'mousedown', 'scroll', 'touchstart']
+
+const idle = new IdleJs({
+    idle: IDLE_TIME,
+    events, // events that will trigger the idle resetter
+    onIdle, // callback function to be executed after idle time
+})
+
+function onIdle() {
+    const router = useRouter()
+    const multiplayer = useMultiplayerStore()
+    const bus = useBusStore()
+
+    if (multiplayer.hasJoinedLobby) {
+        leaveGameRoom()
+        leaveLobby()
+        bus.hasBeenIdle = true
+        router.push({ name: ROUTES.MainMenu })
+    }
+}
+
+export function startIdleMonitoring() {
+    idle.start()
+}
