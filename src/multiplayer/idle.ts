@@ -1,6 +1,5 @@
 import IdleJs from 'idle-js'
-import { ROUTES } from '@/ui/router.ts'
-import { useRouter } from 'vue-router'
+import router, { ROUTES } from '@/ui/router.ts'
 import { leaveLobby } from '@/multiplayer/lobby.ts'
 import { leaveGameRoom } from '@/multiplayer/room.ts'
 import { useMultiplayerStore } from '@/store/multiplayer.ts'
@@ -16,7 +15,6 @@ const idle = new IdleJs({
 })
 
 function onIdle() {
-    const router = useRouter()
     const multiplayer = useMultiplayerStore()
     const bus = useBusStore()
 
