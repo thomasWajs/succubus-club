@@ -60,6 +60,7 @@
         />
     </a>
 
+    <ChangelogModal />
     <WelcomeModal />
     <TrainBotDisclaimer ref="trainBotDisclaimerRef" />
 </template>
@@ -75,6 +76,7 @@ import { waitUntil } from '@/utils.ts'
 import { useBusStore } from '@/store/bus.ts'
 import { ROUTES } from '@/ui/router.ts'
 import WelcomeModal from '@/ui/components/WelcomeModal.vue'
+import ChangelogModal from '@/ui/components/ChangelogModal.vue'
 import TrainBotDisclaimer from '@/ui/components/TrainBotDisclaimer.vue'
 import { ref } from 'vue'
 import * as logging from '@/logging.ts'
