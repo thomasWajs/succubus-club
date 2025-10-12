@@ -1,4 +1,6 @@
 import re
+import subprocess
+import sys
 
 
 def parse_latest_version_from_changelog(changelog_path):
@@ -87,6 +89,16 @@ def main():
     print(f"✓ Updated changelog.ts with version {changelog_data['version']}")
     print(f"  Features: {len(changelog_data['features'])}")
     print(f"  Bugfixes: {len(changelog_data['bugfixes'])}")
+
+    # Run Prettier on the generated file
+    try:
+        subprocess.run(f'npx prettier --write {ts_path}',
+                       check=True, capture_output=True, text=True, shell=True)
+        print("✓ Formatted changelog.ts with Prettier")
+    except subprocess.CalledProcessError as e:
+        print(f"⚠ Warning: Failed to run Prettier: {e.stderr}", file=sys.stderr)
+    except FileNotFoundError:
+        print("⚠ Warning: npm not found. Skipping Prettier formatting.", file=sys.stderr)
 
 
 if __name__ == '__main__':
