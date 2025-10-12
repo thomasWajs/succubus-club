@@ -92,8 +92,10 @@ def main():
 
     # Run Prettier on the generated file
     try:
-        subprocess.run(f'npx prettier --write {ts_path}',
-                       check=True, capture_output=True, text=True, shell=True)
+        subprocess.run(
+            f'npx prettier --write {ts_path}',
+            check=True, capture_output=True, text=True, shell=True
+        )
         print("✓ Formatted changelog.ts with Prettier")
     except subprocess.CalledProcessError as e:
         print(f"⚠ Warning: Failed to run Prettier: {e.stderr}", file=sys.stderr)
