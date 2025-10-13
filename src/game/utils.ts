@@ -24,7 +24,7 @@ export function dropCoordinatesSnapped(pointer: Pointer, toContainer: GameObject
             GRID_SIZE,
         ),
         y:
-            Phaser.Math.Snap.To(
+            Phaser.Math.Snap.Ceil(
                 coord.y - (CARD_HEIGHT / 2) * CARD_IN_PLAY_SCALE * toContainer.scaleY,
                 GRID_SIZE,
             ) -

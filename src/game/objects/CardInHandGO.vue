@@ -216,7 +216,7 @@ function onDrag({}, dragX: number, dragY: number) {
     }
     dragPosition.x = Phaser.Math.Snap.To(dragX - image.value.displayWidth / 2, GRID_SIZE)
     dragPosition.y =
-        Phaser.Math.Snap.To(dragY - image.value.displayHeight / 2, GRID_SIZE) - GRID_SIZE / 2
+        Phaser.Math.Snap.Ceil(dragY - image.value.displayHeight / 2, GRID_SIZE) - GRID_SIZE / 2
 }
 
 /**
