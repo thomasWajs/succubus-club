@@ -69,6 +69,11 @@ Thanks to the creator&contributors of those awesome libs who saved me tons of ti
  - [dmotz](https://github.com/dmotz) & [jeremyckahn](https://github.com/jeremyckahn) for [Trystero](https://github.com/dmotz/trystero)
  - [Phaser Studio](https://github.com/phaserjs) for [Phaser](https://github.com/phaserjs/phaser)
 
+## 💖 Backers
+
+An immense thanks to the amazing people who have financially supported this project. Your support is the blood that keeps this project alive!
+ - Juan Carlos Eruntalon
+
 ---
 
 *Succubus Club is an unofficial fan project and is not affiliated with White Wolf Publishing or Paradox Interactive. Vampire: The Eternal Struggle and World of Darkness are registered trademarks.*

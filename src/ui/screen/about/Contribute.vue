@@ -72,6 +72,15 @@
                 >paypal.com/paypalme/thomasWajs</a
             >
         </p>
+
+        <h1>Backers</h1>
+        <p>
+            An immense thanks to the amazing people who have financially supported this project.
+            Your support is the blood that keeps this project alive!
+        </p>
+        <ul class="blood-list">
+            <li>Juan Carlos Eruntalon</li>
+        </ul>
     </div>
 </template>
 <script setup lang="ts"></script>
