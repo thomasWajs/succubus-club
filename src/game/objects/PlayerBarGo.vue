@@ -88,8 +88,11 @@
         :x="x + width - 60"
         :y="y + 30"
         @create="onTheEdgeCreate"
-        @pointerdown.stop
-        @pointerup.stop="gameBus.changeTheEdge.show = true"
+        @pointerdown="
+            gameMutations.changeTheEdgeControl.actSelf({
+                newController: player == gameState.theEdgeController ? undefined : player,
+            })
+        "
     />
 
     <!-- Victory Points -->
