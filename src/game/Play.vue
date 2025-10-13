@@ -6,14 +6,14 @@
         @create="onCreate"
     >
         <Preloader />
-        <Play />
+        <Tabletop />
     </PhavuerGame>
 </template>
 
 <script setup lang="ts">
 import { Game as PhavuerGame } from 'phavuer'
 import Phaser from 'phaser'
-import Play from '@/game/scenes/Play.vue'
+import Tabletop from '@/game/scenes/Tabletop.vue'
 import Preloader from '@/game/scenes/Preloader.vue'
 import { onBeforeUnmount, watch } from 'vue'
 import { setPhaserGame, useCoreStore } from '@/store/core.ts'

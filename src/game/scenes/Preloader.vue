@@ -51,6 +51,6 @@ function preload(scene: Phaser.Scene) {
 }
 
 function create(scene: Phaser.Scene) {
-    scene.scene.start('Play')
+    scene.scene.start('Tabletop')
 }
 </script>

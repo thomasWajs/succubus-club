@@ -1,7 +1,7 @@
 <template>
     <Scene
-        key="Play"
-        name="Play"
+        key="Tabletop"
+        name="Tabletop"
         :autoStart="false"
         @init="init"
         @update="update"

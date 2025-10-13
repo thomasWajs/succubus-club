@@ -26,14 +26,14 @@
         id="Game"
     >
         <!-- <TopBar /> -->
-        <Tabletop />
+        <Play />
         <GameGameRightColumn />
         <GameTopArea />
     </div>
 </template>
 
 <script setup lang="ts">
-import Tabletop from '@/game/Tabletop.vue'
+import Play from '@/game/Play.vue'
 import GameGameRightColumn from '@/ui/ingame/rightColumn/GameRightColumn.vue'
 import GameTopArea from '@/ui/ingame/GameTopArea.vue'
 import { useCoreStore } from '@/store/core.ts'
