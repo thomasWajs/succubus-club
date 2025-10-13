@@ -15,10 +15,17 @@ export async function getOrImportDeck(
     source: DeckSource,
     sourceId: string,
     importer: () => Promise<Deck>,
+    forceReimport = false,
 ) {
     let dbDeck = await db.decks
         .filter(deck => deck.source === source && deck.sourceValue === sourceId)
         .first()
+
+    if (forceReimport && dbDeck) {
+        dbDeck.delete()
+        dbDeck = undefined
+    }
+
     if (!dbDeck) {
         const deck = await importer()
         dbDeck = await DbDeck.create(deck.name, deck.cards, source, sourceId)
@@ -35,7 +42,12 @@ export async function selectDeck(deck: DbDeck) {
 }
 
 export async function getOrImportVdb(vdbDeckUrl: string) {
-    const dbDeck = await getOrImportDeck(DeckSource.Vdb, vdbDeckUrl, () => fetchVdb(vdbDeckUrl))
+    const dbDeck = await getOrImportDeck(
+        DeckSource.Vdb,
+        vdbDeckUrl,
+        () => fetchVdb(vdbDeckUrl),
+        true,
+    )
     await selectDeck(dbDeck)
 }
 
