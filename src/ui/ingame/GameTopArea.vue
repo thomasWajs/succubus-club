@@ -186,7 +186,7 @@
                 </div>
 
                 <div class="action-property">
-                    <span>
+                    <span style="white-space: nowrap">
                         Impulse :
                         <span
                             class="inline-player-name"
@@ -317,6 +317,7 @@ const style = computed(() => {
     return {
         width: `${PLAY_AREA_WIDTH}px`,
         height: `${PLAY_AREA_Y}px`,
+        maxHeight: `${PLAY_AREA_Y}px`,
         top: `0px`,
         left: `${PLAY_AREA_X * display.scale}px`,
         transform: `scale(${display.scale})`,
@@ -334,6 +335,7 @@ const style = computed(() => {
     flex-direction: column;
     justify-content: space-between;
     transform-origin: top left;
+    overflow: hidden;
 }
 
 .turn-infos {
@@ -355,11 +357,13 @@ const style = computed(() => {
             @include flex-center;
             background: $lighter-teal;
             padding: 0 5px;
+            white-space: nowrap;
         }
 
         .active-player {
             @include flex-center;
             padding: 0 5px;
+            white-space: nowrap;
         }
 
         .game-button {
@@ -418,12 +422,12 @@ const style = computed(() => {
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    gap: 0.25rem;
+    gap: 0.1rem;
 }
 
 .action-property {
     display: flex;
-    gap: 0.25rem;
+    gap: 0.1rem;
     justify-content: right;
     align-items: center;
 }
