@@ -55,16 +55,17 @@
         </p>
 
         <p>
+            Github Sponsor ( lowest fees ):&nbsp;<a
+                href="https://github.com/sponsors/thomasWajs"
+                target="_blank"
+                >github.com/sponsors/thomasWajs</a
+            ><br />
             Patreon:&nbsp;<a
                 href="https://patreon.com/thomasWajs"
                 target="_blank"
                 >patreon.com/thomasWajs</a
             ><br />
-            Github Sponsor:&nbsp;<a
-                href="https://github.com/sponsors/thomasWajs"
-                target="_blank"
-                >github.com/sponsors/thomasWajs</a
-            ><br />
+
             Paypal:&nbsp;
             <a
                 href="https://paypal.me/thomasWajs"

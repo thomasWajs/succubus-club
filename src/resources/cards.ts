@@ -1,6 +1,12 @@
 import { Discipline, DisciplineLevel, LibraryCardType, Sect } from '@/model/const.ts'
 import { DeckList } from '@/gateway/deck.ts'
-import { BACK_TEXTURE_CRYPT, BACK_TEXTURE_LIB, WIELD_CARD_STACK_ICON } from '@/game/const.ts'
+import {
+    BACK_TEXTURE_CRYPT,
+    BACK_TEXTURE_LIB,
+    THE_EDGE_ICON,
+    THE_EDGE_TEAL_ICON,
+    WIELD_CARD_STACK_ICON,
+} from '@/game/const.ts'
 
 /**
  * Resource types
@@ -80,6 +86,8 @@ export const preloadedTextures = {
     [BACK_TEXTURE_CRYPT]: {} as HTMLImageElement,
     [BACK_TEXTURE_LIB]: {} as HTMLImageElement,
     [WIELD_CARD_STACK_ICON]: {} as HTMLImageElement,
+    [THE_EDGE_ICON]: {} as HTMLImageElement,
+    [THE_EDGE_TEAL_ICON]: {} as HTMLImageElement,
 }
 
 async function loadOneResourceFile(url: string, destination: keyof typeof gameResources) {
@@ -116,5 +124,7 @@ export function loadAllResources() {
         preloadTexture(`${ASSETS_URL}/${BACK_TEXTURE_CRYPT}.webp`, BACK_TEXTURE_CRYPT),
         preloadTexture(`${ASSETS_URL}/${BACK_TEXTURE_LIB}.webp`, BACK_TEXTURE_LIB),
         preloadTexture(`${ASSETS_URL}/${WIELD_CARD_STACK_ICON}.png`, WIELD_CARD_STACK_ICON),
+        preloadTexture(`${ASSETS_URL}/${THE_EDGE_ICON}.png`, THE_EDGE_ICON),
+        preloadTexture(`${ASSETS_URL}/${THE_EDGE_TEAL_ICON}.png`, THE_EDGE_TEAL_ICON),
     ])
 }

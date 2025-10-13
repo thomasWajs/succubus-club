@@ -11,14 +11,6 @@
             }"
         >
             <div class="player-left">
-                <button
-                    class="game-button small the-edge-button"
-                    @click.stop="gameBus.changeTheEdge = { show: true }"
-                >
-                    <template v-if="player == gameState.theEdgeController"> 🗡️ </template>
-                    <template v-else> ... </template>
-                </button>
-
                 <span
                     v-if="player == gameState.activePlayer"
                     class="active-player"
@@ -48,7 +40,10 @@
                     -
                 </button>
 
-                <div class="pool-diamond">
+                <div
+                    class="pool-diamond"
+                    @click.stop="gameBus.changePool = { show: true, player: player }"
+                >
                     <span>{{ player.pool }}</span>
                 </div>
 
@@ -63,107 +58,7 @@
                 >
                     +
                 </button>
-
-                <button
-                    class="game-button small"
-                    @click.stop="gameBus.changePool = { show: true, player: player }"
-                >
-                    ±X
-                </button>
             </div>
-        </div>
-    </div>
-
-    <div
-        v-if="gameBus.changeTheEdge.show"
-        class="context-menu the-edge-menu"
-    >
-        <template
-            v-for="player in gameState.orderedPlayers"
-            :key="player.oid"
-        >
-            <button
-                v-if="player == gameState.theEdgeController"
-                class="game-button"
-                @click="
-                    gameMutations.changeTheEdgeControl.actSelf({
-                        newController: undefined,
-                    })
-                "
-            >
-                Burn The Edge :
-                <span
-                    class="inline-player-name"
-                    :style="{ backgroundColor: player.color.rgba }"
-                >
-                    {{ player.name }}
-                </span>
-            </button>
-
-            <button
-                v-else
-                class="game-button"
-                @click="
-                    gameMutations.changeTheEdgeControl.actSelf({
-                        newController: player,
-                    })
-                "
-            >
-                Gain The Edge :
-                <span
-                    class="inline-player-name"
-                    :style="{ backgroundColor: player.color.rgba }"
-                >
-                    {{ player.name }}
-                </span>
-            </button>
-        </template>
-    </div>
-
-    <div
-        v-if="gameBus.changePool.show"
-        class="floating-menu pool-menu"
-    >
-        Change pool for
-        <span
-            class="inline-player-name"
-            :style="{
-                backgroundColor: gameBus.changePool.player!.color.rgba,
-            }"
-        >
-            {{ gameBus.changePool.player!.name }}
-        </span>
-
-        <div class="pool-selector-amounts">
-            <button
-                v-for="i in 10"
-                :key="i"
-                class="game-button"
-                @click="
-                    gameMutations.changePool.actSelf({
-                        player: gameBus.changePool.player!,
-                        amount: 0 - i,
-                    })
-                "
-            >
-                {{ 0 - i }}
-            </button>
-        </div>
-
-        <div class="pool-selector-amounts">
-            <button
-                v-for="i in 10"
-                :key="i"
-                class="game-button"
-                @click="
-                    gameMutations.changePool.actSelf({
-                        player: gameBus.changePool.player!,
-                        amount: i,
-                    })
-                "
-            >
-                {{ '+' + i }}
-            </button>
         </div>
     </div>
 </template>
@@ -278,44 +173,13 @@ $window-right: 340px;
         font-weight: bold;
         font-size: 12px;
         margin: 0 3px;
+        cursor: pointer;
 
         // Counter-rotate the text so it appears upright
         span {
             transform: rotate(-45deg);
             display: inline-block;
         }
-    }
-}
-
-.the-edge-menu {
-    width: 250px;
-    top: $window-top;
-    right: $window-right;
-
-    .game-button {
-        margin-bottom: 1px;
-    }
-}
-
-.pool-menu {
-    background-color: $silver-grey;
-    width: 450px;
-    height: 150px;
-    top: $window-top;
-    right: $window-right;
-
-    .game-button {
-        margin-left: 4px;
-    }
-}
-
-.pool-selector-amounts {
-    margin: 20px 0;
-    display: flex;
-
-    button {
-        flex-grow: 1;
-        padding: 8px 6px;
     }
 }
 </style>

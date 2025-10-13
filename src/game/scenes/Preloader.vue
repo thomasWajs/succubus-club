@@ -12,12 +12,24 @@ import Phaser from 'phaser'
 import { Scene } from 'phavuer'
 import { useGameStateStore } from '@/store/gameState.ts'
 import { ATLAS_FREQUENT, CARDS_PATH, gameResources, preloadedTextures } from '@/resources/cards.ts'
-import { BACK_TEXTURE_CRYPT, BACK_TEXTURE_LIB, WIELD_CARD_STACK_ICON } from '@/game/const.ts'
+import {
+    BACK_TEXTURE_CRYPT,
+    BACK_TEXTURE_LIB,
+    THE_EDGE_ICON,
+    THE_EDGE_TEAL_ICON,
+    WIELD_CARD_STACK_ICON,
+} from '@/game/const.ts'
 
 const gameState = useGameStateStore()
 
 function preload(scene: Phaser.Scene) {
-    for (const textureName of [BACK_TEXTURE_CRYPT, BACK_TEXTURE_LIB, WIELD_CARD_STACK_ICON]) {
+    for (const textureName of [
+        BACK_TEXTURE_CRYPT,
+        BACK_TEXTURE_LIB,
+        WIELD_CARD_STACK_ICON,
+        THE_EDGE_ICON,
+        THE_EDGE_TEAL_ICON,
+    ]) {
         scene.textures.addImage(
             textureName,
             preloadedTextures[textureName as keyof typeof preloadedTextures],

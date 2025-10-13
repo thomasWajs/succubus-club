@@ -264,7 +264,12 @@
             >
                 {{ gameState.theEdgeController.name }}
             </span>
-            control The Edge 🗡️ and can gain 1 pool from the blood bank
+            controls The Edge
+            <img
+                src="/assets/theEdgeTeal.png"
+                class="theEdgeImage"
+            />
+            and can gain 1 pool from the blood bank
         </div>
 
         <div class="game-mutations">
@@ -442,6 +447,11 @@ const style = computed(() => {
     border: solid 1px $shadow-grey;
     padding: 4px 2px;
     animation: TheEdgeHintAppear 1s linear;
+
+    .theEdgeImage {
+        height: 25px;
+        vertical-align: middle;
+    }
 }
 
 @keyframes TheEdgeHintAppear {

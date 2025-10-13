@@ -109,6 +109,20 @@ export const SELECTION_AREA_LINE_THICKNESS = 1
 export const SELECTION_AREA_COLOR = HIGHLIGHT_YELLOW
 
 /**
+ * Button
+ */
+
+export const BUTTON_BORDER_WIDTH = 1
+export const BUTTON_BORDER_COLOR = new Color(26, 26, 26)
+export const BUTTON_BACKGROUND_COLOR = new Color(21, 47, 47)
+export const BUTTON_BACKGROUND_COLOR_HOVER = BUTTON_BACKGROUND_COLOR.clone().brighten(12)
+export const BUTTON_TEXT_STYLE = {
+    color: 'white',
+    fontStyle: 'bold',
+    fontSize: '14px',
+}
+
+/**
  * Counter
  */
 
@@ -122,6 +136,7 @@ export const COUNTER_TEXT_STYLE = {
 }
 export const BLOOD_COUNTER_FILL_COLOR = new Color(150, 0, 0)
 export const GREEN_COUNTER_FILL_COLOR = new Color(0, 150, 0)
+
 /**
  * Markers
  */
@@ -171,6 +186,8 @@ export const ARROW_COLOR = new Color(135, 45, 60)
 
 export const BACK_TEXTURE_CRYPT = 'cardbackCrypt'
 export const BACK_TEXTURE_LIB = 'cardbackLibrary'
+export const THE_EDGE_ICON = 'theEdge'
+export const THE_EDGE_TEAL_ICON = 'theEdgeTeal'
 
 export const DRAG_DISTANCE_THRESHOLD = 5
 

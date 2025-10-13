@@ -64,6 +64,8 @@
         />
 
         <!-- Menus -->
+        <ChangeTheEdgeMenu v-show="sceneReady" />
+        <ChangePoolMenu v-show="sceneReady" />
         <ContextMenu v-show="sceneReady" />
         <ContextSubmenu v-show="sceneReady" />
 
@@ -126,6 +128,8 @@ import { CardOid } from '@/model/Card.ts'
 import { Arrow } from '@/state/types.ts'
 import { PlayerOid } from '@/model/Player.ts'
 import Vector2Like = Phaser.Types.Math.Vector2Like
+import ChangePoolMenu from '@/ui/ingame/ChangePoolMenu.vue'
+import ChangeTheEdgeMenu from '@/ui/ingame/ChangeTheEdgeMenu.vue'
 
 const core = useCoreStore()
 const gameState = useGameStateStore()

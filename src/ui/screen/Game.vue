@@ -24,7 +24,6 @@
         v-if="core.gameStateIsReady"
         v-show="core.gameIsReady"
         id="Game"
-        @click="onClick"
     >
         <!-- <TopBar /> -->
         <Tabletop />
@@ -36,30 +35,10 @@
 <script setup lang="ts">
 import Tabletop from '@/game/Tabletop.vue'
 import GameGameRightColumn from '@/ui/ingame/rightColumn/GameRightColumn.vue'
-import { useGameBusStore } from '@/store/bus.ts'
 import GameTopArea from '@/ui/ingame/GameTopArea.vue'
 import { useCoreStore } from '@/store/core.ts'
 
 const core = useCoreStore()
-const gameBus = useGameBusStore()
-
-function onClick(event: Event) {
-    if (
-        gameBus.changePool.show &&
-        event.target instanceof Element &&
-        event.target.id != 'PoolSelector'
-    ) {
-        gameBus.changePool.show = false
-    }
-
-    if (
-        gameBus.changeTheEdge.show &&
-        event.target instanceof Element &&
-        event.target.id != 'TheEdgeSelector'
-    ) {
-        gameBus.changeTheEdge.show = false
-    }
-}
 </script>
 
 <style lang="scss" scoped>

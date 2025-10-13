@@ -27,15 +27,25 @@
         :y="y + 5"
     />
 
+    <!-- Minus Pool -->
+    <ButtonGo
+        :x="x + width / 2 - 35"
+        :y="y + height / 2"
+        :width="25"
+        :height="25"
+        text="-"
+        @click="
+            gameMutations.changePool.actSelf({
+                player,
+                amount: -1,
+            })
+        "
+    />
+
     <!-- Current Pool -->
     <Polygon
         ref="poolDiamond"
-        :points="[
-            [-19, 0],
-            [0, 15],
-            [19, 0],
-            [0, -15],
-        ]"
+        :points="diamondVertices"
         :fillColor="WHITE.color"
         :fillAlpha="0.6"
         :lineWidth="COUNTER_OUTLINE_THICKNESS"
@@ -43,6 +53,9 @@
         :origin="0"
         :x="x + width / 2"
         :y="y + height / 2"
+        @create="onPoolDiamondCreate"
+        @pointerdown.stop
+        @pointerup.stop="gameBus.changePool = { show: true, player: player }"
     />
     <Text
         :text="player.pool.toString()"
@@ -52,18 +65,31 @@
         :y="y + height / 2"
     />
 
+    <!-- Plus Pool -->
+    <ButtonGo
+        :x="x + width / 2 + 35"
+        :y="y + height / 2"
+        :width="25"
+        :height="25"
+        text="+"
+        @click="
+            gameMutations.changePool.actSelf({
+                player,
+                amount: +1,
+            })
+        "
+    />
+
     <!-- The Edge -->
-    <Text
-        v-if="player == gameState.theEdgeController"
-        :text="'🗡'"
-        :style="{
-            color: '#5c1a23',
-            fontStyle: 'Bold',
-            fontSize: '20px',
-        }"
+    <Image
+        :texture="player == gameState.theEdgeController ? THE_EDGE_TEAL_ICON : THE_EDGE_ICON"
+        :alpha="player == gameState.theEdgeController ? 1 : 0.4"
         :origin="1"
-        :x="x + width - 50"
-        :y="y + 25"
+        :x="x + width - 60"
+        :y="y + 30"
+        @create="onTheEdgeCreate"
+        @pointerdown.stop
+        @pointerup.stop="gameBus.changeTheEdge.show = true"
     />
 
     <!-- Victory Points -->
@@ -83,14 +109,23 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted } from 'vue'
 import Phaser, { GameObjects } from 'phaser'
-import { Polygon, Rectangle, Text, refObj } from 'phavuer'
-import { BLACK, COUNTER_OUTLINE_THICKNESS, COUNTER_TEXT_STYLE, WHITE } from '@/game/const.ts'
+import { Polygon, Rectangle, Text, Image, refObj } from 'phavuer'
+import {
+    BLACK,
+    COUNTER_OUTLINE_THICKNESS,
+    COUNTER_TEXT_STYLE,
+    THE_EDGE_ICON,
+    THE_EDGE_TEAL_ICON,
+    WHITE,
+} from '@/game/const.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
 import { Player } from '@/model/Player.ts'
 import Color = Phaser.Display.Color
 import { useGameBusStore } from '@/store/bus.ts'
+import ButtonGo from '@/game/objects/ButtonGo.vue'
+import { gameMutations } from '@/state/gameMutations.ts'
 
-const props = defineProps<{
+const { x, y, width, height, color, player } = defineProps<{
     x: number
     y: number
     width: number
@@ -102,12 +137,33 @@ const props = defineProps<{
 const gameState = useGameStateStore()
 const gameBus = useGameBusStore()
 
-const playerColor = props.player.color.clone().darken(20).desaturate(60)
+const playerColor = player.color.clone().darken(20).desaturate(60)
 
 const poolDiamond = refObj<GameObjects.Polygon>()
 
+const diamondVertices = [
+    [-19, 0],
+    [0, 15],
+    [19, 0],
+    [0, -15],
+]
+
 function onBoundariesCreate(boundaries: GameObjects.Rectangle) {
     boundaries.setInteractive({ draggable: false })
+}
+
+function onPoolDiamondCreate(poolDiamond: GameObjects.Polygon) {
+    poolDiamond.setInteractive({
+        hitArea: new Phaser.Geom.Polygon(diamondVertices.flat()),
+        hitAreaCallback: Phaser.Geom.Polygon.Contains,
+        cursor: 'pointer',
+    })
+}
+
+function onTheEdgeCreate(theEdge: GameObjects.Image) {
+    theEdge.setInteractive({
+        cursor: 'pointer',
+    })
 }
 
 /**
@@ -129,14 +185,14 @@ function getWorldPosition() {
  */
 
 const playerInGame = {
-    playerOid: props.player.oid,
+    playerOid: player.oid,
     getWorldPosition,
 }
 onMounted(() => {
-    gameBus.playersInGame[props.player.oid] = playerInGame
+    gameBus.playersInGame[player.oid] = playerInGame
 })
 onBeforeUnmount(() => {
-    delete gameBus.cardsInGame[props.player.oid]
+    delete gameBus.cardsInGame[player.oid]
 })
 </script>
 
