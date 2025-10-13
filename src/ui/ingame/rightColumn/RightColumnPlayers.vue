@@ -23,7 +23,7 @@
                     class="player-name"
                     :style="{ color: player.color.rgba }"
                 >
-                    {{ player.name }}
+                    {{ player.shortName }}
                 </span>
             </div>
 

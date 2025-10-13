@@ -6,6 +6,8 @@ import { Card, CryptCard, LibraryCard, Minion, Vampire } from '@/model/Card.ts'
 import Phaser from 'phaser'
 import { PermanentId } from '@/multiplayer/common.ts'
 
+const PLAYER_NAME_LEGIBLE_LENGTH = 22
+
 // Alias to specify the expected objects through the codebase
 export type PlayerOid = ObjectId
 
@@ -31,6 +33,8 @@ export type PlayerCardRegions = {
 }
 
 export class Player extends BaseModel {
+    shortName: string
+
     constructor(
         public oid: PlayerOid,
         public permId: PermanentId,
@@ -44,6 +48,11 @@ export class Player extends BaseModel {
         // public handSize = INITIAL_HAND_SIZE,
     ) {
         super(oid)
+        if (name.length <= PLAYER_NAME_LEGIBLE_LENGTH) {
+            this.shortName = this.name
+        } else {
+            this.shortName = `${this.name.substring(0, PLAYER_NAME_LEGIBLE_LENGTH - 2)}...`
+        }
     }
 
     static createCardRegions(): PlayerCardRegions {

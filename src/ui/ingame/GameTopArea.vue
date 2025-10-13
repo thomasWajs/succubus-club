@@ -19,7 +19,7 @@
                     :style="{ backgroundColor: gameState.activePlayer?.color.rgba }"
                     class="active-player inline-player-name"
                 >
-                    {{ gameState.activePlayer?.name }}
+                    {{ gameState.activePlayer?.shortName }}
                 </span>
 
                 <CommandButton :command="commands.AdvanceTurn"> &gt; </CommandButton>
@@ -194,7 +194,7 @@
                                 backgroundColor: gameState.action.impulsePlayer?.color.rgba,
                             }"
                         >
-                            {{ gameState.action.impulsePlayer?.name }}
+                            {{ gameState.action.impulsePlayer?.shortName }}
                         </span>
                     </span>
 

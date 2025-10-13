@@ -16,7 +16,7 @@
 
     <!-- Player Name -->
     <Text
-        :text="player.name"
+        :text="player.shortName"
         :style="{
             color: '#000',
             fontStyle: 'Bold',
