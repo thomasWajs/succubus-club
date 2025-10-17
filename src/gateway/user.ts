@@ -3,6 +3,7 @@ import { hash } from '@/gateway/serialization.ts'
 import { getRtdb, rtdbRef, rtdbGet, rtdbRemove, rtdbSet } from '@/gateway/realtime.ts'
 import { User } from '@/multiplayer/types.ts'
 import { useMultiplayerStore } from '@/store/multiplayer.ts'
+import { DbUserProfile } from '@/gateway/db.ts'
 
 const AVATARS_KEY = 'avatars'
 export type AvatarId = string
@@ -11,9 +12,7 @@ function avatarRef(roomName: string) {
     return rtdbRef(getRtdb(), `${AVATARS_KEY}/${roomName}`)
 }
 
-export async function storeAvatar() {
-    const profile = useCoreStore().userProfile
-
+export async function storeAvatar(profile: DbUserProfile) {
     if (!profile.avatar) {
         return
     }

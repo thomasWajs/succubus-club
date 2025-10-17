@@ -14,7 +14,7 @@ if (userProfile.lastDeckId) {
 }
 // User has an avatar, but it's not stored to firebase. We ned to upload it.
 if (userProfile.avatar && !userProfile.avatarFirebaseId) {
-    storeAvatar()
+    storeAvatar(userProfile)
 }
 
 // Keep the Phaser.Game instance non-reactive by storing it here instead of the store.

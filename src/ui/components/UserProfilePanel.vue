@@ -107,7 +107,7 @@ function handleFileUpload(event: Event) {
                     // Convert to data URL with good quality
                     core.userProfile.avatar = canvas.toDataURL('image/jpeg', 0.85)
                     await core.userProfile.save()
-                    await storeAvatar()
+                    await storeAvatar(core.userProfile)
                 }
             }
             img.src = e.target?.result as string
