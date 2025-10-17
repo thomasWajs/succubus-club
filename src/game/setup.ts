@@ -5,7 +5,7 @@ import { useGameStateStore } from '@/store/gameState.ts'
 import { useCoreStore } from '@/store/core.ts'
 import { Player } from '@/model/Player.ts'
 import { INITIAL_CRYPT_SIZE, INITIAL_HAND_SIZE } from '@/model/const.ts'
-import { GameRoom } from '@/multiplayer/common.ts'
+import { GameRoom } from '@/multiplayer/types.ts'
 import { useMultiplayerStore } from '@/store/multiplayer.ts'
 import { GameType } from '@/state/types.ts'
 import { loadGame } from '@/gateway/serialization.ts'
@@ -112,6 +112,10 @@ export function setupTrainGame() {
 export function setupMultiplayerGame(gameRoom: GameRoom) {
     const gameState = useGameStateStore()
     const multiplayer = useMultiplayerStore()
+
+    if (!gameRoom.seating) {
+        throw new Error(`No seating in game room`)
+    }
 
     resetState()
 

@@ -77,28 +77,32 @@ const router = createRouter({
 })
 
 router.beforeEach((to, from) => {
-    const coreStore = useCoreStore()
-    const multiplayerStore = useMultiplayerStore()
+    const core = useCoreStore()
+    const multiplayer = useMultiplayerStore()
+
+    let leavingGame = false
 
     // If navigating outside the game
     if (from.name == ROUTES.Game) {
+        leavingGame = true
+
         // the game is not started anymore
-        coreStore.gameIsStarted = false
+        core.gameIsStarted = false
 
         // If the user is in the lobby, leave it
-        if (multiplayerStore.hasJoinedLobby) {
+        if (multiplayer.hasJoinedLobby) {
             leaveLobby()
         }
     }
 
     // If trying to access the Game route and game is not started
-    if (to.name == ROUTES.Game && !coreStore.gameIsStarted) {
+    if (to.name == ROUTES.Game && !core.gameIsStarted) {
         // Redirect to MainMenu
         return { name: ROUTES.MainMenu }
     }
 
     // If trying to access the Lobby route and lobby is not joined
-    if (to.name === ROUTES.Lobby && !multiplayerStore.hasJoinedLobby) {
+    if (to.name === ROUTES.Lobby && (!multiplayer.hasJoinedLobby || leavingGame)) {
         // Redirect to MainMenu
         return { name: ROUTES.MainMenu }
     }

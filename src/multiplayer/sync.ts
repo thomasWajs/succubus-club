@@ -17,7 +17,7 @@ import {
     PermanentId,
     VectorClockVersion,
     VersioningId,
-} from '@/multiplayer/common.ts'
+} from '@/multiplayer/types.ts'
 import { ClockCompare, LamportClock, VectorClock } from '@/multiplayer/clock.ts'
 import { useHistoryStore } from '@/store/history.ts'
 import { useCoreStore } from '@/store/core.ts'

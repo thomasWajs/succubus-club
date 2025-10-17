@@ -1,4 +1,4 @@
-import { LamportClockVersion, PermanentId, Tick, VectorClockVersion } from '@/multiplayer/common.ts'
+import { LamportClockVersion, PermanentId, Tick, VectorClockVersion } from '@/multiplayer/types.ts'
 import { useCoreStore } from '@/store/core.ts'
 
 /**

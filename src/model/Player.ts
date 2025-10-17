@@ -4,7 +4,7 @@ import { CardRegionVisibility, RegionName } from '@/model/const.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
 import { Card, CryptCard, LibraryCard, Minion, Vampire } from '@/model/Card.ts'
 import Phaser from 'phaser'
-import { PermanentId } from '@/multiplayer/common.ts'
+import { PermanentId } from '@/multiplayer/types.ts'
 
 const PLAYER_NAME_LEGIBLE_LENGTH = 22
 

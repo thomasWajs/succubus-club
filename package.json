@@ -34,13 +34,14 @@
     },
     "dependencies": {
         "@sentry/vue": "^9.46.0",
+        "ably": "^2.14.0",
         "dexie": "^4.2.1",
+        "firebase": "^12.4.0",
         "idle-js": "^1.2.0",
         "phaser": "^3.90.0",
         "phavuer": "^0.16.5",
         "pinia": "^3.0.3",
         "safe-stable-stringify": "^2.5.0",
-        "trystero": "^0.22.0",
         "vue": "^3.5.17",
         "vue-router": "^4.5.1",
         "xxhash-wasm": "^1.1.0"

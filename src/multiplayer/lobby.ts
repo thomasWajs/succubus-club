@@ -1,87 +1,55 @@
-import { useMultiplayerStore } from '@/store/multiplayer.ts'
-import { Room } from 'trystero'
-import {
-    joinRoom,
-    GameRoom,
-    makeNetAction,
-    onPeerDisconnect,
-    PeerId,
-    TRYSTERO_CONFIG,
-    User,
-    PermanentId,
-    garbageCollectRTCConnections,
-} from '@/multiplayer/common.ts'
-import { joinGameRoom, leaveGameRoom } from '@/multiplayer/room.ts'
-import { useBusStore } from '@/store/bus.ts'
 import { watch, WatchHandle } from 'vue'
+import {
+    getAbly,
+    getRtdb,
+    DataSnapshot,
+    rtdbOnValue,
+    rtdbRef,
+    rtdbRemove,
+    rtdbSet,
+} from '@/gateway/realtime.ts'
+import { useMultiplayerStore } from '@/store/multiplayer.ts'
 import * as logging from '@/logging.ts'
-import { waitUntil } from '@/utils.ts'
+import { useBusStore } from '@/store/bus.ts'
+import { GameRoom, PermanentId } from '@/multiplayer/types.ts'
+import { joinGameRoom, leaveGameRoom } from '@/multiplayer/room.ts'
 
-export const LOBBY_ROOM = 'Lobby'
-const HEARTBEAT_INTERVAL = 1000 * 15 // 15 seconds
-const GARBAGE_COLLECTION_INTERVAL = 1000 * 30 // 30 seconds
+let LOBBY_CHANNEL_NAME = 'Lobby'
+if (import.meta.env.DEV) {
+    LOBBY_CHANNEL_NAME = '{dev} Lobby'
+}
+const DEBOUNCE_DELAY = 500 // milliseconds
+const GAME_ROOMS_KEY = 'gameRooms'
 
-let lobby: Room | null = null
-type LobbyActions = ReturnType<typeof makeLobbyActions>
-export let lobbyActions: LobbyActions | null = null
 let unwatchSelfUser: WatchHandle | null = null
-type IntervalId = ReturnType<typeof setInterval> | null
-let selfUserHeartbeatIntervalId: IntervalId = null
-let garbageCollectionIntervalId: IntervalId = null
+let debounceTimer: ReturnType<typeof setTimeout> | null = null
 
-function makeLobbyActions(lobby: Room) {
+let _lobby: ReturnType<typeof connectLobby> | null = null
+
+async function connectLobby() {
+    const rtdb = getRtdb()
+
+    const ably = getAbly()
+    const lobbyChannel = ably.channels.get(LOBBY_CHANNEL_NAME)
+    await lobbyChannel.attach()
+
     return {
-        // Param: User to create or update
-        broadcastUser: makeNetAction<User>(lobby, 'b7tUser', onReceiveUser),
-        // Param : None
-        requestUser: makeNetAction<null>(lobby, 'reqUser', onReceiveRequestUser),
-        // Param: GameRoom to create or update
-        broadcastGameRoom: makeNetAction<GameRoom>(lobby, 'b7tGameRoom', onReceiveGameRoom),
-        // Param : None
-        requestGameRoom: makeNetAction<null>(lobby, 'reqGameRoom', onReceiveRequestGameRoom),
-        // Param : Room Name
-        deleteGameRoom: makeNetAction<string>(lobby, 'delGameRoom', onReceiveDeleteGameRoom),
+        multiplayer: useMultiplayerStore(),
+        rtdb,
+        ably,
+        lobbyChannel,
     }
 }
-
-function setupSelfUserWatcher() {
-    const multiplayer = useMultiplayerStore()
-
-    // Watcher is already active, do nothing.
-    if (unwatchSelfUser) {
-        return
+async function useLobby() {
+    if (!_lobby) {
+        _lobby = connectLobby()
     }
-
-    // Watch for changes to selfUser and broadcast when it updates
-    unwatchSelfUser = watch(
-        () => multiplayer.selfUser,
-        selfUser => {
-            multiplayer.upsertUser(multiplayer.selfUser)
-            lobbyActions?.broadcastUser.send(selfUser)
-        },
-        { deep: true }, // Watch for deep changes in the User object
-    )
-    document.addEventListener('beforeunload', unwatchSelfUser)
+    return await _lobby
 }
 
-// Send regularly our user, in case peers mess up with their multiplayer.users.
-// This makes flaky connections more robust.
-function setupSelfUserHeartbeat() {
-    selfUserHeartbeatIntervalId = setInterval(() => {
-        lobbyActions?.broadcastUser.send(useMultiplayerStore().selfUser)
-    }, HEARTBEAT_INTERVAL)
-}
-
-// Trigger garbage collection regularly to prevent chromium bug https://issues.chromium.org/issues/41378764
-function setupGarbageCollection() {
-    garbageCollectionIntervalId = setInterval(() => {
-        garbageCollectRTCConnections()
-    }, GARBAGE_COLLECTION_INTERVAL)
-}
-
-export function joinLobby() {
-    const multiplayer = useMultiplayerStore()
+export async function joinLobby() {
     const bus = useBusStore()
+    const multiplayer = useMultiplayerStore()
 
     if (multiplayer.hasJoinedLobby) {
         return
@@ -89,91 +57,121 @@ export function joinLobby() {
 
     multiplayer.upsertUser(multiplayer.selfUser)
 
+    const { rtdb, lobbyChannel } = await useLobby()
     try {
-        lobby = joinRoom(TRYSTERO_CONFIG, LOBBY_ROOM)
+        // Presence / Users
+        await lobbyChannel.presence.enter(multiplayer.selfUser)
+        await syncUsers()
+        await lobbyChannel.presence.subscribe(syncUsers)
+
+        // Game room list
+        rtdbOnValue(rtdbRef(rtdb, GAME_ROOMS_KEY), syncGameRooms)
     } catch (e) {
         logging.captureException(e)
         bus.alertError('Error joining lobby. Please try again')
         return
     }
 
-    lobbyActions = makeLobbyActions(lobby)
-
-    /**
-     * Set up lobby event handlers
-     */
-
-    lobby.onPeerJoin(onPeerJoin)
-    lobby.onPeerLeave(onPeerLeave)
-
-    // Announce ourselves to everybody in the lobby
-    lobbyActions.broadcastUser.send(multiplayer.selfUser)
-
-    setupSelfUserWatcher()
-    setupSelfUserHeartbeat()
-    setupGarbageCollection()
+    await setupSelfUserWatcher()
 }
 
-export function leaveLobby() {
-    const multiplayer = useMultiplayerStore()
+export async function leaveLobby() {
+    const { multiplayer, ably, lobbyChannel } = await useLobby()
 
     if (multiplayer.currentGameRoomName) {
-        leaveGameRoom()
+        await leaveGameRoom()
     }
 
+    unwatchSelfUser?.()
+    unwatchSelfUser = null
+    // Detaching from the channel will also leave the presence
+    await lobbyChannel.detach()
+    // Releasing from the channel will also unsubscribe all listeners
+    ably.channels.release(LOBBY_CHANNEL_NAME)
+    _lobby = null
     multiplayer.$reset()
-    lobby?.leave()
-    lobby = null
-    lobbyActions = null
-    if (selfUserHeartbeatIntervalId) {
-        clearInterval(selfUserHeartbeatIntervalId)
-        selfUserHeartbeatIntervalId = null
+}
+
+/**
+ * Presence / Users
+ */
+
+async function syncUsers() {
+    const { multiplayer, lobbyChannel } = await useLobby()
+
+    const presenceSet = await lobbyChannel.presence.get()
+    // Loop to call upsertUser to fetch their avatar
+    for (const member of presenceSet) {
+        multiplayer.upsertUser(member.data)
     }
-    if (garbageCollectionIntervalId) {
-        clearInterval(garbageCollectionIntervalId)
-        garbageCollectionIntervalId = null
+}
+
+async function setupSelfUserWatcher() {
+    // Watcher is already active, do nothing.
+    if (unwatchSelfUser) {
+        return
     }
+
+    const { multiplayer, lobbyChannel } = await useLobby()
+
+    // Watch for changes to selfUser and broadcast when it updates
+    // Use a debounce timer to prevent sending a burst of updates on e.g. username edit
+    unwatchSelfUser = watch(
+        () => multiplayer.selfUser,
+        selfUser => {
+            if (debounceTimer) {
+                clearTimeout(debounceTimer)
+            }
+
+            // Override the user in the list from ably
+            multiplayer.upsertUser(multiplayer.selfUser)
+
+            debounceTimer = setTimeout(() => {
+                lobbyChannel.presence.update(selfUser)
+                debounceTimer = null
+            }, DEBOUNCE_DELAY)
+        },
+    )
 }
 
-function onPeerJoin(peerId: PeerId) {
-    const multiplayer = useMultiplayerStore()
+/**
+ * Game room list
+ */
 
-    // When someone joins, send them our user info
-    lobbyActions?.broadcastUser.send(multiplayer.selfUser, peerId)
-
-    // And our current game room if applicable
-    broadcastCurrentGameRoom(peerId)
-
-    setupPeerUserCheck(peerId)
-        // Special case for host reconnection : send them the game room when we have their permId
-        .then(() => {
-            broadcastCurrentGameRoom(peerId)
-        })
+function gameRoomRef(roomName: string) {
+    return rtdbRef(getRtdb(), `${GAME_ROOMS_KEY}/${roomName}`)
 }
 
-function onPeerLeave(peerId: PeerId) {
-    onPeerDisconnect(peerId, true)
-}
+let pruneChannels = true
+async function syncGameRooms(snapshot: DataSnapshot) {
+    const { multiplayer, ably } = await useLobby()
+    const storedGameRooms = snapshot.val() as Record<string, GameRoom> | null
 
-function onReceiveUser(user: User) {
-    useMultiplayerStore().upsertUser(user)
-}
+    const gameRooms: Record<string, GameRoom> = {}
 
-function onReceiveRequestUser(_: null, peerId: PeerId) {
-    lobbyActions?.broadcastUser.send(useMultiplayerStore().selfUser, peerId)
-}
+    if (storedGameRooms) {
+        // TODO : replace pruneChannels by a webhook to Vercel to clean on presence leave
+        let activeChannels = []
+        if (pruneChannels) {
+            // @ts-expect-error - Ably request method type compatibility
+            const channelsResponse = await ably.request('GET', '/channels', { by: 'value' })
+            activeChannels = channelsResponse.items
+                .filter(channel => channel.status?.occupancy?.metrics?.connections ?? 0 > 0)
+                .map(channel => channel.name)
+        }
 
-function onReceiveGameRoom(gameRoom: GameRoom) {
-    useMultiplayerStore().upsertGameRoom(gameRoom)
-}
+        for (const [name, gameRoom] of Object.entries(storedGameRooms)) {
+            if (pruneChannels && !activeChannels.includes(name)) {
+                await deleteGameRoom(name)
+            } else {
+                // multiplayer.upsertGameRoom(gameRoom as GameRoom)
+                gameRooms[name] = gameRoom
+            }
+        }
+    }
 
-function onReceiveRequestGameRoom(_: null, peerId: PeerId) {
-    // Send our current game room if applicable
-    broadcastCurrentGameRoom(peerId)
-}
-
-function onReceiveDeleteGameRoom(name: string) {
-    useMultiplayerStore().deleteGameRoom(name)
+    multiplayer.gameRooms = gameRooms
+    pruneChannels = false
 }
 
 export async function createGameRoom(
@@ -181,12 +179,16 @@ export async function createGameRoom(
     seating: PermanentId[] = [],
     isStarted: boolean = false,
 ) {
-    const multiplayer = useMultiplayerStore()
+    const { multiplayer } = await useLobby()
 
-    if (multiplayer.gameRoomNames.includes(roomName)) {
+    if (roomName in multiplayer.gameRooms || roomName == LOBBY_CHANNEL_NAME) {
         const bus = useBusStore()
         bus.alertError('A game room with this name already exists.')
         return
+    }
+
+    if (import.meta.env.DEV) {
+        roomName = `{dev} ${roomName}`
     }
 
     const gameRoom = {
@@ -195,57 +197,17 @@ export async function createGameRoom(
         isStarted,
         hasPassword: false,
         players: [multiplayer.selfUser.permId],
-        // spectators: [],
         seating,
     }
     multiplayer.upsertGameRoom(gameRoom)
     await joinGameRoom(gameRoom)
-    lobbyActions?.broadcastGameRoom.send(gameRoom)
+    await broadcastGameRoom(gameRoom)
 }
 
-function broadcastCurrentGameRoom(peerId: PeerId) {
-    const multiplayer = useMultiplayerStore()
-
-    if (multiplayer.currentGameRoom) {
-        // In the general case, only the host broadcast its game room
-        if (multiplayer.selfIsHost) {
-            lobbyActions?.broadcastGameRoom.send(multiplayer.currentGameRoom, peerId)
-        }
-        // However there's a special case :
-        // when the host has left / disconnected, we need to send him the game room
-        // so he can come back
-        if (multiplayer.currentGameRoom.hostId == multiplayer.peerMapping[peerId]) {
-            lobbyActions?.broadcastGameRoom.send(multiplayer.currentGameRoom, peerId)
-        }
-    }
+export async function broadcastGameRoom(gameRoom: GameRoom) {
+    rtdbSet(gameRoomRef(gameRoom.name), gameRoom)
 }
 
-export function refreshGameRooms() {
-    const multiplayer = useMultiplayerStore()
-
-    let myGameRoom = null
-    if (multiplayer.currentGameRoom && multiplayer.selfIsHost) {
-        myGameRoom = multiplayer.currentGameRoom
-    }
-    multiplayer.gameRooms = {}
-    if (myGameRoom) {
-        multiplayer.upsertGameRoom(myGameRoom)
-    }
-    lobbyActions?.requestGameRoom.send(null)
-}
-
-/**
- * Ensure we correctly received the User for each peer
- */
-
-const PEER_USER_CHECK_INTERVAL = 2000 // each 2 seconds
-const MAX_PEER_USER_CHECK_ATTEMPTS = 30 // give up after 1 minute
-function setupPeerUserCheck(peerId: PeerId) {
-    const multiplayer = useMultiplayerStore()
-    return waitUntil(
-        () => peerId in multiplayer.peerMapping || !lobby || !(peerId in lobby.getPeers()),
-        PEER_USER_CHECK_INTERVAL,
-        MAX_PEER_USER_CHECK_ATTEMPTS,
-        () => lobbyActions?.requestUser.send(null, peerId),
-    )
+export async function deleteGameRoom(roomName: string) {
+    rtdbRemove(gameRoomRef(roomName))
 }

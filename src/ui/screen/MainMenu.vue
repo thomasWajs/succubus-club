@@ -93,7 +93,7 @@ const trainBotDisclaimerRef = ref<InstanceType<typeof TrainBotDisclaimer> | null
  *  Menu
  */
 
-function goToLobby() {
+async function goToLobby() {
     joinLobby()
     router.push({ name: ROUTES.Lobby })
 }

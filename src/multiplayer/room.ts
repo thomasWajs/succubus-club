@@ -1,20 +1,18 @@
-import { useMultiplayerStore } from '@/store/multiplayer.ts'
-import { Room } from 'trystero'
+import { watch, WatchHandle } from 'vue'
+import { PresenceMessage } from 'ably'
+import { ablyPublish, ablySubscribe, getAbly } from '@/gateway/realtime.ts'
 import {
-    joinRoom,
-    GameRoom,
-    makeNetAction,
-    onPeerDisconnect,
-    PeerId,
-    TRYSTERO_CONFIG,
-    User,
     GameMutationMessage,
+    GameRoom,
     GameStateSyncMessage,
-    alertReconnectAfterDelay,
-    garbageCollectRTCConnections,
-} from '@/multiplayer/common.ts'
-import { resetState, setupMultiplayerGame, startGame } from '@/game/setup.ts'
-import { GameType } from '@/state/types.ts'
+    PermanentId,
+    PubsubMessageType,
+    User,
+} from '@/multiplayer/types.ts'
+import { useMultiplayerStore } from '@/store/multiplayer.ts'
+import { useBusStore } from '@/store/bus.ts'
+import * as logging from '@/logging.ts'
+import { ChatMessage, useHistoryStore } from '@/store/history.ts'
 import {
     deserializeObject,
     loadGame,
@@ -23,12 +21,11 @@ import {
     serializeGame,
     serializeObject,
 } from '@/gateway/serialization.ts'
-import { shuffleArray, TimeoutError, waitUntil } from '@/utils.ts'
-import { useBusStore } from '@/store/bus.ts'
-import * as logging from '@/logging.ts'
-import { lobbyActions } from '@/multiplayer/lobby.ts'
-import { watch, WatchHandle } from 'vue'
+import { shuffleArray } from '@/utils.ts'
 import { useCoreStore } from '@/store/core.ts'
+import { resetState, setupMultiplayerGame, startGame } from '@/game/setup.ts'
+import { GameType } from '@/state/types.ts'
+import { AnyGameMutation } from '@/state/gameMutations.ts'
 import {
     applyGameResync,
     makeMutationMessage,
@@ -36,120 +33,129 @@ import {
     receiveMutationMessage,
     startGameResync,
 } from '@/multiplayer/sync.ts'
-import { AnyGameMutation } from '@/state/gameMutations.ts'
-import { ChatMessage, useHistoryStore } from '@/store/history.ts'
+import { broadcastGameRoom, deleteGameRoom } from '@/multiplayer/lobby.ts'
 
-type RoomActions = ReturnType<typeof makeRoomActions>
-let roomActions: RoomActions | null = null
-let currentRoom: Room | null = null
-let unwatchGameRoom: WatchHandle | null = null
+let _room: ReturnType<typeof connectRoom> | null = null
 
-function makeRoomActions(room: Room) {
+async function connectRoom(roomName: string) {
+    const ably = getAbly()
+    const roomChannel = ably.channels.get(roomName)
+    await roomChannel.attach()
+
     return {
-        // Param : Initial GameState, Serialized
-        launchGame: makeNetAction<SerializedGame>(room, 'launchGame', onReceiveLaunchGame),
-        // Param : Serialized GameMutation
-        broadcastGameMutation: makeNetAction<GameMutationMessage>(
-            room,
-            'b7tMutation',
-            onReceiveGameMutation,
-        ),
-        broadcastChatMessage: makeNetAction<SerializedChatMessage>(
-            room,
-            'b7tChat',
-            onReceiveChatMessage,
-        ),
-        // Param : None
-        requestResyncGameState: makeNetAction<null>(
-            room,
-            'reqResync',
-            onReceiveRequestResyncGameState,
-        ),
-        // Param : Current GameState, Serialized
-        resyncGameState: makeNetAction<GameStateSyncMessage>(
-            room,
-            'resync',
-            onReceiveResyncGameState,
-        ),
+        multiplayer: useMultiplayerStore(),
+        ably,
+        roomChannel,
     }
 }
-
-function canUserBeAPlayer(gameRoom: GameRoom, user: User): boolean {
-    if (gameRoom.isStarted) {
-        // Started games only accept players existing in the seating
-        return gameRoom.seating.includes(user.permId)
-    } else {
-        // Pending games accept new players up until 5 players
-        return gameRoom.players.length < 5 || gameRoom.players.includes(user.permId)
+async function initRoom(roomName: string) {
+    if (_room) {
+        throw new Error('Room already initialized')
     }
+    _room = connectRoom(roomName)
 }
 
-export function joinGameRoom(gameRoom: GameRoom) {
+async function useRoom() {
+    if (!_room) {
+        throw new Error('Room not initialized')
+    }
+    return await _room
+}
+
+function ensureGameRoom(): GameRoom {
+    const multiplayer = useMultiplayerStore()
+    if (!_room || !multiplayer.currentGameRoom) {
+        throw new Error(`Not in a game room`)
+    }
+    return multiplayer.currentGameRoom
+}
+
+/**
+ * Joins / Leave
+ */
+
+export async function joinGameRoom(gameRoom: GameRoom) {
     const multiplayer = useMultiplayerStore()
     const bus = useBusStore()
 
-    // We're already there : do nothing
-    if (multiplayer.currentGameRoomName == gameRoom.name) {
-        return
-    }
-
-    // Leave any previous room
-    leaveGameRoom()
-
     try {
-        currentRoom = joinRoom(TRYSTERO_CONFIG, gameRoom.name)
+        // We're already there : do nothing
+        if (multiplayer.currentGameRoomName == gameRoom.name) {
+            return
+        }
+
+        // Leave any previous room
+        await leaveGameRoom()
+
+        await initRoom(gameRoom.name)
+        const { roomChannel } = await useRoom()
+
+        multiplayer.currentGameRoomName = gameRoom.name
+        if (canUserBeAPlayer(gameRoom, multiplayer.selfUser)) {
+            multiplayer.upsertGameRoomPlayer(multiplayer.selfUser)
+        }
+
+        // The host is responsible for sending game room updates to the other players
+        if (multiplayer.selfIsHost) {
+            setupGameRoomWatcher()
+        }
+
+        /**
+         * Set up room event handlers
+         */
+
+        await roomChannel.presence.enter(multiplayer.selfUser)
+        await Promise.all([
+            // Presence / Users
+            roomChannel.presence.subscribe('enter', onMemberJoin),
+            roomChannel.presence.subscribe('leave', onMemberLeave),
+
+            // Game messages
+            ablySubscribe(roomChannel, PubsubMessageType.LaunchGame, onReceiveLaunchGame),
+            ablySubscribe(roomChannel, PubsubMessageType.Chat, onReceiveChatMessage),
+            ablySubscribe(roomChannel, PubsubMessageType.GameMutation, onReceiveGameMutation),
+            ablySubscribe(
+                roomChannel,
+                PubsubMessageType.RequestResync,
+                onReceiveRequestResyncGameState,
+            ),
+        ])
     } catch (e) {
         logging.captureException(e)
         bus.alertError('Error joining game room. Please try again')
         return
     }
-    roomActions = makeRoomActions(currentRoom)
-
-    multiplayer.currentGameRoomName = gameRoom.name
-    if (canUserBeAPlayer(gameRoom, multiplayer.selfUser)) {
-        multiplayer.upsertGameRoomPlayer(multiplayer.selfUser)
-    }
-
-    // The host is responsible for sending game room updates to the other players
-    if (multiplayer.selfIsHost) {
-        setupGameRoomWatcher()
-    }
-
-    /**
-     * Set up room event handlers
-     */
-
-    currentRoom.onPeerJoin(onPeerJoin)
-    currentRoom.onPeerLeave(onPeerLeave)
 }
 
-function onPeerJoin(peerId: PeerId) {
-    const multiplayer = useMultiplayerStore()
-    const user = multiplayer.getUser(peerId)
-    const gameRoom = multiplayer.currentGameRoom
-
-    if (!user || !gameRoom) {
+export async function leaveGameRoom() {
+    // We're not in a room, do nothing.
+    if (!_room) {
         return
     }
 
-    alertReconnectAfterDelay(gameRoom, user)
+    const { multiplayer, ably, roomChannel } = await useRoom()
 
-    if (canUserBeAPlayer(gameRoom, user)) {
-        multiplayer.upsertGameRoomPlayer(user)
+    // We're the last user in the room, we can delete it.
+    if (multiplayer.gameRoomUsers.length == 1 && multiplayer.currentGameRoomName) {
+        await deleteGameRoom(multiplayer.currentGameRoomName)
     }
 
-    // Trigger garbage collection to prevent chromium bug https://issues.chromium.org/issues/41378764
-    garbageCollectRTCConnections()
-
-    multiplayer.stats.peerJoins++
+    unwatchGameRoom?.()
+    unwatchGameRoom = null
+    // Detaching from the channel will also leave the presence
+    await roomChannel.detach()
+    // Releasing from the channel will also unsubscribe all listeners
+    ably.channels.release(roomChannel.name)
+    _room = null
+    multiplayer.selfIsReady = false
+    multiplayer.currentGameRoomName = null
 }
 
-function onPeerLeave(peerId: PeerId) {
-    onPeerDisconnect(peerId, false)
+/**
+ * GameRoom watcher
+ */
 
-    useMultiplayerStore().stats.peerLeaves++
-}
-
+let unwatchGameRoom: WatchHandle | null = null
 export function setupGameRoomWatcher() {
     // Watcher is already active, do nothing.
     if (unwatchGameRoom) {
@@ -163,72 +169,82 @@ export function setupGameRoomWatcher() {
         () => multiplayer.currentGameRoom,
         gameRoom => {
             if (gameRoom && multiplayer.selfIsHost) {
-                lobbyActions?.broadcastGameRoom.send(gameRoom)
+                broadcastGameRoom(gameRoom)
             }
         },
         { deep: true }, // Watch for deep changes in the gameRoom object
     )
 }
 
-/** Chat Messages */
+/**
+ * Presence / Users
+ */
 
-export function broadcastChatMessage(message: ChatMessage) {
-    const gameRoom = ensureGameRoom()
-    if (!gameRoom.isStarted) {
-        throw new Error(`Game is not started`)
+function canUserBeAPlayer(gameRoom: GameRoom, user: User): boolean {
+    if (gameRoom.isStarted && gameRoom.seating) {
+        // Started games only accept players existing in the seating
+        return gameRoom.seating.includes(user.permId)
+    } else {
+        // Pending games accept new players up until 5 players
+        return gameRoom.players.length < 5 || gameRoom.players.includes(user.permId)
     }
-    roomActions?.broadcastChatMessage.send(serializeObject(message))
 }
 
-function onReceiveChatMessage(serializedMessage: SerializedChatMessage) {
-    const chatMessage = deserializeObject(serializedMessage) as ChatMessage
-    useHistoryStore().addChatMessage(chatMessage)
+function onMemberJoin(presence: PresenceMessage) {
+    const multiplayer = useMultiplayerStore()
+    const user = multiplayer.users[presence.clientId]
+    const gameRoom = multiplayer.currentGameRoom
+
+    if (!user || !gameRoom) {
+        return
+    }
+
+    if (canUserBeAPlayer(gameRoom, user)) {
+        alertReconnect(gameRoom, user)
+        multiplayer.upsertGameRoomPlayer(user)
+
+        // Special-case : host is not connected anymore, and can't broadcast with its watcher.
+        if (gameRoom && !multiplayer.isHostConnected) {
+            broadcastGameRoom(gameRoom)
+        }
+    }
+
+    multiplayer.stats.peerJoins++
+}
+
+function onMemberLeave(presence: PresenceMessage) {
+    const multiplayer = useMultiplayerStore()
+    const gameRoom = multiplayer.currentGameRoom
+    const user = multiplayer.users[presence.clientId]
+
+    if (user) {
+        alertDisconnect(user)
+        multiplayer.removeGameRoomPlayer(user)
+        multiplayer.stats.peerLeaves++
+
+        // Special-case : host is not connected anymore, and can't broadcast with its watcher.
+        if (gameRoom && !multiplayer.isHostConnected) {
+            broadcastGameRoom(gameRoom)
+        }
+    }
 }
 
 /** Game Room Messages */
 
-function ensureGameRoom(): GameRoom {
-    const multiplayer = useMultiplayerStore()
-    if (!roomActions || !multiplayer.currentGameRoom) {
-        throw new Error(`Not in a game room`)
-    }
-    return multiplayer.currentGameRoom
-}
-
-export function leaveGameRoom() {
-    const multiplayer = useMultiplayerStore()
-
-    // We're not in a room, do nothing.
-    if (!currentRoom) {
-        return
-    }
-
-    // We're the last user in the room, we can delete it.
-    if (multiplayer.gameRoomUsers.length == 1 && multiplayer.currentGameRoomName) {
-        lobbyActions?.deleteGameRoom.send(multiplayer.currentGameRoomName)
-        multiplayer.deleteGameRoom(multiplayer.currentGameRoomName)
-    }
-
-    currentRoom.leave()
-    currentRoom = null
-    roomActions = null
-    unwatchGameRoom?.()
-    unwatchGameRoom = null
-    multiplayer.selfIsReady = false
-    multiplayer.currentGameRoomName = null
-}
-
 export function rollSeating() {
+    const multiplayer = useMultiplayerStore()
     const gameRoom = ensureGameRoom()
     // Cannot roll seating on a game that's already started
     if (gameRoom.isStarted) {
         throw new Error(`Game already started`)
     }
-
+    if (!multiplayer.selfIsHost) {
+        throw new Error(`You are not the host`)
+    }
     gameRoom.seating = shuffleArray<string>(gameRoom.players)
 }
 
-export function launchGame() {
+export async function launchGame() {
     const core = useCoreStore()
     const gameRoom = ensureGameRoom()
     // Cannot launch a game that's already started
@@ -236,10 +252,11 @@ export function launchGame() {
         throw new Error(`Game already started`)
     }
 
+    const { roomChannel } = await useRoom()
     setupMultiplayerGame(gameRoom)
     const gameState = serializeGame()
-    roomActions?.launchGame.send(gameState)
-    core.userProfile.setLastMultiGame(gameRoom.name)
+    await ablyPublish(roomChannel, PubsubMessageType.LaunchGame, gameState)
+    await core.userProfile.setLastMultiGame(gameRoom.name)
     gameRoom.isStarted = true
     startGame(GameType.Multiplayer)
 }
@@ -258,83 +275,32 @@ function onReceiveLaunchGame(serializedGame: SerializedGame) {
     core.userProfile.setLastMultiGame(gameRoom.name)
 }
 
-export async function reconnectIntoGame(gameRoom?: GameRoom) {
-    const bus = useBusStore()
+/** Chat Messages */
 
-    if (gameRoom) {
-        const multiplayer = useMultiplayerStore()
-
-        joinGameRoom(gameRoom)
-
-        // Wait to be connected with other players to continue
-        try {
-            // First : try to connect to all players
-            await waitUntil(
-                () => {
-                    if (!multiplayer.currentGameRoom || !currentRoom) {
-                        return false
-                    }
-
-                    // The peerId of the trystero room
-                    const peerIds = Object.keys(currentRoom.getPeers() ?? [])
-
-                    // For each player connected in the game room
-                    for (const playerPermId of multiplayer.currentGameRoom.players) {
-                        // Ignore ourself
-                        if (playerPermId == multiplayer.selfUser.permId) {
-                            continue
-                        }
-                        // If we're not connected to that player yet...
-                        const user = multiplayer.users[playerPermId]
-                        if (!user || !peerIds.includes(user.peerId)) {
-                            // ...wait until we are
-                            return false
-                        }
-                    }
-                    // We've seen every player, we can go on with the resync
-                    return true
-                },
-                200,
-                30,
-            )
-        } catch (error) {
-            // If we're connected to at least one player, we still go on with the resync,
-            // hoping to connect to the other players later
-            if (error instanceof TimeoutError && currentRoom && multiplayer.currentGameRoom) {
-                const peerIds = Object.keys(currentRoom.getPeers() ?? [])
-                const nbPlayersConnected = multiplayer.currentGameRoom.players.filter(
-                    playerPermId =>
-                        multiplayer.users[playerPermId] &&
-                        peerIds.includes(multiplayer.users[playerPermId].peerId),
-                ).length
-                // Nope, no players connected, we can't go on with the resync'
-                if (nbPlayersConnected == 0) {
-                    throw error
-                }
-            } else {
-                throw error
-            }
-        }
-    }
-
-    bus.isResyncing = true
-
-    resetState()
-    startGame(GameType.Multiplayer)
-    requestResyncGameState()
-}
-
-/** Game Mutation Messages */
-
-export function broadcastGameMutation(gameMutation: AnyGameMutation) {
+export async function broadcastChatMessage(message: ChatMessage) {
     const gameRoom = ensureGameRoom()
     if (!gameRoom.isStarted) {
         throw new Error(`Game is not started`)
     }
+    const { roomChannel } = await useRoom()
+    await ablyPublish(roomChannel, PubsubMessageType.Chat, serializeObject(message))
+}
 
-    makeMutationMessage(gameMutation).then(message => {
-        roomActions?.broadcastGameMutation.send(message)
-    })
+function onReceiveChatMessage(serializedMessage: SerializedChatMessage) {
+    const chatMessage = deserializeObject(serializedMessage) as ChatMessage
+    useHistoryStore().addChatMessage(chatMessage)
+}
+
+/** Game Mutation Messages */
+
+export async function broadcastGameMutation(gameMutation: AnyGameMutation) {
+    const gameRoom = ensureGameRoom()
+    if (!gameRoom.isStarted) {
+        throw new Error(`Game is not started`)
+    }
+    const { roomChannel } = await useRoom()
+    const message = await makeMutationMessage(gameMutation)
+    await ablyPublish(roomChannel, PubsubMessageType.GameMutation, message)
 }
 
 async function onReceiveGameMutation(gameMutationMessage: GameMutationMessage) {
@@ -349,27 +315,38 @@ async function onReceiveGameMutation(gameMutationMessage: GameMutationMessage) {
 
 /** State Sync Messages */
 
-export function requestResyncGameState(isUserRequest: boolean = false) {
+export async function requestResyncGameState(isUserRequest: boolean = false) {
     const gameRoom = ensureGameRoom()
     if (!gameRoom.isStarted) {
         throw new Error(`Game is not started`)
     }
+    const { multiplayer, ably, roomChannel } = await useRoom()
 
     startGameResync(isUserRequest)
 
+    const syncChannelName = `sync-${multiplayer.selfUser.permId}`
+    const syncChannel = ably.channels.get(syncChannelName)
+    await ablySubscribe(syncChannel, PubsubMessageType.Resync, onReceiveResyncGameState)
+    // Leave the resync channel after 30 seconds
+    setTimeout(() => {
+        syncChannel.detach()
+        ably.channels.release(syncChannelName)
+    }, 1000 * 30)
+
     // Ask everyone, and use the more recent state ( according to global clock )
-    roomActions?.requestResyncGameState.send(null)
+    await ablyPublish(roomChannel, PubsubMessageType.RequestResync, syncChannelName)
 }
 
-export function onReceiveRequestResyncGameState(_: null, peerId: PeerId) {
+export async function onReceiveRequestResyncGameState(syncChannelName: string) {
     const gameRoom = ensureGameRoom()
     if (!gameRoom.isStarted) {
         throw new Error(`Game is not started`)
     }
 
-    makeResyncGameStateMessage().then(syncMessage => {
-        roomActions?.resyncGameState.send(syncMessage, peerId)
-    })
+    const { ably } = await useRoom()
+    const syncChannel = ably.channels.get(syncChannelName)
+    const syncMessage = await makeResyncGameStateMessage()
+    await ablyPublish(syncChannel, PubsubMessageType.Resync, syncMessage)
 }
 
 export async function onReceiveResyncGameState(syncMessage: GameStateSyncMessage) {
@@ -378,6 +355,54 @@ export async function onReceiveResyncGameState(syncMessage: GameStateSyncMessage
     if (!gameRoom.isStarted) {
         return
     }
-
     await applyGameResync(syncMessage)
+}
+
+export async function reconnectIntoGame(gameRoom?: GameRoom) {
+    const bus = useBusStore()
+
+    if (gameRoom) {
+        await joinGameRoom(gameRoom)
+    }
+
+    ensureGameRoom()
+    bus.isResyncing = true
+    resetState()
+    startGame(GameType.Multiplayer)
+    await requestResyncGameState()
+}
+
+/**
+ * Connection / Disconnection Alerts
+ */
+
+const last_disconnect_alert = {} as Record<PermanentId, Date>
+
+function alertDisconnect(user: User) {
+    const bus = useBusStore()
+    const multiplayer = useMultiplayerStore()
+
+    if (
+        multiplayer.currentGameRoom?.isStarted &&
+        multiplayer.currentGameRoom.players.includes(user.permId)
+    ) {
+        bus.alertWarning(`${user.name} has left the game.`)
+        last_disconnect_alert[user.permId] = new Date()
+    }
+}
+
+function alertReconnect(gameRoom: GameRoom, user: User) {
+    const bus = useBusStore()
+
+    // Alert the reconnection if a peer join while :
+    // the game is started AND he's seated AND we alerted for the disconnection
+    if (
+        gameRoom.isStarted &&
+        gameRoom.seating &&
+        gameRoom.seating.includes(user.permId) &&
+        last_disconnect_alert[user.permId]
+    ) {
+        bus.alertSuccess(`${user.name} has reconnected into the game room.`)
+        delete last_disconnect_alert[user.permId]
+    }
 }

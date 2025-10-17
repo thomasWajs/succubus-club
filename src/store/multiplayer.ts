@@ -2,15 +2,14 @@ import { defineStore } from 'pinia'
 import { useCoreStore } from '@/store/core.ts'
 import {
     GameRoom,
-    PeerId,
     PermanentId,
     User,
     VectorClockVersion,
     VersioningId,
-} from '@/multiplayer/common.ts'
-import { selfId } from 'trystero'
+} from '@/multiplayer/types.ts'
 import { LamportClock, VectorClock } from '@/multiplayer/clock.ts'
 import { GameMutationId } from '@/state/gameMutations.ts'
+import { AvatarId, fetchAvatar } from '@/gateway/user.ts'
 
 export const useMultiplayerStore = defineStore('multiplayer', {
     state: () => ({
@@ -20,6 +19,9 @@ export const useMultiplayerStore = defineStore('multiplayer', {
 
         // id ==> User
         users: {} as Record<PermanentId, User>,
+
+        // Fetched from firebase. avatarId  => encoded image data
+        avatars: {} as Record<AvatarId, string>,
 
         // name ==> GameRoom
         gameRooms: {} as Record<string, GameRoom>,
@@ -56,34 +58,20 @@ export const useMultiplayerStore = defineStore('multiplayer', {
             const core = useCoreStore()
             return {
                 permId: core.userProfile.permanentId,
-                peerId: selfId,
                 name: core.userProfile.playerName,
-                avatar: core.userProfile.avatar,
+                avatarId: core.userProfile.avatarFirebaseId,
                 isReady: state.selfIsReady,
                 deckList: core.selfDeck?.cards ?? null,
             }
         },
 
-        // User.peerId ==> User.permId
-        peerMapping: (state): Record<PeerId, PermanentId> => {
-            return Object.fromEntries(
-                Object.values(state.users).map(user => [user.peerId, user.permId]),
-            )
-        },
-        // Get a user from its peerId
-        getUser() {
-            return (peerId: PeerId): User | undefined => this.users[this.peerMapping[peerId]]
-        },
-
         hasJoinedLobby: (state): boolean => useCoreStore().userProfile.permanentId in state.users,
-
-        gameRoomNames: (state): string[] => Object.values(state.gameRooms).map(r => r.name),
 
         currentGameRoom: (state): GameRoom | undefined =>
             state.currentGameRoomName ? state.gameRooms[state.currentGameRoomName] : undefined,
 
-        host(): User | undefined {
-            return this.currentGameRoom ? this.users[this.currentGameRoom.hostId] : undefined
+        isHostConnected(): boolean {
+            return this.currentGameRoom?.players.includes(this.currentGameRoom?.hostId) ?? false
         },
         selfIsHost(): boolean {
             return this.currentGameRoom?.hostId == this.selfUser.permId
@@ -98,7 +86,8 @@ export const useMultiplayerStore = defineStore('multiplayer', {
             return this.gameRoomUsers.toSorted((u1, u2) => u1.name.localeCompare(u2.name))
         },
         seatedGameRoomUsers(): User[] {
-            if (!this.currentGameRoom || !this.isSeatingReady) return []
+            if (!this.currentGameRoom || !this.isSeatingReady || !this.currentGameRoom.seating)
+                return []
             return this.currentGameRoom.seating.map(permId => this.users[permId]).filter(u => u)
         },
 
@@ -106,7 +95,7 @@ export const useMultiplayerStore = defineStore('multiplayer', {
             return this.gameRoomUsers.every(user => user.isReady && user.deckList)
         },
         isSeatingReady(): boolean {
-            if (!this.currentGameRoom) return false
+            if (!this.currentGameRoom || !this.currentGameRoom.seating) return false
 
             const seatingPermIds = [...this.currentGameRoom.seating].sort()
             const gameRoomPermIds = this.gameRoomUsers.map(user => user.permId).sort()
@@ -120,17 +109,11 @@ export const useMultiplayerStore = defineStore('multiplayer', {
     actions: {
         upsertUser(user: User) {
             this.users[user.permId] = user
-        },
-        removeUser(permId: PermanentId) {
-            delete this.users[permId]
+            fetchAvatar(user)
         },
 
         upsertGameRoom(room: GameRoom) {
             this.gameRooms[room.name] = room
-        },
-
-        deleteGameRoom(name: string) {
-            delete this.gameRooms[name]
         },
 
         upsertGameRoomPlayer(user: User) {

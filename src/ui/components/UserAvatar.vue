@@ -43,7 +43,7 @@
 
 <script setup lang="ts">
 const { avatar, playerName, width, height, fontSize, canEdit } = defineProps<{
-    avatar: string | null
+    avatar: string | null | undefined
     playerName: string
     width: string
     height: string

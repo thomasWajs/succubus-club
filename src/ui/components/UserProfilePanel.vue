@@ -53,6 +53,7 @@ import { useBusStore } from '@/store/bus.ts'
 import { useCoreStore } from '@/store/core.ts'
 import { ref } from 'vue'
 import UserAvatar from '@/ui/components/UserAvatar.vue'
+import { storeAvatar } from '@/gateway/user.ts'
 
 const core = useCoreStore()
 const bus = useBusStore()
@@ -84,7 +85,7 @@ function handleFileUpload(event: Event) {
         const reader = new FileReader()
         reader.onload = e => {
             const img = new Image()
-            img.onload = () => {
+            img.onload = async () => {
                 // Create canvas to resize the image
                 const canvas = document.createElement('canvas')
                 const ctx = canvas.getContext('2d')
@@ -105,7 +106,8 @@ function handleFileUpload(event: Event) {
 
                     // Convert to data URL with good quality
                     core.userProfile.avatar = canvas.toDataURL('image/jpeg', 0.85)
-                    core.userProfile.save()
+                    await core.userProfile.save()
+                    await storeAvatar()
                 }
             }
             img.src = e.target?.result as string

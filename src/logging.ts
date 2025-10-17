@@ -47,20 +47,10 @@ export function initSentryPiniaPlugin(pinia: Pinia) {
                     }
                 }
 
-                if (multiplayer.users) {
+                if (multiplayer.avatars) {
                     transformedState.multiplayer = {
                         ...multiplayer,
-                        users: Object.fromEntries(
-                            Object.entries(multiplayer.users).map(([permId, user]) => {
-                                if (user.avatar) {
-                                    user = {
-                                        ...user,
-                                        avatar: '[stripped]',
-                                    }
-                                }
-                                return [permId, user]
-                            }),
-                        ),
+                        avatars: '[stripped]',
                     }
                 }
                 return transformedState

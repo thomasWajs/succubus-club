@@ -4,7 +4,7 @@ import { SerializedGame } from '@/gateway/serialization.ts'
 import { GameType } from '@/state/types.ts'
 import { setUser } from '@sentry/vue'
 import { Deck, DeckList } from '@/gateway/deck.ts'
-import { PermanentId } from '@/multiplayer/common.ts'
+import { PermanentId } from '@/multiplayer/types.ts'
 
 // If you know, you know ;-)
 const DEFAULT_PLAYER_NAME = 'The Unnamed'
@@ -20,6 +20,7 @@ export class DbUserProfile extends Entity<SuccubusDb> {
     permanentId: string
     playerName: string
     avatar: string | null
+    avatarFirebaseId: string | null
     preferences: Record<string, never>
     lastDeckId: number | null
     lastMultiGameName: string
@@ -32,6 +33,7 @@ export class DbUserProfile extends Entity<SuccubusDb> {
                 permanentId: crypto.randomUUID(),
                 playerName: DEFAULT_PLAYER_NAME,
                 avatar: null,
+                avatarFirebaseId: null,
                 preferences: {},
                 lastDeckId: null,
                 lastMultiGameName: '',
@@ -56,7 +58,7 @@ export class DbUserProfile extends Entity<SuccubusDb> {
 
     async save() {
         // toRaw is needed to save as a plain object, without reactivity wrappers
-        db.userProfile.put(toRaw(this))
+        await db.userProfile.put(toRaw(this))
 
         // Update the Sentry User
         setUser({

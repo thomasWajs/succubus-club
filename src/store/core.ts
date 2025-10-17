@@ -5,11 +5,16 @@ import { Conductor } from '@/bot/conductor.ts'
 import { DbDeck, DbUserProfile } from '@/gateway/db.ts'
 import { Deck } from '@/gateway/deck.ts'
 import { shallowRef } from 'vue'
+import { storeAvatar } from '@/gateway/user.ts'
 
 const userProfile = await DbUserProfile.get()
 let lastDeck = null as Deck | null
 if (userProfile.lastDeckId) {
     lastDeck = await DbDeck.get(userProfile.lastDeckId)
+}
+// User has an avatar, but it's not stored to firebase. We ned to upload it.
+if (userProfile.avatar && !userProfile.avatarFirebaseId) {
+    storeAvatar()
 }
 
 // Keep the Phaser.Game instance non-reactive by storing it here instead of the store.

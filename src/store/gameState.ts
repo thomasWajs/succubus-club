@@ -8,11 +8,11 @@ import { DEFAULT_DPA, DEFAULT_MPA, INITIAL_POOL, TurnSequence } from '@/model/co
 import { ActionState } from '@/state/actionState.ts'
 import { CombatState } from '@/state/combatState.ts'
 import { useCoreStore } from '@/store/core.ts'
-import { hashGameState } from '@/gateway/serialization.ts'
+import { hashObject } from '@/gateway/serialization.ts'
 import Phaser from 'phaser'
 import Color = Phaser.Display.Color
 import { TargetDeclaration, CardRevelation, CardRevelationTargetOid } from '@/state/types.ts'
-import { PermanentId } from '@/multiplayer/common.ts'
+import { PermanentId } from '@/multiplayer/types.ts'
 
 export type GameStateStore = ReturnType<typeof useGameStateStore>
 export type GameState = GameStateStore['$state']
@@ -155,7 +155,7 @@ export const useGameStateStore = defineStore('gameState', {
     },
     actions: {
         hash() {
-            return hashGameState(this.$state)
+            return hashObject(this.$state)
         },
 
         getNextOid(): ObjectId {

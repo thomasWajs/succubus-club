@@ -47,8 +47,7 @@ export async function saveGame(isAutoSave: boolean) {
         const autoSavePrefix = isAutoSave ? '[AutoSave] ' : ''
         const saveName = `${autoSavePrefix} ${formattedDate}`
 
-        const seating =
-            multiplayer.currentGameRoom ? multiplayer.currentGameRoom.seating.slice() : []
+        const seating = multiplayer.currentGameRoom?.seating?.slice() ?? []
 
         await db.savedGames.add({
             date: new Date(),

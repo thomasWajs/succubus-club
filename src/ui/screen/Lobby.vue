@@ -44,7 +44,7 @@
                     >
                         <div class="player-avatar">
                             <UserAvatar
-                                :avatar="user.avatar"
+                                :avatar="user.avatarId ? multiplayer.avatars[user.avatarId] : null"
                                 :playerName="user.name"
                                 width="30px"
                                 height="30px"
@@ -69,13 +69,6 @@
                     <h3 class="panel-title">
                         Rooms ({{ Object.keys(multiplayer.gameRooms).length }})
                     </h3>
-                    <button
-                        class="refresh-btn"
-                        title="Refresh rooms"
-                        @click="refreshGameRooms()"
-                    >
-                        ↻
-                    </button>
                 </div>
 
                 <!-- Room List -->
@@ -178,7 +171,9 @@
                             <div class="player-avatar">
                                 <UserAvatar
                                     :class="getUserStatusClass(user)"
-                                    :avatar="user.avatar"
+                                    :avatar="
+                                        user.avatarId ? multiplayer.avatars[user.avatarId] : null
+                                    "
                                     :playerName="user.name"
                                     width="60px"
                                     height="60px"
@@ -265,6 +260,7 @@
                         <template v-if="multiplayer.currentGameRoom.isStarted">
                             <div
                                 v-if="
+                                    multiplayer.currentGameRoom?.seating &&
                                     multiplayer.currentGameRoom.seating.includes(
                                         multiplayer.selfUser.permId,
                                     )
@@ -345,13 +341,13 @@ import {
     leaveGameRoom,
     rollSeating,
 } from '@/multiplayer/room.ts'
-import { createGameRoom, refreshGameRooms } from '@/multiplayer/lobby.ts'
 import TopBar from '@/ui/components/TopBar.vue'
 import { useCoreStore } from '@/store/core.ts'
-import { User } from '@/multiplayer/common.ts'
+import { User } from '@/multiplayer/types.ts'
 import UserAvatar from '@/ui/components/UserAvatar.vue'
 import * as logging from '@/logging.ts'
 import { useBusStore } from '@/store/bus.ts'
+import { createGameRoom } from '@/multiplayer/lobby.ts'
 
 const core = useCoreStore()
 const multiplayer = useMultiplayerStore()
@@ -483,7 +479,7 @@ async function handleReconnect(gameRoom?: any) {
 if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
     const devRoom = 'dev_room'
     setTimeout(async () => {
-        if (!multiplayer.gameRoomNames.length) {
+        if (Object.keys(multiplayer.gameRooms).length === 0) {
             await createGameRoom(devRoom)
         } else {
             await joinGameRoom(multiplayer.gameRooms[devRoom])

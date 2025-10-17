@@ -4,8 +4,7 @@ import {
     GameMutationName,
     gameMutations,
 } from '@/state/gameMutations.ts'
-import { GameState, GameStateKey, useGameStateStore } from '@/store/gameState.ts'
-import { JsonValue } from 'trystero'
+import { GameStateKey, useGameStateStore } from '@/store/gameState.ts'
 import { Card, CardOid, CryptCard, LibraryCard } from '@/model/Card.ts'
 import { Player, PlayerCardRegions, PlayerOid } from '@/model/Player.ts'
 import { CardRegion } from '@/model/CardRegion.ts'
@@ -17,6 +16,7 @@ import { isCryptId } from '@/resources/cards.ts'
 
 const GAME_STATE_VERSION = 2
 
+type JsonValue = null | string | number | boolean | JsonValue[] | { [key: string]: JsonValue }
 export type JsonObject = { [key: string]: JsonValue }
 
 type Serialized<T> = JsonValue & {
@@ -262,13 +262,13 @@ export function loadGame(serializedGame: SerializedGame) {
 let hasher: XXHashAPI | null = null
 xxhash().then(_hasher_ => (hasher = _hasher_))
 
-export function hashObject(object: object) {
+export function hash(content: string) {
     if (!hasher) {
         throw new Error('hasher not initialized')
     }
-    return hasher.h32(stableStringify(object))
+    return hasher.h32(content)
 }
 
-export function hashGameState(gameState: GameState) {
-    return hashObject(gameState)
+export function hashObject(object: object) {
+    return hash(stableStringify(object))
 }
