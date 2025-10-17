@@ -1,3 +1,8 @@
+## [0.2.2] - 2025-10-17
+
+Features:
+- Connectivity now handled by a realtime messaging server instead of Peer2Peer
+
 ## [0.2.1] - 2025-10-07
 
 Features:
