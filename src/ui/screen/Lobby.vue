@@ -3,12 +3,10 @@
 
     <div class="lobby-container main-content">
         <div class="connectivity-banner">
-            <span
-                >Connectivity issues are affecting all Chromium-based browser ( Chrome, Edge ,
-                Opera, Brave... ) due to a known bug on their side. I'm actively looking for a
-                workaround. In the meantime, a quick fix is to switch to a non-Chromium browser (
-                Firefox or Safari ).</span
-            >
+            <span>
+                There's a brand new network architecture, the connectivity issues should now be
+                adressed. If you still experience issues, don't hesitate to contact me.
+            </span>
         </div>
 
         <div
