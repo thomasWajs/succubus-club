@@ -1,8 +1,5 @@
 /// <reference types="vite/client" />
 
-declare const ATLAS_TEXTURE_HASH: string
-declare const ATLAS_JSON_HASH: string
-
 interface ImportMetaEnv {
     readonly VITE_NODE_ENV: string
 
@@ -18,3 +15,18 @@ interface ImportMetaEnv {
 interface ImportMeta {
     readonly env: ImportMetaEnv
 }
+
+declare global {
+    declare const ATLAS_TEXTURE_HASH: string
+    declare const ATLAS_JSON_HASH: string
+
+    interface Uint8Array {
+        toBase64(): string
+    }
+
+    interface Uint8ArrayConstructor {
+        fromBase64(base64: string): Uint8Array
+    }
+}
+
+export {}

@@ -1,5 +1,5 @@
 import { DeckList } from '@/gateway/deck.ts'
-import { SerializedGame, SerializedGameMutation } from '@/gateway/serialization.ts'
+import { SerializedGameMutation } from '@/gateway/serialization.ts'
 import { GameMutationId } from '@/state/gameMutations.ts'
 import { AvatarId } from '@/gateway/user.ts'
 
@@ -70,7 +70,7 @@ export type GameMutationMessage = {
 }
 
 export type GameStateSyncMessage = {
-    serializedGame: SerializedGame
+    gameStatePath: string
     globalVersion: LamportClockVersion
     objectClocks: Record<VersioningId, VectorClockVersion>
     mutationVersions: Record<GameMutationId, VectorClockVersion>

@@ -54,6 +54,7 @@ import { useCoreStore } from '@/store/core.ts'
 import { ref } from 'vue'
 import UserAvatar from '@/ui/components/UserAvatar.vue'
 import { storeAvatar } from '@/gateway/user.ts'
+import { DbUserProfile } from '@/gateway/db.ts'
 
 const core = useCoreStore()
 const bus = useBusStore()
@@ -107,7 +108,7 @@ function handleFileUpload(event: Event) {
                     // Convert to data URL with good quality
                     core.userProfile.avatar = canvas.toDataURL('image/jpeg', 0.85)
                     await core.userProfile.save()
-                    await storeAvatar(core.userProfile)
+                    await storeAvatar(core.userProfile as DbUserProfile)
                 }
             }
             img.src = e.target?.result as string

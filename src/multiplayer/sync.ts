@@ -21,6 +21,7 @@ import {
 import { ClockCompare, LamportClock, VectorClock } from '@/multiplayer/clock.ts'
 import { useHistoryStore } from '@/store/history.ts'
 import { useCoreStore } from '@/store/core.ts'
+import { fetchGameState, storeGameStateTemp } from '@/gateway/gameState.ts'
 
 const DESYNC_MESSAGE_MINIMUM_TIME_VISIBLE = 2000 // 2 seconds in milliseconds
 
@@ -325,7 +326,7 @@ export function startGameResync(isUserRequest: boolean) {
 }
 
 export async function makeResyncGameStateMessage(): Promise<GameStateSyncMessage> {
-    return stateMutex.withLock(() => {
+    return stateMutex.withLock(async () => {
         const multiplayer = useMultiplayerStore()
         const objectClocks = Object.fromEntries(
             Object.entries(multiplayer.objectClocks).map(([versioningId, clock]) => [
@@ -333,8 +334,9 @@ export async function makeResyncGameStateMessage(): Promise<GameStateSyncMessage
                 clock.version,
             ]),
         )
+
         return {
-            serializedGame: serializeGame(),
+            gameStatePath: await storeGameStateTemp(serializeGame()),
             globalVersion: multiplayer.globalClock.advance(),
             objectClocks,
             mutationVersions: multiplayer.mutationVersions,
@@ -349,14 +351,20 @@ export async function applyGameResync(syncMessage: GameStateSyncMessage) {
     const history = useHistoryStore()
 
     // Protect access to global clock
-    await stateMutex.withLock(() => {
+    await stateMutex.withLock(async () => {
         // Actually load game only if remote state is newer than ours,
         // and only if hashes are different
         if (
             multiplayer.globalClock.compare(syncMessage.globalVersion) <= 0 &&
             syncMessage.hash != useGameStateStore().hash()
         ) {
-            loadGame(syncMessage.serializedGame)
+            const serializedGame = await fetchGameState(syncMessage.gameStatePath)
+
+            if (!serializedGame) {
+                throw new Error(`Failed to fetch game state from ${syncMessage.gameStatePath}`)
+            }
+
+            loadGame(serializedGame)
 
             // Update the global clock
             multiplayer.globalClock.update(syncMessage.globalVersion)

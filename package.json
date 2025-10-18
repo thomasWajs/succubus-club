@@ -33,6 +33,7 @@
         "format:fix": "prettier --write ."
     },
     "dependencies": {
+        "@jsonjoy.com/json-pack": "^1.21.0",
         "@sentry/vue": "^9.46.0",
         "ably": "^2.14.0",
         "dexie": "^4.2.1",

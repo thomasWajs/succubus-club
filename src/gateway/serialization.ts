@@ -13,6 +13,7 @@ import { stringify as stableStringify } from 'safe-stable-stringify'
 import { useHistoryStore } from '@/store/history.ts'
 import { useCoreStore } from '@/store/core.ts'
 import { isCryptId } from '@/resources/cards.ts'
+import { CborEncoder, CborDecoderBase } from '@jsonjoy.com/json-pack/lib/cbor'
 
 const GAME_STATE_VERSION = 2
 
@@ -272,3 +273,6 @@ export function hash(content: string) {
 export function hashObject(object: object) {
     return hash(stableStringify(object))
 }
+
+export const cborEncoder = new CborEncoder()
+export const cborDecoder = new CborDecoderBase()

@@ -17,7 +17,6 @@ import {
     deserializeObject,
     loadGame,
     SerializedChatMessage,
-    SerializedGame,
     serializeGame,
     serializeObject,
 } from '@/gateway/serialization.ts'
@@ -34,6 +33,7 @@ import {
     startGameResync,
 } from '@/multiplayer/sync.ts'
 import { broadcastGameRoom, deleteGameRoom } from '@/multiplayer/lobby.ts'
+import { fetchGameState, storeGameStateTemp } from '@/gateway/gameState.ts'
 
 let _room: ReturnType<typeof connectRoom> | null = null
 
@@ -254,14 +254,15 @@ export async function launchGame() {
 
     const { roomChannel } = await useRoom()
     setupMultiplayerGame(gameRoom)
-    const gameState = serializeGame()
-    await ablyPublish(roomChannel, PubsubMessageType.LaunchGame, gameState)
+    const serializedGame = serializeGame()
+    const gameStatePath = await storeGameStateTemp(serializedGame)
+    await ablyPublish(roomChannel, PubsubMessageType.LaunchGame, gameStatePath)
     await core.userProfile.setLastMultiGame(gameRoom.name)
     gameRoom.isStarted = true
     startGame(GameType.Multiplayer)
 }
 
-function onReceiveLaunchGame(serializedGame: SerializedGame) {
+async function onReceiveLaunchGame(gameStatePath: string) {
     const core = useCoreStore()
     const gameRoom = ensureGameRoom()
     // Cannot launch a game if we're already in one
@@ -270,6 +271,10 @@ function onReceiveLaunchGame(serializedGame: SerializedGame) {
     }
 
     resetState()
+    const serializedGame = await fetchGameState(gameStatePath)
+    if (!serializedGame) {
+        throw new Error(`Could not find game state at ${gameStatePath} in Firestore.`)
+    }
     loadGame(serializedGame)
     startGame(GameType.Multiplayer)
     core.userProfile.setLastMultiGame(gameRoom.name)
