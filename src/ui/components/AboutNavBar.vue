@@ -83,4 +83,14 @@ import { ROUTES } from '@/ui/router.ts'
         font-size: 1rem;
     }
 }
+
+@media (max-width: 400px) {
+    .about-nav-content {
+        gap: 0.75rem;
+    }
+
+    .nav-heading {
+        font-size: 0.9rem;
+    }
+}
 </style>

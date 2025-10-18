@@ -50,6 +50,7 @@
     </div>
 
     <a
+        v-if="!showMobileMessage"
         id="DarkPackLogo"
         href="https://www.paradoxinteractive.com/games/world-of-darkness/community/dark-pack-agreement"
         target="_blank"
