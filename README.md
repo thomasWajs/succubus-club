@@ -5,7 +5,7 @@
 ## 🧛 Play Vampire: The Eternal Struggle in Your Browser
 
 Succubus Club is a platform for playing V:TES (Vampire: The Eternal Struggle) card game in a web browser.
-The project is built with modern web technologies and features real-time P2P multiplayer gameplay.
+The project is built with modern web technologies and features real-time multiplayer gameplay.
 
 ## ⚔️ Features
 

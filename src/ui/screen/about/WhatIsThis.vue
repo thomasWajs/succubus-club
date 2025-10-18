@@ -12,7 +12,7 @@
             on their hands. It's completely free, with no ads and no tracking.
         </p>
         <p>
-            Multiplayer runs on a peer-to-peer system, which means there's no authoritative server
+            Multiplayer runs directly between players, which means there's no authoritative server
             keeping watch. This makes cheating embarrassingly easy, so the whole thing relies on
             trust and good sportsmanship. Please be fair !
         </p>
