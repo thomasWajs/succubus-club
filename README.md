@@ -69,6 +69,14 @@ Thanks to the creator&contributors of those awesome libs who saved me tons of ti
  - [dmotz](https://github.com/dmotz) & [jeremyckahn](https://github.com/jeremyckahn) for [Trystero](https://github.com/dmotz/trystero)
  - [Phaser Studio](https://github.com/phaserjs) for [Phaser](https://github.com/phaserjs/phaser)
 
+A very special thanks to the crash-test team, who endured the pain of the buggy beta:
+ - **Doman**
+ - **Jim**
+ - **Kuli**
+ - **Ramirez**
+
+✨ And a final shout out to my friends and first testers : **Braf & Shaz** ✨
+
 ## 💖 Backers
 
 An immense thanks to the amazing people who have financially supported this project. Your support is the blood that keeps this project alive!

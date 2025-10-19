@@ -82,6 +82,23 @@
         <ul class="blood-list">
             <li>Juan Carlos Eruntalon</li>
         </ul>
+
+        <h1>Testers</h1>
+        <p>
+            ✨ A vibrant shout out to my friends and first testers :
+            <strong>Braf & Shaz</strong> ✨
+        </p>
+
+        <p>
+            And a very special thanks to the crash-test team, who endured the pain of the buggy beta
+            :
+        </p>
+        <ul class="blood-list">
+            <li>Doman</li>
+            <li>Jim</li>
+            <li>Kuli</li>
+            <li>Ramirez</li>
+        </ul>
     </div>
 </template>
 <script setup lang="ts"></script>
