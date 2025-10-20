@@ -1,16 +1,22 @@
 import { useCoreStore } from '@/store/core.ts'
 import { hash } from '@/gateway/serialization.ts'
-import { getRtdb, rtdbRef, rtdbGet, rtdbRemove, rtdbSet } from '@/gateway/realtime.ts'
+import {
+    getFirestore,
+    fsCollection,
+    fsSetDoc,
+    fsDoc,
+    fsGetDoc,
+    fsDeleteDoc,
+} from '@/gateway/realtime.ts'
 import { User } from '@/multiplayer/types.ts'
 import { useMultiplayerStore } from '@/store/multiplayer.ts'
 import { DbUserProfile } from '@/gateway/db.ts'
 
-const AVATARS_KEY = 'avatars'
 export type AvatarId = string
-
-function avatarRef(roomName: string) {
-    return rtdbRef(getRtdb(), `${AVATARS_KEY}/${roomName}`)
+type AvatarDoc = {
+    imageData: string
 }
+const avatarCollection = fsCollection(getFirestore(), 'avatars')
 
 export async function storeAvatar(profile: DbUserProfile) {
     if (!profile.avatar) {
@@ -26,10 +32,13 @@ export async function storeAvatar(profile: DbUserProfile) {
 
     // Remove old avatar if there was one
     if (profile.avatarFirebaseId) {
-        await rtdbRemove(avatarRef(profile.avatarFirebaseId))
+        await fsDeleteDoc(fsDoc(avatarCollection, profile.avatarFirebaseId))
     }
 
-    await rtdbSet(avatarRef(avatarId), profile.avatar)
+    const avatarDoc: AvatarDoc = {
+        imageData: profile.avatar,
+    }
+    await fsSetDoc(fsDoc(avatarCollection, avatarId), avatarDoc)
     profile.avatarFirebaseId = avatarId
     await profile.save()
 }
@@ -48,12 +57,15 @@ export async function fetchAvatar(user: User) {
     if (user.permId == multiplayer.selfUser.permId) {
         avatar = core.userProfile.avatar
     } else {
-        avatar = (await rtdbGet(avatarRef(user.avatarId))).val() as string
+        const avatarDoc = await fsGetDoc(fsDoc(avatarCollection, user.avatarId))
+        if (avatarDoc.exists()) {
+            avatar = (avatarDoc.data() as AvatarDoc).imageData
+        }
     }
 
     if (user.avatarId && avatar) {
         multiplayer.avatars[user.avatarId] = avatar
     }
 
-    // TODO? : store in local storage/indexed DB as well, to avoid fetching each time
+    // TODO? : store in local storage/indexed DB as well, to avoid fetching each time ?
 }

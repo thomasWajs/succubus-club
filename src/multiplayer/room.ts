@@ -33,7 +33,7 @@ import {
     startGameResync,
 } from '@/multiplayer/sync.ts'
 import { broadcastGameRoom, deleteGameRoom } from '@/multiplayer/lobby.ts'
-import { fetchGameState, storeGameStateTemp } from '@/gateway/gameState.ts'
+import { fetchGameState, storeGameState } from '@/gateway/gameState.ts'
 
 let _room: ReturnType<typeof connectRoom> | null = null
 
@@ -90,6 +90,7 @@ export async function joinGameRoom(gameRoom: GameRoom) {
         await initRoom(gameRoom.name)
         const { roomChannel } = await useRoom()
 
+        multiplayer.selfIsReady = false
         multiplayer.currentGameRoomName = gameRoom.name
         if (canUserBeAPlayer(gameRoom, multiplayer.selfUser)) {
             multiplayer.upsertGameRoomPlayer(multiplayer.selfUser)
@@ -255,14 +256,14 @@ export async function launchGame() {
     const { roomChannel } = await useRoom()
     setupMultiplayerGame(gameRoom)
     const serializedGame = serializeGame()
-    const gameStatePath = await storeGameStateTemp(serializedGame)
-    await ablyPublish(roomChannel, PubsubMessageType.LaunchGame, gameStatePath)
+    const gameStateId = await storeGameState(serializedGame)
+    await ablyPublish(roomChannel, PubsubMessageType.LaunchGame, gameStateId)
     await core.userProfile.setLastMultiGame(gameRoom.name)
     gameRoom.isStarted = true
     startGame(GameType.Multiplayer)
 }
 
-async function onReceiveLaunchGame(gameStatePath: string) {
+async function onReceiveLaunchGame(gameStateId: string) {
     const core = useCoreStore()
     const gameRoom = ensureGameRoom()
     // Cannot launch a game if we're already in one
@@ -271,9 +272,9 @@ async function onReceiveLaunchGame(gameStatePath: string) {
     }
 
     resetState()
-    const serializedGame = await fetchGameState(gameStatePath)
+    const serializedGame = await fetchGameState(gameStateId)
     if (!serializedGame) {
-        throw new Error(`Could not find game state at ${gameStatePath} in Firestore.`)
+        throw new Error(`Could not find game state at ${gameStateId} in Firestore.`)
     }
     loadGame(serializedGame)
     startGame(GameType.Multiplayer)
@@ -333,8 +334,8 @@ export async function requestResyncGameState(isUserRequest: boolean = false) {
     const syncChannel = ably.channels.get(syncChannelName)
     await ablySubscribe(syncChannel, PubsubMessageType.Resync, onReceiveResyncGameState)
     // Leave the resync channel after 30 seconds
-    setTimeout(() => {
-        syncChannel.detach()
+    setTimeout(async () => {
+        await syncChannel.detach()
         ably.channels.release(syncChannelName)
     }, 1000 * 30)
 

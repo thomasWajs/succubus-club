@@ -255,7 +255,9 @@
 
                     <!-- Right side of Game Controls -->
                     <div class="game-controls-right">
-                        <template v-if="multiplayer.currentGameRoom.isStarted">
+                        <template
+                            v-if="multiplayer.currentGameRoom.isStarted && !multiplayer.selfIsReady"
+                        >
                             <div
                                 v-if="
                                     multiplayer.currentGameRoom?.seating &&
@@ -304,7 +306,7 @@
 
                                 <button
                                     class="start-game-btn"
-                                    :disabled="!multiplayer.isRoomReady"
+                                    :disabled="!multiplayer.isRoomReady || isStartingGame"
                                     :title="
                                         !multiplayer.isSeatingReady ?
                                             'Roll seating to start the game'
@@ -312,7 +314,11 @@
                                     "
                                     @click="tryLaunchGame()"
                                 >
-                                    ▶ Start Game
+                                    <template v-if="isStartingGame">
+                                        <span class="reconnect-spinner" />
+                                        Starting...
+                                    </template>
+                                    <template v-else> ▶ Start Game </template>
                                 </button>
                             </div>
                             <div
@@ -354,6 +360,7 @@ const bus = useBusStore()
 const roomName = ref('')
 const isReconnecting = ref(false)
 const showDiscoveryMessage = ref(false)
+const isStartingGame = ref(false)
 
 const orderedUsers = computed<User[]>(() => {
     return multiplayer.isSeatingReady ?
@@ -437,6 +444,7 @@ function getUserStatusText(user: User) {
  */
 
 function tryLaunchGame() {
+    isStartingGame.value = true
     try {
         launchGame()
     } catch (error) {
@@ -446,6 +454,7 @@ function tryLaunchGame() {
         }
         bus.alertError(message)
         logging.captureException(error)
+        isStartingGame.value = false
     }
 }
 

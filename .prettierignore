@@ -32,9 +32,6 @@ coverage/
 # Public assets (usually shouldn't be formatted)
 public/
 
-# API directory (might contain generated files)
-api/
-
 # Vite cache
 .vite/
 

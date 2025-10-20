@@ -21,7 +21,7 @@ import {
 import { ClockCompare, LamportClock, VectorClock } from '@/multiplayer/clock.ts'
 import { useHistoryStore } from '@/store/history.ts'
 import { useCoreStore } from '@/store/core.ts'
-import { fetchGameState, storeGameStateTemp } from '@/gateway/gameState.ts'
+import { fetchGameState, storeGameState } from '@/gateway/gameState.ts'
 
 const DESYNC_MESSAGE_MINIMUM_TIME_VISIBLE = 2000 // 2 seconds in milliseconds
 
@@ -336,7 +336,7 @@ export async function makeResyncGameStateMessage(): Promise<GameStateSyncMessage
         )
 
         return {
-            gameStatePath: await storeGameStateTemp(serializeGame()),
+            gameStateId: await storeGameState(serializeGame()),
             globalVersion: multiplayer.globalClock.advance(),
             objectClocks,
             mutationVersions: multiplayer.mutationVersions,
@@ -358,10 +358,10 @@ export async function applyGameResync(syncMessage: GameStateSyncMessage) {
             multiplayer.globalClock.compare(syncMessage.globalVersion) <= 0 &&
             syncMessage.hash != useGameStateStore().hash()
         ) {
-            const serializedGame = await fetchGameState(syncMessage.gameStatePath)
+            const serializedGame = await fetchGameState(syncMessage.gameStateId)
 
             if (!serializedGame) {
-                throw new Error(`Failed to fetch game state from ${syncMessage.gameStatePath}`)
+                throw new Error(`Failed to fetch game state from ${syncMessage.gameStateId}`)
             }
 
             loadGame(serializedGame)

@@ -9,7 +9,7 @@
         "paths": {
             "@/*": ["src/*"]
         },
-        "types": ["vite/client", "node" /* For sentry tunnel */],
+        "types": ["vite/client", "node" /* For API files */],
         /* Bundler mode */
         "moduleResolution": "bundler",
         "allowImportingTsExtensions": true,

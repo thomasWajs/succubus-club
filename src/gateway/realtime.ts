@@ -2,6 +2,18 @@ import Ably, { RealtimeChannel, messageCallback, InboundMessage } from 'ably'
 import Objects from 'ably/objects'
 import { initializeApp, FirebaseApp } from 'firebase/app'
 import {
+    Firestore,
+    getFirestore as _getFirestore,
+    collection as fsCollection,
+    doc as fsDoc,
+    setDoc as fsSetDoc,
+    getDoc as fsGetDoc,
+    deleteDoc as fsDeleteDoc,
+    onSnapshot as fsOnSnapshot,
+    Bytes as fsBytes,
+    Timestamp as fsTimestamp,
+} from 'firebase/firestore'
+import {
     Database,
     getDatabase,
     DataSnapshot,
@@ -94,11 +106,18 @@ export async function ablyPublish<T>(
 
 let firebase: FirebaseApp | null = null
 let rtdb: Database | null = null
+let firestore: Firestore | null = null
 
 export function getFirebase(): FirebaseApp {
     if (!firebase) {
         firebase = initializeApp({
-            databaseURL: 'https://succubus-club-default-rtdb.europe-west1.firebasedatabase.app/',
+            apiKey: 'AIzaSyAZ7wlk6E0hdfS5amDZ2wkngTK1PlbhJQQ',
+            authDomain: 'succubus-club.firebaseapp.com',
+            databaseURL: 'https://succubus-club-default-rtdb.europe-west1.firebasedatabase.app',
+            projectId: 'succubus-club',
+            storageBucket: 'succubus-club.firebasestorage.app',
+            messagingSenderId: '491547084220',
+            appId: '1:491547084220:web:5c1af516fdb41427e757b9',
         })
     }
     return firebase
@@ -112,5 +131,13 @@ export function getRtdb() {
     return rtdb
 }
 
+export function getFirestore() {
+    if (!firestore) {
+        firestore = _getFirestore(getFirebase())
+    }
+    return firestore
+}
+
 // Make aliases to avoid name collision with vue ref
 export { DataSnapshot, rtdbRef, rtdbGet, rtdbSet, rtdbRemove, rtdbOnValue }
+export { fsCollection, fsDoc, fsSetDoc, fsGetDoc, fsDeleteDoc, fsOnSnapshot, fsBytes, fsTimestamp }

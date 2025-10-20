@@ -70,7 +70,7 @@ export type GameMutationMessage = {
 }
 
 export type GameStateSyncMessage = {
-    gameStatePath: string
+    gameStateId: string
     globalVersion: LamportClockVersion
     objectClocks: Record<VersioningId, VectorClockVersion>
     mutationVersions: Record<GameMutationId, VectorClockVersion>

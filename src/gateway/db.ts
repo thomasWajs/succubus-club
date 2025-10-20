@@ -5,6 +5,7 @@ import { GameType } from '@/state/types.ts'
 import { setUser } from '@sentry/vue'
 import { Deck, DeckList } from '@/gateway/deck.ts'
 import { PermanentId } from '@/multiplayer/types.ts'
+import { AvatarId } from '@/gateway/user.ts'
 
 // If you know, you know ;-)
 const DEFAULT_PLAYER_NAME = 'The Unnamed'
@@ -20,7 +21,7 @@ export class DbUserProfile extends Entity<SuccubusDb> {
     permanentId: string
     playerName: string
     avatar: string | null
-    avatarFirebaseId: string | null
+    avatarFirebaseId: AvatarId | null
     preferences: Record<string, never>
     lastDeckId: number | null
     lastMultiGameName: string

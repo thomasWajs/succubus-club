@@ -38,5 +38,11 @@
                 }
             ]
         }
-    ]
+    ],
+  "crons": [
+    {
+      "path": "/api/pruneGameStates",
+      "schedule": "0 0 * * *"
+    }
+  ]
 }
