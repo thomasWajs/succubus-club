@@ -254,6 +254,7 @@ export async function launchGame() {
     }
 
     const { roomChannel } = await useRoom()
+    core.gameType = GameType.Multiplayer // Needed now to setup correctly the game state
     setupMultiplayerGame(gameRoom)
     const serializedGame = serializeGame()
     const gameStateId = await storeGameState(serializedGame)

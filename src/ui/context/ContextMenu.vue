@@ -140,7 +140,7 @@
             :closeOnClick="true"
             :cardAction="(card: Card) => card.becomeVampire()"
         >
-            Become an vampire
+            Become a vampire
         </ContextMenuButton>
 
         <ContextMenuButton

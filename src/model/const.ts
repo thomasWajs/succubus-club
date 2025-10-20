@@ -152,3 +152,12 @@ export const DEFAULT_TRANSFERS = 4
 export const DEFAULT_DPA = 1 // discardPhaseActions
 
 export const LEAVE_TORPOR_COST = 2
+
+export const DEFAULT_CARD_ATTRS = {
+    Bleed: 1,
+    Stealth: 1,
+    Intercept: 0,
+    Strength: 1,
+    Hunt: 1,
+    Vote: 0,
+}

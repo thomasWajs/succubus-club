@@ -13,6 +13,7 @@ import {
 } from '@/resources/cards.ts'
 import {
     ACTION_TYPES,
+    DEFAULT_CARD_ATTRS,
     Discipline,
     DisciplineLevel,
     LibraryCardType,
@@ -30,6 +31,7 @@ import { CryptCardImplementation } from '@/resources/cardImpl/base.ts'
 import { PlayerOid } from '@/model/Player.ts'
 import { useCoreStore } from '@/store/core.ts'
 import * as cardVisibility from '@/state/cardVisibility.ts'
+import { GameType } from '@/state/types.ts'
 
 // Alias to specify the expected objects through the codebase
 export type CardOid = ObjectId
@@ -43,18 +45,18 @@ class MinionAttributes {
     capacity = 0 // capacity for vampire, starting life for allies
     disciplines = {} as Disciplines // Some allies can play card as a vampire with a discipline
 
-    bleed = 1
-    stealth = 0
-    intercept = 0
-    strength = 1
-    hunt = 1
+    bleed = DEFAULT_CARD_ATTRS.Bleed
+    stealth = DEFAULT_CARD_ATTRS.Stealth
+    intercept = DEFAULT_CARD_ATTRS.Intercept
+    strength = DEFAULT_CARD_ATTRS.Strength
+    hunt = DEFAULT_CARD_ATTRS.Hunt
 }
 
 class VampireAttributes {
     clan = ''
     sect = ''
     title = ''
-    vote = 0
+    vote = DEFAULT_CARD_ATTRS.Vote
     //traits: Trait[]
 }
 
@@ -69,8 +71,13 @@ export abstract class Card extends BaseModel {
 
     markers = [] as string[]
 
-    minionAttrs?: MinionAttributes
-    vampireAttrs?: VampireAttributes
+    /**
+     * Currently, the attrs are not used in multiplayer.
+     * So we're not actually setting them to save on bandwidth/storage,
+     * but we still set an empty object as marker to know which card is a minion/vampire.
+     */
+    minionAttrs?: MinionAttributes | Record<string, never>
+    vampireAttrs?: VampireAttributes | Record<string, never>
 
     protected constructor(
         public oid: CardOid,
@@ -141,16 +148,22 @@ export abstract class Card extends BaseModel {
 
     becomeMinion() {
         if (!this.minionAttrs) {
-            this.minionAttrs = new MinionAttributes()
+            if (useCoreStore().gameType == GameType.TrainBot) {
+                this.minionAttrs = new MinionAttributes()
+            } else {
+                this.minionAttrs = {}
+            }
         }
     }
 
     becomeVampire() {
-        if (!this.minionAttrs) {
-            this.minionAttrs = new MinionAttributes()
-        }
+        this.becomeMinion()
         if (!this.vampireAttrs) {
-            this.vampireAttrs = new VampireAttributes()
+            if (useCoreStore().gameType == GameType.TrainBot) {
+                this.vampireAttrs = new VampireAttributes()
+            } else {
+                this.vampireAttrs = {}
+            }
         }
     }
 
@@ -258,9 +271,11 @@ export abstract class Card extends BaseModel {
     }
 }
 
+export default Card
+
 export class CryptCard extends Card {
-    minionAttrs: MinionAttributes
-    vampireAttrs: VampireAttributes
+    minionAttrs: MinionAttributes | Record<string, never>
+    vampireAttrs: VampireAttributes | Record<string, never>
 
     constructor(
         public oid: CardOid,
@@ -271,14 +286,20 @@ export class CryptCard extends Card {
 
         const cardResource = this.resource
 
-        this.minionAttrs = new MinionAttributes()
-        this.minionAttrs.capacity = cardResource.capacity
-        this.minionAttrs.disciplines = { ...cardResource.disciplines } // Clone the disciplines object
+        // Not used in multiplayer ( yet? )
+        if (useCoreStore().gameType == GameType.TrainBot) {
+            this.minionAttrs = new MinionAttributes()
+            this.minionAttrs.capacity = cardResource.capacity
+            this.minionAttrs.disciplines = { ...cardResource.disciplines } // Clone the disciplines object
 
-        this.vampireAttrs = new VampireAttributes()
-        this.vampireAttrs.clan = cardResource.clan
-        this.vampireAttrs.sect = cardResource.sect
-        this.vampireAttrs.title = cardResource.title
+            this.vampireAttrs = new VampireAttributes()
+            this.vampireAttrs.clan = cardResource.clan
+            this.vampireAttrs.sect = cardResource.sect
+            this.vampireAttrs.title = cardResource.title
+        } else {
+            this.minionAttrs = {}
+            this.vampireAttrs = {}
+        }
 
         this.implementation?.adapt(this)
     }
@@ -312,10 +333,13 @@ export class LibraryCard extends Card {
     ) {
         super(oid, krcgId, controllerOid)
 
-        this.disciplines = this.resource.discipline.split('/')
+        // Not used in multiplayer ( yet? )
+        if (useCoreStore().gameType == GameType.TrainBot) {
+            this.disciplines = this.resource.discipline.split('/')
 
-        if (this.resource.type == LibraryCardType.Ally) {
-            this.minionAttrs = new MinionAttributes()
+            if (this.resource.type == LibraryCardType.Ally) {
+                this.minionAttrs = new MinionAttributes()
+            }
         }
     }
 
