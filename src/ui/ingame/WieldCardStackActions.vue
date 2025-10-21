@@ -113,6 +113,10 @@ const gameBus = useGameBusStore()
 
 #RevealGrid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 50% 50%;
+
+    .game-button {
+        overflow: hidden;
+    }
 }
 </style>
