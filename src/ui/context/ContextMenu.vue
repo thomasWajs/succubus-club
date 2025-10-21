@@ -136,7 +136,7 @@
         </ContextMenuButton>
 
         <ContextMenuButton
-            v-if="singleCard && !singleCard.isVampire()"
+            v-if="singleCard && !singleCard.isVampire() && singleCard.isIn.ready"
             :closeOnClick="true"
             :cardAction="(card: Card) => card.becomeVampire()"
         >
@@ -144,7 +144,7 @@
         </ContextMenuButton>
 
         <ContextMenuButton
-            v-if="singleCard && !singleCard.isMinion()"
+            v-if="singleCard && !singleCard.isMinion() && singleCard.isIn.ready"
             :closeOnClick="true"
             :cardAction="(card: Card) => card.becomeMinion()"
         >
