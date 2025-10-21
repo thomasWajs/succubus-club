@@ -69,6 +69,13 @@
         >
             User preferences
         </button>
+
+        <button
+            class="game-button"
+            @click="leaveDialog?.showModal()"
+        >
+            Leave game
+        </button>
     </div>
 
     <div
@@ -130,6 +137,31 @@
         class="enlarged-backdrop"
         @click="toggleEnlarged"
     />
+
+    <!-- Leave game confirmation dialog -->
+    <dialog
+        ref="leaveDialog"
+        class="leave-game-dialog"
+    >
+        <div class="dialog-content">
+            <h3>Leave Game?</h3>
+            <p>Are you sure you want to leave the game?</p>
+            <div class="dialog-buttons">
+                <button
+                    class="game-button cancel is-muted"
+                    @click="leaveDialog?.close()"
+                >
+                    Cancel
+                </button>
+                <button
+                    class="game-button"
+                    @click="leaveGame"
+                >
+                    Leave
+                </button>
+            </div>
+        </div>
+    </dialog>
 </template>
 
 <script setup lang="ts">
@@ -143,6 +175,9 @@ import { broadcastChatMessage, requestResyncGameState } from '@/multiplayer/room
 import UserManual from '@/ui/ingame/rightColumn/UserManual.vue'
 import { useGameStateStore } from '@/store/gameState.ts'
 import LogLine from '@/ui/ingame/rightColumn/LogLine.vue'
+import router, { ROUTES } from '@/ui/router.ts'
+import { leaveLobby } from '@/multiplayer/lobby.ts'
+import { resetState } from '@/game/setup.ts'
 
 const core = useCoreStore()
 const gameState = useGameStateStore()
@@ -199,6 +234,16 @@ function sendChatMessage() {
     if (core.gameType == GameType.Multiplayer) {
         broadcastChatMessage(chatMessage)
     }
+}
+
+/** Menu actions **/
+
+const leaveDialog = ref<HTMLDialogElement>()
+
+function leaveGame() {
+    leaveLobby()
+    resetState()
+    router.push({ name: ROUTES.MainMenu })
 }
 
 /** Manual Heads-up Management **/
@@ -422,6 +467,43 @@ function dismissManualHeadsUp() {
     100% {
         opacity: 1;
         transform: translateX(0);
+    }
+}
+
+.leave-game-dialog {
+    border: 2px solid $shadow-grey;
+    padding: 0;
+    background: $ash-grey;
+    max-width: 400px;
+
+    &::backdrop {
+        background: rgba(0, 0, 0, 0.5);
+    }
+
+    .dialog-content {
+        padding: 24px;
+        color: $ghost-white;
+
+        h3 {
+            margin: 0;
+            font-size: 20px;
+        }
+
+        p {
+            margin: 12px 0 24px 0;
+            font-size: 15px;
+        }
+
+        .dialog-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+
+            .game-button {
+                min-width: 80px;
+                border-color: $shadow-grey;
+            }
+        }
     }
 }
 </style>
