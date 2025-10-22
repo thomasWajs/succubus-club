@@ -11,14 +11,11 @@ import {
 import { useMultiplayerStore } from '@/store/multiplayer.ts'
 import * as logging from '@/logging.ts'
 import { useBusStore } from '@/store/bus.ts'
-import { GameRoom, PermanentId } from '@/multiplayer/types.ts'
+import { GameRoom, PermanentId, RoomId } from '@/multiplayer/types.ts'
 import { joinGameRoom, leaveGameRoom } from '@/multiplayer/room.ts'
 import { hash } from '@/gateway/serialization.ts'
 
-let LOBBY_CHANNEL_NAME = 'Lobby'
-if (import.meta.env.DEV) {
-    LOBBY_CHANNEL_NAME = '{dev} Lobby'
-}
+const LOBBY_CHANNEL_NAME = 'Lobby'
 const DEBOUNCE_DELAY = 500 // milliseconds
 const GAME_ROOMS_KEY = 'gameRooms'
 
@@ -139,16 +136,15 @@ async function setupSelfUserWatcher() {
  * Game room list
  */
 
-function gameRoomRef(roomId: string) {
+function gameRoomRef(roomId: RoomId) {
     return rtdbRef(getRtdb(), `${GAME_ROOMS_KEY}/${roomId}`)
 }
 
 let pruneChannels = true
 async function syncGameRooms(snapshot: DataSnapshot) {
     const { multiplayer, ably } = await useLobby()
-    const storedGameRooms = snapshot.val() as Record<string, GameRoom> | null
-
-    const gameRooms: Record<string, GameRoom> = {}
+    const storedGameRooms = snapshot.val() as Record<RoomId, GameRoom> | null
+    const gameRooms: Record<RoomId, GameRoom> = {}
 
     if (storedGameRooms) {
         // TODO : replace pruneChannels by a webhook to Vercel to clean on presence leave
@@ -161,12 +157,12 @@ async function syncGameRooms(snapshot: DataSnapshot) {
                 .map(channel => channel.name)
         }
 
-        for (const [name, gameRoom] of Object.entries(storedGameRooms)) {
-            if (pruneChannels && !activeChannels.includes(name)) {
-                await deleteGameRoom(name)
+        for (const [roomId, gameRoom] of Object.entries(storedGameRooms)) {
+            if (pruneChannels && !activeChannels.includes(roomId)) {
+                await deleteGameRoom(roomId)
             } else {
                 // multiplayer.upsertGameRoom(gameRoom as GameRoom)
-                gameRooms[name] = gameRoom
+                gameRooms[roomId] = gameRoom
             }
         }
     }
@@ -182,14 +178,10 @@ export async function createGameRoom(
 ) {
     const { multiplayer } = await useLobby()
 
-    if (roomName in multiplayer.gameRooms || roomName == LOBBY_CHANNEL_NAME) {
+    if (multiplayer.gameRoomNames.includes(roomName) || roomName == LOBBY_CHANNEL_NAME) {
         const bus = useBusStore()
         bus.alertError('A game room with this name already exists.')
         return
-    }
-
-    if (import.meta.env.DEV) {
-        roomName = `{dev} ${roomName}`
     }
 
     const gameRoom = {
@@ -210,6 +202,6 @@ export async function broadcastGameRoom(gameRoom: GameRoom) {
     rtdbSet(gameRoomRef(gameRoom.id), gameRoom)
 }
 
-export async function deleteGameRoom(roomId: string) {
+export async function deleteGameRoom(roomId: RoomId) {
     rtdbRemove(gameRoomRef(roomId))
 }

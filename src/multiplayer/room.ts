@@ -7,6 +7,7 @@ import {
     GameStateSyncMessage,
     PermanentId,
     PubsubMessageType,
+    RoomId,
     User,
 } from '@/multiplayer/types.ts'
 import { useMultiplayerStore } from '@/store/multiplayer.ts'
@@ -37,9 +38,9 @@ import { fetchGameState, storeGameState } from '@/gateway/gameState.ts'
 
 let _room: ReturnType<typeof connectRoom> | null = null
 
-async function connectRoom(roomName: string) {
+async function connectRoom(roomId: RoomId) {
     const ably = getAbly()
-    const roomChannel = ably.channels.get(roomName)
+    const roomChannel = ably.channels.get(roomId)
     await roomChannel.attach()
 
     return {
@@ -48,11 +49,11 @@ async function connectRoom(roomName: string) {
         roomChannel,
     }
 }
-async function initRoom(roomName: string) {
+async function initRoom(roomId: RoomId) {
     if (_room) {
         throw new Error('Room already initialized')
     }
-    _room = connectRoom(roomName)
+    _room = connectRoom(roomId)
 }
 
 async function useRoom() {
@@ -87,7 +88,7 @@ export async function joinGameRoom(gameRoom: GameRoom) {
         // Leave any previous room
         await leaveGameRoom()
 
-        await initRoom(gameRoom.name)
+        await initRoom(gameRoom.id)
         const { roomChannel } = await useRoom()
 
         multiplayer.selfIsReady = false
@@ -259,7 +260,7 @@ export async function launchGame() {
     const serializedGame = serializeGame()
     const gameStateId = await storeGameState(serializedGame)
     await ablyPublish(roomChannel, PubsubMessageType.LaunchGame, gameStateId)
-    await core.userProfile.setLastMultiGame(gameRoom.name)
+    await core.userProfile.setLastMultiGame(gameRoom.id)
     gameRoom.isStarted = true
     startGame(GameType.Multiplayer)
 }
@@ -279,7 +280,7 @@ async function onReceiveLaunchGame(gameStateId: string) {
     }
     loadGame(serializedGame)
     startGame(GameType.Multiplayer)
-    core.userProfile.setLastMultiGame(gameRoom.name)
+    core.userProfile.setLastMultiGame(gameRoom.id)
 }
 
 /** Chat Messages */

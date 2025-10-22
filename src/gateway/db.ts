@@ -4,7 +4,7 @@ import { SerializedGame } from '@/gateway/serialization.ts'
 import { GameType } from '@/state/types.ts'
 import { setUser } from '@sentry/vue'
 import { Deck, DeckList } from '@/gateway/deck.ts'
-import { PermanentId } from '@/multiplayer/types.ts'
+import { PermanentId, RoomId } from '@/multiplayer/types.ts'
 import { AvatarId } from '@/gateway/user.ts'
 
 // If you know, you know ;-)
@@ -24,7 +24,7 @@ export class DbUserProfile extends Entity<SuccubusDb> {
     avatarFirebaseId: AvatarId | null
     preferences: Record<string, never>
     lastDeckId: number | null
-    lastMultiGameName: string
+    lastMultiGameId: RoomId
     lastMultiGameDate: Date | null
 
     static async get() {
@@ -37,7 +37,7 @@ export class DbUserProfile extends Entity<SuccubusDb> {
                 avatarFirebaseId: null,
                 preferences: {},
                 lastDeckId: null,
-                lastMultiGameName: '',
+                lastMultiGameId: '',
                 lastMultiGameDate: new Date(),
             })
             userProfile = await db.userProfile.limit(1).first()
@@ -68,8 +68,8 @@ export class DbUserProfile extends Entity<SuccubusDb> {
         })
     }
 
-    async setLastMultiGame(name: string) {
-        this.lastMultiGameName = name
+    async setLastMultiGame(roomId: RoomId) {
+        this.lastMultiGameId = roomId
         this.lastMultiGameDate = new Date()
         await this.save()
     }

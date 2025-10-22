@@ -8,6 +8,7 @@ import { AvatarId } from '@/gateway/user.ts'
  */
 
 export type PermanentId = string
+export type RoomId = string
 
 export type User = {
     permId: PermanentId // The permanentId of the User
@@ -18,7 +19,7 @@ export type User = {
 }
 
 export type GameRoom = {
-    id: string
+    id: RoomId
     name: string
     hostId: PermanentId
     isStarted: boolean

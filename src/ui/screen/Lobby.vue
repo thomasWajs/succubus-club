@@ -80,7 +80,7 @@
 
                     <div
                         v-for="gameRoom of Object.values(multiplayer.gameRooms)"
-                        :key="gameRoom.name"
+                        :key="gameRoom.id"
                         class="room-item"
                         :class="{
                             'room-selected': multiplayer.currentGameRoomId === gameRoom.id,

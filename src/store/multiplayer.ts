@@ -3,6 +3,7 @@ import { useCoreStore } from '@/store/core.ts'
 import {
     GameRoom,
     PermanentId,
+    RoomId,
     User,
     VectorClockVersion,
     VersioningId,
@@ -23,11 +24,11 @@ export const useMultiplayerStore = defineStore('multiplayer', {
         // Fetched from firebase. avatarId  => encoded image data
         avatars: {} as Record<AvatarId, string>,
 
-        // name ==> GameRoom
-        gameRooms: {} as Record<string, GameRoom>,
+        // RoomId ==> GameRoom
+        gameRooms: {} as Record<RoomId, GameRoom>,
 
         // The id of the current game room we're connected at
-        currentGameRoomId: null as string | null,
+        currentGameRoomId: null as RoomId | null,
 
         selfIsReady: false,
 
@@ -66,6 +67,10 @@ export const useMultiplayerStore = defineStore('multiplayer', {
         },
 
         hasJoinedLobby: (state): boolean => useCoreStore().userProfile.permanentId in state.users,
+
+        gameRoomNames(state): string[] {
+            return Object.values(state.gameRooms).map(room => room.name)
+        },
 
         currentGameRoom: (state): GameRoom | undefined =>
             state.currentGameRoomId ? state.gameRooms[state.currentGameRoomId] : undefined,
