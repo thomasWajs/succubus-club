@@ -13,6 +13,7 @@ import * as logging from '@/logging.ts'
 import { useBusStore } from '@/store/bus.ts'
 import { GameRoom, PermanentId } from '@/multiplayer/types.ts'
 import { joinGameRoom, leaveGameRoom } from '@/multiplayer/room.ts'
+import { hash } from '@/gateway/serialization.ts'
 
 let LOBBY_CHANNEL_NAME = 'Lobby'
 if (import.meta.env.DEV) {
@@ -78,7 +79,7 @@ export async function joinLobby() {
 export async function leaveLobby() {
     const { multiplayer, ably, lobbyChannel } = await useLobby()
 
-    if (multiplayer.currentGameRoomName) {
+    if (multiplayer.currentGameRoomId) {
         await leaveGameRoom()
     }
 
@@ -138,8 +139,8 @@ async function setupSelfUserWatcher() {
  * Game room list
  */
 
-function gameRoomRef(roomName: string) {
-    return rtdbRef(getRtdb(), `${GAME_ROOMS_KEY}/${roomName}`)
+function gameRoomRef(roomId: string) {
+    return rtdbRef(getRtdb(), `${GAME_ROOMS_KEY}/${roomId}`)
 }
 
 let pruneChannels = true
@@ -192,6 +193,7 @@ export async function createGameRoom(
     }
 
     const gameRoom = {
+        id: hash(roomName).toString(),
         name: roomName,
         hostId: multiplayer.selfUser.permId,
         isStarted,
@@ -205,9 +207,9 @@ export async function createGameRoom(
 }
 
 export async function broadcastGameRoom(gameRoom: GameRoom) {
-    rtdbSet(gameRoomRef(gameRoom.name), gameRoom)
+    rtdbSet(gameRoomRef(gameRoom.id), gameRoom)
 }
 
-export async function deleteGameRoom(roomName: string) {
-    rtdbRemove(gameRoomRef(roomName))
+export async function deleteGameRoom(roomId: string) {
+    rtdbRemove(gameRoomRef(roomId))
 }

@@ -18,6 +18,7 @@ export type User = {
 }
 
 export type GameRoom = {
+    id: string
     name: string
     hostId: PermanentId
     isStarted: boolean

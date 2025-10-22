@@ -26,8 +26,8 @@ export const useMultiplayerStore = defineStore('multiplayer', {
         // name ==> GameRoom
         gameRooms: {} as Record<string, GameRoom>,
 
-        // The name of the current game room we're connected at
-        currentGameRoomName: null as string | null,
+        // The id of the current game room we're connected at
+        currentGameRoomId: null as string | null,
 
         selfIsReady: false,
 
@@ -68,7 +68,7 @@ export const useMultiplayerStore = defineStore('multiplayer', {
         hasJoinedLobby: (state): boolean => useCoreStore().userProfile.permanentId in state.users,
 
         currentGameRoom: (state): GameRoom | undefined =>
-            state.currentGameRoomName ? state.gameRooms[state.currentGameRoomName] : undefined,
+            state.currentGameRoomId ? state.gameRooms[state.currentGameRoomId] : undefined,
 
         isHostConnected(): boolean {
             return this.currentGameRoom?.players.includes(this.currentGameRoom?.hostId) ?? false
@@ -113,7 +113,7 @@ export const useMultiplayerStore = defineStore('multiplayer', {
         },
 
         upsertGameRoom(room: GameRoom) {
-            this.gameRooms[room.name] = room
+            this.gameRooms[room.id] = room
         },
 
         upsertGameRoomPlayer(user: User) {

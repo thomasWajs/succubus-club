@@ -80,7 +80,7 @@ export async function joinGameRoom(gameRoom: GameRoom) {
 
     try {
         // We're already there : do nothing
-        if (multiplayer.currentGameRoomName == gameRoom.name) {
+        if (multiplayer.currentGameRoomId == gameRoom.id) {
             return
         }
 
@@ -91,7 +91,7 @@ export async function joinGameRoom(gameRoom: GameRoom) {
         const { roomChannel } = await useRoom()
 
         multiplayer.selfIsReady = false
-        multiplayer.currentGameRoomName = gameRoom.name
+        multiplayer.currentGameRoomId = gameRoom.id
         if (canUserBeAPlayer(gameRoom, multiplayer.selfUser)) {
             multiplayer.upsertGameRoomPlayer(multiplayer.selfUser)
         }
@@ -137,8 +137,8 @@ export async function leaveGameRoom() {
     const { multiplayer, ably, roomChannel } = await useRoom()
 
     // We're the last user in the room, we can delete it.
-    if (multiplayer.gameRoomUsers.length == 1 && multiplayer.currentGameRoomName) {
-        await deleteGameRoom(multiplayer.currentGameRoomName)
+    if (multiplayer.gameRoomUsers.length == 1 && multiplayer.currentGameRoomId) {
+        await deleteGameRoom(multiplayer.currentGameRoomId)
     }
 
     unwatchGameRoom?.()
@@ -149,7 +149,7 @@ export async function leaveGameRoom() {
     ably.channels.release(roomChannel.name)
     _room = null
     multiplayer.selfIsReady = false
-    multiplayer.currentGameRoomName = null
+    multiplayer.currentGameRoomId = null
 }
 
 /**

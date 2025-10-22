@@ -83,7 +83,7 @@
                         :key="gameRoom.name"
                         class="room-item"
                         :class="{
-                            'room-selected': multiplayer.currentGameRoomName === gameRoom.name,
+                            'room-selected': multiplayer.currentGameRoomId === gameRoom.id,
                         }"
                     >
                         <div class="room-info">
@@ -105,7 +105,7 @@
                                 </span>
                                 <button
                                     class="join-btn"
-                                    :disabled="gameRoom.name == multiplayer.currentGameRoom?.name"
+                                    :disabled="gameRoom.id == multiplayer.currentGameRoomId"
                                     @click="joinGameRoom(gameRoom)"
                                 >
                                     Join →
@@ -120,13 +120,13 @@
                     <input
                         v-model="roomName"
                         class="input-field"
-                        :disabled="multiplayer.currentGameRoomName !== null"
+                        :disabled="multiplayer.currentGameRoomId !== null"
                         placeholder="Enter room name..."
                         @keydown.enter="onCreateGameRoom"
                     />
                     <button
                         class="create-room-btn"
-                        :disabled="!roomName.trim() || multiplayer.currentGameRoomName !== null"
+                        :disabled="!roomName.trim() || multiplayer.currentGameRoomId !== null"
                         @click="onCreateGameRoom"
                     >
                         Create Room
@@ -141,7 +141,7 @@
             >
                 <div class="current-room-header">
                     <h3 class="panel-title">
-                        {{ multiplayer.currentGameRoomName }} (
+                        {{ multiplayer.currentGameRoom.name }} (
                         {{ multiplayer.currentGameRoom.players.length }} )
                     </h3>
 
