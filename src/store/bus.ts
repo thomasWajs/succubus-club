@@ -184,7 +184,7 @@ export const useGameBusStore = defineStore('gameBus', {
             return new Rectangle(x, y, width, height)
         },
         selectedCardsInGame(state): CardInGame[] {
-            return state.selectedCards.map(c => state.cardsInGame[c.oid])
+            return state.selectedCards.map(c => state.cardsInGame[c.oid]).filter(c => c)
         },
     },
 
