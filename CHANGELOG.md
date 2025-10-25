@@ -1,3 +1,14 @@
+## [0.2.3] - 2025-10-25
+
+Features:
+- Add V5 Sabbat set
+- Menu button to leave the game
+
+Bugfix:
+- Handle room name with special characters
+- More robust resource fetching
+- Become a vampire/minion only in ready region
+
 ## [0.2.2] - 2025-10-17
 
 Features:
