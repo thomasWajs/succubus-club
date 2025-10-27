@@ -96,7 +96,7 @@ export class Conductor {
             const validity = action.canDeclare()
             if (!validity.isValid) {
                 this.invalidDecision(validity.reason, action)
-                return
+                return validity
             }
 
             gameMutations.ACTION_declareAction.act(this.bot.player, {
