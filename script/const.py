@@ -5,6 +5,7 @@
 RESOURCES_DIR = "./resources"
 ASSETS_DIR = "../public/assets"
 LOCAL_CARD_IMAGE_DIR = ASSETS_DIR + "/cards/en-EN"
+IMAGE_CACHE_FILE = LOCAL_CARD_IMAGE_DIR + '/.image_cache.json'
 
 PRECON_FILE_NAME = "preconDecks.json"
 SETS_AND_PRECONS_FILE_NAME = "setsAndPrecons.json"
