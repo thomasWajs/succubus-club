@@ -29,9 +29,7 @@ export async function getOrImportDeck(
 
     if (!dbDeck) {
         const deck = await importer()
-        if (source != DeckSource.Precon) {
-            validateDeckList(deck.cards)
-        }
+        validateDeckList(deck.cards)
         dbDeck = await DbDeck.create(deck.name, deck.cards, source, sourceId)
     }
     return dbDeck
