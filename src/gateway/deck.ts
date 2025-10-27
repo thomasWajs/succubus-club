@@ -1,7 +1,8 @@
 import { db, DbDeck, DeckSource } from '@/gateway/db.ts'
-import { KrcgId } from '@/resources/cards.ts'
+import { isCryptId, KrcgId } from '@/resources/cards.ts'
 import { useCoreStore } from '@/store/core.ts'
 import { convertFromText, fetchVdb } from '@/resources/krcg.ts'
+import { MAX_LIB_SIZE, MIN_CRYPT_SIZE, MIN_LIB_SIZE } from '@/model/const.ts'
 
 // A deck list in a simple format {KrcgId: nbOccurence}
 export type DeckList = Record<KrcgId, number>
@@ -28,6 +29,7 @@ export async function getOrImportDeck(
 
     if (!dbDeck) {
         const deck = await importer()
+        validateDeckList(deck.cards)
         dbDeck = await DbDeck.create(deck.name, deck.cards, source, sourceId)
     }
     return dbDeck
@@ -61,4 +63,26 @@ export async function getOrImportPrecon(name: string, cards: DeckList) {
         Promise.resolve({ name, cards }),
     )
     await selectDeck(dbDeck)
+}
+
+export function validateDeckList(deckList: DeckList) {
+    let libSize = 0,
+        cryptSize = 0
+    for (const [krcgId, quantity] of Object.entries(deckList)) {
+        if (isCryptId(krcgId)) {
+            cryptSize += quantity
+        } else {
+            libSize += quantity
+        }
+    }
+
+    if (cryptSize < MIN_CRYPT_SIZE) {
+        throw new Error(`Crypt size must be at least ${MIN_CRYPT_SIZE} (got ${cryptSize})`)
+    }
+    if (libSize < MIN_LIB_SIZE) {
+        throw new Error(`Library size must be at least ${MIN_LIB_SIZE} (got ${libSize})`)
+    }
+    if (libSize > MAX_LIB_SIZE) {
+        throw new Error(`Library size must be at most ${MAX_LIB_SIZE} (got ${libSize})`)
+    }
 }

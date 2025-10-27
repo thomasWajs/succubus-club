@@ -147,6 +147,10 @@ export const INITIAL_HAND_SIZE = 7
 export const INITIAL_CRYPT_SIZE = 4
 export const INITIAL_POOL = 30
 
+export const MIN_LIB_SIZE = 60
+export const MAX_LIB_SIZE = 90
+export const MIN_CRYPT_SIZE = 12
+
 export const DEFAULT_MPA = 1 // masterPhaseActions
 export const DEFAULT_TRANSFERS = 4
 export const DEFAULT_DPA = 1 // discardPhaseActions

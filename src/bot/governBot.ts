@@ -27,7 +27,7 @@ export const GovernDeck = <DeckList>{
 }
 
 export class GovernBot extends Bot {
-    static deck = GovernDeck
+    static deckList = GovernDeck
 
     getUncontrolledSortedCapaDescending() {
         return this.player.vampiresInUncontrolled.toSorted(

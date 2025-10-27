@@ -13,7 +13,7 @@ import { DbSavedGame } from '@/gateway/db.ts'
 import { initAutoSaveGame } from '@/gateway/savedGames.ts'
 import router, { ROUTES } from '@/ui/router.ts'
 import { useHistoryStore } from '@/store/history.ts'
-import { DeckList } from '@/gateway/deck.ts'
+import { DeckList, validateDeckList } from '@/gateway/deck.ts'
 import { useGameBusStore } from '@/store/bus.ts'
 import { resetSync } from '@/multiplayer/sync.ts'
 import { isCryptId } from '@/resources/cards.ts'
@@ -22,10 +22,10 @@ const NB_BOTS = 1
 export const BOT_NAME = 'Bot'
 export const BOT_PERM_ID = 'Bot'
 
-function loadDeck(player: Player, deck: DeckList) {
+function loadDeck(player: Player, deckList: DeckList) {
     const gameState = useGameStateStore()
 
-    for (const [krcgId, quantity] of Object.entries(deck)) {
+    for (const [krcgId, quantity] of Object.entries(deckList)) {
         if (isCryptId(krcgId)) {
             for (let i = 0; i < quantity; i++) {
                 gameState.createCryptCard(krcgId, player, player.crypt)
@@ -38,10 +38,12 @@ function loadDeck(player: Player, deck: DeckList) {
     }
 }
 
-function setupPlayArea(player: Player, deck: DeckList) {
+function setupPlayArea(player: Player, deckList: DeckList) {
     const gameState = useGameStateStore()
 
-    loadDeck(player, deck)
+    validateDeckList(deckList)
+
+    loadDeck(player, deckList)
 
     player.crypt.shuffle()
     player.library.shuffle()
@@ -103,7 +105,7 @@ export function setupTrainGame() {
         if (i == 0) {
             core.conductor = new Conductor(bot)
         }
-        setupPlayArea(botPlayer, GovernBot.deck)
+        setupPlayArea(botPlayer, GovernBot.deckList)
     }
 
     core.gameStateIsReady = true
