@@ -33,7 +33,7 @@ export const HD_HEIGHT = 1080
 export const CARD_HEIGHT = 500
 export const CARD_WIDTH = 358
 
-export const CARD_IN_PLAY_SCALE = 0.2
+export const CARD_IN_PLAY_BASE_SCALE = 0.2
 export const CARD_IN_STACK_SCALE = 0.15
 export const CARD_IN_HAND_SCALE = 0.4
 export const CARD_DRAGGING_ALPHA = 0.7

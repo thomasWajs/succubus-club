@@ -1,4 +1,4 @@
-import { CARD_HEIGHT, CARD_IN_PLAY_SCALE, CARD_WIDTH, GRID_SIZE } from '@/game/const.ts'
+import { CARD_HEIGHT, CARD_IN_PLAY_BASE_SCALE, CARD_WIDTH, GRID_SIZE } from '@/game/const.ts'
 import Phaser, { GameObjects } from 'phaser'
 import Pointer = Phaser.Input.Pointer
 import { display } from '@/game/display.ts'
@@ -20,12 +20,12 @@ export function dropCoordinatesSnapped(pointer: Pointer, toContainer: GameObject
     // Snap the center of the card to the grid
     return {
         x: Phaser.Math.Snap.To(
-            coord.x - (CARD_WIDTH / 2) * CARD_IN_PLAY_SCALE * toContainer.scaleX,
+            coord.x - (CARD_WIDTH / 2) * CARD_IN_PLAY_BASE_SCALE * toContainer.scaleX,
             GRID_SIZE,
         ),
         y:
             Phaser.Math.Snap.Ceil(
-                coord.y - (CARD_HEIGHT / 2) * CARD_IN_PLAY_SCALE * toContainer.scaleY,
+                coord.y - (CARD_HEIGHT / 2) * CARD_IN_PLAY_BASE_SCALE * toContainer.scaleY,
                 GRID_SIZE,
             ) -
             GRID_SIZE / 2,

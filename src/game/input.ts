@@ -52,7 +52,7 @@ function onPointerDown(pointer: Pointer, gameObjects: GameObjects.GameObject[]) 
         const gameObject = gameObjects[0]
         const player = gameObject?.parentContainer?.getData(PhaserDataKey.Player)
         if (player) {
-            gameMutations.arrowAdd.actSelf({
+            gameMutations.UI_arrowAdd.actSelf({
                 origin: gameBus.declaringTargetOrigin,
                 target: player,
             })

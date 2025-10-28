@@ -6,7 +6,7 @@
         :y="cardAttrs.y"
         :texture="card.displayedTexture.textureName"
         :frame="card.displayedTexture.frameName"
-        :scale="cardAttrs.scale"
+        :scale="cardScale"
         :rotation="cardAttrs.rotation"
     />
 
@@ -18,7 +18,7 @@
         :texture="card.displayedTexture.textureName"
         :frame="card.displayedTexture.frameName"
         :alpha="dragAttrs.alpha"
-        :scale="cardAttrs.scale"
+        :scale="cardScale"
         :rotation="cardAttrs.rotation"
         @create="onImageCreate"
         @pointerover="onPointerOver"
@@ -36,8 +36,8 @@
         :visible="!!getCardOutlineColor"
         :x="cardAttrs.x"
         :y="cardAttrs.y"
-        :width="image ? image.displayWidth : 0"
-        :height="image ? image.displayHeight : 0"
+        :width="displaySize.width"
+        :height="displaySize.height"
         :rotation="cardAttrs.rotation"
         :lineWidth="CARD_OUTLINE_THICKNESS"
         :strokeColor="getCardOutlineColor"
@@ -54,6 +54,7 @@
             :origin="0.5"
             :x="bloodCounterPosition.x"
             :y="bloodCounterPosition.y"
+            :scale="card.region.owner.scale"
         />
         <Text
             ref="bloodCounterText"
@@ -62,6 +63,7 @@
             :origin="0.5"
             :x="bloodCounterPosition.x"
             :y="bloodCounterPosition.y"
+            :scale="card.region.owner.scale"
         />
     </template>
 
@@ -76,6 +78,7 @@
             :origin="0.5"
             :x="greenCounterPosition.x"
             :y="greenCounterPosition.y"
+            :scale="card.region.owner.scale"
         />
         <Text
             ref="greenCounterText"
@@ -84,6 +87,7 @@
             :origin="0.5"
             :x="greenCounterPosition.x"
             :y="greenCounterPosition.y"
+            :scale="card.region.owner.scale"
         />
     </template>
 
@@ -101,6 +105,7 @@
             :height="MARKER_HEIGHT"
             :fillColor="MARKERS_FILL_COLOR.color"
             :fillAlpha="MARKERS_FILL_COLOR.alphaGL"
+            :scale="cardScale"
         />
         <Text
             :ref="el => registerMarkersTexts(index, el as typeof Text | null)"
@@ -110,6 +115,7 @@
             :y="markersPosition.y + (MARKER_HEIGHT + 2) * index + MARKER_MARGIN_TOP"
             :text="marker"
             :style="MARKERS_TEXT_STYLE"
+            :scale="cardScale"
         />
     </template>
 </template>
@@ -122,8 +128,10 @@ import { Circle, Image, Rectangle, refObj, Text } from 'phavuer'
 import {
     BLOOD_COUNTER_FILL_COLOR,
     CARD_DRAGGING_ALPHA,
-    CARD_IN_PLAY_SCALE,
+    CARD_HEIGHT,
+    CARD_IN_PLAY_BASE_SCALE,
     CARD_OUTLINE_THICKNESS,
+    CARD_WIDTH,
     COUNTER_OUTLINE_COLOR,
     COUNTER_OUTLINE_THICKNESS,
     COUNTER_RADIUS,
@@ -174,19 +182,13 @@ function registerMarkersTexts(index: number, text: typeof Text | null) {
     markersTexts[index] = text?.object ?? null
 }
 
+const cardScale = computed(() => CARD_IN_PLAY_BASE_SCALE * card.region.owner.scale)
+
 const offsetX = computed(() =>
-    image.value ?
-        card.isLocked ?
-            image.value.displayHeight / 2
-        :   image.value.displayWidth / 2
-    :   0,
+    card.isLocked ? displaySize.value.height / 2 : displaySize.value.width / 2,
 )
 const offsetY = computed(() =>
-    image.value ?
-        card.isLocked ?
-            image.value.displayWidth / 2
-        :   image.value.displayHeight / 2
-    :   0,
+    card.isLocked ? displaySize.value.width / 2 : displaySize.value.height / 2,
 )
 
 const cardAttrs = computed((): CardAttrs => {
@@ -195,7 +197,16 @@ const cardAttrs = computed((): CardAttrs => {
         x: card.x + offsetX.value,
         y: card.y + offsetY.value,
         rotation: card.isLocked ? Math.PI / 2 : 0,
-        scale: CARD_IN_PLAY_SCALE,
+        scale: cardScale.value,
+    }
+})
+
+// This is available in image.value.displayWidth and image.value.displayHeight
+// but it's not reactive, so we need to recompute it every time the card size changes
+const displaySize = computed(() => {
+    return {
+        width: CARD_WIDTH * (cardScale.value ?? 0),
+        height: CARD_HEIGHT * (cardScale.value ?? 0),
     }
 })
 
@@ -218,13 +229,22 @@ const bloodCounterPosition = computed(() => {
     }
     if (card.isLocked) {
         return {
-            x: card.x + image.value.displayHeight - COUNTER_RADIUS - COUNTER_OUTLINE_THICKNESS,
-            y: card.y + image.value.displayWidth - COUNTER_RADIUS - COUNTER_OUTLINE_THICKNESS,
+            x:
+                card.x +
+                displaySize.value.height -
+                (COUNTER_RADIUS - COUNTER_OUTLINE_THICKNESS + 2) * card.region.owner.scale,
+            y:
+                card.y +
+                displaySize.value.width -
+                (COUNTER_RADIUS - COUNTER_OUTLINE_THICKNESS + 2) * card.region.owner.scale,
         }
     } else {
         return {
-            x: card.x + image.value.displayWidth - COUNTER_RADIUS - COUNTER_OUTLINE_THICKNESS,
-            y: card.y + COUNTER_RADIUS + COUNTER_OUTLINE_THICKNESS,
+            x:
+                card.x +
+                displaySize.value.width -
+                (COUNTER_RADIUS - COUNTER_OUTLINE_THICKNESS + 2) * card.region.owner.scale,
+            y: card.y + (COUNTER_RADIUS + COUNTER_OUTLINE_THICKNESS) * card.region.owner.scale,
         }
     }
 })
@@ -235,13 +255,16 @@ const greenCounterPosition = computed(() => {
     }
     if (card.isLocked) {
         return {
-            x: card.x + image.value.displayHeight - COUNTER_RADIUS - COUNTER_OUTLINE_THICKNESS,
-            y: card.y + COUNTER_RADIUS + COUNTER_OUTLINE_THICKNESS,
+            x:
+                card.x +
+                displaySize.value.height -
+                (COUNTER_RADIUS - COUNTER_OUTLINE_THICKNESS + 2) * card.region.owner.scale,
+            y: card.y + (COUNTER_RADIUS + COUNTER_OUTLINE_THICKNESS) * card.region.owner.scale,
         }
     } else {
         return {
-            x: card.x + COUNTER_RADIUS - COUNTER_OUTLINE_THICKNESS + 2,
-            y: card.y + COUNTER_RADIUS + COUNTER_OUTLINE_THICKNESS,
+            x: card.x + (COUNTER_RADIUS - COUNTER_OUTLINE_THICKNESS + 2) * card.region.owner.scale,
+            y: card.y + (COUNTER_RADIUS + COUNTER_OUTLINE_THICKNESS) * card.region.owner.scale,
         }
     }
 })
@@ -257,12 +280,12 @@ const markersPosition = computed(() => {
     if (card.isLocked) {
         return {
             x: cardAttrs.value.x,
-            y: cardAttrs.value.y + image.value.displayWidth / 2,
+            y: cardAttrs.value.y + displaySize.value.width / 2,
         }
     } else {
         return {
             x: cardAttrs.value.x,
-            y: cardAttrs.value.y + image.value.displayHeight / 2,
+            y: cardAttrs.value.y + displaySize.value.height / 2,
         }
     }
 })

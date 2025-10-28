@@ -62,6 +62,7 @@ export enum VersioningTarget {
     Reveal = 'Reveal',
     Shuffle = 'Shuffle',
     Arrow = 'Arrow',
+    Scale = 'Scale',
 }
 
 export type GameMutationMessage = {

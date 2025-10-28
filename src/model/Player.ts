@@ -44,6 +44,7 @@ export class Player extends BaseModel {
         public pool: number,
         public victoryPoints = 0,
         public isOusted = false,
+        public scale = 1,
         // Not currently in use
         // public handSize = INITIAL_HAND_SIZE,
     ) {

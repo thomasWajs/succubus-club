@@ -273,12 +273,19 @@
         </div>
 
         <div class="game-mutations">
+            <!--
             <CommandButton :command="commands.GainBlood">
                 <img src="/assets/blood1.png" />
             </CommandButton>
             <CommandButton :command="commands.BurnBlood">
                 <img src="/assets/blood1.png" />
             </CommandButton>
+            -->
+            <div>
+                <CommandButton :command="commands.DecreaseScale"> - </CommandButton>
+                {{ `${Math.round(((gameState.selfPlayer?.scale ?? 0) * 100) / 10) * 10}%` }}
+                <CommandButton :command="commands.IncreaseScale"> + </CommandButton>
+            </div>
             <CommandButton :command="commands.Influence"> Influence </CommandButton>
             <CommandButton :command="commands.UnlockAll"> Unlock All </CommandButton>
             <CommandButton :command="commands.DiscardAtRandom"> Discard At Random </CommandButton>

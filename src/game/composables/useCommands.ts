@@ -302,7 +302,31 @@ export function useCommands() {
                 return gameState.targetDeclarations.length == 0
             },
             trigger: () => {
-                gameMutations.arrowClear.actSelf({})
+                gameMutations.UI_arrowClear.actSelf({})
+            },
+        }),
+
+        DecreaseScale: createCommand({
+            trigger: () => {
+                if (!gameState.selfPlayer) {
+                    return
+                }
+                gameMutations.UI_changeScale.actSelf({
+                    player: gameState.selfPlayer,
+                    scale: gameState.selfPlayer.scale - 0.1,
+                })
+            },
+        }),
+
+        IncreaseScale: createCommand({
+            trigger: () => {
+                if (!gameState.selfPlayer) {
+                    return
+                }
+                gameMutations.UI_changeScale.actSelf({
+                    player: gameState.selfPlayer,
+                    scale: gameState.selfPlayer.scale + 0.1,
+                })
             },
         }),
     }

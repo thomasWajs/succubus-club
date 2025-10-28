@@ -255,97 +255,6 @@ function validateCardMovement(movement: CardMovement, cardRegion: AnyCardRegion)
 }
 
 /**
- * Target Declaration ( Arrow )
- */
-
-interface TargetDeclarationParams extends GameMutationParams {
-    origin: Card
-    target: Card | Player
-}
-
-class ArrowAdd extends GameMutation<TargetDeclarationParams> {
-    readonly syncMode = MutationSyncMode.Ordered
-
-    protected get _versioningId(): VersioningId {
-        return VersioningTarget.Arrow
-    }
-
-    get card() {
-        return this.params.target instanceof Card ? this.params.target : null
-    }
-
-    protected updateGameState(gameState: GameStateStore) {
-        gameState.targetDeclarations.push({
-            originOid: this.params.origin.oid,
-            targetOid: this.params.target.oid,
-        })
-    }
-
-    formatForLog() {
-        if (this.params.target instanceof Card) {
-            return `Declare target ${CARD_LOG_PLACEHOLDER} for ${this.params.origin.name} `
-        } else {
-            return `Declare target ${this.params.target.name} for ${this.params.origin.name} `
-        }
-    }
-
-    getCancelMutation(): AnyGameMutation {
-        return gameMutations.arrowRemove.createCancelMutation(this, {
-            origin: this.params.origin,
-            target: this.params.target,
-        })
-    }
-}
-
-class ArrowRemove extends GameMutation<TargetDeclarationParams> {
-    readonly syncMode = MutationSyncMode.Ordered
-
-    protected get _versioningId(): VersioningId {
-        return VersioningTarget.Arrow
-    }
-
-    get card() {
-        return this.params.target instanceof Card ? this.params.target : null
-    }
-
-    protected updateGameState(gameState: GameStateStore) {
-        gameState.targetDeclarations = gameState.targetDeclarations.filter(
-            arrow =>
-                arrow.originOid != this.params.origin.oid ||
-                arrow.targetOid != this.params.target.oid,
-        )
-    }
-
-    formatForLog() {
-        return `Remove target ${CARD_LOG_PLACEHOLDER}`
-    }
-
-    getCancelMutation(): AnyGameMutation {
-        return gameMutations.arrowAdd.createCancelMutation(this, {
-            origin: this.params.origin,
-            target: this.params.target,
-        })
-    }
-}
-
-class ArrowClear extends GameMutation<EmptyParams> {
-    isUserCancellable = false
-    readonly syncMode = MutationSyncMode.Ordered
-
-    protected get _versioningId(): VersioningId {
-        return VersioningTarget.Arrow
-    }
-
-    protected updateGameState(gameState: GameStateStore) {
-        gameState.targetDeclarations = []
-    }
-
-    formatForLog() {
-        return `Clear targets`
-    }
-}
-
-/**
  * Change Blood/life
  */
 
@@ -1557,6 +1466,119 @@ class ResolveBlock extends GameMutation<EmptyParams> {
 }
 
 /**
+ * UI : Target Declaration ( Arrow )
+ */
+
+interface TargetDeclarationParams extends GameMutationParams {
+    origin: Card
+    target: Card | Player
+}
+
+class ArrowAdd extends GameMutation<TargetDeclarationParams> {
+    readonly syncMode = MutationSyncMode.Ordered
+
+    protected get _versioningId(): VersioningId {
+        return VersioningTarget.Arrow
+    }
+
+    get card() {
+        return this.params.target instanceof Card ? this.params.target : null
+    }
+
+    protected updateGameState(gameState: GameStateStore) {
+        gameState.targetDeclarations.push({
+            originOid: this.params.origin.oid,
+            targetOid: this.params.target.oid,
+        })
+    }
+
+    formatForLog() {
+        if (this.params.target instanceof Card) {
+            return `Declare target ${CARD_LOG_PLACEHOLDER} for ${this.params.origin.name} `
+        } else {
+            return `Declare target ${this.params.target.name} for ${this.params.origin.name} `
+        }
+    }
+
+    getCancelMutation(): AnyGameMutation {
+        return gameMutations.UI_arrowRemove.createCancelMutation(this, {
+            origin: this.params.origin,
+            target: this.params.target,
+        })
+    }
+}
+
+class ArrowRemove extends GameMutation<TargetDeclarationParams> {
+    readonly syncMode = MutationSyncMode.Ordered
+
+    protected get _versioningId(): VersioningId {
+        return VersioningTarget.Arrow
+    }
+
+    get card() {
+        return this.params.target instanceof Card ? this.params.target : null
+    }
+
+    protected updateGameState(gameState: GameStateStore) {
+        gameState.targetDeclarations = gameState.targetDeclarations.filter(
+            arrow =>
+                arrow.originOid != this.params.origin.oid ||
+                arrow.targetOid != this.params.target.oid,
+        )
+    }
+
+    formatForLog() {
+        return `Remove target ${CARD_LOG_PLACEHOLDER}`
+    }
+
+    getCancelMutation(): AnyGameMutation {
+        return gameMutations.UI_arrowAdd.createCancelMutation(this, {
+            origin: this.params.origin,
+            target: this.params.target,
+        })
+    }
+}
+
+class ArrowClear extends GameMutation<EmptyParams> {
+    isUserCancellable = false
+    readonly syncMode = MutationSyncMode.Ordered
+
+    protected get _versioningId(): VersioningId {
+        return VersioningTarget.Arrow
+    }
+
+    protected updateGameState(gameState: GameStateStore) {
+        gameState.targetDeclarations = []
+    }
+
+    formatForLog() {
+        return `Clear targets`
+    }
+}
+
+/**
+ * UI : Change scale
+ */
+
+interface ChangeScaleParams extends GameMutationParams {
+    player: Player
+    scale: number
+}
+
+class ChangeScale extends GameMutation<ChangeScaleParams> {
+    isUserCancellable = false
+    readonly syncMode = MutationSyncMode.Ordered
+
+    protected get _versioningId(): VersioningId {
+        return VersioningTarget.Scale
+    }
+
+    protected updateGameState() {
+        this.params.player.scale = this.params.scale
+    }
+}
+
+/**
  * Mutation handling
  */
 
@@ -1687,9 +1709,6 @@ function defineMutation<
  */
 
 export const gameMutations = {
-    arrowAdd: defineMutation(ArrowAdd),
-    arrowRemove: defineMutation(ArrowRemove),
-    arrowClear: defineMutation(ArrowClear),
     changeBlood: defineMutation(ChangeBlood),
     changeGreenCounter: defineMutation(ChangeGreenCounter),
     changeMarker: defineMutation(ChangeMarker),
@@ -1723,6 +1742,14 @@ export const gameMutations = {
     ACTION_declareReaction: defineMutation(DeclareReaction),
     ACTION_resolveAction: defineMutation(ResolveAction),
     ACTION_resolveBlock: defineMutation(ResolveBlock),
+
+    /**
+     * UI mutations
+     */
+    UI_arrowAdd: defineMutation(ArrowAdd),
+    UI_arrowRemove: defineMutation(ArrowRemove),
+    UI_arrowClear: defineMutation(ArrowClear),
+    UI_changeScale: defineMutation(ChangeScale),
 }
 
 // Set mutation name on each GameMutation subclasses
