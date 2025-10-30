@@ -288,7 +288,7 @@ export function useCommands() {
             keyCodes: [KeyCodes.T],
             repr: 'T',
             isDisabled: () => {
-                return gameBus.selectedCards.length != 1
+                return gameBus.selectedCards.length > 1
             },
             cardAction: (card: Card) => {
                 gameBus.declaringTargetOrigin = card

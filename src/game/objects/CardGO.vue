@@ -1,4 +1,5 @@
 <template>
+    <!-- Drag Placeholder -->
     <Image
         ref="dragPlaceholder"
         :key="key + 'dragPlaceholder'"
@@ -10,6 +11,7 @@
         :rotation="cardAttrs.rotation"
     />
 
+    <!-- Main Card Image -->
     <Image
         ref="image"
         :key="key + 'image'"
@@ -30,6 +32,7 @@
         @drop="dispatchDrop"
     />
 
+    <!-- Card Outline -->
     <Rectangle
         ref="cardOutline"
         :key="key + 'cardOutline'"
@@ -43,7 +46,9 @@
         :strokeColor="getCardOutlineColor"
     />
 
+    <!-- Blood Counter -->
     <template v-if="card.blood > 0 || card.isMinion()">
+        <!-- Red Circle -->
         <Circle
             ref="bloodCounterCircle"
             :radius="COUNTER_RADIUS"
@@ -52,18 +57,88 @@
             :lineWidth="COUNTER_OUTLINE_THICKNESS"
             :strokeColor="COUNTER_OUTLINE_COLOR.color"
             :origin="0.5"
-            :x="bloodCounterPosition.x"
-            :y="bloodCounterPosition.y"
-            :scale="card.region.owner.scale"
+            :x="overlays.blood.x"
+            :y="overlays.blood.y"
+            :scale="scale"
         />
+        <!-- Number text -->
         <Text
             ref="bloodCounterText"
             :text="card.blood.toString()"
             :style="COUNTER_TEXT_STYLE"
             :origin="0.5"
-            :x="bloodCounterPosition.x"
-            :y="bloodCounterPosition.y"
-            :scale="card.region.owner.scale"
+            :x="overlays.blood.x"
+            :y="overlays.blood.y"
+            :scale="scale"
+        />
+
+        <!-- Hovered change blood -->
+        <template v-if="showOverlay">
+            <!-- Burn Blood -->
+            <ButtonGo
+                ref="burnBloodButton"
+                name="cardButton"
+                :x="overlays.burnBlood.x"
+                :y="overlays.burnBlood.y"
+                :width="overlayButtonSize"
+                :height="overlayButtonSize"
+                :scale="scale"
+                text="-"
+                @pointerover="onPointerOver"
+                @pointerout="onPointerOut"
+                @click="overlayClick($event, commands.BurnBlood.cardAction)"
+            />
+
+            <!-- Gain Blood -->
+            <ButtonGo
+                ref="gainBloodButton"
+                name="cardButton"
+                :x="overlays.gainBlood.x"
+                :y="overlays.gainBlood.y"
+                :width="overlayButtonSize"
+                :height="overlayButtonSize"
+                :scale="scale"
+                text="+"
+                @pointerover="onPointerOver"
+                @pointerout="onPointerOut"
+                @click="overlayClick($event, commands.GainBlood.cardAction)"
+            />
+        </template>
+    </template>
+
+    <!-- Hovered buttons -->
+    <template v-if="showOverlay">
+        <!-- Ash Heap -->
+        <ButtonGo
+            v-if="card.isIn.controlled"
+            ref="ashHeapButton"
+            name="cardButton"
+            :x="overlays.ashHeap.x"
+            :y="overlays.ashHeap.y"
+            :width="overlayButtonSize"
+            :height="overlayButtonSize"
+            :scale="scale"
+            text="🔥"
+            @pointerover="onPointerOver"
+            @pointerout="onPointerOut"
+            @click="overlayClick($event, commands.MoveToAshHeap.cardAction)"
+        />
+
+        <!-- Influence -->
+        <ButtonGo
+            v-if="card.isIn.uncontrolled"
+            ref="influenceButton"
+            name="cardButton"
+            :x="overlays.influence.x"
+            :y="overlays.influence.y"
+            :width="CARD_WIDTH * CARD_IN_PLAY_BASE_SCALE * 0.95"
+            :height="overlayButtonSize"
+            :scale="scale"
+            text="Influence"
+            :textStyle="{ fontSize: '12px' }"
+            @pointerover="onPointerOver"
+            @pointerout="onPointerOut"
+            @click="overlayClick($event, commands.Influence.cardAction)"
         />
     </template>
 
@@ -76,18 +151,18 @@
             :lineWidth="COUNTER_OUTLINE_THICKNESS"
             :strokeColor="COUNTER_OUTLINE_COLOR.color"
             :origin="0.5"
-            :x="greenCounterPosition.x"
-            :y="greenCounterPosition.y"
-            :scale="card.region.owner.scale"
+            :x="overlays.greenCounters.x"
+            :y="overlays.greenCounters.y"
+            :scale="scale"
         />
         <Text
             ref="greenCounterText"
             :text="card.greenCounter.toString()"
             :style="COUNTER_TEXT_STYLE"
             :origin="0.5"
-            :x="greenCounterPosition.x"
-            :y="greenCounterPosition.y"
-            :scale="card.region.owner.scale"
+            :x="overlays.greenCounters.x"
+            :y="overlays.greenCounters.y"
+            :scale="scale"
         />
     </template>
 
@@ -121,10 +196,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, watch, toRef } from 'vue'
+import { ref, computed, onBeforeUnmount, onMounted, reactive, watch, toRef } from 'vue'
 import Phaser, { GameObjects } from 'phaser'
 import { Circle, Image, Rectangle, refObj, Text } from 'phavuer'
-
 import {
     BLOOD_COUNTER_FILL_COLOR,
     CARD_DRAGGING_ALPHA,
@@ -132,6 +206,7 @@ import {
     CARD_IN_PLAY_BASE_SCALE,
     CARD_OUTLINE_THICKNESS,
     CARD_WIDTH,
+    COUNTER_HOVER_OFFSET_MULTIPLIER,
     COUNTER_OUTLINE_COLOR,
     COUNTER_OUTLINE_THICKNESS,
     COUNTER_RADIUS,
@@ -156,6 +231,8 @@ import { useCardClick } from '@/game/composables/useCardClick.ts'
 import { useCardOutline } from '@/game/composables/useCardOutline.ts'
 import { Validity } from '@/state/types.ts'
 import { dropCoordinatesSnapped, getDropCardRegion } from '@/game/utils.ts'
+import ButtonGo from '@/game/objects/ButtonGo.vue'
+import { useCommands } from '@/game/composables/useCommands.ts'
 
 const { card, regionName } = defineProps<{
     card: Card
@@ -165,6 +242,7 @@ const { card, regionName } = defineProps<{
 const key = computed(() => regionName + card.oid.toString())
 
 const gameBus = useGameBusStore()
+const commands = useCommands()
 const image = refObj<GameObjects.Image>()
 const dragPlaceholder = refObj<GameObjects.Image>()
 const cardOutline = refObj<GameObjects.Rectangle>()
@@ -175,6 +253,11 @@ const greenCounterText = refObj<GameObjects.Text>()
 const markersRectangles = [] as (GameObjects.Rectangle | null)[]
 const markersTexts = [] as (GameObjects.Text | null)[]
 
+const burnBloodButton = ref<typeof ButtonGo>()
+const gainBloodButton = ref<typeof ButtonGo>()
+const ashHeapButton = ref<typeof ButtonGo>()
+const influenceButton = ref<typeof ButtonGo>()
+
 function registerMarkersRectangles(index: number, rectangle: typeof Rectangle | null) {
     markersRectangles[index] = rectangle?.object ?? null
 }
@@ -182,7 +265,8 @@ function registerMarkersTexts(index: number, text: typeof Text | null) {
     markersTexts[index] = text?.object ?? null
 }
 
-const cardScale = computed(() => CARD_IN_PLAY_BASE_SCALE * card.region.owner.scale)
+const scale = computed(() => card.region.owner.scale)
+const cardScale = computed(() => CARD_IN_PLAY_BASE_SCALE * scale.value)
 
 const offsetX = computed(() =>
     card.isLocked ? displaySize.value.height / 2 : displaySize.value.width / 2,
@@ -220,52 +304,68 @@ function onImageCreate(image: GameObjects.Image) {
 }
 
 /**
- * Counters position
+ * Positions for overlays ( counters & buttons )
  */
 
-const bloodCounterPosition = computed(() => {
-    if (!image.value) {
-        return { x: 0, y: 0 }
-    }
-    if (card.isLocked) {
-        return {
-            x:
-                card.x +
-                displaySize.value.height -
-                (COUNTER_RADIUS - COUNTER_OUTLINE_THICKNESS + 2) * card.region.owner.scale,
-            y:
-                card.y +
-                displaySize.value.width -
-                (COUNTER_RADIUS - COUNTER_OUTLINE_THICKNESS + 2) * card.region.owner.scale,
-        }
-    } else {
-        return {
-            x:
-                card.x +
-                displaySize.value.width -
-                (COUNTER_RADIUS - COUNTER_OUTLINE_THICKNESS + 2) * card.region.owner.scale,
-            y: card.y + (COUNTER_RADIUS + COUNTER_OUTLINE_THICKNESS) * card.region.owner.scale,
-        }
-    }
-})
+const overlayButtonSize = COUNTER_RADIUS * COUNTER_HOVER_OFFSET_MULTIPLIER
 
-const greenCounterPosition = computed(() => {
-    if (!image.value) {
-        return { x: 0, y: 0 }
+const overlays = computed(() => {
+    const counterRadius = (COUNTER_RADIUS + COUNTER_OUTLINE_THICKNESS) * scale.value
+    const overOffset = showOverlay.value ? counterRadius * COUNTER_HOVER_OFFSET_MULTIPLIER + 3 : 0
+    const baseBloodX = card.x - counterRadius - overOffset
+    const changeBloodOffset =
+        (COUNTER_RADIUS + COUNTER_OUTLINE_THICKNESS + 1) *
+        COUNTER_HOVER_OFFSET_MULTIPLIER *
+        scale.value
+
+    let bloodX, bloodY, greenCounterY, ashHeapX, ashHeapY, influenceX, influenceY
+
+    // Unlocked card
+    if (!card.isLocked) {
+        bloodX = baseBloodX + displaySize.value.width
+        bloodY = card.y + counterRadius
+        greenCounterY = card.y + displaySize.value.height - counterRadius
+        ashHeapX = card.x + displaySize.value.width - counterRadius
+        ashHeapY = card.y + displaySize.value.height - counterRadius
+        influenceX = card.x + displaySize.value.width / 2
+        influenceY = card.y + displaySize.value.height - counterRadius
     }
-    if (card.isLocked) {
-        return {
-            x:
-                card.x +
-                displaySize.value.height -
-                (COUNTER_RADIUS - COUNTER_OUTLINE_THICKNESS + 2) * card.region.owner.scale,
-            y: card.y + (COUNTER_RADIUS + COUNTER_OUTLINE_THICKNESS) * card.region.owner.scale,
-        }
-    } else {
-        return {
-            x: card.x + (COUNTER_RADIUS - COUNTER_OUTLINE_THICKNESS + 2) * card.region.owner.scale,
-            y: card.y + (COUNTER_RADIUS + COUNTER_OUTLINE_THICKNESS) * card.region.owner.scale,
-        }
+    // Locked card
+    else {
+        bloodX = baseBloodX + displaySize.value.height
+        bloodY = card.y + displaySize.value.width - counterRadius
+        greenCounterY = card.y + counterRadius
+        ashHeapX = card.x + counterRadius
+        ashHeapY = card.y + displaySize.value.width - counterRadius
+        influenceX = card.x + displaySize.value.height / 2
+        influenceY = card.y + counterRadius
+    }
+
+    return {
+        blood: {
+            x: bloodX,
+            y: bloodY,
+        },
+        greenCounters: {
+            x: card.x + counterRadius,
+            y: greenCounterY,
+        },
+        burnBlood: {
+            x: bloodX - changeBloodOffset,
+            y: bloodY,
+        },
+        gainBlood: {
+            x: bloodX + changeBloodOffset,
+            y: bloodY,
+        },
+        ashHeap: {
+            x: ashHeapX,
+            y: ashHeapY,
+        },
+        influence: {
+            x: influenceX,
+            y: influenceY,
+        },
     }
 })
 
@@ -294,11 +394,38 @@ const markersPosition = computed(() => {
  * Outline on pointer over / selection area
  */
 
-const { isUnderSelectionArea, onPointerOver, onPointerOut, getCardOutlineColor } = useCardOutline(
+const {
+    isHovered,
+    isUnderSelectionArea,
+    onPointerOver: outlineOver,
+    onPointerOut,
+    getCardOutlineColor,
+} = useCardOutline(
     toRef(() => card),
     image,
     true,
 )
+
+function onPointerOver() {
+    outlineOver()
+    bringCardToTop()
+}
+
+/**
+ * Overlay
+ */
+
+function overlayClick(pointer: Pointer, command: (card: Card) => void) {
+    if (gameBus.declaringTargetOrigin) {
+        onPointerDown(pointer)
+    } else {
+        command(card)
+    }
+}
+
+const showOverlay = computed(() => {
+    return isHovered.value && gameBus.selectedCards.length <= 1
+})
 
 /**
  * Select/Deselect on simple click
@@ -381,11 +508,18 @@ function bringCardToTop() {
     const container = image.value.parentContainer
     container.bringToTop(image.value)
 
-    if (greenCounterCircle.value) container.bringToTop(greenCounterCircle.value)
-    if (greenCounterText.value) container.bringToTop(greenCounterText.value)
-    if (bloodCounterCircle.value) container.bringToTop(bloodCounterCircle.value)
-    if (bloodCounterText.value) container.bringToTop(bloodCounterText.value)
-    if (cardOutline.value) container.bringToTop(cardOutline.value)
+    for (const gameObject of [
+        greenCounterCircle,
+        greenCounterText,
+        bloodCounterCircle,
+        bloodCounterText,
+        cardOutline,
+    ]) {
+        if (gameObject.value) container.bringToTop(gameObject.value)
+    }
+    for (const button of [burnBloodButton, gainBloodButton, ashHeapButton, influenceButton]) {
+        button.value?.bringToTop()
+    }
 
     markersRectangles.forEach(rectangle => {
         if (rectangle) container.bringToTop(rectangle)

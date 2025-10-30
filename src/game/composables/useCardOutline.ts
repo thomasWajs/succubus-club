@@ -46,5 +46,11 @@ export function useCardOutline(
         }
     })
 
-    return { isHovered, isUnderSelectionArea, onPointerOver, onPointerOut, getCardOutlineColor }
+    return {
+        isHovered,
+        isUnderSelectionArea,
+        onPointerOver,
+        onPointerOut,
+        getCardOutlineColor,
+    }
 }

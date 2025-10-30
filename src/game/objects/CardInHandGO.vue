@@ -43,6 +43,22 @@
         :lineWidth="CARD_OUTLINE_THICKNESS"
         :strokeColor="getCardOutlineColor"
     />
+
+    <!-- On hover : Play button  -->
+    <template v-if="isHovered">
+        <ButtonGo
+            ref="playButton"
+            name="cardButton"
+            :x="playButtonPos.x"
+            :y="playButtonPos.y"
+            :width="60"
+            :height="25"
+            text="Play"
+            @pointerover="onPointerOver"
+            @pointerout="onPointerOut"
+            @click="playCard"
+        />
+    </template>
 </template>
 
 <script setup lang="ts">
@@ -62,6 +78,7 @@ import {
     HAND_ARC_ORIGIN_X,
     HAND_ARC_ORIGIN_Y,
     GRID_SIZE,
+    PLAY_AREA_WIDTH,
 } from '@/game/const.ts'
 import { LibraryCard } from '@/model/Card.ts'
 import { useGameBusStore } from '@/store/bus.ts'
@@ -72,6 +89,8 @@ import Glow = Phaser.FX.Glow
 import { CardAttrs, CardCategory, PhaserDataKey } from '@/game/types.ts'
 import { useCardDragDrop } from '@/game/composables/useCardDragDrop.ts'
 import { positionContextMenu } from '@/game/utils.ts'
+import ButtonGo from '@/game/objects/ButtonGo.vue'
+import { gameMutations } from '@/state/gameMutations.ts'
 
 const { card } = defineProps<{
     card: LibraryCard
@@ -83,8 +102,25 @@ const scene = useScene()
 const image = refObj<GameObjects.Image>()
 const dragPlaceholder = refObj<GameObjects.Image>()
 const cardOutline = refObj<GameObjects.Rectangle>()
+const playButton = ref<typeof ButtonGo>()
 
 const key = computed(() => `hand${card.oid.toString()}`)
+
+const indexToMiddle = computed(() => {
+    if (!gameState.selfPlayer) {
+        return 0
+    }
+
+    const hand = gameState.selfPlayer.hand
+    let cardIndex = hand.indexOf(card)
+    let handLength = hand.length
+    if (gameBus.handDropGapPosition != null && cardIndex >= gameBus.handDropGapPosition) {
+        const DROP_GAP = 2
+        cardIndex += DROP_GAP
+        handLength += DROP_GAP
+    }
+    return Math.ceil(cardIndex - handLength / 2)
+})
 
 const cardAttrs = computed((): CardAttrs => {
     const category = CardCategory.CardInHand
@@ -114,14 +150,7 @@ const cardAttrs = computed((): CardAttrs => {
         center_y -= 100
     }
 
-    let cardIndex = hand.indexOf(card)
-    let handLength = hand.length
-    if (gameBus.handDropGapPosition != null && cardIndex >= gameBus.handDropGapPosition) {
-        const DROP_GAP = 2
-        cardIndex += DROP_GAP
-        handLength += DROP_GAP
-    }
-    const rotation = Phaser.Math.DegToRad(10 * Math.ceil(cardIndex - handLength / 2))
+    const rotation = Phaser.Math.DegToRad(10 * indexToMiddle.value)
     const { x, y } = RotateAround({ x: center_x, y: -10 }, center_x, center_y, rotation)
     return { category, x, y, rotation, scale }
 })
@@ -136,6 +165,27 @@ function onImageCreate(image: GameObjects.Image) {
 
     // Watch for usable and dragging state changes to toggle glow
     watchEffect(toggleGlowEffect)
+}
+
+/**
+ * Play button
+ */
+
+const playButtonPos = computed(() => {
+    return {
+        x: cardAttrs.value.x + indexToMiddle.value * 6,
+        y: cardAttrs.value.y + 35 + Math.abs(indexToMiddle.value) * 4,
+    }
+})
+
+function playCard() {
+    gameMutations.moveCardToRegion.actSelf({
+        card,
+        fromCardRegion: card.region,
+        toCardRegion: card.controller.ready,
+        x: PLAY_AREA_WIDTH / 2 - GRID_SIZE * 2,
+        y: GRID_SIZE * 4,
+    })
 }
 
 /**
@@ -157,6 +207,7 @@ function bringToTop(withOutline = false) {
     if (withOutline && cardOutline.value) {
         container.bringToTop(cardOutline.value)
     }
+    playButton.value?.bringToTop()
 }
 
 function onPointerOver() {

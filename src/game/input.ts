@@ -47,6 +47,7 @@ function onPointerDown(pointer: Pointer, gameObjects: GameObjects.GameObject[]) 
         gameBus.declaringTargetOrigin &&
         gameObjects.length == 1 &&
         gameObjects[0].type == 'Rectangle' &&
+        gameObjects[0].name != 'cardButton' &&
         pointer.leftButtonDown()
     ) {
         const gameObject = gameObjects[0]

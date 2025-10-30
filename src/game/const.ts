@@ -126,8 +126,9 @@ export const BUTTON_TEXT_STYLE = {
  * Counter
  */
 
-export const COUNTER_RADIUS = 14
+export const COUNTER_RADIUS = 12
 export const COUNTER_OUTLINE_THICKNESS = 1
+export const COUNTER_HOVER_OFFSET_MULTIPLIER = 1.6
 export const COUNTER_OUTLINE_COLOR = BLACK
 export const COUNTER_TEXT_STYLE = {
     color: 'black',

@@ -5,28 +5,33 @@
         :y="y"
         :width="width"
         :height="height"
+        :scale="scale"
         :lineWidth="BUTTON_BORDER_WIDTH"
         :strokeColor="BUTTON_BORDER_COLOR.color"
         :fillColor="backgroundColor.color"
         :fillAlpha="backgroundColor.alphaGL"
         @create="onRectangleCreate"
-        @pointerover="isHovered = true"
-        @pointerout="isHovered = false"
-        @pointerdown="emit('click')"
+        @pointerover="onPointerOver"
+        @pointerout="onPointerOut"
+        @pointerdown="onClick"
     />
 
     <Text
+        v-if="text"
+        ref="buttonText"
         :text="text"
-        :style="BUTTON_TEXT_STYLE"
+        :style="mergedTextStyle"
         :origin="0.5"
         :x="x"
         :y="y"
     />
+
+    <slot />
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { GameObjects } from 'phaser'
+import Phaser, { GameObjects } from 'phaser'
 import { refObj, Rectangle, Text } from 'phavuer'
 import {
     BUTTON_BORDER_WIDTH,
@@ -35,24 +40,54 @@ import {
     BUTTON_TEXT_STYLE,
     BUTTON_BACKGROUND_COLOR_HOVER,
 } from '@/game/const.ts'
+import Pointer = Phaser.Input.Pointer
 
-const { x, y, width, height } = defineProps<{
+const { name, textStyle } = defineProps<{
     x: number
     y: number
     width: number
     height: number
-    text: string
+    scale?: number
+    text?: string
+    textStyle?: object
+    name?: string
 }>()
 
 const buttonRectangle = refObj<GameObjects.Rectangle>()
+const buttonText = refObj<GameObjects.Text>()
 const isHovered = ref(false)
+
+const mergedTextStyle = { ...BUTTON_TEXT_STYLE, ...textStyle }
+
+function onRectangleCreate(rectangle: GameObjects.Rectangle) {
+    rectangle.setInteractive({ cursor: 'pointer' })
+    rectangle.setName(name ?? '')
+}
+
+function onPointerOver(pointer: Pointer) {
+    isHovered.value = true
+    emit('pointerover', pointer)
+}
+
+function onPointerOut(pointer: Pointer) {
+    isHovered.value = false
+    emit('pointerout', pointer)
+}
+
+function onClick(pointer: Pointer) {
+    emit('click', pointer)
+}
 
 const backgroundColor = computed(() => {
     return isHovered.value ? BUTTON_BACKGROUND_COLOR_HOVER : BUTTON_BACKGROUND_COLOR
 })
 
-function onRectangleCreate(rectangle: GameObjects.Rectangle) {
-    rectangle.setInteractive({ cursor: 'pointer' })
+function bringToTop() {
+    if (!buttonRectangle.value) return
+
+    const container = buttonRectangle.value.parentContainer
+    container.bringToTop(buttonRectangle.value)
+    if (buttonText.value) container.bringToTop(buttonText.value)
 }
 
 /**
@@ -60,9 +95,15 @@ function onRectangleCreate(rectangle: GameObjects.Rectangle) {
  */
 
 interface Emits {
-    (e: 'click'): void
+    (e: 'click', pointer: Pointer): void
+    (e: 'pointerover', pointer: Pointer): void
+    (e: 'pointerout', pointer: Pointer): void
 }
 const emit = defineEmits<Emits>()
+
+defineExpose({
+    bringToTop,
+})
 </script>
 
 <style lang="scss"></style>
