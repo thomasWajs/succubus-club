@@ -266,7 +266,7 @@
             </span>
             controls The Edge
             <img
-                src="/assets/theEdgeTeal.png"
+                src="/assets/theEdgeTeal.webp"
                 class="theEdgeImage"
             />
             and can gain 1 pool from the blood bank
