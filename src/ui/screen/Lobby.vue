@@ -2,13 +2,6 @@
     <TopBar />
 
     <div class="lobby-container main-content">
-        <div class="connectivity-banner">
-            <span>
-                There's a brand new network architecture, the connectivity issues should now be
-                adressed. If you still experience issues, don't hesitate to contact me.
-            </span>
-        </div>
-
         <div
             v-if="showReconnectSuggestion"
             class="reconnect-banner"
@@ -498,24 +491,6 @@ if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
 <style lang="scss" scoped>
 .lobby-container {
     background: black;
-}
-
-.connectivity-banner {
-    @include flex-center;
-    background: linear-gradient(
-        135deg,
-        rgba($vibrant-emerald, 0.2) 0%,
-        rgba($dark-forest, 0.3) 100%
-    );
-    border-bottom: 1px solid $vibrant-emerald;
-    padding: 1rem 1.5rem;
-    text-align: center;
-    margin: 1rem 0;
-    color: $pearl-grey;
-    font-size: 0.95rem;
-    font-weight: 300;
-    letter-spacing: 0.3px;
-    line-height: 1.4;
 }
 
 /**
