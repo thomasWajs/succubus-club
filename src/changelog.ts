@@ -1,10 +1,10 @@
 export const latestChangelog = {
-    version: '0.2.3',
-    date: '2025-10-25',
-    features: ['Add V5 Sabbat set', 'Menu button to leave the game'],
-    bugfixes: [
-        'Handle room name with special characters',
-        'More robust resource fetching',
-        'Become a vampire/minion only in ready region',
+    version: '0.3.0',
+    date: '2025-10-30',
+    features: [
+        'Add overlays when pointer is over a card',
+        'Control card scale in play area',
+        'Ensure decklists are valid ( crypt 12+ & lib 60-90)',
     ],
+    bugfixes: [],
 }

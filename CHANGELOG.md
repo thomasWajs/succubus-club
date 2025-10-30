@@ -1,3 +1,10 @@
+## [0.3.0] - 2025-10-30
+
+Features:
+- Add overlays when pointer is over a card
+- Control card scale in play area
+- Ensure decklists are valid ( crypt 12+ & lib 60-90)
+
 ## [0.2.3] - 2025-10-25
 
 Features:
