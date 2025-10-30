@@ -378,7 +378,7 @@ const showReconnectSuggestion = computed(() => {
         core.userProfile.lastMultiGameDate &&
         +Date.now() - +core.userProfile.lastMultiGameDate < THREE_HOURS
     ) {
-        const gameRoom = multiplayer.gameRooms[core.userProfile.lastMultiGameName]
+        const gameRoom = multiplayer.gameRooms[core.userProfile.lastMultiGameId]
         if (gameRoom && gameRoom.isStarted) {
             return gameRoom
         }
