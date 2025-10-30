@@ -86,10 +86,12 @@ function findPlayerWinningConflict(
 
     // This case should not be reached if there's a conflict.
     logging.captureMessage(
-        `Could not determine a winning player in a conflict. Defaulting to active player.`,
+        `Could not determine a winning player in a conflict. Defaulting to arbitrary player.`,
         'error',
     )
-    return gameState.activePlayer.permId
+    return gameState.activePlayer ?
+            gameState.activePlayer.permId
+        :   gameState.orderedPlayers[0].permId
 }
 
 function getConflictingMutations(

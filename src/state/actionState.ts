@@ -95,6 +95,9 @@ export class ActionState {
 
     resolve() {
         const gameState = useGameStateStore()
+        if (!gameState.activePlayer) {
+            throw new Error('gameState.activePlayer is null')
+        }
 
         // Block attempt
         if (this.blockingMinion) {

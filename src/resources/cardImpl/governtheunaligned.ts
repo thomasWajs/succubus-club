@@ -48,6 +48,9 @@ export class GovernTheUnaligned extends ActionCardImplementation {
 
     declare() {
         const gameState = useGameStateStore()
+        if (!gameState.activePlayer) {
+            throw new Error('gameState.activePlayer is null')
+        }
 
         if (this.usage.level == DisciplineLevel.INFERIOR) {
             gameMutations.ACTION_changeProperty.act(gameState.activePlayer, {
@@ -59,6 +62,9 @@ export class GovernTheUnaligned extends ActionCardImplementation {
 
     resolve() {
         const gameState = useGameStateStore()
+        if (!gameState.activePlayer) {
+            throw new Error('gameState.activePlayer is null')
+        }
 
         if (this.usage.level == DisciplineLevel.SUPERIOR) {
             gameMutations.changeBlood.act(gameState.activePlayer, {

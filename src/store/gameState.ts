@@ -122,7 +122,7 @@ export const useGameStateStore = defineStore('gameState', {
             return state.players[this.selfPlayerOid]
         },
         selfIsActive(): boolean {
-            return this.selfPlayerOid == this.activePlayer.oid
+            return this.activePlayer ? this.selfPlayerOid == this.activePlayer.oid : false
         },
         selfPlayerSeatingIndex(state): number {
             return state.turnOrder.findIndex(playerOid => playerOid === this.selfPlayerOid)
@@ -134,7 +134,7 @@ export const useGameStateStore = defineStore('gameState', {
             return this.orderedPlayers.filter(player => !player.isOusted)
         },
         turnPhase: state => TurnSequence[state.turnPhaseIndex],
-        activePlayer(): Player {
+        activePlayer(): Player | undefined {
             return this.competingPlayers[this.activePlayerIndex]
         },
         theEdgeController(): Player | undefined {

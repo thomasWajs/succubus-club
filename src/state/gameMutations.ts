@@ -86,7 +86,7 @@ export abstract class GameMutation<ParamsType extends GameMutationParams> {
     }
 
     // To be overrided by subclasses which an Exclusive sync mode
-    protected get allowedPlayer(): Player | null {
+    protected get allowedPlayer(): Player | null | undefined {
         return null
     }
 
@@ -107,7 +107,7 @@ export abstract class GameMutation<ParamsType extends GameMutationParams> {
     canApply(): Validity {
         // Ensure exclusive mutations are only applied by the correct player
         if (this.syncMode == MutationSyncMode.Exclusive) {
-            if (this.allowedPlayer == null) {
+            if (!this.allowedPlayer) {
                 return Invalid(`No valid player for ${this.name}`)
             }
             if (this.allowedPlayer != this.author) {
@@ -1421,6 +1421,9 @@ class ResolveBlock extends GameMutation<EmptyParams> {
         }
         if (!gameState.action.blockingMinion) {
             throw new Error('gameState.action.blockingDecision is null')
+        }
+        if (!gameState.activePlayer) {
+            throw new Error('gameState.activePlayer is null')
         }
 
         const action = gameState.action
