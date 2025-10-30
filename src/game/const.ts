@@ -158,8 +158,6 @@ export const MARKERS_TEXT_STYLE = {
  * Wield Card Stack
  */
 
-export const WIELD_CARD_STACK_ICON = 'wieldCardStack'
-
 export const WIELD_X = 5
 export const WIELD_Y = 0
 export const WIELD_INITIAL_HEIGHT = 260
@@ -185,11 +183,5 @@ export const ARROW_COLOR = new Color(135, 45, 60)
  * Misc
  */
 
-export const BACK_TEXTURE_CRYPT = 'cardbackCrypt'
-export const BACK_TEXTURE_LIB = 'cardbackLibrary'
-export const THE_EDGE_ICON = 'theEdge'
-export const THE_EDGE_TEAL_ICON = 'theEdgeTeal'
-
 export const DRAG_DISTANCE_THRESHOLD = 5
-
 export const CARD_LOG_PLACEHOLDER = '[CARD]'

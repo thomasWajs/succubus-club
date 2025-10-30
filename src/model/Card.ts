@@ -1,6 +1,6 @@
 import Phaser from 'phaser'
 import { BaseModel, ObjectId } from '@/model/BaseModel.ts'
-import { BACK_TEXTURE_CRYPT, BACK_TEXTURE_LIB, GRID_SIZE } from '@/game/const.ts'
+import { GRID_SIZE } from '@/game/const.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
 import {
     KrcgId,
@@ -32,6 +32,7 @@ import { PlayerOid } from '@/model/Player.ts'
 import { useCoreStore } from '@/store/core.ts'
 import * as cardVisibility from '@/state/cardVisibility.ts'
 import { GameType } from '@/state/types.ts'
+import { Texture } from '@/resources/textures.ts'
 
 // Alias to specify the expected objects through the codebase
 export type CardOid = ObjectId
@@ -314,7 +315,7 @@ export class CryptCard extends Card {
 
     get backTexture() {
         return {
-            textureName: BACK_TEXTURE_CRYPT,
+            textureName: Texture.CardbackCrypt,
         }
     }
 
@@ -379,7 +380,7 @@ export class LibraryCard extends Card {
 
     get backTexture() {
         return {
-            textureName: BACK_TEXTURE_LIB,
+            textureName: Texture.CardbackLibrary,
         }
     }
 

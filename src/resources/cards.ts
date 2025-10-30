@@ -1,12 +1,6 @@
 import { Discipline, DisciplineLevel, LibraryCardType, Sect } from '@/model/const.ts'
 import { DeckList } from '@/gateway/deck.ts'
-import {
-    BACK_TEXTURE_CRYPT,
-    BACK_TEXTURE_LIB,
-    THE_EDGE_ICON,
-    THE_EDGE_TEAL_ICON,
-    WIELD_CARD_STACK_ICON,
-} from '@/game/const.ts'
+import { fetchWithRetry } from '@/resources'
 
 /**
  * Resource types
@@ -81,74 +75,16 @@ export const gameResources = {
     atlasJson: {} as Record<string, never>,
 }
 
-export const preloadedTextures = {
-    atlasTexture: {} as HTMLImageElement,
-    [BACK_TEXTURE_CRYPT]: {} as HTMLImageElement,
-    [BACK_TEXTURE_LIB]: {} as HTMLImageElement,
-    [WIELD_CARD_STACK_ICON]: {} as HTMLImageElement,
-    [THE_EDGE_ICON]: {} as HTMLImageElement,
-    [THE_EDGE_TEAL_ICON]: {} as HTMLImageElement,
-}
-
-async function fetchWithRetry(url: string): Promise<Response> {
-    const maxAttempts = 3
-    let lastError: Error | undefined
-
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-        try {
-            const response = await fetch(url)
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`)
-            }
-            return response
-        } catch (error) {
-            lastError = error as Error
-
-            // Wait for 1 second before the next attempt
-            if (attempt < maxAttempts) {
-                await new Promise(resolve => setTimeout(resolve, 500))
-            }
-        }
-    }
-
-    throw new Error(`Failed to fetch ${url} after 3 attempts: ${lastError?.message}`)
-}
-
 async function loadOneResourceFile(url: string, destination: keyof typeof gameResources) {
     const response = await fetchWithRetry(url)
     gameResources[destination] = await response.json()
 }
 
-// Preload texture to speed up game loading
-async function preloadTexture(textureUrl: string, destination: keyof typeof preloadedTextures) {
-    const textureResponse = await fetch(textureUrl)
-
-    // Create and store the image
-    const imageBlob = await textureResponse.blob()
-    const imageUrl = URL.createObjectURL(imageBlob)
-
-    return new Promise<void>(resolve => {
-        const img = new Image()
-        img.onload = () => {
-            preloadedTextures[destination] = img
-            URL.revokeObjectURL(imageUrl) // Clean up the blob URL
-            resolve()
-        }
-        img.src = imageUrl
-    })
-}
-
-export function loadAllResources() {
-    return Promise.all([
+export function loadAllResourcesFiles() {
+    return [
         loadOneResourceFile(`${ASSETS_URL}/cardbase.json`, 'cardbase'),
         loadOneResourceFile(`${ASSETS_URL}/preconDecks.json`, 'preconDecks'),
         loadOneResourceFile(`${ASSETS_URL}/setsAndPrecons.json`, 'setsAndPrecons'),
         loadOneResourceFile(atlasJsonUrl, 'atlasJson'),
-        preloadTexture(atlasTextureUrl, 'atlasTexture'),
-        preloadTexture(`${ASSETS_URL}/${BACK_TEXTURE_CRYPT}.webp`, BACK_TEXTURE_CRYPT),
-        preloadTexture(`${ASSETS_URL}/${BACK_TEXTURE_LIB}.webp`, BACK_TEXTURE_LIB),
-        preloadTexture(`${ASSETS_URL}/${WIELD_CARD_STACK_ICON}.png`, WIELD_CARD_STACK_ICON),
-        preloadTexture(`${ASSETS_URL}/${THE_EDGE_ICON}.png`, THE_EDGE_ICON),
-        preloadTexture(`${ASSETS_URL}/${THE_EDGE_TEAL_ICON}.png`, THE_EDGE_TEAL_ICON),
-    ])
+    ]
 }

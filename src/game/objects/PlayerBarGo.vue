@@ -82,7 +82,7 @@
 
     <!-- The Edge -->
     <Image
-        :texture="player == gameState.theEdgeController ? THE_EDGE_TEAL_ICON : THE_EDGE_ICON"
+        :texture="player == gameState.theEdgeController ? Texture.TheEdgeTeal : Texture.TheEdge"
         :alpha="player == gameState.theEdgeController ? 1 : 0.4"
         :origin="1"
         :x="x + width - 60"
@@ -113,20 +113,14 @@
 import { onBeforeUnmount, onMounted } from 'vue'
 import Phaser, { GameObjects } from 'phaser'
 import { Polygon, Rectangle, Text, Image, refObj } from 'phavuer'
-import {
-    BLACK,
-    COUNTER_OUTLINE_THICKNESS,
-    COUNTER_TEXT_STYLE,
-    THE_EDGE_ICON,
-    THE_EDGE_TEAL_ICON,
-    WHITE,
-} from '@/game/const.ts'
+import { BLACK, COUNTER_OUTLINE_THICKNESS, COUNTER_TEXT_STYLE, WHITE } from '@/game/const.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
 import { Player } from '@/model/Player.ts'
 import Color = Phaser.Display.Color
 import { useGameBusStore } from '@/store/bus.ts'
 import ButtonGo from '@/game/objects/ButtonGo.vue'
 import { gameMutations } from '@/state/gameMutations.ts'
+import { Texture } from '@/resources/textures.ts'
 
 const { x, y, width, height, color, player } = defineProps<{
     x: number

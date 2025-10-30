@@ -41,7 +41,7 @@
     <Image
         ref="wieldIcon"
         :visible="isRegionHovered"
-        :texture="WIELD_CARD_STACK_ICON"
+        :texture="Texture.WieldCardStack"
         :origin="0.5"
         :x="x + width - 50"
         :y="y + 25"
@@ -111,7 +111,6 @@ import {
     CARD_OUTLINE_THICKNESS,
     REGION_BACKGROUND_COLOR,
     REGION_BACKGROUND_COLOR_DRAG_OVER,
-    WIELD_CARD_STACK_ICON,
 } from '@/game/const.ts'
 import { AnyCardRegion } from '@/model/CardRegion.ts'
 import { gameMutations } from '@/state/gameMutations.ts'
@@ -122,6 +121,7 @@ import Pointer = Phaser.Input.Pointer
 import { PhaserDataKey } from '@/game/types.ts'
 import { RegionName } from '@/model/const.ts'
 import { getDraggedCard } from '@/game/utils.ts'
+import { Texture } from '@/resources/textures.ts'
 
 const props = defineProps<{
     x: number
