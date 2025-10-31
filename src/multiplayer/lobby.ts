@@ -57,6 +57,10 @@ export async function joinLobby() {
 
     const { rtdb, lobbyChannel } = await useLobby()
     try {
+        if (lobbyChannel.state != 'attached') {
+            return
+        }
+
         // Presence / Users
         await lobbyChannel.presence.enter(multiplayer.selfUser)
         await syncUsers()
@@ -74,11 +78,7 @@ export async function joinLobby() {
 }
 
 export async function leaveLobby() {
-    const { multiplayer, ably, lobbyChannel } = await useLobby()
-
-    if (multiplayer.currentGameRoomId) {
-        await leaveGameRoom()
-    }
+    const { ably, lobbyChannel } = await useLobby()
 
     unwatchSelfUser?.()
     unwatchSelfUser = null
@@ -87,6 +87,14 @@ export async function leaveLobby() {
     // Releasing from the channel will also unsubscribe all listeners
     ably.channels.release(LOBBY_CHANNEL_NAME)
     _lobby = null
+}
+
+export async function leaveMultiplayer() {
+    const multiplayer = useMultiplayerStore()
+    if (multiplayer.currentGameRoomId) {
+        await leaveGameRoom()
+    }
+    await leaveLobby()
     multiplayer.$reset()
 }
 
@@ -97,7 +105,12 @@ export async function leaveLobby() {
 async function syncUsers() {
     const { multiplayer, lobbyChannel } = await useLobby()
 
+    if (lobbyChannel.state != 'attached') {
+        return
+    }
+
     const presenceSet = await lobbyChannel.presence.get()
+    multiplayer.users = {}
     // Loop to call upsertUser to fetch their avatar
     for (const member of presenceSet) {
         multiplayer.upsertUser(member.data)

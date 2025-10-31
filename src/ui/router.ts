@@ -9,7 +9,7 @@ import WhatIsThis from '@/ui/screen/about/WhatIsThis.vue'
 import Requirements from '@/ui/screen/about/Requirements.vue'
 import Contribute from '@/ui/screen/about/Contribute.vue'
 import Copyright from '@/ui/screen/about/Copyright.vue'
-import { leaveLobby } from '@/multiplayer/lobby.ts'
+import { leaveMultiplayer } from '@/multiplayer/lobby.ts'
 
 export const ROUTES = {
     MainMenu: 'MainMenu',
@@ -91,7 +91,7 @@ router.beforeEach((to, from) => {
 
         // If the user is in the lobby, leave it
         if (multiplayer.hasJoinedLobby) {
-            leaveLobby()
+            leaveMultiplayer()
         }
     }
 

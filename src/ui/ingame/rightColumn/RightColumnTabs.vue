@@ -176,7 +176,7 @@ import UserManual from '@/ui/ingame/rightColumn/UserManual.vue'
 import { useGameStateStore } from '@/store/gameState.ts'
 import LogLine from '@/ui/ingame/rightColumn/LogLine.vue'
 import router, { ROUTES } from '@/ui/router.ts'
-import { leaveLobby } from '@/multiplayer/lobby.ts'
+import { leaveMultiplayer } from '@/multiplayer/lobby.ts'
 import { resetState } from '@/game/setup.ts'
 
 const core = useCoreStore()
@@ -241,7 +241,7 @@ function sendChatMessage() {
 const leaveDialog = ref<HTMLDialogElement>()
 
 function leaveGame() {
-    leaveLobby()
+    leaveMultiplayer()
     resetState()
     router.push({ name: ROUTES.MainMenu })
 }

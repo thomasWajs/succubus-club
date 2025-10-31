@@ -216,8 +216,8 @@ function onMemberJoin(presence: PresenceMessage) {
 
 function onMemberLeave(presence: PresenceMessage) {
     const multiplayer = useMultiplayerStore()
-    const gameRoom = multiplayer.currentGameRoom
     const user = multiplayer.users[presence.clientId]
+    const gameRoom = multiplayer.currentGameRoom
 
     if (user) {
         alertDisconnect(user)
@@ -260,9 +260,9 @@ export async function launchGame() {
     const serializedGame = serializeGame()
     const gameStateId = await storeGameState(serializedGame)
     await ablyPublish(roomChannel, PubsubMessageType.LaunchGame, gameStateId)
-    await core.userProfile.setLastMultiGame(gameRoom.id)
     gameRoom.isStarted = true
     startGame(GameType.Multiplayer)
+    await core.userProfile.setLastMultiGame(gameRoom.id)
 }
 
 async function onReceiveLaunchGame(gameStateId: string) {
@@ -280,7 +280,7 @@ async function onReceiveLaunchGame(gameStateId: string) {
     }
     loadGame(serializedGame)
     startGame(GameType.Multiplayer)
-    core.userProfile.setLastMultiGame(gameRoom.id)
+    await core.userProfile.setLastMultiGame(gameRoom.id)
 }
 
 /** Chat Messages */
