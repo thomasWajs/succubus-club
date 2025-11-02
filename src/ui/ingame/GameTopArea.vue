@@ -12,7 +12,12 @@
     >
         <div class="turn-infos">
             <div class="turn">
-                <CommandButton :command="commands.BackTurn"> &lt; </CommandButton>
+                <CommandButton
+                    v-if="gameState.isPlayer"
+                    :command="commands.BackTurn"
+                >
+                    &lt;
+                </CommandButton>
 
                 <span class="turn-number"> Turn #{{ gameState.turnNumber }} </span>
                 <span
@@ -22,11 +27,19 @@
                     {{ gameState.activePlayer?.shortName }}
                 </span>
 
-                <CommandButton :command="commands.AdvanceTurn"> &gt; </CommandButton>
+                <CommandButton
+                    v-if="gameState.isPlayer"
+                    :command="commands.AdvanceTurn"
+                >
+                    &gt;
+                </CommandButton>
             </div>
 
             <div class="phases">
-                <CommandButton :command="commands.BackTurnPhase" />
+                <CommandButton
+                    v-if="gameState.isPlayer"
+                    :command="commands.BackTurnPhase"
+                />
 
                 <template
                     v-for="(phase, index) of TurnSequence"
@@ -48,7 +61,10 @@
                     </span>
                 </template>
 
-                <CommandButton :command="commands.AdvanceTurnPhase" />
+                <CommandButton
+                    v-if="gameState.isPlayer"
+                    :command="commands.AdvanceTurnPhase"
+                />
             </div>
         </div>
 
@@ -272,7 +288,10 @@
             and can gain 1 pool from the blood bank
         </div>
 
-        <div class="game-mutations">
+        <div
+            v-if="gameState.isPlayer"
+            class="game-mutations"
+        >
             <div>
                 <CommandButton :command="commands.DecreaseScale"> - </CommandButton>
                 {{ `${Math.round(((gameState.selfPlayer?.scale ?? 0) * 100) / 10) * 10}%` }}

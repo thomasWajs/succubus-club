@@ -29,6 +29,12 @@ function resetSelectionArea() {
 
 function onPointerDown(pointer: Pointer, gameObjects: GameObjects.GameObject[]) {
     const gameBus = useGameBusStore()
+    const gameState = useGameStateStore()
+
+    // Spectators can't interact with the game
+    if (gameState.isSpectator) {
+        return
+    }
 
     // Browsers won't blur inputs when the canvas is clicked.
     // Do it manually here.
@@ -113,12 +119,17 @@ function onPointerMove(pointer: Pointer, {}) {
  */
 
 export function setupKeyboardHandlers(scene: Phaser.Scene) {
+    const gameState = useGameStateStore()
+    const gameBus = useGameBusStore()
+    const commands = useCommands()
+
     if (!scene.input.keyboard) {
         return
     }
-
-    const commands = useCommands()
-    const gameBus = useGameBusStore()
+    // Spectators can't interact with the game
+    if (gameState.isSpectator) {
+        return
+    }
 
     for (const command of Object.values(commands)) {
         for (const keyCode of command.keyCodes) {

@@ -32,6 +32,7 @@
     />
 
     <Rectangle
+        v-if="gameState.isPlayer"
         ref="cardOutline"
         :key="key + 'cardOutline'"
         :visible="!!getCardOutlineColor"
@@ -57,8 +58,10 @@ import { useCardClick } from '@/game/composables/useCardClick.ts'
 import { useCardOutline } from '@/game/composables/useCardOutline.ts'
 import { useCardDragDrop } from '@/game/composables/useCardDragDrop.ts'
 import { useGameBusStore } from '@/store/bus.ts'
+import { useGameStateStore } from '@/store/gameState.ts'
 
 const gameBus = useGameBusStore()
+const gameState = useGameStateStore()
 
 const { card, x, y } = defineProps<{
     card: Card

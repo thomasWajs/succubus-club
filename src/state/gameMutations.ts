@@ -1669,6 +1669,10 @@ export function actSelf<
     GMClass extends GameMutation<ParamsType>,
 >(gameMutationClass: GameMutationClassType<ParamsType, GMClass>, params: ParamsType): Validity {
     const gameState = useGameStateStore()
+    // spectators can't act on the game
+    if (gameState.isSpectator) {
+        return Invalid("Spectators can't act on the game")
+    }
     if (!gameState.selfPlayer) {
         throw new Error('Cannot act without a self player defined')
     }

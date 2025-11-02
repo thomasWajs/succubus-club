@@ -9,12 +9,14 @@
         </div>
 
         <input
+            v-if="gameState.isPlayer"
             id="WieldCardStackSearch"
             v-model="gameBus.wieldCardStack.searchString"
             placeholder="Search for a card..."
         />
 
         <button
+            v-if="gameState.isPlayer"
             class="game-button"
             @click="
                 gameMutations.shuffle.actSelf({
@@ -26,9 +28,7 @@
             Shuffle
         </button>
 
-        <hr />
-
-        <div>
+        <div v-if="gameState.isPlayer">
             Reveal
             <template v-if="gameBus.selectedCards.length > 0">
                 {{ gameBus.selectedCards.length }} Card(s)

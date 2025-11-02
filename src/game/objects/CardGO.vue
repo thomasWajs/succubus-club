@@ -34,6 +34,7 @@
 
     <!-- Card Outline -->
     <Rectangle
+        v-if="gameState.isPlayer"
         ref="cardOutline"
         :key="key + 'cardOutline'"
         :visible="!!getCardOutlineColor"
@@ -233,6 +234,7 @@ import { Validity } from '@/state/types.ts'
 import { dropCoordinatesSnapped, getDropCardRegion } from '@/game/utils.ts'
 import ButtonGo from '@/game/objects/ButtonGo.vue'
 import { useCommands } from '@/game/composables/useCommands.ts'
+import { useGameStateStore } from '@/store/gameState.ts'
 
 const { card, regionName } = defineProps<{
     card: Card
@@ -241,6 +243,7 @@ const { card, regionName } = defineProps<{
 
 const key = computed(() => regionName + card.oid.toString())
 
+const gameState = useGameStateStore()
 const gameBus = useGameBusStore()
 const commands = useCommands()
 const image = refObj<GameObjects.Image>()
@@ -424,7 +427,7 @@ function overlayClick(pointer: Pointer, command: (card: Card) => void) {
 }
 
 const showOverlay = computed(() => {
-    return isHovered.value && gameBus.selectedCards.length <= 1
+    return isHovered.value && gameBus.selectedCards.length <= 1 && gameState.isPlayer
 })
 
 /**
@@ -535,6 +538,10 @@ function onDragStart(event: CardDragEvent) {
     if (!image.value) {
         return
     }
+    // Spectators can't interact with the game
+    if (gameState.isSpectator) {
+        return
+    }
 
     droppedAfterDrag = false
 
@@ -550,6 +557,10 @@ function onDrag(event: CardDragEvent) {
     // This may happen when moving region,
     // on the old CardGo component that is about to be unmounted
     if (!image.value || !event.dragX || !event.dragY) {
+        return
+    }
+    // Spectators can't interact with the game
+    if (gameState.isSpectator) {
         return
     }
 

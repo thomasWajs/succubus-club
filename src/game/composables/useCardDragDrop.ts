@@ -5,6 +5,7 @@ import Pointer = Phaser.Input.Pointer
 import { CardMovement, gameMutations } from '@/state/gameMutations.ts'
 import { useGameBusStore } from '@/store/bus.ts'
 import { dropCoordinatesSnapped, getDropCardRegion } from '@/game/utils.ts'
+import { useGameStateStore } from '@/store/gameState.ts'
 
 export function useCardDragDrop(
     cardRef: Ref<Card>,
@@ -12,6 +13,7 @@ export function useCardDragDrop(
     image: Ref<GameObjects.Image | undefined>,
     cardOutline: Ref<GameObjects.Rectangle | undefined>,
 ) {
+    const gameState = useGameStateStore()
     const gameBus = useGameBusStore()
 
     /**
@@ -24,6 +26,10 @@ export function useCardDragDrop(
 
     function onDragStart() {
         if (!image.value) {
+            return
+        }
+        // Spectators can't interact with the game
+        if (gameState.isSpectator) {
             return
         }
 

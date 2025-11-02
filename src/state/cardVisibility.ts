@@ -1,7 +1,7 @@
 import { useGameStateStore } from '@/store/gameState.ts'
 import { Card } from '@/model/Card.ts'
 import { Player } from '@/model/Player.ts'
-import { CardRegionVisibility, RegionName } from '@/model/const.ts'
+import { CardRegionVisibility } from '@/model/const.ts'
 import {
     CardRevelationTarget,
     CardRevelationViewer,
@@ -26,13 +26,14 @@ export function isRevealedToPlayer(target: CardRevelationTarget, player: Player)
     return revelation.all || revelation[player.oid]
 }
 
+export function anyoneCanSee(card: Card) {
+    return card.region.visibility == CardRegionVisibility.VisibleToAll
+}
+
 export function canSee(player: Player, card: Card) {
     // Flipping a card allow only to hide it while in play,
     // to not mess with visibility in the other regions
-    if (
-        card.isFlipped &&
-        [RegionName.Ready, RegionName.Torpor, RegionName.Uncontrolled].includes(card.region.name)
-    ) {
+    if (card.isFlipped && card.isIn.play) {
         return false
     }
 
@@ -44,7 +45,7 @@ export function canSee(player: Player, card: Card) {
 
     // No revelations, let's check normal visibility rules
     return (
-        card.region.visibility == CardRegionVisibility.VisibleToAll ||
+        anyoneCanSee(card) ||
         (card.region.visibility == CardRegionVisibility.VisibleToController &&
             card.controllerOid == player.oid)
     )

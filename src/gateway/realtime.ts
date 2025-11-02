@@ -86,7 +86,7 @@ export async function ablyPublish<T>(
 ) {
     /*
         if (messageType == PubsubMessageType.GameMutation) {
-            await simulateNetworkDelay(useGameStateStore().selfPlayerSeatingIndex * 1500)
+            await simulateNetworkDelay(useGameStateStore().centralPlayerSeatingIndex * 1500)
         }
      */
 

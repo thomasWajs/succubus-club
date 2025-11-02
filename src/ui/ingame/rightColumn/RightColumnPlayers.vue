@@ -29,6 +29,7 @@
 
             <div class="player-right">
                 <button
+                    v-if="gameState.isPlayer"
                     class="game-button small"
                     @click="
                         gameMutations.changePool.actSelf({
@@ -48,6 +49,7 @@
                 </div>
 
                 <button
+                    v-if="gameState.isPlayer"
                     class="game-button small"
                     @click="
                         gameMutations.changePool.actSelf({

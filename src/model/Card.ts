@@ -33,6 +33,7 @@ import { useCoreStore } from '@/store/core.ts'
 import * as cardVisibility from '@/state/cardVisibility.ts'
 import { GameType } from '@/state/types.ts'
 import { Texture } from '@/resources/textures.ts'
+import { anyoneCanSee } from '@/state/cardVisibility.ts'
 
 // Alias to specify the expected objects through the codebase
 export type CardOid = ObjectId
@@ -129,14 +130,16 @@ export abstract class Card extends BaseModel {
 
     get selfCanSee() {
         const gameState = useGameStateStore()
-        return gameState.selfPlayer ? cardVisibility.canSee(gameState.selfPlayer, this) : false
+        return gameState.selfPlayer ?
+                cardVisibility.canSee(gameState.selfPlayer, this)
+            :   anyoneCanSee(this)
     }
 
     get selfCanSeeOrPeek() {
         const gameState = useGameStateStore()
         return gameState.selfPlayer ?
                 cardVisibility.canSeeOrPeek(gameState.selfPlayer, this)
-            :   false
+            :   anyoneCanSee(this)
     }
 
     isMinion(): this is Minion {

@@ -366,7 +366,7 @@ export async function onReceiveResyncGameState(syncMessage: GameStateSyncMessage
     await applyGameResync(syncMessage)
 }
 
-export async function reconnectIntoGame(gameRoom?: GameRoom) {
+export async function connectIntoGame(gameRoom?: GameRoom) {
     const bus = useBusStore()
 
     if (gameRoom) {

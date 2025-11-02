@@ -29,6 +29,7 @@
 
     <!-- Minus Pool -->
     <ButtonGo
+        v-if="gameState.isPlayer"
         :x="x + width / 2 - 35"
         :y="y + height / 2"
         :width="25"
@@ -55,7 +56,7 @@
         :y="y + height / 2"
         @create="onPoolDiamondCreate"
         @pointerdown.stop
-        @pointerup.stop="gameBus.changePool = { show: true, player: player }"
+        @pointerup.stop="onPoolDiamondPointerUp"
     />
     <Text
         :text="player.pool.toString()"
@@ -67,6 +68,7 @@
 
     <!-- Plus Pool -->
     <ButtonGo
+        v-if="gameState.isPlayer"
         :x="x + width / 2 + 35"
         :y="y + height / 2"
         :width="25"
@@ -161,6 +163,12 @@ function onTheEdgeCreate(theEdge: GameObjects.Image) {
     theEdge.setInteractive({
         cursor: 'pointer',
     })
+}
+
+function onPoolDiamondPointerUp() {
+    if (gameState.isPlayer) {
+        gameBus.changePool = { show: true, player }
+    }
 }
 
 /**

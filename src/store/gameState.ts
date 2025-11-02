@@ -115,18 +115,34 @@ export const useGameStateStore = defineStore('gameState', {
             return owners
         },
 
-        selfPlayerOid: (state): PlayerOid =>
+        // May be undefined for spectators
+        selfPlayerOid: (state): PlayerOid | undefined =>
             state.usersToPlayer[useCoreStore().userProfile.permanentId],
-        // Self player might be undefined at some point during multiplayer games
+        // May be undefined for spectators, or during temporary loading states
         selfPlayer(state): Player | undefined {
-            return state.players[this.selfPlayerOid]
+            return this.selfPlayerOid ? state.players[this.selfPlayerOid] : undefined
         },
         selfIsActive(): boolean {
-            return this.activePlayer ? this.selfPlayerOid == this.activePlayer.oid : false
+            return this.activePlayer && this.selfPlayerOid ?
+                    this.selfPlayerOid == this.activePlayer.oid
+                :   false
         },
-        selfPlayerSeatingIndex(state): number {
-            return state.turnOrder.findIndex(playerOid => playerOid === this.selfPlayerOid)
+
+        isPlayer(): boolean {
+            return !!this.selfPlayerOid
         },
+        isSpectator(): boolean {
+            return !this.selfPlayerOid
+        },
+        // If user is a player, returns self player.
+        // If user is a spectator, arbitrarily use the first player
+        centralPlayer(): Player {
+            return this.selfPlayer ? this.selfPlayer : this.orderedPlayers[0]
+        },
+        centralPlayerSeatingIndex(state): number {
+            return state.turnOrder.findIndex(playerOid => playerOid === this.centralPlayer.oid)
+        },
+
         // Not impacted by ousted players
         orderedPlayers: state => state.turnOrder.map(playerOid => state.players[playerOid]),
         // Non-ousted ordered players
@@ -142,13 +158,13 @@ export const useGameStateStore = defineStore('gameState', {
         },
 
         /**
-         * Return a neighbour player, starting at self player
+         * Return a neighbour player, starting at central player
          * 0 will return self player, 1 will return prey, 2 will return grandprey, etc...
          */
         getNthNeighbour() {
             return (n: number) => {
                 return this.orderedPlayers[
-                    (this.selfPlayerSeatingIndex + n) % this.orderedPlayers.length
+                    (this.centralPlayerSeatingIndex + n) % this.orderedPlayers.length
                 ]
             }
         },

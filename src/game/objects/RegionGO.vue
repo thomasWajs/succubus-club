@@ -51,6 +51,9 @@ import { AnyCardRegion } from '@/model/CardRegion.ts'
 import Color = Phaser.Display.Color
 import { PhaserDataKey } from '@/game/types.ts'
 import { getDraggedCard } from '@/game/utils.ts'
+import { useGameStateStore } from '@/store/gameState.ts'
+
+const gameState = useGameStateStore()
 
 const props = defineProps<{
     x: number
@@ -72,7 +75,11 @@ function onBoundariesCreate(boundaries: GameObjects.Rectangle) {
         ({}, cardImage: GameObjects.Image, target: GameObjects.Rectangle) => {
             // Highlight target region if it's different from the source region
             const card = getDraggedCard(cardImage)
-            if (target == boundaries && card.region.oid != props.cardRegion.oid) {
+            if (
+                target == boundaries &&
+                card.region.oid != props.cardRegion.oid &&
+                gameState.isPlayer
+            ) {
                 isDraggedOver.value = true
             }
         },

@@ -16,7 +16,10 @@
             />
         </div>
 
-        <div class="chat-box">
+        <div
+            v-if="gameState.isPlayer"
+            class="chat-box"
+        >
             <input
                 ref="chatInput"
                 v-model="chatMessageText"

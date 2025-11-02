@@ -56,17 +56,26 @@
         </template>
 
         <PlayAreaGO
-            v-if="gameState.selfPlayer"
+            v-if="gameState.centralPlayer"
             key="PlayAreaCenter"
-            :player="gameState.selfPlayer"
+            :player="gameState.centralPlayer"
             :x="PLAY_AREA_X"
             :y="PLAY_AREA_Y"
         />
 
         <!-- Menus -->
-        <ChangePoolMenu v-show="sceneReady" />
-        <ContextMenu v-show="sceneReady" />
-        <ContextSubmenu v-show="sceneReady" />
+        <ChangePoolMenu
+            v-if="gameState.isPlayer"
+            v-show="sceneReady"
+        />
+        <ContextMenu
+            v-if="gameState.isPlayer"
+            v-show="sceneReady"
+        />
+        <ContextSubmenu
+            v-if="gameState.isPlayer"
+            v-show="sceneReady"
+        />
 
         <!-- Card Stack -->
         <WieldCardStack

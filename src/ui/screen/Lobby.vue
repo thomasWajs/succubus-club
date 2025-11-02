@@ -9,10 +9,10 @@
             <span>Your previous game is still running.</span>
             <button
                 class="reconnect-banner-btn"
-                :disabled="isReconnecting"
-                @click="handleReconnect(showReconnectSuggestion)"
+                :disabled="isConnecting"
+                @click="startConnectIntoGame(showReconnectSuggestion)"
             >
-                <template v-if="isReconnecting">
+                <template v-if="isConnecting">
                     <span class="reconnect-spinner" />
                     Reconnecting...
                 </template>
@@ -251,32 +251,27 @@
                         <template
                             v-if="multiplayer.currentGameRoom.isStarted && !multiplayer.selfIsReady"
                         >
-                            <div
-                                v-if="
-                                    multiplayer.currentGameRoom?.seating &&
-                                    multiplayer.currentGameRoom.seating.includes(
-                                        multiplayer.selfUser.permId,
-                                    )
-                                "
+                            <button
+                                class="connect-btn"
+                                :disabled="isConnecting"
+                                @click="startConnectIntoGame()"
                             >
-                                <button
-                                    class="reconnect-btn"
-                                    :disabled="isReconnecting"
-                                    @click="handleReconnect()"
+                                <template v-if="isConnecting">
+                                    <span class="reconnect-spinner" />
+                                    Connecting...
+                                </template>
+                                <template
+                                    v-else-if="
+                                        multiplayer.currentGameRoom?.seating &&
+                                        multiplayer.currentGameRoom.seating.includes(
+                                            multiplayer.selfUser.permId,
+                                        )
+                                    "
                                 >
-                                    <template v-if="isReconnecting">
-                                        <span class="reconnect-spinner" />
-                                        Reconnecting...
-                                    </template>
-                                    <template v-else> Reconnect to Game </template>
-                                </button>
-                            </div>
-                            <div
-                                v-else
-                                class="spectate-disabled"
-                            >
-                                Spectate is not available yet
-                            </div>
+                                    Reconnect to game
+                                </template>
+                                <template v-else> Spectate game </template>
+                            </button>
                         </template>
 
                         <template v-else>
@@ -333,7 +328,7 @@ import { computed, ref, onMounted } from 'vue'
 import { useMultiplayerStore } from '@/store/multiplayer.ts'
 import {
     joinGameRoom,
-    reconnectIntoGame,
+    connectIntoGame,
     launchGame,
     leaveGameRoom,
     rollSeating,
@@ -351,7 +346,7 @@ const multiplayer = useMultiplayerStore()
 const bus = useBusStore()
 
 const roomName = ref('')
-const isReconnecting = ref(false)
+const isConnecting = ref(false)
 const showDiscoveryMessage = ref(false)
 const isStartingGame = ref(false)
 
@@ -452,13 +447,13 @@ function tryLaunchGame() {
 }
 
 /**
- *  Reconnection with feedback
+ *  Spectate/Reconnection with feedback
  */
 
-async function handleReconnect(gameRoom?: any) {
-    isReconnecting.value = true
+async function startConnectIntoGame(gameRoom?: any) {
+    isConnecting.value = true
     try {
-        await reconnectIntoGame(gameRoom)
+        await connectIntoGame(gameRoom)
     } catch (error) {
         let message = 'Failed to reconnect to the game'
         if (error instanceof Error) {
@@ -467,7 +462,7 @@ async function handleReconnect(gameRoom?: any) {
         bus.alertError(message)
         logging.captureException(error)
     } finally {
-        isReconnecting.value = false
+        isConnecting.value = false
     }
 }
 
@@ -898,7 +893,7 @@ if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
     align-items: flex-start;
 }
 
-.reconnect-btn {
+.connect-btn {
     @include button-purple;
 }
 
@@ -918,8 +913,7 @@ if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
     @include button-light-grey;
 }
 
-.host-message,
-.spectate-disabled {
+.host-message {
     color: $pale-grey;
     font-style: italic;
     background: linear-gradient(135deg, rgba($shadow-purple, 0.3) 0%, rgba($deep-purple, 0.5) 100%);
