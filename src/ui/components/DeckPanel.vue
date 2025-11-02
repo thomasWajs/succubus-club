@@ -6,14 +6,6 @@
     >
         <template #title>Deck Selection</template>
 
-        <div class="alert-message">
-            <span class="alert-icon">⚠️</span>
-            <span class="alert-text">
-                New V5 Sabbat cards cannot be imported until the KRCG API is updated to handle them.
-                Sorry for the inconvenience!
-            </span>
-        </div>
-
         <div class="deck-panel-content">
             <div class="current-deck">
                 <span class="current-deck-label">Currently&nbsp;:&nbsp;</span>
