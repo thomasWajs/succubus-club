@@ -145,7 +145,7 @@ function applyPeerMutation(gameMutation: AnyGameMutation, remoteVersion?: Vector
 
             // Handle mutations from losing players, in reverse order
             for (const localMutation of localConflictingMutations.toReversed()) {
-                if (localMutation.author.permId !== winningPermId) {
+                if (localMutation.author.permId !== winningPermId && localMutation.isCancellable) {
                     // Cancel mutations that were already applied, but only locally.
                     // Broadcasting is not needed as other peers will run the same conflict resolution.
                     const cancelMutation = localMutation.getCancelMutation()

@@ -55,6 +55,8 @@ export type GameMutationName = keyof typeof gameMutations
 export abstract class GameMutation<ParamsType extends GameMutationParams> {
     readonly id: GameMutationId // Used to identify mutation when cancelling it
     abstract readonly syncMode: MutationSyncMode
+
+    isCancellable = true
     isUserCancellable = true
     cancelToResolveConflict = false // will be set to true if the mutation is cancelled to resolve a conflict
 
@@ -146,7 +148,7 @@ export abstract class GameMutation<ParamsType extends GameMutationParams> {
      */
 
     cancel() {
-        if (!this.isUserCancellable) {
+        if (!this.isUserCancellable || !this.isCancellable) {
             throw new Error('Cannot cancel this type of mutation')
         }
         dispatchMutation(this.getCancelMutation())
@@ -1124,6 +1126,7 @@ interface ShuffleParams extends GameMutationParams {
 }
 
 class Shuffle extends GameMutation<ShuffleParams> {
+    isCancellable = false
     isUserCancellable = false
     readonly syncMode = MutationSyncMode.Ordered
 
@@ -1144,6 +1147,7 @@ class Shuffle extends GameMutation<ShuffleParams> {
  * Unlock ALl
  */
 class UnlockAll extends PlayerMutation {
+    isCancellable = false
     isUserCancellable = false
     readonly syncMode = MutationSyncMode.Exclusive
 
@@ -1479,6 +1483,7 @@ interface TargetDeclarationParams extends GameMutationParams {
 
 class ArrowAdd extends GameMutation<TargetDeclarationParams> {
     readonly syncMode = MutationSyncMode.Ordered
+    isUserCancellable = false
 
     protected get _versioningId(): VersioningId {
         return VersioningTarget.Arrow
@@ -1513,6 +1518,7 @@ class ArrowAdd extends GameMutation<TargetDeclarationParams> {
 
 class ArrowRemove extends GameMutation<TargetDeclarationParams> {
     readonly syncMode = MutationSyncMode.Ordered
+    isUserCancellable = false
 
     protected get _versioningId(): VersioningId {
         return VersioningTarget.Arrow
@@ -1543,8 +1549,9 @@ class ArrowRemove extends GameMutation<TargetDeclarationParams> {
 }
 
 class ArrowClear extends GameMutation<EmptyParams> {
-    isUserCancellable = false
     readonly syncMode = MutationSyncMode.Ordered
+    isUserCancellable = false
+    isCancellable = false
 
     protected get _versioningId(): VersioningId {
         return VersioningTarget.Arrow
@@ -1569,8 +1576,9 @@ interface ChangeScaleParams extends GameMutationParams {
 }
 
 class ChangeScale extends GameMutation<ChangeScaleParams> {
-    isUserCancellable = false
     readonly syncMode = MutationSyncMode.Ordered
+    isUserCancellable = false
+    isCancellable = false
 
     protected get _versioningId(): VersioningId {
         return VersioningTarget.Scale
