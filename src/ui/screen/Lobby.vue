@@ -431,10 +431,10 @@ function getUserStatusText(user: User) {
  *  Game Launching
  */
 
-function tryLaunchGame() {
+async function tryLaunchGame() {
     isStartingGame.value = true
     try {
-        launchGame()
+        await launchGame()
     } catch (error) {
         let message = 'An error occurred while starting the game'
         if (error instanceof Error) {

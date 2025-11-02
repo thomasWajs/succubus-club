@@ -69,10 +69,10 @@ export async function ablySubscribe<T>(
     messageType: PubsubMessageType,
     messageHandler: messageCallback<T>,
 ) {
-    await channel.subscribe(messageType, (message: InboundMessage) => {
+    await channel.subscribe(messageType, async (message: InboundMessage) => {
         // Capture all errors on receivers
         try {
-            messageHandler(message.data as T)
+            await messageHandler(message.data as T)
         } catch (e) {
             logging.captureException(e)
         }
