@@ -99,6 +99,14 @@ export abstract class Card extends BaseModel {
         return this.selfCanSeeOrPeek ? this.name : 'Hidden Card'
     }
 
+    get rulings() {
+        return this.resource.rulings
+    }
+
+    get text() {
+        return this.resource.text
+    }
+
     get controller() {
         return useGameStateStore().players[this.controllerOid]
     }
@@ -234,25 +242,6 @@ export abstract class Card extends BaseModel {
         return useGameBusStore().selectedCards.includes(this)
     }
 
-    isUsable() {
-        const gameState = useGameStateStore()
-        const resource = this.resource as LibraryCardResource
-        return (
-            (gameState.selfIsActive &&
-                gameState.turnPhase == TurnPhase.Master &&
-                resource.type == LibraryCardType.Master) ||
-            (gameState.selfIsActive &&
-                gameState.turnPhase == TurnPhase.Minion &&
-                ACTION_TYPES.includes(resource.type)) ||
-            (gameState.selfIsActive &&
-                gameState.turnPhase == TurnPhase.Discard &&
-                resource.type == LibraryCardType.Event) ||
-            (!gameState.selfIsActive &&
-                gameState.turnPhase == TurnPhase.Minion &&
-                resource.type == LibraryCardType.Reaction)
-        )
-    }
-
     abstract get backTexture(): CardTexture
 
     get texture(): CardTexture {
@@ -375,12 +364,6 @@ export class LibraryCard extends Card {
         return this.resource.requirement
     }
 
-    /*
-    get text() {
-        return this.resource.text
-    }
-     */
-
     get backTexture() {
         return {
             textureName: Texture.CardbackLibrary,
@@ -389,6 +372,25 @@ export class LibraryCard extends Card {
 
     get implementation(): AllImplementationsType | undefined {
         return LIB_CARD_IMPLEMENTATIONS[this.krcgId]
+    }
+
+    isUsable() {
+        const gameState = useGameStateStore()
+        const resource = this.resource
+        return (
+            (gameState.selfIsActive &&
+                gameState.turnPhase == TurnPhase.Master &&
+                resource.type == LibraryCardType.Master) ||
+            (gameState.selfIsActive &&
+                gameState.turnPhase == TurnPhase.Minion &&
+                ACTION_TYPES.includes(resource.type)) ||
+            (gameState.selfIsActive &&
+                gameState.turnPhase == TurnPhase.Discard &&
+                resource.type == LibraryCardType.Event) ||
+            (!gameState.selfIsActive &&
+                gameState.turnPhase == TurnPhase.Minion &&
+                resource.type == LibraryCardType.Reaction)
+        )
     }
 }
 

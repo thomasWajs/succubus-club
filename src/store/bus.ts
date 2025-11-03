@@ -4,7 +4,6 @@ import { Card, CardOid } from '@/model/Card.ts'
 import Phaser, { GameObjects } from 'phaser'
 import { Player, PlayerOid } from '@/model/Player.ts'
 import { AnyCardRegion } from '@/model/CardRegion.ts'
-import { useCoreStore } from '@/store/core.ts'
 import { SavingState } from '@/gateway/savedGames.ts'
 import Rectangle = Phaser.Geom.Rectangle
 import Pointer = Phaser.Input.Pointer
@@ -147,19 +146,6 @@ export const useGameBusStore = defineStore('gameBus', {
     }),
 
     getters: {
-        closeUpCardImage(state) {
-            const core = useCoreStore()
-
-            if (!state.closeUpCard.card) {
-                return null
-            }
-
-            const texture =
-                state.closeUpCard.canView ?
-                    state.closeUpCard.card.texture
-                :   state.closeUpCard.card.backTexture
-            return core.phaserGame.textures.getBase64(texture.textureName, texture.frameName)
-        },
         selectionAreaRect(state) {
             if (
                 !state.selectionArea.show ||

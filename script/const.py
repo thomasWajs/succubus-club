@@ -76,8 +76,9 @@ CRYPT_KEYS = [
     'id',
     'imageName',
     'name',
+    'rulings',
     'sect',
-    # 'text',
+    'text',
     'title',
 ]
 
@@ -90,6 +91,7 @@ LIB_KEYS = [
     'name',
     'pool',
     'requirement',
-    # 'text',
+    'rulings',
+    'text',
     'type',
 ]

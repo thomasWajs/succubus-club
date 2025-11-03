@@ -12,13 +12,18 @@ export type deckName = string
 export type KrcgId = string
 
 export type Disciplines = Record<Discipline, DisciplineLevel>
+export type Ruling = {
+    text: string
+    refs: Record<string, string>
+}
 
 export interface CardResource {
     clan: string
     id: number // Here the card id is an integer, but we'll use in string format instead.
     imageName: string
     name: string
-    // text: string
+    text: string
+    rulings: Ruling[]
 }
 
 export interface CryptCardResource extends CardResource {
