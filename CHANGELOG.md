@@ -1,3 +1,9 @@
+## [0.3.1] - 2025-11-03
+
+Features:
+- Spectate a game
+- Passwords on game rooms
+
 ## [0.3.0] - 2025-10-30
 
 Features:
