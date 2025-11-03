@@ -144,7 +144,9 @@ async function setupSelfUserWatcher() {
             multiplayer.upsertUser(multiplayer.selfUser)
 
             debounceTimer = setTimeout(() => {
-                lobbyChannel.presence.update(selfUser)
+                if (lobbyChannel.state == 'attached') {
+                    lobbyChannel.presence.update(selfUser)
+                }
                 debounceTimer = null
             }, DEBOUNCE_DELAY)
         },
