@@ -4,7 +4,7 @@ import { useMultiplayerStore } from '@/store/multiplayer.ts'
 import { useBusStore } from '@/store/bus.ts'
 import { leaveMultiplayer } from '@/multiplayer/lobby.ts'
 
-const IDLE_TIME = 15 * 60 * 1000 // 15 minutes
+const IDLE_TIME = 20 * 60 * 1000 // 20 minutes
 const events = ['keydown', 'mousedown', 'scroll', 'touchstart']
 
 const idle = new IdleJs({

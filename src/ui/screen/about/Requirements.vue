@@ -23,6 +23,7 @@
                 <li><strong>Modern CSS & JavaScript ( ES2023 )</strong></li>
                 <li><strong>WebGL 2.0:</strong> Game rendering and graphics</li>
                 <li><strong>IndexedDB:</strong> Local database storage</li>
+                <li><strong>Cryptography:</strong> Secure rooms with encryption</li>
                 <li><strong>Web Assembly:</strong> Hash algorithm</li>
             </ul>
 

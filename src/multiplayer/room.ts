@@ -1,5 +1,5 @@
 import { watch, WatchHandle } from 'vue'
-import { PresenceMessage } from 'ably'
+import Ably, { PresenceMessage, ChannelOptions } from 'ably'
 import { ablyPublish, ablySubscribe, getAbly } from '@/gateway/realtime.ts'
 import {
     GameMutationMessage,
@@ -35,12 +35,21 @@ import {
 } from '@/multiplayer/sync.ts'
 import { broadcastGameRoom, deleteGameRoom } from '@/multiplayer/lobby.ts'
 import { fetchGameState, storeGameState } from '@/gateway/gameState.ts'
+import { Key } from '@/multiplayer/encryption.ts'
 
 let _room: ReturnType<typeof connectRoom> | null = null
 
-async function connectRoom(roomId: RoomId) {
+async function connectRoom(roomId: RoomId, key?: Key) {
     const ably = getAbly()
-    const roomChannel = ably.channels.get(roomId)
+
+    let channelConfig: ChannelOptions = {}
+    if (key) {
+        channelConfig = {
+            cipher: Ably.Realtime.Crypto.getDefaultParams({ key: key.buffer }),
+        }
+    }
+
+    const roomChannel = ably.channels.get(roomId, channelConfig)
     await roomChannel.attach()
 
     return {
@@ -49,11 +58,11 @@ async function connectRoom(roomId: RoomId) {
         roomChannel,
     }
 }
-async function initRoom(roomId: RoomId) {
+async function initRoom(roomId: RoomId, key?: Key) {
     if (_room) {
         throw new Error('Room already initialized')
     }
-    _room = connectRoom(roomId)
+    _room = connectRoom(roomId, key)
 }
 
 async function useRoom() {
@@ -75,7 +84,7 @@ function ensureGameRoom(): GameRoom {
  * Joins / Leave
  */
 
-export async function joinGameRoom(gameRoom: GameRoom) {
+export async function joinGameRoom(gameRoom: GameRoom, key?: Key) {
     const multiplayer = useMultiplayerStore()
     const bus = useBusStore()
 
@@ -88,7 +97,7 @@ export async function joinGameRoom(gameRoom: GameRoom) {
         // Leave any previous room
         await leaveGameRoom()
 
-        await initRoom(gameRoom.id)
+        await initRoom(gameRoom.id, key)
         const { roomChannel } = await useRoom()
 
         multiplayer.selfIsReady = false

@@ -14,6 +14,7 @@ import { useBusStore } from '@/store/bus.ts'
 import { GameRoom, PermanentId, RoomId } from '@/multiplayer/types.ts'
 import { joinGameRoom, leaveGameRoom } from '@/multiplayer/room.ts'
 import { hash } from '@/gateway/serialization.ts'
+import { computeKey } from '@/multiplayer/encryption.ts'
 
 let LOBBY_CHANNEL_NAME = 'Lobby'
 const DEBOUNCE_DELAY = 500 // milliseconds
@@ -191,6 +192,8 @@ async function syncGameRooms(snapshot: DataSnapshot) {
 
 export async function createGameRoom(
     roomName: string,
+    password: string = '',
+    allowSpectators: boolean = true,
     seating: PermanentId[] = [],
     isStarted: boolean = false,
 ) {
@@ -202,17 +205,25 @@ export async function createGameRoom(
         return
     }
 
+    let key
+    if (password) {
+        multiplayer.password = password
+        key = await computeKey(password)
+    }
+
     const gameRoom = {
         id: hash(roomName).toString(),
         name: roomName,
         hostId: multiplayer.selfUser.permId,
         isStarted,
-        hasPassword: false,
+        hasPassword: password != '',
+        passwordHash: key?.hash ?? '',
+        allowSpectators,
         players: [multiplayer.selfUser.permId],
         seating,
     }
     multiplayer.upsertGameRoom(gameRoom)
-    await joinGameRoom(gameRoom)
+    await joinGameRoom(gameRoom, key)
     await broadcastGameRoom(gameRoom)
 }
 

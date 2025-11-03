@@ -87,7 +87,13 @@ function continueSavedGame(savedGame: DbSavedGame) {
 
     if (savedGame.gameType === GameType.Multiplayer) {
         joinLobby()
-        createGameRoom(savedGame.roomName, savedGame.seating, true)
+        createGameRoom(
+            savedGame.roomName,
+            savedGame.password,
+            !!savedGame.allowSpectators,
+            savedGame.seating,
+            true,
+        )
         core.userProfile.setLastMultiGame(savedGame.roomName)
     }
 }

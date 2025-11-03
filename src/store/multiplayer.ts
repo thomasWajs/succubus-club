@@ -32,6 +32,8 @@ export const useMultiplayerStore = defineStore('multiplayer', {
 
         selfIsReady: false,
 
+        password: '',
+
         /**
          *  Game state synchronization
          */

@@ -24,8 +24,9 @@ export type GameRoom = {
     hostId: PermanentId
     isStarted: boolean
     hasPassword: boolean
+    passwordHash: string
+    allowSpectators: boolean
     players: PermanentId[] // permanentId in arbitrary order
-    // spectators: PermanentId[] // permanentId in arbitrary order
     seating?: PermanentId[] // permanentId in the order of the seating
 }
 

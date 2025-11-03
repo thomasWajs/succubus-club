@@ -47,7 +47,7 @@ export async function saveGame(isAutoSave: boolean) {
         const autoSavePrefix = isAutoSave ? '[AutoSave] ' : ''
         const saveName = `${autoSavePrefix} ${formattedDate}`
 
-        const seating = multiplayer.currentGameRoom?.seating?.slice() ?? []
+        const gameRoom = multiplayer.currentGameRoom
 
         await db.savedGames.add({
             date: new Date(),
@@ -56,7 +56,10 @@ export async function saveGame(isAutoSave: boolean) {
             isAutoSave: isAutoSave ? 1 : 0,
             gameType: core.gameType,
             roomName: multiplayer.currentGameRoom?.name ?? '',
-            seating,
+            password: multiplayer.password,
+            // We cannot index boolean in Dexie, so fallback on 0=false / 1=true
+            allowSpectators: gameRoom?.allowSpectators ? 1 : 0,
+            seating: gameRoom?.seating?.slice() ?? [],
             game: serializeGame(),
         })
     } catch (err) {

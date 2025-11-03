@@ -73,6 +73,26 @@ kbd {
     letter-spacing: 0.5px;
 }
 
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: $pearl-grey;
+    font-size: 0.9rem;
+    cursor: pointer;
+    user-select: none;
+
+    input[type='checkbox'] {
+        cursor: pointer;
+        width: 18px;
+        height: 18px;
+    }
+
+    &:hover {
+        color: $mist-grey;
+    }
+}
+
 .red-badge {
     @include badge;
     background: $dark-blood;

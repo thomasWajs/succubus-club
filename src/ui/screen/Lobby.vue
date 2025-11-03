@@ -96,10 +96,35 @@
                                 <span class="player-count">
                                     {{ gameRoom.players.length }}/5 Players
                                 </span>
+                                <div
+                                    v-if="gameRoom.hasPassword"
+                                    class="password-input-wrapper"
+                                >
+                                    <input
+                                        v-model="roomPasswords[gameRoom.id]"
+                                        type="text"
+                                        class="room-password-input"
+                                        :class="{
+                                            'password-error-input': roomPasswordErrors[gameRoom.id],
+                                        }"
+                                        placeholder="Enter password to join..."
+                                        @click.stop
+                                        @input="roomPasswordErrors[gameRoom.id] = false"
+                                    />
+                                    <span
+                                        v-if="roomPasswordErrors[gameRoom.id]"
+                                        class="password-error"
+                                    >
+                                        Incorrect password
+                                    </span>
+                                </div>
                                 <button
                                     class="join-btn"
-                                    :disabled="gameRoom.id == multiplayer.currentGameRoomId"
-                                    @click="joinGameRoom(gameRoom)"
+                                    :disabled="
+                                        gameRoom.id == multiplayer.currentGameRoomId ||
+                                        (gameRoom.hasPassword && !roomPasswords[gameRoom.id])
+                                    "
+                                    @click="onJoinGameRoom(gameRoom)"
                                 >
                                     Join →
                                 </button>
@@ -124,6 +149,25 @@
                     >
                         Create Room
                     </button>
+                </div>
+
+                <!-- Additional Room Options -->
+                <div class="room-options">
+                    <input
+                        v-model="roomPassword"
+                        type="text"
+                        class="input-field room-password"
+                        :disabled="multiplayer.currentGameRoomId !== null"
+                        placeholder="Password (optional)..."
+                    />
+                    <label class="checkbox-label">
+                        <input
+                            v-model="allowSpectators"
+                            type="checkbox"
+                            :disabled="multiplayer.currentGameRoomId !== null"
+                        />
+                        <span>Allow spectators</span>
+                    </label>
                 </div>
             </div>
 
@@ -251,7 +295,15 @@
                         <template
                             v-if="multiplayer.currentGameRoom.isStarted && !multiplayer.selfIsReady"
                         >
+                            <div
+                                v-if="!isPlayer && !multiplayer.currentGameRoom?.allowSpectators"
+                                class="spectate-disallowed"
+                            >
+                                Spectators are not allowed
+                            </div>
+
                             <button
+                                v-else
                                 class="connect-btn"
                                 :disabled="isConnecting"
                                 @click="startConnectIntoGame()"
@@ -260,16 +312,7 @@
                                     <span class="reconnect-spinner" />
                                     Connecting...
                                 </template>
-                                <template
-                                    v-else-if="
-                                        multiplayer.currentGameRoom?.seating &&
-                                        multiplayer.currentGameRoom.seating.includes(
-                                            multiplayer.selfUser.permId,
-                                        )
-                                    "
-                                >
-                                    Reconnect to game
-                                </template>
+                                <template v-else-if="isPlayer"> Reconnect to game </template>
                                 <template v-else> Spectate game </template>
                             </button>
                         </template>
@@ -335,20 +378,16 @@ import {
 } from '@/multiplayer/room.ts'
 import TopBar from '@/ui/components/TopBar.vue'
 import { useCoreStore } from '@/store/core.ts'
-import { User } from '@/multiplayer/types.ts'
+import { GameRoom, User } from '@/multiplayer/types.ts'
 import UserAvatar from '@/ui/components/UserAvatar.vue'
 import * as logging from '@/logging.ts'
 import { useBusStore } from '@/store/bus.ts'
 import { createGameRoom } from '@/multiplayer/lobby.ts'
+import { computeKey } from '@/multiplayer/encryption.ts'
 
 const core = useCoreStore()
 const multiplayer = useMultiplayerStore()
 const bus = useBusStore()
-
-const roomName = ref('')
-const isConnecting = ref(false)
-const showDiscoveryMessage = ref(false)
-const isStartingGame = ref(false)
 
 const orderedUsers = computed<User[]>(() => {
     return multiplayer.isSeatingReady ?
@@ -367,7 +406,7 @@ const showReconnectSuggestion = computed(() => {
         +Date.now() - +core.userProfile.lastMultiGameDate < THREE_HOURS
     ) {
         const gameRoom = multiplayer.gameRooms[core.userProfile.lastMultiGameId]
-        if (gameRoom && gameRoom.isStarted) {
+        if (gameRoom && gameRoom.isStarted && !gameRoom.hasPassword) {
             return gameRoom
         }
     }
@@ -379,6 +418,8 @@ const showReconnectSuggestion = computed(() => {
  */
 
 const DISCOVERY_MESSAGE_DURATION = 8000
+const showDiscoveryMessage = ref(false)
+
 onMounted(() => {
     showDiscoveryMessage.value = true
     setTimeout(() => {
@@ -387,8 +428,14 @@ onMounted(() => {
 })
 
 /**
- *  Game room creation
+ *  Game room creation / join
  */
+
+const roomName = ref('')
+const roomPassword = ref('')
+const roomPasswords = ref<{ [gameRoomId: string]: string }>({})
+const roomPasswordErrors = ref<{ [gameRoomId: string]: boolean }>({})
+const allowSpectators = ref(true)
 
 function onCreateGameRoom() {
     const cleanedRoomName = roomName.value.trim()
@@ -396,8 +443,25 @@ function onCreateGameRoom() {
         return
     }
 
-    createGameRoom(cleanedRoomName)
+    createGameRoom(cleanedRoomName, roomPassword.value, allowSpectators.value)
     roomName.value = ''
+    roomPassword.value = ''
+    allowSpectators.value = true
+}
+
+async function onJoinGameRoom(gameRoom: GameRoom) {
+    if (gameRoom.hasPassword) {
+        const password = roomPasswords.value[gameRoom.id] || ''
+        const key = await computeKey(password)
+        if (key.hash != gameRoom.passwordHash) {
+            roomPasswordErrors.value[gameRoom.id] = true
+        } else {
+            roomPasswordErrors.value[gameRoom.id] = false
+            await joinGameRoom(gameRoom, key)
+        }
+    } else {
+        await joinGameRoom(gameRoom)
+    }
 }
 
 /**
@@ -431,6 +495,8 @@ function getUserStatusText(user: User) {
  *  Game Launching
  */
 
+const isStartingGame = ref(false)
+
 async function tryLaunchGame() {
     isStartingGame.value = true
     try {
@@ -449,6 +515,15 @@ async function tryLaunchGame() {
 /**
  *  Spectate/Reconnection with feedback
  */
+
+const isConnecting = ref(false)
+
+const isPlayer = computed(() => {
+    return (
+        multiplayer.currentGameRoom?.seating &&
+        multiplayer.currentGameRoom.seating.includes(multiplayer.selfUser.permId)
+    )
+})
 
 async function startConnectIntoGame(gameRoom?: any) {
     isConnecting.value = true
@@ -700,6 +775,36 @@ if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
     align-items: center;
     gap: 1rem;
 
+    .password-input-wrapper {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        position: relative;
+    }
+
+    .room-password-input {
+        @include input-base;
+        font-size: 0.85rem;
+        padding: 0.4rem 0.6rem;
+        width: 180px;
+
+        &.password-error-input {
+            background: $burgundy-red;
+            border-color: $rose-red;
+        }
+    }
+
+    .password-error {
+        font-size: 0.75rem;
+        color: $rose-red;
+        background: $burgundy-red;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        white-space: nowrap;
+        padding: 0.25rem;
+    }
+
     .player-count {
         font-size: 0.8rem;
         color: $silver-grey;
@@ -732,6 +837,20 @@ if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
 
 .create-room-btn {
     @include button-purple;
+}
+
+.room-options {
+    display: flex;
+    gap: 1rem;
+    margin-top: 0.75rem;
+    margin-right: 10rem;
+    align-items: center;
+    justify-content: space-between;
+
+    .room-password {
+        max-width: 400px;
+        flex-grow: 1;
+    }
 }
 
 /**
@@ -913,7 +1032,8 @@ if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
     @include button-light-grey;
 }
 
-.host-message {
+.host-message,
+.spectate-disallowed {
     color: $pale-grey;
     font-style: italic;
     background: linear-gradient(135deg, rgba($shadow-purple, 0.3) 0%, rgba($deep-purple, 0.5) 100%);
