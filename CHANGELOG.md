@@ -1,6 +1,7 @@
 ## [0.3.1] - 2025-11-03
 
 Features:
+- Card rulings in the right column
 - Spectate a game
 - Passwords on game rooms
 
