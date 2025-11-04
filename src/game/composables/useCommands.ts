@@ -1,3 +1,4 @@
+import { reactive } from 'vue'
 import { gameMutations } from '@/state/gameMutations.ts'
 import Phaser from 'phaser'
 import KeyCodes = Phaser.Input.Keyboard.KeyCodes
@@ -7,27 +8,49 @@ import { TurnSequence } from '@/model/const.ts'
 import { Card } from '@/model/Card.ts'
 import { resetCamera } from '@/game/camera.ts'
 import { useHistoryStore } from '@/store/history.ts'
+import { useCoreStore } from '@/store/core.ts'
 
 const KEYCODE_EQUALS_PLUS_FIREFOX = 61
 const KEYCODE_PLUS = 171
 const KEYCODE_MINUS_FIREFOX = 173
 
 export type Command = {
-    keyCodes: number[] // Array of Phaser.Input.Keyboard.KeyCodes
+    name: string // The technical name
+    label: string // Verbose label for users
     repr: string // The string to represent this key in the UI
+    keyCodes: number[] // Array of Phaser.Input.Keyboard.KeyCodes
     isDisabled: () => boolean
     trigger: () => void
     cardAction: (card: Card) => void
 }
+type Commands = Record<string, Command>
 
-export function useCommands() {
+let commands: Commands | null = null
+
+function createCommands(): Commands {
+    const core = useCoreStore()
     const gameBus = useGameBusStore()
     const gameState = useGameStateStore()
 
+    // Initialize shortcuts object if it doesn't exist
+    if (!core.userProfile.preferences.keyBindings) {
+        core.userProfile.preferences.keyBindings = {}
+    }
+    const keyBindings = core.userProfile.preferences.keyBindings
+
     function createCommand(command: Partial<Command>): Command {
+        const keyBinding = keyBindings[command.name ?? '']
+        const custom: Partial<Command> = {}
+        if (keyBinding) {
+            custom.repr = keyBinding.repr
+            custom.keyCodes = [keyBinding.keyCode]
+        }
+
         return {
-            keyCodes: [],
+            name: '',
+            label: '',
             repr: '',
+            keyCodes: [],
             isDisabled: () => false,
             trigger: () => {
                 throw new Error('trigger must be overridden')
@@ -36,6 +59,7 @@ export function useCommands() {
                 throw new Error('cardAction must be overridden')
             },
             ...command,
+            ...custom,
         }
     }
 
@@ -55,8 +79,10 @@ export function useCommands() {
 
     function createGoToPhaseCommand(keyCodes: number[], index: number) {
         return createCommand({
+            name: `GoToPhase-${TurnSequence[index]}`,
+            label: `${TurnSequence[index]} Phase`,
+            repr: index.toString(),
             keyCodes,
-            repr: TurnSequence[index],
             isDisabled: () => {
                 return gameState.turnPhaseIndex == index
             },
@@ -66,15 +92,16 @@ export function useCommands() {
         })
     }
 
-    return {
+    return reactive({
         AdvanceTurn: createCommand({
-            keyCodes: [KeyCodes.ENTER],
+            name: 'AdvanceTurn',
+            label: 'Advance Turn',
             repr: '↵',
+            keyCodes: [KeyCodes.ENTER],
             trigger: () => {
                 gameMutations.goToTurn.actSelf({ index: gameState.turnNumber + 1 })
             },
         }),
-
         BackTurn: createCommand({
             isDisabled: () => {
                 return gameState.turnNumber == 1
@@ -85,13 +112,27 @@ export function useCommands() {
         }),
 
         AdvanceTurnPhase: createCommand({
-            keyCodes: [KeyCodes.RIGHT, KeyCodes.SPACE],
+            name: 'AdvanceTurnPhase',
+            label: 'Next Phase',
             repr: '→',
+            keyCodes: [KeyCodes.RIGHT, KeyCodes.SPACE],
             isDisabled: () => {
                 return gameState.turnPhaseIndex >= TurnSequence.length - 1
             },
             trigger: () => {
                 gameMutations.goToTurnPhase.actSelf({ index: gameState.turnPhaseIndex + 1 })
+            },
+        }),
+        BackTurnPhase: createCommand({
+            name: 'BackTurnPhase',
+            label: 'Previous Phase',
+            repr: '←',
+            keyCodes: [KeyCodes.LEFT],
+            isDisabled: () => {
+                return gameState.turnPhaseIndex == 0
+            },
+            trigger: () => {
+                gameMutations.goToTurnPhase.actSelf({ index: gameState.turnPhaseIndex - 1 })
             },
         }),
 
@@ -101,20 +142,11 @@ export function useCommands() {
         GoToInfluence: createGoToPhaseCommand([KeyCodes.FOUR], 3),
         GoToDiscard: createGoToPhaseCommand([KeyCodes.FIVE], 4),
 
-        BackTurnPhase: createCommand({
-            keyCodes: [KeyCodes.LEFT],
-            repr: '←',
-            isDisabled: () => {
-                return gameState.turnPhaseIndex == 0
-            },
-            trigger: () => {
-                gameMutations.goToTurnPhase.actSelf({ index: gameState.turnPhaseIndex - 1 })
-            },
-        }),
-
         DrawCrypt: createCommand({
-            keyCodes: [KeyCodes.C],
+            name: 'DrawCrypt',
+            label: 'Draw Crypt',
             repr: 'C',
+            keyCodes: [KeyCodes.C],
             isDisabled: () => {
                 return gameState.selfPlayer?.crypt.isEmpty ?? true
             },
@@ -125,10 +157,11 @@ export function useCommands() {
                 gameMutations.drawCrypt.actSelf({ player: gameState.selfPlayer })
             },
         }),
-
         DrawLib: createCommand({
-            keyCodes: [KeyCodes.D],
+            name: 'DrawLib',
+            label: 'Draw Library',
             repr: 'D',
+            keyCodes: [KeyCodes.D],
             isDisabled: () => {
                 return gameState.selfPlayer?.library.isEmpty ?? true
             },
@@ -141,13 +174,15 @@ export function useCommands() {
         }),
 
         GainBlood: createCardCommand({
+            name: 'GainBlood',
+            label: 'Gain Blood',
+            repr: '+',
             keyCodes: [
                 KeyCodes.PLUS,
                 KeyCodes.NUMPAD_ADD,
                 KEYCODE_PLUS,
                 KEYCODE_EQUALS_PLUS_FIREFOX,
             ],
-            repr: '+',
             cardAction: (card: Card) => {
                 gameMutations.changeBlood.actSelf({
                     card,
@@ -155,8 +190,10 @@ export function useCommands() {
                 })
             },
         }),
-
         BurnBlood: createCardCommand({
+            name: 'BurnBlood',
+            label: 'Burn Blood',
+            repr: '-',
             // Six is for azerty keyboards, because I'm French 🙃
             keyCodes: [
                 KeyCodes.NUMPAD_SUBTRACT,
@@ -164,7 +201,6 @@ export function useCommands() {
                 KEYCODE_MINUS_FIREFOX,
                 KeyCodes.SIX,
             ],
-            repr: '-',
             cardAction: (card: Card) => {
                 gameMutations.changeBlood.actSelf({
                     card,
@@ -174,8 +210,10 @@ export function useCommands() {
         }),
 
         GainGreenCounter: createCardCommand({
-            keyCodes: [KeyCodes.G],
+            name: 'GainGreenCounter',
+            label: 'Gain Green Counter',
             repr: 'G',
+            keyCodes: [KeyCodes.G],
             cardAction: (card: Card) => {
                 gameMutations.changeGreenCounter.actSelf({
                     card,
@@ -183,10 +221,11 @@ export function useCommands() {
                 })
             },
         }),
-
         BurnGreenCounter: createCardCommand({
-            keyCodes: [KeyCodes.H],
+            name: 'BurnGreenCounter',
+            label: 'Burn Green Counter',
             repr: 'H',
+            keyCodes: [KeyCodes.H],
             cardAction: (card: Card) => {
                 gameMutations.changeGreenCounter.actSelf({
                     card,
@@ -196,8 +235,10 @@ export function useCommands() {
         }),
 
         Influence: createCardCommand({
-            keyCodes: [KeyCodes.I],
+            name: 'Influence',
+            label: 'Influence',
             repr: 'I',
+            keyCodes: [KeyCodes.I],
             isDisabled: () => {
                 return gameBus.selectedCards.filter(card => card.isIn.uncontrolled).length == 0
             },
@@ -212,8 +253,10 @@ export function useCommands() {
         }),
 
         Flip: createCardCommand({
-            keyCodes: [KeyCodes.F],
+            name: 'Flip',
+            label: 'Flip',
             repr: 'F',
+            keyCodes: [KeyCodes.F],
             cardAction: (card: Card) => {
                 gameMutations.setFlip.actSelf({
                     card,
@@ -223,8 +266,10 @@ export function useCommands() {
         }),
 
         UnlockAll: createCommand({
-            keyCodes: [KeyCodes.U],
+            name: 'UnlockAll',
+            label: 'Unlock All',
             repr: 'U',
+            keyCodes: [KeyCodes.U],
             trigger: () => {
                 if (!gameState.selfPlayer) {
                     return
@@ -236,8 +281,10 @@ export function useCommands() {
         }),
 
         DiscardAtRandom: createCommand({
-            keyCodes: [KeyCodes.R],
+            name: 'DiscardAtRandom',
+            label: 'Discard At Random',
             repr: 'R',
+            keyCodes: [KeyCodes.R],
             isDisabled: () => {
                 return gameState.selfPlayer?.hand.isEmpty ?? true
             },
@@ -252,8 +299,10 @@ export function useCommands() {
         }),
 
         Cancel: createCommand({
-            keyCodes: [KeyCodes.BACKSPACE],
+            name: 'Cancel',
+            label: 'Cancel',
             repr: '⟵',
+            keyCodes: [KeyCodes.BACKSPACE],
             isDisabled: () => {
                 return !useHistoryStore().nextCancellableMutation
             },
@@ -263,8 +312,10 @@ export function useCommands() {
         }),
 
         MoveToAshHeap: createCardCommand({
-            keyCodes: [KeyCodes.A],
+            name: 'MoveToAshHeap',
+            label: 'Move To Ash Heap',
             repr: 'A',
+            keyCodes: [KeyCodes.A],
             cardAction: (card: Card) => {
                 if (card.isIn.controlled || card.isIn.hand) {
                     gameMutations.moveCardToRegion.actSelf({
@@ -285,8 +336,10 @@ export function useCommands() {
         }),
 
         DeclareTarget: createCardCommand({
-            keyCodes: [KeyCodes.T],
+            name: 'DeclareTarget',
+            label: 'Declare Target',
             repr: 'T',
+            keyCodes: [KeyCodes.T],
             isDisabled: () => {
                 return gameBus.selectedCards.length > 1
             },
@@ -296,8 +349,10 @@ export function useCommands() {
         }),
 
         ClearDeclaredTargets: createCommand({
-            keyCodes: [KeyCodes.X],
+            name: 'ClearDeclaredTargets',
+            label: 'Clear Targets',
             repr: 'X',
+            keyCodes: [KeyCodes.X],
             isDisabled: () => {
                 return gameState.targetDeclarations.length == 0
             },
@@ -329,5 +384,18 @@ export function useCommands() {
                 })
             },
         }),
+    })
+}
+
+export function updateCommands() {
+    if (commands) {
+        Object.assign(commands, createCommands())
     }
+}
+
+export function useCommands(): Commands {
+    if (!commands) {
+        commands = createCommands()
+    }
+    return commands
 }

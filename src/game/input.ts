@@ -131,6 +131,9 @@ export function setupKeyboardHandlers(scene: Phaser.Scene) {
         return
     }
 
+    // reset keys, so multiple calls can update the key bindings properly
+    scene.input.keyboard.removeAllKeys()
+
     for (const command of Object.values(commands)) {
         for (const keyCode of command.keyCodes) {
             const key = scene.input.keyboard.addKey(keyCode, false)

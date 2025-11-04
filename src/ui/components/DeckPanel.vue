@@ -369,6 +369,8 @@ function loadFromPrecon(setId: string, preconId: string, name: string) {
 
 $max-width: 1200px;
 
+/** Panel style **/
+
 .deck-panel-content {
     display: grid;
     grid-template-columns: 280px 1fr;
@@ -430,34 +432,6 @@ $max-width: 1200px;
     &:hover {
         color: white;
     }
-}
-
-.tabs-section {
-    @include panel;
-}
-
-.tab-buttons {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-}
-
-.tab-btn {
-    @include button-dark-grey;
-    padding: 0.75rem 1rem;
-    text-align: left;
-    border: 1px solid $bone-grey;
-
-    &.active {
-        @include button-purple;
-        border-color: $mist-grey;
-    }
-}
-
-.tab-content-section {
-    @include panel;
-    overflow-y: auto;
-    max-height: 400px;
 }
 
 .deck-list {

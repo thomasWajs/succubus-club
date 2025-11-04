@@ -1,6 +1,6 @@
 <template>
     <Alert />
-    <UserProfilePanel />
+    <UserPanel />
     <DeckPanel />
     <SavedGamesPanel />
 
@@ -16,7 +16,7 @@
 import { computed } from 'vue'
 import Alert from '@/ui/components/Alert.vue'
 import DeckPanel from '@/ui/components/DeckPanel.vue'
-import UserProfilePanel from '@/ui/components/UserProfilePanel.vue'
+import UserPanel from '@/ui/components/UserPanel.vue'
 import SavedGamesPanel from '@/ui/components/SavedGamesPanel.vue'
 import { useRoute } from 'vue-router'
 import { useCoreStore } from '@/store/core.ts'

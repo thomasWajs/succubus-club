@@ -16,13 +16,18 @@ export enum DeckSource {
     Text = 'Text',
 }
 
+export type UserPreferences = {
+    // CommandName ==> character
+    keyBindings?: Record<string, { repr: string; keyCode: number }>
+}
+
 export class DbUserProfile extends Entity<SuccubusDb> {
     id: number
     permanentId: string
     playerName: string
     avatar: string | null
     avatarFirebaseId: AvatarId | null
-    preferences: Record<string, never>
+    preferences: UserPreferences
     lastDeckId: number | null
     lastMultiGameId: RoomId
     lastMultiGameDate: Date | null
