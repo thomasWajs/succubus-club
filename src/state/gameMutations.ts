@@ -454,7 +454,7 @@ class Discard extends CardMutation {
 
     protected updateGameState(gameState: GameStateStore) {
         this.previousState.position = this.params.card.position
-        gameState.moveCardToRegion(this.params.card, this.params.card.controller.ashHeap)
+        gameState.moveCardToRegion(this.params.card, this.params.card.owner.ashHeap)
         gameState.turnResources.dpa -= 1
     }
 

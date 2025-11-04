@@ -48,7 +48,7 @@ export class Conductor {
             gameMutations.moveCardToRegion.act(card.controller, {
                 card,
                 fromCardRegion: card.region,
-                toCardRegion: card.controller.ashHeap,
+                toCardRegion: card.owner.ashHeap,
                 x: 0,
                 y: 0,
             })

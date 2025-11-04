@@ -321,7 +321,7 @@ function createCommands(): Commands {
                     gameMutations.moveCardToRegion.actSelf({
                         card,
                         fromCardRegion: card.region,
-                        toCardRegion: card.controller.ashHeap,
+                        toCardRegion: card.owner.ashHeap,
                         position: 0,
                     })
                 }

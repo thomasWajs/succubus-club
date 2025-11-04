@@ -192,15 +192,15 @@ export const useGameStateStore = defineStore('gameState', {
             return player
         },
 
-        createCryptCard(krcgId: KrcgId, controller: Player, cardRegion: AnyCardRegion) {
-            const card = new CryptCard(this.getNextOid(), krcgId, controller.oid)
+        createCryptCard(krcgId: KrcgId, owner: Player, cardRegion: AnyCardRegion) {
+            const card = new CryptCard(this.getNextOid(), krcgId, owner.oid)
             this.cards[card.oid] = card
             cardRegion.append(card)
             return card
         },
 
-        createLibraryCard(krcgId: KrcgId, controller: Player, cardRegion: AnyCardRegion) {
-            const card = new LibraryCard(this.getNextOid(), krcgId, controller.oid)
+        createLibraryCard(krcgId: KrcgId, owner: Player, cardRegion: AnyCardRegion) {
+            const card = new LibraryCard(this.getNextOid(), krcgId, owner.oid)
             this.cards[card.oid] = card
             cardRegion.append(card)
             return card

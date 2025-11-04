@@ -84,7 +84,7 @@ export abstract class Card extends BaseModel {
     protected constructor(
         public oid: CardOid,
         public readonly krcgId: KrcgId,
-        public controllerOid: PlayerOid,
+        public ownerOid: PlayerOid,
     ) {
         super(oid)
     }
@@ -105,6 +105,15 @@ export abstract class Card extends BaseModel {
 
     get text() {
         return this.resource.text
+    }
+
+    get owner() {
+        return useGameStateStore().players[this.ownerOid]
+    }
+
+    // For now, there's no way to take control of another card
+    get controllerOid() {
+        return this.ownerOid
     }
 
     get controller() {
@@ -273,9 +282,9 @@ export class CryptCard extends Card {
     constructor(
         public oid: CardOid,
         public readonly krcgId: KrcgId,
-        public controllerOid: PlayerOid,
+        public ownerOid: PlayerOid,
     ) {
-        super(oid, krcgId, controllerOid)
+        super(oid, krcgId, ownerOid)
 
         const cardResource = this.resource
 
@@ -322,9 +331,9 @@ export class LibraryCard extends Card {
     constructor(
         public oid: CardOid,
         public readonly krcgId: KrcgId,
-        public controllerOid: PlayerOid,
+        public ownerOid: PlayerOid,
     ) {
-        super(oid, krcgId, controllerOid)
+        super(oid, krcgId, ownerOid)
 
         // Not used in multiplayer ( yet? )
         if (useCoreStore().gameType == GameType.TrainBot) {

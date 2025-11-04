@@ -182,7 +182,7 @@ function playCard() {
     gameMutations.moveCardToRegion.actSelf({
         card,
         fromCardRegion: card.region,
-        toCardRegion: card.controller.ready,
+        toCardRegion: card.owner.ready,
         x: PLAY_AREA_WIDTH / 2 - GRID_SIZE * 2,
         y: GRID_SIZE * 4,
     })

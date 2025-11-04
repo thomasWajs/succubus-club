@@ -15,7 +15,7 @@ import { useCoreStore } from '@/store/core.ts'
 import { isCryptId } from '@/resources/cards.ts'
 import { CborEncoder, CborDecoderBase } from '@jsonjoy.com/json-pack/lib/cbor'
 
-const GAME_STATE_VERSION = 2
+const GAME_STATE_VERSION = 3
 
 type JsonValue = null | string | number | boolean | JsonValue[] | { [key: string]: JsonValue }
 export type JsonObject = { [key: string]: JsonValue }
@@ -206,7 +206,7 @@ export function loadGame(serializedGame: SerializedGame) {
 
     for (const cardData of Object.values(jsonCards)) {
         const CardClass = isCryptId(cardData.krcgId) ? CryptCard : LibraryCard
-        const card = new CardClass(cardData.oid, cardData.krcgId, cardData.controllerOid)
+        const card = new CardClass(cardData.oid, cardData.krcgId, cardData.ownerOid)
         Object.assign(card, cardData)
         cards[card.oid] = card
     }
