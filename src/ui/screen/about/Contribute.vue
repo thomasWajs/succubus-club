@@ -81,6 +81,7 @@
         </p>
         <ul class="blood-list">
             <li>Juan Carlos Eruntalon</li>
+            <li>tryptych</li>
         </ul>
 
         <h1>Testers</h1>
