@@ -13,14 +13,8 @@ import {
 import { useMultiplayerStore } from '@/store/multiplayer.ts'
 import { useBusStore } from '@/store/bus.ts'
 import * as logging from '@/logging.ts'
-import { ChatMessage, useHistoryStore } from '@/store/history.ts'
-import {
-    deserializeObject,
-    loadGame,
-    SerializedChatMessage,
-    serializeGame,
-    serializeObject,
-} from '@/gateway/serialization.ts'
+import { ChatMessage } from '@/store/history.ts'
+import { SerializedChatMessage, serializeGame, serializeObject } from '@/gateway/serialization.ts'
 import { shuffleArray } from '@/utils.ts'
 import { useCoreStore } from '@/store/core.ts'
 import { resetState, setupMultiplayerGame, startGame } from '@/game/setup.ts'
@@ -28,8 +22,10 @@ import { GameType } from '@/state/types.ts'
 import { AnyGameMutation } from '@/state/gameMutations.ts'
 import {
     applyGameResync,
+    applyInitialGameState,
     makeMutationMessage,
     makeResyncGameStateMessage,
+    receiveChatMessage,
     receiveMutationMessage,
     startGameResync,
 } from '@/multiplayer/sync.ts'
@@ -265,6 +261,7 @@ export async function launchGame() {
 
     const { roomChannel } = await useRoom()
     core.gameType = GameType.Multiplayer // Needed now to setup correctly the game state
+
     setupMultiplayerGame(gameRoom)
     const serializedGame = serializeGame()
     const gameStateId = await storeGameState(serializedGame)
@@ -282,12 +279,12 @@ async function onReceiveLaunchGame(gameStateId: string) {
         return
     }
 
-    resetState()
     const serializedGame = await fetchGameState(gameStateId)
     if (!serializedGame) {
         throw new Error(`Could not find game state at ${gameStateId} in Firestore.`)
     }
-    loadGame(serializedGame)
+
+    await applyInitialGameState(serializedGame)
     startGame(GameType.Multiplayer)
     await core.userProfile.setLastMultiGame(gameRoom.id)
 }
@@ -303,9 +300,14 @@ export async function broadcastChatMessage(message: ChatMessage) {
     await ablyPublish(roomChannel, PubsubMessageType.Chat, serializeObject(message))
 }
 
-function onReceiveChatMessage(serializedMessage: SerializedChatMessage) {
-    const chatMessage = deserializeObject(serializedMessage) as ChatMessage
-    useHistoryStore().addChatMessage(chatMessage)
+export async function onReceiveChatMessage(serializedMessage: SerializedChatMessage) {
+    const gameRoom = ensureGameRoom()
+    // Cannot receive chat message if the game is not started
+    if (!gameRoom.isStarted) {
+        return
+    }
+
+    await receiveChatMessage(serializedMessage)
 }
 
 /** Game Mutation Messages */

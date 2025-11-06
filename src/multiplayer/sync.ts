@@ -1,7 +1,10 @@
 import { useMultiplayerStore } from '@/store/multiplayer.ts'
 import {
     deserializeGameMutation,
+    deserializeObject,
     loadGame,
+    SerializedChatMessage,
+    SerializedGame,
     serializeGame,
     serializeGameMutation,
 } from '@/gateway/serialization.ts'
@@ -19,9 +22,10 @@ import {
     VersioningId,
 } from '@/multiplayer/types.ts'
 import { ClockCompare, LamportClock, VectorClock } from '@/multiplayer/clock.ts'
-import { useHistoryStore } from '@/store/history.ts'
+import { ChatMessage, useHistoryStore } from '@/store/history.ts'
 import { useCoreStore } from '@/store/core.ts'
 import { fetchGameState, storeGameState } from '@/gateway/gameState.ts'
+import { resetState } from '@/game/setup.ts'
 
 const DESYNC_MESSAGE_MINIMUM_TIME_VISIBLE = 2000 // 2 seconds in milliseconds
 
@@ -39,13 +43,13 @@ type ReceivedMutation = {
 }
 let receivedMutations: Set<GameMutationId> = new Set()
 // This is for messages that arrives out of order during a game
-let pendingMutations: ReceivedMutation[] = []
+let pendinOrderedMutations: ReceivedMutation[] = []
 // This is for messages received before joining or during a resync
-let pendingGameMutationMessage: GameMutationMessage[] = []
+let pendingSyncMessage: (GameMutationMessage | SerializedChatMessage)[] = []
 
 export function resetSync() {
     receivedMutations = new Set()
-    pendingMutations = []
+    pendinOrderedMutations = []
 
     const multiplayer = useMultiplayerStore()
     multiplayer.globalClock = new LamportClock(useCoreStore().userProfile.permanentId)
@@ -58,6 +62,63 @@ function ensureClock(versioningId: VersioningId): VectorClock {
     multiplayer.objectClocks[versioningId] ??= new VectorClock()
     return multiplayer.objectClocks[versioningId]
 }
+
+// Game messages can be received when the game is ready and we're not resyncing.
+// If the message cannot be received, it will be buffered to be applyed later.
+// This apply to game mutations and chat messages
+function isReadyToReceive(message: GameMutationMessage | SerializedChatMessage) {
+    const isReady = useCoreStore().gameStateIsReady && !useBusStore().isResyncing
+    if (!isReady) {
+        pendingSyncMessage.push(message)
+    }
+    return isReady
+}
+
+function flushPendingMessages() {
+    const history = useHistoryStore()
+
+    for (const message of pendingSyncMessage) {
+        // GameMutationMessage
+        if (Object.hasOwn(message, 'gameMutation')) {
+            const gameMutationMessage = message as GameMutationMessage
+
+            // Don't apply mutations that are already in the history
+            if (gameMutationMessage.gameMutationId in history.gameMutationsMap) {
+                continue
+            }
+
+            // We call the unsafe function because we're already in a lock
+            _unsafeReceiveMutationMessage(gameMutationMessage)
+        }
+        // Chat Message
+        else if (Object.hasOwn(message, 'text')) {
+            // We call the unsafe function because we're already in a lock
+            _unsafeReceiveChatMessage(message)
+        }
+    }
+    pendingSyncMessage = []
+}
+
+/**
+ * Chat message
+ */
+
+export async function receiveChatMessage(serializedMessage: SerializedChatMessage) {
+    await stateMutex.withLock(() => _unsafeReceiveChatMessage(serializedMessage))
+}
+
+export function _unsafeReceiveChatMessage(serializedMessage: SerializedChatMessage) {
+    // Chat message received during init or a resync, buffer them for later
+    if (!isReadyToReceive(serializedMessage)) {
+        return
+    }
+    const chatMessage = deserializeObject(serializedMessage) as ChatMessage
+    useHistoryStore().addChatMessage(chatMessage)
+}
+
+/**
+ * Game mutations
+ */
 
 function canApplyOrderedMutation(receivedMutation: ReceivedMutation) {
     const clock = ensureClock(receivedMutation.gameMutation.versioningId)
@@ -193,7 +254,7 @@ function flushPendingMutations() {
     while (changed) {
         changed = false
         const stillPending: ReceivedMutation[] = []
-        for (const mutation of pendingMutations) {
+        for (const mutation of pendinOrderedMutations) {
             if (canApplyOrderedMutation(mutation)) {
                 applyPeerMutation(mutation.gameMutation, mutation.version)
                 changed = true
@@ -201,7 +262,7 @@ function flushPendingMutations() {
                 stillPending.push(mutation)
             }
         }
-        pendingMutations = stillPending
+        pendinOrderedMutations = stillPending
     }
 }
 
@@ -240,9 +301,8 @@ export async function receiveMutationMessage(gameMutationMessage: GameMutationMe
 }
 
 function _unsafeReceiveMutationMessage(gameMutationMessage: GameMutationMessage) {
-    // Mutation received during a resync, buffer them for later
-    if (!useCoreStore().gameStateIsReady || useBusStore().isResyncing) {
-        pendingGameMutationMessage.push(gameMutationMessage)
+    // Mutation received during init or a resync, buffer them for later
+    if (!isReadyToReceive(gameMutationMessage)) {
         return
     }
 
@@ -280,7 +340,7 @@ function _unsafeReceiveMutationMessage(gameMutationMessage: GameMutationMessage)
 
             // Buffer out-of-order mutations
             if (!canApplyOrderedMutation(receivedMutation)) {
-                pendingMutations.push(receivedMutation)
+                pendinOrderedMutations.push(receivedMutation)
                 multiplayer.stats.pendingMutations++
                 return
             }
@@ -295,6 +355,18 @@ function _unsafeReceiveMutationMessage(gameMutationMessage: GameMutationMessage)
         // requestResyncGameState()
         return
     }
+}
+
+/**
+ * State Init
+ */
+
+export async function applyInitialGameState(serializedGame: SerializedGame) {
+    return stateMutex.withLock(async () => {
+        resetState()
+        loadGame(serializedGame)
+        flushPendingMessages()
+    })
 }
 
 /**
@@ -350,7 +422,6 @@ export async function makeResyncGameStateMessage(): Promise<GameStateSyncMessage
 export async function applyGameResync(syncMessage: GameStateSyncMessage) {
     const multiplayer = useMultiplayerStore()
     const bus = useBusStore()
-    const history = useHistoryStore()
 
     // Protect access to global clock
     await stateMutex.withLock(async () => {
@@ -392,15 +463,6 @@ export async function applyGameResync(syncMessage: GameStateSyncMessage) {
         bus.isResyncing = false
 
         // Flush mutations that we may have received during the sync
-        for (const gameMutationMessage of pendingGameMutationMessage) {
-            // Don't apply mutations that are already in the history
-            if (gameMutationMessage.gameMutationId in history.gameMutationsMap) {
-                continue
-            }
-
-            // We can call the unsafe function because we're already in a lock
-            _unsafeReceiveMutationMessage(gameMutationMessage)
-        }
-        pendingGameMutationMessage = []
+        flushPendingMessages()
     })
 }
