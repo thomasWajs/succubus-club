@@ -68,9 +68,13 @@ const { logEntry, index } = defineProps<{
     index: number
 }>()
 
-const selfHasVision = computed(
-    () => logEntry.card && logEntry.playerVision && logEntry.playerVision[gameState.selfPlayerOid],
-)
+const selfHasVision = computed(() => {
+    const vision = logEntry.playerVision
+    if (!logEntry.card || !vision) {
+        return false
+    }
+    return vision.public || (gameState.selfPlayerOid && vision[gameState.selfPlayerOid])
+})
 
 const mutationLogHtml = computed(() => {
     let cardText

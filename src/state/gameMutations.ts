@@ -130,11 +130,11 @@ export abstract class GameMutation<ParamsType extends GameMutationParams> {
     apply() {
         // A player have vision on the card if it can see/peek the card
         // either before or after updating the gameState
-        const visionBefore = this.card?.getPlayerVision() ?? {}
+        const visionBefore = this.card?.getPlayerVision() ?? { public: false }
         this.updateGameState(useGameStateStore())
-        const visionAfter = this.card?.getPlayerVision() ?? {}
+        const visionAfter = this.card?.getPlayerVision() ?? { public: false }
 
-        this.playerVision = {}
+        this.playerVision = {} as PlayerVision
         for (const playerOid in visionAfter) {
             this.playerVision[playerOid] = visionBefore[playerOid] || visionAfter[playerOid]
         }

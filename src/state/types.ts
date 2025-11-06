@@ -26,9 +26,11 @@ export const Invalid = (reason: string) => new Validity(false, reason)
 /** Card Visibility **/
 
 /**
- * Store which player can or cannot see a given card
+ * Store which player can or cannot see a given card.
+ * Also store a "public" visibility for spectators.
  */
 export type PlayerVision = {
+    public: boolean
     [key: PlayerOid]: boolean
 }
 

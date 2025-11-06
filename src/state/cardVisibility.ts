@@ -60,10 +60,13 @@ export function canSeeOrPeek(player: Player, card: Card) {
 }
 
 export function getPlayerVision(card: Card): PlayerVision {
-    return Object.fromEntries(
-        Object.values(useGameStateStore().players).map(player => [
-            player.oid,
-            canSeeOrPeek(player, card),
-        ]),
-    )
+    return {
+        public: anyoneCanSee(card),
+        ...Object.fromEntries(
+            Object.values(useGameStateStore().players).map(player => [
+                player.oid,
+                canSeeOrPeek(player, card),
+            ]),
+        ),
+    }
 }
