@@ -9,7 +9,12 @@ import {
     fsDeleteDoc,
 } from '@/gateway/realtime.ts'
 import { useCoreStore } from '@/store/core.ts'
-import { cborDecoder, cborEncoder, hashObject, SerializedGame } from '@/gateway/serialization.ts'
+import {
+    cborDecoder,
+    cborEncoder,
+    hashObject,
+    SerializedMultiplayerGame,
+} from '@/gateway/serialization.ts'
 
 type GameStateDoc = {
     encodedGame: fsBytes
@@ -27,7 +32,7 @@ function getGameStatePath(gameHash: number) {
 }
  */
 
-export async function storeGameState(serializedGame: SerializedGame) {
+export async function storeGameState(serializedGame: SerializedMultiplayerGame) {
     const gameHash = hashObject(serializedGame)
     const gameStateId = `${useCoreStore().userProfile.permanentId}-${gameHash}`
     const encodedGame = cborEncoder.encode(serializedGame)
@@ -65,13 +70,17 @@ export async function storeGameState(serializedGame: SerializedGame) {
      */
 }
 
-export async function fetchGameState(gameStateId: string): Promise<SerializedGame | null> {
+export async function fetchGameState(
+    gameStateId: string,
+): Promise<SerializedMultiplayerGame | null> {
     const gameStateDoc = fsDoc(gameStateCollection, gameStateId)
     const snapshot = await fsGetDoc(gameStateDoc)
 
     if (snapshot.exists()) {
         const gameStateDoc = snapshot.data() as GameStateDoc
-        return cborDecoder.decode(gameStateDoc.encodedGame.toUint8Array()) as SerializedGame
+        return cborDecoder.decode(
+            gameStateDoc.encodedGame.toUint8Array(),
+        ) as SerializedMultiplayerGame
     } else {
         return null
     }

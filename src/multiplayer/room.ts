@@ -14,7 +14,11 @@ import { useMultiplayerStore } from '@/store/multiplayer.ts'
 import { useBusStore } from '@/store/bus.ts'
 import * as logging from '@/logging.ts'
 import { ChatMessage } from '@/store/history.ts'
-import { SerializedChatMessage, serializeGame, serializeObject } from '@/gateway/serialization.ts'
+import {
+    SerializedChatMessage,
+    serializeMultiplayerGame,
+    serializeObject,
+} from '@/gateway/serialization.ts'
 import { shuffleArray } from '@/utils.ts'
 import { useCoreStore } from '@/store/core.ts'
 import { resetState, setupMultiplayerGame, startGame } from '@/game/setup.ts'
@@ -263,7 +267,7 @@ export async function launchGame() {
     core.gameType = GameType.Multiplayer // Needed now to setup correctly the game state
 
     setupMultiplayerGame(gameRoom)
-    const serializedGame = serializeGame()
+    const serializedGame = serializeMultiplayerGame()
     const gameStateId = await storeGameState(serializedGame)
     await ablyPublish(roomChannel, PubsubMessageType.LaunchGame, gameStateId)
     gameRoom.isStarted = true

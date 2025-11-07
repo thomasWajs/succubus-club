@@ -5,8 +5,8 @@ import {
     loadGame,
     SerializedChatMessage,
     SerializedGame,
-    serializeGame,
     serializeGameMutation,
+    serializeMultiplayerGame,
 } from '@/gateway/serialization.ts'
 import { AnyGameMutation, applyMutationLocally, GameMutationId } from '@/state/gameMutations.ts'
 import { Mutex } from '@/utils.ts'
@@ -402,18 +402,10 @@ export function startGameResync(isUserRequest: boolean) {
 export async function makeResyncGameStateMessage(): Promise<GameStateSyncMessage> {
     return stateMutex.withLock(async () => {
         const multiplayer = useMultiplayerStore()
-        const objectClocks = Object.fromEntries(
-            Object.entries(multiplayer.objectClocks).map(([versioningId, clock]) => [
-                versioningId,
-                clock.version,
-            ]),
-        )
 
         return {
-            gameStateId: await storeGameState(serializeGame()),
+            gameStateId: await storeGameState(serializeMultiplayerGame()),
             globalVersion: multiplayer.globalClock.advance(),
-            objectClocks,
-            mutationVersions: multiplayer.mutationVersions,
             hash: useGameStateStore().hash(),
         }
     })
@@ -443,12 +435,14 @@ export async function applyGameResync(syncMessage: GameStateSyncMessage) {
             multiplayer.globalClock.update(syncMessage.globalVersion)
 
             // Sync the object clocks
-            for (const [versioningId, clockVersion] of Object.entries(syncMessage.objectClocks)) {
+            for (const [versioningId, clockVersion] of Object.entries(
+                serializedGame.objectClocks,
+            )) {
                 multiplayer.objectClocks[versioningId] = new VectorClock(clockVersion)
             }
 
             // Sync the mutation versions
-            multiplayer.mutationVersions = syncMessage.mutationVersions
+            multiplayer.mutationVersions = serializedGame.mutationVersions
         }
 
         // Let the message visible at least 2 seconds

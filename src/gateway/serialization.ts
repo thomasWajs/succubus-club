@@ -14,8 +14,10 @@ import { useHistoryStore } from '@/store/history.ts'
 import { useCoreStore } from '@/store/core.ts'
 import { isCryptId } from '@/resources/cards.ts'
 import { CborEncoder, CborDecoderBase } from '@jsonjoy.com/json-pack/lib/cbor'
+import { VectorClockVersion, VersioningId } from '@/multiplayer/types.ts'
+import { useMultiplayerStore } from '@/store/multiplayer.ts'
 
-const GAME_STATE_VERSION = 3
+const GAME_STATE_VERSION = 4
 
 type JsonValue = null | string | number | boolean | JsonValue[] | { [key: string]: JsonValue }
 export type JsonObject = { [key: string]: JsonValue }
@@ -57,6 +59,10 @@ export type SerializedGame = {
     version: number
     gameState: SerializedGameState
     history: SerializedHistory
+}
+export type SerializedMultiplayerGame = SerializedGame & {
+    objectClocks: Record<VersioningId, VectorClockVersion>
+    mutationVersions: Record<GameMutationId, VectorClockVersion>
 }
 
 const OID_PREFIX = 'OID_'
@@ -184,6 +190,21 @@ export function serializeGame(): SerializedGame {
         // objects into and "OID_" string
         gameState: JSON.parse(JSON.stringify(useGameStateStore().$state)),
         history: serializeHistory(),
+    }
+}
+
+export function serializeMultiplayerGame(): SerializedMultiplayerGame {
+    const multiplayer = useMultiplayerStore()
+    const objectClocks = Object.fromEntries(
+        Object.entries(multiplayer.objectClocks).map(([versioningId, clock]) => [
+            versioningId,
+            clock.version,
+        ]),
+    )
+    return {
+        objectClocks,
+        mutationVersions: multiplayer.mutationVersions,
+        ...serializeGame(),
     }
 }
 
