@@ -9,8 +9,6 @@ import Rectangle = Phaser.Geom.Rectangle
 import Pointer = Phaser.Input.Pointer
 import Vector2Like = Phaser.Types.Math.Vector2Like
 
-type CleanupCallback = () => void
-
 export enum AlertState {
     Error = 'error',
     Warning = 'warning',
@@ -50,8 +48,6 @@ export type CardInGame = {
 
 export const useBusStore = defineStore('bus', {
     state: () => ({
-        cleanupCallbacks: [] as CleanupCallback[],
-
         alert: null as AlertMessage | null,
         isUserProfilePanelOpen: false,
         isDeckPanelOpen: false,
@@ -61,9 +57,6 @@ export const useBusStore = defineStore('bus', {
         hasBeenIdle: false,
     }),
     actions: {
-        onDestroyGame(cleanupCallback: CleanupCallback) {
-            this.cleanupCallbacks.push(cleanupCallback)
-        },
         alertError(message: string, { dismissible = true, blockInteraction = false } = {}) {
             this.alert = {
                 message,

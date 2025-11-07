@@ -75,10 +75,6 @@ const gameConfig: Phaser.Types.Core.GameConfig = {
 onBeforeUnmount(() => {
     core.phaserGame?.destroy(true)
     setPhaserGame(null)
-    for (const cleanupCallback of bus.cleanupCallbacks) {
-        cleanupCallback()
-    }
-
     resetState()
 })
 </script>
