@@ -1,6 +1,6 @@
 import { watch, WatchHandle } from 'vue'
 import Ably, { PresenceMessage, ChannelOptions } from 'ably'
-import { ablyPublish, ablySubscribe, getAbly } from '@/gateway/realtime.ts'
+import { ablyPublish, ablySubscribe, detachChannel, getAbly } from '@/gateway/realtime.ts'
 import {
     GameMutationMessage,
     GameRoom,
@@ -150,7 +150,7 @@ export async function leaveGameRoom() {
     unwatchGameRoom?.()
     unwatchGameRoom = null
     // Detaching from the channel will also leave the presence
-    await roomChannel.detach()
+    await detachChannel(roomChannel)
     // Releasing from the channel will also unsubscribe all listeners
     ably.channels.release(roomChannel.name)
     _room = null
@@ -348,7 +348,7 @@ export async function requestResyncGameState(isUserRequest: boolean = false) {
     await ablySubscribe(syncChannel, PubsubMessageType.Resync, onReceiveResyncGameState)
     // Leave the resync channel after 30 seconds
     setTimeout(async () => {
-        await syncChannel.detach()
+        await detachChannel(syncChannel)
         ably.channels.release(syncChannelName)
     }, 1000 * 30)
 

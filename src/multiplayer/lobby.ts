@@ -7,6 +7,7 @@ import {
     rtdbRef,
     rtdbRemove,
     rtdbSet,
+    detachChannel,
 } from '@/gateway/realtime.ts'
 import { useMultiplayerStore } from '@/store/multiplayer.ts'
 import * as logging from '@/logging.ts'
@@ -88,8 +89,9 @@ export async function leaveLobby() {
 
     unwatchSelfUser?.()
     unwatchSelfUser = null
+
     // Detaching from the channel will also leave the presence
-    await lobbyChannel.detach()
+    await detachChannel(lobbyChannel)
     // Releasing from the channel will also unsubscribe all listeners
     ably.channels.release(LOBBY_CHANNEL_NAME)
     _lobby = null

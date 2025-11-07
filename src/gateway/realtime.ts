@@ -100,6 +100,16 @@ export async function ablyPublish<T>(
     }
 }
 
+export async function detachChannel(channel: Ably.RealtimeChannel) {
+    try {
+        await channel.detach()
+    } catch (error) {
+        if (error instanceof Error && error.message !== 'Connection closed') {
+            logging.captureException(error)
+        }
+    }
+}
+
 /**
  * Firebase
  */
