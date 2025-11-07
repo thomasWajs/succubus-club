@@ -50,11 +50,18 @@ let pendingSyncMessage: (GameMutationMessage | SerializedChatMessage)[] = []
 export function resetSync() {
     receivedMutations = new Set()
     pendinOrderedMutations = []
+    // Don't reset pendingSyncMessage here !!
 
     const multiplayer = useMultiplayerStore()
     multiplayer.globalClock = new LamportClock(useCoreStore().userProfile.permanentId)
     multiplayer.objectClocks = {}
     multiplayer.mutationVersions = {}
+}
+
+// Separate from the global resetSync function because
+// we needs this array precisely when the state is being reset/started/resynced
+export function resetPendingSyncMessage() {
+    pendingSyncMessage = []
 }
 
 function ensureClock(versioningId: VersioningId): VectorClock {
@@ -96,7 +103,7 @@ function flushPendingMessages() {
             _unsafeReceiveChatMessage(message)
         }
     }
-    pendingSyncMessage = []
+    resetPendingSyncMessage()
 }
 
 /**

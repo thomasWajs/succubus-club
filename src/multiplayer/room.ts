@@ -31,6 +31,7 @@ import {
     makeResyncGameStateMessage,
     receiveChatMessage,
     receiveMutationMessage,
+    resetPendingSyncMessage,
     startGameResync,
 } from '@/multiplayer/sync.ts'
 import { broadcastGameRoom, deleteGameRoom } from '@/multiplayer/lobby.ts'
@@ -160,6 +161,8 @@ export async function leaveGameRoom() {
     _room = null
     multiplayer.selfIsReady = false
     multiplayer.currentGameRoomId = null
+    // Reset the pending sync message, in case there's still messages in there
+    resetPendingSyncMessage()
 }
 
 /**
