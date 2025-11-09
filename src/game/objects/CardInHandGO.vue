@@ -1,16 +1,4 @@
 <template>
-    <!-- Drag placeholder -->
-    <Image
-        ref="dragPlaceholder"
-        :key="key + 'dragPlaceholder'"
-        :x="cardAttrs.x"
-        :y="cardAttrs.y + (image ? image.displayHeight / 2 : 0)"
-        :texture="card.displayedTexture.textureName"
-        :frame="card.displayedTexture.frameName"
-        :scale="cardAttrs.scale"
-        :rotation="cardAttrs.rotation"
-    />
-
     <Image
         ref="image"
         :key="key + 'image'"
@@ -20,14 +8,13 @@
         :frame="card.displayedTexture.frameName"
         :alpha="isDragging ? CARD_DRAGGING_ALPHA : 1"
         :scale="cardAttrs.scale"
-        :rotation="isDragging ? 0 : cardAttrs.rotation"
         @create="onImageCreate"
         @pointerover="onPointerOver"
         @pointerout="onPointerOut"
         @pointerdown="onPointerDown"
-        @dragstart="onDragStart"
+        @dragstart="onDragStartFromHand"
         @drag="onDrag"
-        @dragend="onDragEnd"
+        @dragend="onDragEndFromHand"
         @drop="onDrop"
     />
 
@@ -39,18 +26,17 @@
         :y="cardAttrs.y + (image ? image.displayHeight / 2 : 0)"
         :width="image ? image.displayWidth : 0"
         :height="image ? image.displayHeight : 0"
-        :rotation="cardAttrs.rotation"
         :lineWidth="CARD_OUTLINE_THICKNESS"
         :strokeColor="getCardOutlineColor"
     />
 
     <!-- On hover : Play button  -->
-    <template v-if="isHovered">
+    <template v-if="isHovered && !isDragging">
         <ButtonGo
             ref="playButton"
             name="cardButton"
-            :x="playButtonPos.x"
-            :y="playButtonPos.y"
+            :x="cardAttrs.x + (image ? image.displayWidth / 2 : 0) - 32"
+            :y="cardAttrs.y + 15"
             :width="60"
             :height="25"
             text="Play"
@@ -75,15 +61,14 @@ import {
     CARD_IN_HAND_SCALE,
     CARD_OUTLINE_COLOR_HOVER,
     CARD_OUTLINE_THICKNESS,
-    HAND_ARC_ORIGIN_X,
-    HAND_ARC_ORIGIN_Y,
+    CARD_WIDTH,
     GRID_SIZE,
+    HAND_WIDTH,
     PLAY_AREA_WIDTH,
 } from '@/game/const.ts'
 import { LibraryCard } from '@/model/Card.ts'
 import { useGameBusStore } from '@/store/bus.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
-import RotateAround = Phaser.Math.RotateAround
 import Pointer = Phaser.Input.Pointer
 import Glow = Phaser.FX.Glow
 import { CardAttrs, CardCategory, PhaserDataKey } from '@/game/types.ts'
@@ -106,22 +91,6 @@ const playButton = ref<typeof ButtonGo>()
 
 const key = computed(() => `hand${card.oid.toString()}`)
 
-const indexToMiddle = computed(() => {
-    if (!gameState.selfPlayer) {
-        return 0
-    }
-
-    const hand = gameState.selfPlayer.hand
-    let cardIndex = hand.indexOf(card)
-    let handLength = hand.length
-    if (gameBus.handDropGapPosition != null && cardIndex >= gameBus.handDropGapPosition) {
-        const DROP_GAP = 2
-        cardIndex += DROP_GAP
-        handLength += DROP_GAP
-    }
-    return Math.ceil(cardIndex - handLength / 2)
-})
-
 const cardAttrs = computed((): CardAttrs => {
     const category = CardCategory.CardInHand
 
@@ -131,28 +100,35 @@ const cardAttrs = computed((): CardAttrs => {
 
     const hand = gameState.selfPlayer.hand
 
-    let scale = CARD_IN_HAND_SCALE
-    const center_x = HAND_ARC_ORIGIN_X
-    let center_y = HAND_ARC_ORIGIN_Y
-
-    // If there's too much cards in hand, reduce the scale and up the center
-    if (hand.length > 13) {
-        scale *= 0.6
-        center_y -= 220
-    } else if (hand.length > 11) {
-        scale *= 0.68
-        center_y -= 180
-    } else if (hand.length > 9) {
-        scale *= 0.75
-        center_y -= 120
-    } else if (hand.length > 7) {
-        scale *= 0.95
-        center_y -= 100
+    let handLength = hand.length
+    let cardIndex = hand.indexOf(card)
+    let cardIndexOffset = 0
+    // When dragging any card into the hand,
+    // display the card at its position after drop
+    if (gameBus.handDropGapPosition !== null) {
+        handLength++
+        if (cardIndex >= gameBus.handDropGapPosition) {
+            cardIndexOffset++
+        }
     }
+    // When the dragged card comes from the hand, remove it from calculations
+    if (gameBus.draggedHandCardPosition !== null) {
+        handLength--
+        if (cardIndex > gameBus.draggedHandCardPosition) {
+            cardIndexOffset--
+        }
+    }
+    cardIndex += cardIndexOffset
 
-    const rotation = Phaser.Math.DegToRad(10 * indexToMiddle.value)
-    const { x, y } = RotateAround({ x: center_x, y: -10 }, center_x, center_y, rotation)
-    return { category, x, y, rotation, scale }
+    const maxSpacing = CARD_WIDTH * CARD_IN_HAND_SCALE + 10
+    const spacing = Math.min(
+        (HAND_WIDTH - CARD_WIDTH * CARD_IN_HAND_SCALE) / (handLength - 1),
+        maxSpacing,
+    )
+    const totalWidth = spacing * (handLength - 1) + CARD_WIDTH * CARD_IN_HAND_SCALE
+    const offsetX = (HAND_WIDTH - totalWidth) / 2
+    const x = offsetX + spacing * cardIndex + (image.value?.displayWidth ?? 0) / 2
+    return { category, x, y: 0, rotation: 0, scale: CARD_IN_HAND_SCALE }
 })
 
 /**
@@ -170,13 +146,6 @@ function onImageCreate(image: GameObjects.Image) {
 /**
  * Play button
  */
-
-const playButtonPos = computed(() => {
-    return {
-        x: cardAttrs.value.x + indexToMiddle.value * 6,
-        y: cardAttrs.value.y + 35 + Math.abs(indexToMiddle.value) * 4,
-    }
-})
 
 function playCard() {
     gameMutations.moveCardToRegion.actSelf({
@@ -261,6 +230,14 @@ const { isDragging, dragPosition, onDragStart, onDragEnd, onDrop } = useCardDrag
     cardOutline,
 )
 
+function onDragStartFromHand() {
+    if (!gameState.selfPlayer) {
+        return
+    }
+    gameBus.draggedHandCardPosition = gameState.selfPlayer.hand.indexOf(card)
+    onDragStart()
+}
+
 function onDrag({}, dragX: number, dragY: number) {
     if (!image.value) {
         return
@@ -268,6 +245,14 @@ function onDrag({}, dragX: number, dragY: number) {
     dragPosition.x = Phaser.Math.Snap.To(dragX - image.value.displayWidth / 2, GRID_SIZE)
     dragPosition.y =
         Phaser.Math.Snap.Ceil(dragY - image.value.displayHeight / 2, GRID_SIZE) - GRID_SIZE / 2
+}
+
+function onDragEndFromHand() {
+    if (!gameState.selfPlayer) {
+        return
+    }
+    gameBus.draggedHandCardPosition = null
+    onDragEnd()
 }
 
 /**

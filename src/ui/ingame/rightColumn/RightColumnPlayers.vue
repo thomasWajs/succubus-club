@@ -10,72 +10,32 @@
                 disconnected: disconnectedPlayers[player.oid],
             }"
         >
-            <div class="player-left">
-                <span
-                    v-if="player == gameState.activePlayer"
-                    class="active-player"
-                    >▶
-                </span>
-                <span v-if="disconnectedPlayers[player.oid]"> 🔌 </span>
-                <span v-if="player.isOusted"> 💀 </span>
+            <span
+                v-if="player == gameState.activePlayer"
+                class="active-player"
+                >▶
+            </span>
+            <span v-if="disconnectedPlayers[player.oid]"> 🔌 </span>
+            <span v-if="player.isOusted"> 💀 </span>
 
-                <span
-                    class="player-name"
-                    :style="{ color: player.color.rgba }"
-                >
-                    {{ player.shortName }}
-                </span>
-            </div>
-
-            <div class="player-right">
-                <button
-                    v-if="gameState.isPlayer"
-                    class="game-button small"
-                    @click="
-                        gameMutations.changePool.actSelf({
-                            player: player,
-                            amount: -1,
-                        })
-                    "
-                >
-                    -
-                </button>
-
-                <div
-                    class="pool-diamond"
-                    @click.stop="gameBus.changePool = { show: true, player: player }"
-                >
-                    <span>{{ player.pool }}</span>
-                </div>
-
-                <button
-                    v-if="gameState.isPlayer"
-                    class="game-button small"
-                    @click="
-                        gameMutations.changePool.actSelf({
-                            player: player,
-                            amount: +1,
-                        })
-                    "
-                >
-                    +
-                </button>
-            </div>
+            <span
+                class="player-name"
+                :style="{ color: player.color.rgba }"
+            >
+                {{ player.shortName }}
+            </span>
         </div>
     </div>
 </template>
 
 <script setup lang="ts">
-import { useGameBusStore } from '@/store/bus.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
-import { gameMutations } from '@/state/gameMutations.ts'
 import { computed } from 'vue'
 import { useMultiplayerStore } from '@/store/multiplayer.ts'
 import { GameType } from '@/state/types.ts'
 import { useCoreStore } from '@/store/core.ts'
 
 const core = useCoreStore()
-const gameBus = useGameBusStore()
 const gameState = useGameStateStore()
 const multiplayer = useMultiplayerStore()
 
@@ -104,9 +64,13 @@ $window-right: 340px;
 
     .player {
         display: flex;
-        justify-content: space-between;
         align-items: center;
         padding: 3px 3px;
+
+        min-width: 0; /* Important for ellipsis to work */
+        white-space: nowrap;
+        overflow: hidden;
+        gap: 4px;
 
         &.acting {
             background: rgba($vibrant-emerald, 0.3);
@@ -118,25 +82,6 @@ $window-right: 340px;
             background: $mist-grey;
         }
 
-        .player-left {
-            display: flex;
-            align-items: center;
-            flex-grow: 1;
-            min-width: 0; /* Important for ellipsis to work */
-            white-space: nowrap;
-            overflow: hidden;
-            gap: 4px;
-        }
-
-        .player-right {
-            display: flex;
-            align-items: center;
-            flex-shrink: 0; /* Prevents shrinking */
-            white-space: nowrap;
-            gap: 2px;
-        }
-
-        /* Or a pulsing dot */
         .active-player {
             color: $dark-forest;
             font-weight: bold;

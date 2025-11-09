@@ -3,10 +3,12 @@
         :x="HAND_X"
         :y="HAND_Y"
     >
-        <Circle
-            :x="HAND_ARC_ORIGIN_X"
-            :y="HAND_ARC_ORIGIN_Y"
-            :radius="HAND_ARC_RADIUS"
+        <Rectangle
+            :origin="0"
+            :x="0"
+            :y="0"
+            :height="HAND_HEIGHT"
+            :width="HAND_WIDTH"
             :fillColor="REGION_BACKGROUND_COLOR_DRAG_OVER.color"
             :fillAlpha="isDraggedOver ? REGION_BACKGROUND_COLOR_DRAG_OVER.alphaGL : 0"
             :dropZone="true"
@@ -26,15 +28,14 @@
 
 <script setup lang="ts">
 import Phaser, { GameObjects } from 'phaser'
-import { Circle, Container, useScene } from 'phavuer'
+import { Rectangle, Container, useScene } from 'phavuer'
 
 import CardInHandGO from '@/game/objects/CardInHandGO.vue'
 import { useGameStateStore } from '@/store/gameState.ts'
 import { nextTick, ref, computed } from 'vue'
 import {
-    HAND_ARC_ORIGIN_X,
-    HAND_ARC_ORIGIN_Y,
-    HAND_ARC_RADIUS,
+    HAND_HEIGHT,
+    HAND_WIDTH,
     HAND_X,
     HAND_Y,
     REGION_BACKGROUND_COLOR_DRAG_OVER,
@@ -134,7 +135,7 @@ function onBoundariesCreate(boundaries: GameObjects.Arc) {
 
             if (
                 boundaries.parentContainer &&
-                // Reorder only if we're in the bounds of the hand circle
+                // Reorder only if we're in the bounds of the hand zone
                 bounds.contains(pointer.x / display.scale, pointer.y / display.scale) &&
                 // Reorder only if we've travelled far enough horizontally
                 Math.abs(dragX - draggedCardAttrs.x) >= HORIZONTAL_TRAVEL

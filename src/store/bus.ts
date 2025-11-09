@@ -110,6 +110,7 @@ export const useGameBusStore = defineStore('gameBus', {
 
         /** Hand **/
         handDropGapPosition: null as null | number,
+        draggedHandCardPosition: null as null | number,
 
         /** Menus **/
         contextMenu: {

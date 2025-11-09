@@ -6,19 +6,13 @@
         @init="init"
         @update="update"
     >
-        <HandGO
-            v-if="gameState.selfPlayer"
-            key="Hand"
-        />
-
         <template v-if="playerSeats.bottomLeft">
             <PlayAreaGO
                 key="PlayAreaBottomLeft"
                 :player="playerSeats.bottomLeft"
                 :scale="OTHER_PLAYERS_SCALE"
-                :x="PLAY_AREA_X - OTHER_PLAYERS_GUTTER"
-                :y="WORLD_HEIGHT / 2 + GRID_SIZE * 2"
-                :rotation="Math.PI / 2"
+                :x="0"
+                :y="BOTTOM_PLAYERS_Y"
             />
         </template>
 
@@ -27,31 +21,28 @@
                 key="PlayAreaTopLeft"
                 :player="playerSeats.topLeft"
                 :scale="OTHER_PLAYERS_SCALE"
-                :x="PLAY_AREA_X - OTHER_PLAYERS_GUTTER"
-                :y="GRID_SIZE / 2"
-                :rotation="Math.PI / 2"
+                :x="0"
+                :y="0"
             />
         </template>
 
         <template v-if="playerSeats.topRight">
             <PlayAreaGO
-                key="PlayAreaTopRight"
+                key="PlayAreaBottomRight"
                 :player="playerSeats.topRight"
                 :scale="OTHER_PLAYERS_SCALE"
-                :x="PLAY_AREA_X + PLAY_AREA_WIDTH + OTHER_PLAYERS_GUTTER"
-                :y="WORLD_HEIGHT / 2 - GRID_SIZE / 2"
-                :rotation="-Math.PI / 2"
+                :x="RIGHT_PLAYERS_X"
+                :y="0"
             />
         </template>
 
         <template v-if="playerSeats.bottomRight">
             <PlayAreaGO
-                key="PlayAreaBottomRight"
+                key="PlayAreaTopRight"
                 :player="playerSeats.bottomRight"
                 :scale="OTHER_PLAYERS_SCALE"
-                :x="PLAY_AREA_X + PLAY_AREA_WIDTH + OTHER_PLAYERS_GUTTER"
-                :y="WORLD_HEIGHT + GRID_SIZE"
-                :rotation="-Math.PI / 2"
+                :x="RIGHT_PLAYERS_X"
+                :y="BOTTOM_PLAYERS_Y"
             />
         </template>
 
@@ -61,6 +52,11 @@
             :player="gameState.centralPlayer"
             :x="PLAY_AREA_X"
             :y="PLAY_AREA_Y"
+        />
+
+        <HandGO
+            v-if="gameState.selfPlayer"
+            key="Hand"
         />
 
         <!-- Menus -->
@@ -111,18 +107,15 @@ import Phaser from 'phaser'
 import { Rectangle, Scene } from 'phavuer'
 import { useGameStateStore } from '@/store/gameState.ts'
 import {
-    OTHER_PLAYERS_GUTTER,
     OTHER_PLAYERS_SCALE,
-    PLAY_AREA_WIDTH,
-    PLAY_AREA_X,
-    PLAY_AREA_Y,
     SELECTION_AREA_COLOR,
     SELECTION_AREA_LINE_THICKNESS,
-    GRID_SIZE,
-    WORLD_HEIGHT,
+    BOTTOM_PLAYERS_Y,
+    RIGHT_PLAYERS_X,
+    PLAY_AREA_X,
+    PLAY_AREA_Y,
 } from '@/game/const.ts'
 import { useGameBusStore } from '@/store/bus.ts'
-import HandGO from '@/game/objects/HandGO.vue'
 import PlayAreaGO from '@/game/objects/PlayAreaGO.vue'
 import { computed, ref } from 'vue'
 import ContextMenu from '@/ui/context/ContextMenu.vue'
@@ -137,6 +130,7 @@ import { Arrow } from '@/state/types.ts'
 import { PlayerOid } from '@/model/Player.ts'
 import Vector2Like = Phaser.Types.Math.Vector2Like
 import ChangePoolMenu from '@/ui/ingame/ChangePoolMenu.vue'
+import HandGO from '@/game/objects/HandGO.vue'
 
 const core = useCoreStore()
 const gameState = useGameStateStore()

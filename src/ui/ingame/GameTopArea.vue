@@ -315,7 +315,7 @@
 import { computed } from 'vue'
 import { useBusStore, useGameBusStore } from '@/store/bus.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
-import { PLAY_AREA_WIDTH, PLAY_AREA_X, PLAY_AREA_Y } from '@/game/const.ts'
+import { TOP_AREA_HEIGHT, TOP_AREA_WIDTH, TOP_AREA_X } from '@/game/const.ts'
 import { gameMutations } from '@/state/gameMutations.ts'
 import { TurnPhase, TurnSequence } from '@/model/const.ts'
 import { ActionProperty, NO_BLOCK, NO_REACTION } from '@/state/actionState.ts'
@@ -332,11 +332,12 @@ const commands = useCommands()
 
 const style = computed(() => {
     return {
-        width: `${PLAY_AREA_WIDTH}px`,
-        height: `${PLAY_AREA_Y}px`,
-        maxHeight: `${PLAY_AREA_Y}px`,
+        width: `${TOP_AREA_WIDTH}px`,
+        maxWidth: `${TOP_AREA_WIDTH}px`,
+        height: `${TOP_AREA_HEIGHT}px`,
+        maxHeight: `${TOP_AREA_HEIGHT}px`,
         top: `0px`,
-        left: `${PLAY_AREA_X * display.scale}px`,
+        left: `${TOP_AREA_X * display.scale}px`,
         transform: `scale(${display.scale})`,
     }
 })
