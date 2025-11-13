@@ -10,7 +10,6 @@ export const screenBigEnough =
 function getDisplay() {
     const targetWidth = WORLD_WIDTH // 1578px
     const actualWidth = window.innerWidth - RIGHT_COLUMN_WIDTH
-
     const targetHeight = WORLD_HEIGHT
     const actualHeight = window.innerHeight
 
@@ -18,6 +17,9 @@ function getDisplay() {
     const verticalScale = actualHeight / targetHeight
 
     const scale = Math.min(horizontalScale, verticalScale)
+
+    const horizontalSpaceAvailable = actualWidth - WORLD_WIDTH * scale
+    const horizontalPadding = Math.min(horizontalSpaceAvailable / 2, 20)
 
     return {
         targetWidth,
@@ -27,6 +29,8 @@ function getDisplay() {
         horizontalScale,
         verticalScale,
         scale,
+        horizontalSpaceAvailable,
+        horizontalPadding,
     }
 }
 

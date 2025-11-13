@@ -25,9 +25,17 @@ export function resetCamera() {
 
     const camera = scene.cameras.main
     camera.setZoom(display.scale)
-    // Stick the game to the top left corner of the display
-    camera.scrollX = (display.actualWidth * (1 - display.scale)) / (2 * display.scale)
+
+    // Stick the game to the top right corner of the display
+
+    // Top is easy
     camera.scrollY = (display.actualHeight * (1 - display.scale)) / (2 * display.scale)
+
+    // Right is a bit more tricky
+    const scrollTo0 = (display.actualWidth * (1 - display.scale)) / (2 * display.scale)
+    camera.scrollX = scrollTo0 - display.horizontalSpaceAvailable / display.scale
+    // If there's some horizontal space left, add some padding
+    camera.scrollX += display.horizontalPadding
 }
 
 /**
