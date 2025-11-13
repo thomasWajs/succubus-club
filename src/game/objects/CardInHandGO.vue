@@ -21,7 +21,7 @@
     <Rectangle
         ref="cardOutline"
         :key="key + 'cardOutline'"
-        :visible="!!getCardOutlineColor"
+        :visible="!isDragging && !!getCardOutlineColor"
         :x="cardAttrs.x"
         :y="cardAttrs.y + (image ? image.displayHeight / 2 : 0)"
         :width="image ? image.displayWidth : 0"
