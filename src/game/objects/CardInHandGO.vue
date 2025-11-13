@@ -9,8 +9,8 @@
         :alpha="isDragging ? CARD_DRAGGING_ALPHA : 1"
         :scale="cardAttrs.scale"
         @create="onImageCreate"
-        @pointerover="onPointerOver"
-        @pointerout="onPointerOut"
+        @pointerover="onPointerOverHand"
+        @pointerout="onPointerOutHand"
         @pointerdown="onPointerDown"
         @dragstart="onDragStartFromHand"
         @drag="onDrag"
@@ -75,7 +75,6 @@ import {
     CARD_GLOW_TWEEN_OUTER_STRENGTH,
     CARD_HEIGHT,
     CARD_IN_HAND_SCALE,
-    CARD_OUTLINE_COLOR_HOVER,
     CARD_OUTLINE_THICKNESS,
     CARD_WIDTH,
     COUNTER_OUTLINE_THICKNESS,
@@ -88,13 +87,13 @@ import { LibraryCard } from '@/model/Card.ts'
 import { useGameBusStore } from '@/store/bus.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
 import { useCommands } from '@/game/composables/useCommands.ts'
-import Pointer = Phaser.Input.Pointer
 import Glow = Phaser.FX.Glow
 import { CardAttrs, CardCategory, PhaserDataKey } from '@/game/types.ts'
 import { useCardDragDrop } from '@/game/composables/useCardDragDrop.ts'
-import { positionContextMenu } from '@/game/utils.ts'
 import ButtonGo from '@/game/objects/ButtonGo.vue'
 import { gameMutations } from '@/state/gameMutations.ts'
+import { useCardClick } from '@/game/composables/useCardClick.ts'
+import { useCardOutline } from '@/game/composables/useCardOutline.ts'
 
 const { card } = defineProps<{
     card: LibraryCard
@@ -202,10 +201,24 @@ function playCard() {
 }
 
 /**
- * Outline and bring to top on pointer over
+ * Outline and bring to top on pointer over / selection area
  */
 
-const isHovered = ref(false)
+const { isHovered, onPointerOver, onPointerOut, getCardOutlineColor } = useCardOutline(
+    toRef(() => card),
+    image,
+    false,
+)
+
+function onPointerOverHand() {
+    onPointerOver()
+    bringToTop(true)
+}
+
+function onPointerOutHand() {
+    onPointerOut()
+    emit('resetVisibility')
+}
 
 function bringToTop(withOutline = false) {
     if (!image.value) {
@@ -224,45 +237,14 @@ function bringToTop(withOutline = false) {
     discardButton.value?.bringToTop()
 }
 
-function onPointerOver() {
-    isHovered.value = true
-    gameBus.setCloseUpCard(card)
-    bringToTop(true)
-}
-
-function onPointerOut() {
-    isHovered.value = false
-    emit('resetVisibility')
-}
-
-const getCardOutlineColor = computed(() => {
-    return isHovered.value && gameBus.handDropGapPosition == null ?
-            CARD_OUTLINE_COLOR_HOVER.color
-        :   undefined
-})
-
 /**
  * Context Menu on right click
  */
 
-function onRightClick(pointer: Pointer) {
-    gameBus.selectedCards = [card]
-    gameBus.contextMenu.cards = [card]
-    gameBus.contextMenu.show = true
-
-    const setXY = (x: number, y: number) => {
-        gameBus.contextMenu.x = x
-        // Always add an Y offset to keep some space from the bottom of the screen
-        gameBus.contextMenu.y = y - 20
-    }
-    positionContextMenu(pointer.x, pointer.y, pointer.y, '.context-menu', setXY)
-}
-
-function onPointerDown(pointer: Pointer) {
-    if (pointer.rightButtonDown()) {
-        onRightClick(pointer)
-    }
-}
+const { onPointerDown } = useCardClick(
+    toRef(() => card),
+    false,
+)
 
 /**
  * Drag'n'Drop
