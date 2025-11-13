@@ -2,6 +2,7 @@
 
 Features:
 - New interface layout
+- User-defined keyboard shortcuts
 - Overlay "discard" on cards in hand
 
 Bugfix:
