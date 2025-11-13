@@ -1,3 +1,13 @@
+## [0.4.0] - 2025-11-13
+
+Features:
+- New interface layout
+- Overlay "discard" on cards in hand
+
+Bugfix:
+- Fix markers display
+- Fix bot stealth & blocking
+
 ## [0.3.1] - 2025-11-03
 
 Features:
