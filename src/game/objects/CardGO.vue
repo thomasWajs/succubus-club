@@ -81,8 +81,8 @@
                 name="cardButton"
                 :x="overlays.burnBlood.x"
                 :y="overlays.burnBlood.y"
-                :width="overlayButtonSize"
-                :height="overlayButtonSize"
+                :width="OVERLAY_BUTTON_SIZE"
+                :height="OVERLAY_BUTTON_SIZE"
                 :scale="scale"
                 text="-"
                 @pointerover="onPointerOver"
@@ -96,8 +96,8 @@
                 name="cardButton"
                 :x="overlays.gainBlood.x"
                 :y="overlays.gainBlood.y"
-                :width="overlayButtonSize"
-                :height="overlayButtonSize"
+                :width="OVERLAY_BUTTON_SIZE"
+                :height="OVERLAY_BUTTON_SIZE"
                 :scale="scale"
                 text="+"
                 @pointerover="onPointerOver"
@@ -116,8 +116,8 @@
             name="cardButton"
             :x="overlays.ashHeap.x"
             :y="overlays.ashHeap.y"
-            :width="overlayButtonSize"
-            :height="overlayButtonSize"
+            :width="OVERLAY_BUTTON_SIZE"
+            :height="OVERLAY_BUTTON_SIZE"
             :scale="scale"
             text="🔥"
             @pointerover="onPointerOver"
@@ -133,7 +133,7 @@
             :x="overlays.influence.x"
             :y="overlays.influence.y"
             :width="CARD_WIDTH * CARD_IN_PLAY_BASE_SCALE * 0.95"
-            :height="overlayButtonSize"
+            :height="OVERLAY_BUTTON_SIZE"
             :scale="scale"
             text="Influence"
             :textStyle="{ fontSize: '12px' }"
@@ -220,6 +220,7 @@ import {
     MARKER_WIDTH_PER_CHAR,
     MARKERS_FILL_COLOR,
     MARKERS_TEXT_STYLE,
+    OVERLAY_BUTTON_SIZE,
 } from '@/game/const.ts'
 import { Card } from '@/model/Card.ts'
 import { CardDragEvent, useGameBusStore } from '@/store/bus.ts'
@@ -309,8 +310,6 @@ function onImageCreate(image: GameObjects.Image) {
 /**
  * Positions for overlays ( counters & buttons )
  */
-
-const overlayButtonSize = COUNTER_RADIUS * COUNTER_HOVER_OFFSET_MULTIPLIER
 
 const overlays = computed(() => {
     const counterRadius = (COUNTER_RADIUS + COUNTER_OUTLINE_THICKNESS) * scale.value

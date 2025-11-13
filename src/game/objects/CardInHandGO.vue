@@ -30,19 +30,34 @@
         :strokeColor="getCardOutlineColor"
     />
 
-    <!-- On hover : Play button  -->
+    <!-- Hovered buttons -->
     <template v-if="isHovered && !isDragging">
+        <!-- Play -->
         <ButtonGo
             ref="playButton"
             name="cardButton"
-            :x="cardAttrs.x + (image ? image.displayWidth / 2 : 0) - 32"
-            :y="cardAttrs.y + 15"
+            :x="overlays.play.x"
+            :y="overlays.play.y"
             :width="60"
             :height="25"
             text="Play"
             @pointerover="onPointerOver"
             @pointerout="onPointerOut"
             @click="playCard"
+        />
+
+        <!-- Discard -->
+        <ButtonGo
+            ref="discardButton"
+            name="cardButton"
+            :x="overlays.ashHeap.x"
+            :y="overlays.ashHeap.y"
+            :width="ASH_HEAP_BUTTON_SIZE"
+            :height="ASH_HEAP_BUTTON_SIZE"
+            text="🔥"
+            @pointerover="onPointerOver"
+            @pointerout="onPointerOut"
+            @click="() => commands.MoveToAshHeap.cardAction(card)"
         />
     </template>
 </template>
@@ -58,17 +73,21 @@ import {
     CARD_GLOW_INNER_STRENGTH,
     CARD_GLOW_OUTER_STRENGTH,
     CARD_GLOW_TWEEN_OUTER_STRENGTH,
+    CARD_HEIGHT,
     CARD_IN_HAND_SCALE,
     CARD_OUTLINE_COLOR_HOVER,
     CARD_OUTLINE_THICKNESS,
     CARD_WIDTH,
+    COUNTER_OUTLINE_THICKNESS,
     GRID_SIZE,
     HAND_WIDTH,
+    OVERLAY_BUTTON_SIZE,
     PLAY_AREA_WIDTH,
 } from '@/game/const.ts'
 import { LibraryCard } from '@/model/Card.ts'
 import { useGameBusStore } from '@/store/bus.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
+import { useCommands } from '@/game/composables/useCommands.ts'
 import Pointer = Phaser.Input.Pointer
 import Glow = Phaser.FX.Glow
 import { CardAttrs, CardCategory, PhaserDataKey } from '@/game/types.ts'
@@ -83,11 +102,13 @@ const { card } = defineProps<{
 
 const gameState = useGameStateStore()
 const gameBus = useGameBusStore()
+const commands = useCommands()
 const scene = useScene()
 const image = refObj<GameObjects.Image>()
 const dragPlaceholder = refObj<GameObjects.Image>()
 const cardOutline = refObj<GameObjects.Rectangle>()
 const playButton = ref<typeof ButtonGo>()
+const discardButton = ref<typeof ButtonGo>()
 
 const key = computed(() => `hand${card.oid.toString()}`)
 
@@ -129,6 +150,29 @@ const cardAttrs = computed((): CardAttrs => {
     const offsetX = (HAND_WIDTH - totalWidth) / 2
     const x = offsetX + spacing * cardIndex + (image.value?.displayWidth ?? 0) / 2
     return { category, x, y: 0, rotation: 0, scale: CARD_IN_HAND_SCALE }
+})
+
+/**
+ * Positions for overlays ( counters & buttons )
+ */
+
+const ASH_HEAP_BUTTON_SIZE = OVERLAY_BUTTON_SIZE * 1.5
+
+const overlays = computed(() => {
+    const totalAshHeapButtonSize = ASH_HEAP_BUTTON_SIZE + COUNTER_OUTLINE_THICKNESS
+    const rightEdge = cardAttrs.value.x + (CARD_WIDTH * CARD_IN_HAND_SCALE) / 2
+    const bottomEdge = cardAttrs.value.y + CARD_HEIGHT * CARD_IN_HAND_SCALE
+
+    return {
+        play: {
+            x: rightEdge - 32,
+            y: cardAttrs.value.y + 15,
+        },
+        ashHeap: {
+            x: rightEdge - totalAshHeapButtonSize / 2 - 1, // -1 is to account for outline thickness
+            y: bottomEdge - totalAshHeapButtonSize / 2 - 1, // -1 is to account for outline thickness
+        },
+    }
 })
 
 /**
@@ -177,6 +221,7 @@ function bringToTop(withOutline = false) {
         container.bringToTop(cardOutline.value)
     }
     playButton.value?.bringToTop()
+    discardButton.value?.bringToTop()
 }
 
 function onPointerOver() {
