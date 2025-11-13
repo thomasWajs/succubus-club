@@ -1385,6 +1385,7 @@ class ResolveAction extends GameMutation<EmptyParams> {
         this.minionActionName = gameState.action.minionAction.name
         gameState.action.minionAction.resolve()
         gameState.action = null
+        useCoreStore().conductor?.onActionResolve()
     }
 
     formatForLog() {
@@ -1456,10 +1457,11 @@ class ResolveBlock extends GameMutation<EmptyParams> {
              */
 
             gameState.action = null
+            useCoreStore().conductor?.onActionResolve()
         }
         // Failed block
         else {
-            this.previousState.isBlockSuccessful = true
+            this.previousState.isBlockSuccessful = false
 
             action.blockingDecision = null
             action.impulsePlayer = gameState.activePlayer
@@ -1468,7 +1470,9 @@ class ResolveBlock extends GameMutation<EmptyParams> {
     }
 
     formatForLog() {
-        return this.previousState.isBlockSuccessful ? `Block successful` : `Block failed`
+        return this.previousState.isBlockSuccessful ?
+                `Block successful. !! TEMPORARY !! : Combat resolved as hand strikes for 1`
+            :   `Block failed`
     }
 }
 

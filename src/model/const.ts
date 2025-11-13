@@ -159,7 +159,7 @@ export const LEAVE_TORPOR_COST = 2
 
 export const DEFAULT_CARD_ATTRS = {
     Bleed: 1,
-    Stealth: 1,
+    Stealth: 0,
     Intercept: 0,
     Strength: 1,
     Hunt: 1,
