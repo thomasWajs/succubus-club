@@ -181,7 +181,7 @@
             :height="MARKER_HEIGHT"
             :fillColor="MARKERS_FILL_COLOR.color"
             :fillAlpha="MARKERS_FILL_COLOR.alphaGL"
-            :scale="cardScale"
+            :scale="scale"
         />
         <Text
             :ref="el => registerMarkersTexts(index, el as typeof Text | null)"
@@ -191,7 +191,7 @@
             :y="markersPosition.y + (MARKER_HEIGHT + 2) * index + MARKER_MARGIN_TOP"
             :text="marker"
             :style="MARKERS_TEXT_STYLE"
-            :scale="cardScale"
+            :scale="scale"
         />
     </template>
 </template>
