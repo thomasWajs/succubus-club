@@ -87,29 +87,16 @@
         />
 
         <!-- Selection Area -->
-        <Rectangle
-            v-if="gameBus.selectionAreaRect"
-            :origin="0"
-            :x="gameBus.selectionAreaRect.x"
-            :y="gameBus.selectionAreaRect.y"
-            :width="gameBus.selectionAreaRect.width"
-            :height="gameBus.selectionAreaRect.height"
-            :lineWidth="SELECTION_AREA_LINE_THICKNESS"
-            :strokeColor="SELECTION_AREA_COLOR.color"
-            :fillColor="SELECTION_AREA_COLOR.color"
-            :fillAlpha="0.075"
-        />
+        <SelectionArea />
     </Scene>
 </template>
 
 <script setup lang="ts">
 import Phaser from 'phaser'
-import { Rectangle, Scene } from 'phavuer'
+import { Scene } from 'phavuer'
 import { useGameStateStore } from '@/store/gameState.ts'
 import {
     OTHER_PLAYERS_SCALE,
-    SELECTION_AREA_COLOR,
-    SELECTION_AREA_LINE_THICKNESS,
     BOTTOM_PLAYERS_Y,
     RIGHT_PLAYERS_X,
     PLAY_AREA_X,
@@ -131,6 +118,7 @@ import { PlayerOid } from '@/model/Player.ts'
 import Vector2Like = Phaser.Types.Math.Vector2Like
 import ChangePoolMenu from '@/ui/ingame/ChangePoolMenu.vue'
 import HandGO from '@/game/objects/HandGO.vue'
+import SelectionArea from '@/game/objects/SelectionArea.vue'
 
 const core = useCoreStore()
 const gameState = useGameStateStore()

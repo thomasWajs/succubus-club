@@ -7,10 +7,10 @@
     <Rectangle
         key="overlay"
         :origin="0"
-        :x="0"
-        :y="0"
-        :width="WORLD_WIDTH"
-        :height="WORLD_HEIGHT"
+        :x="-5000"
+        :y="-5000"
+        :width="10000"
+        :height="10000"
         :fillAlpha="0"
         @pointerdown="onOverlayPointerDown"
     />
@@ -26,7 +26,6 @@
         :lineWidth="2"
         :strokeColor="WIELD_BORDER_COLOR.color"
         :fillColor="WIELD_BACKGROUND_COLOR.color"
-        :dropZone="true"
     />
 
     <Container
@@ -58,6 +57,7 @@
             :y="cardsPanelHeight / 2"
         />
 
+        <!-- Cards -->
         <template
             v-for="(card, index) in cards"
             :key="index + cardRegion.name + card.oid"
@@ -65,7 +65,7 @@
             <CardInWieldCardStack
                 :card="card"
                 :x="WIELD_X + index * CARD_DISPLAY_WIDTH + CARDS_OFFSET + INDICATOR_WIDTH"
-                :y="10"
+                :y="15"
                 @wheel="onWheel"
             />
         </template>
@@ -124,7 +124,7 @@ import {
     WIELD_BACKGROUND_COLOR,
     WIELD_BORDER_COLOR,
     WIELD_CARD_SCALE,
-    WIELD_INITIAL_HEIGHT,
+    WIELD_CARD_STACK_HEIGHT,
     WIELD_X,
     WIELD_Y,
     WORLD_HEIGHT,
@@ -149,10 +149,10 @@ const gameBus = useGameBusStore()
 const scene = useScene()
 
 const width = WORLD_WIDTH - WIELD_X * 2
-const height = WIELD_INITIAL_HEIGHT
+const height = WIELD_CARD_STACK_HEIGHT
 
 const wieldsActionsWidth = WIELD_ACTIONS_WIDTH + 4
-const wieldsActionsHeight = WIELD_INITIAL_HEIGHT
+const wieldsActionsHeight = WIELD_CARD_STACK_HEIGHT
 
 const cardsPanelWidth = width - wieldsActionsWidth
 const cardsPanelHeight = height

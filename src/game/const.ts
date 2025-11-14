@@ -169,7 +169,7 @@ export const MARKERS_TEXT_STYLE = {
 
 export const WIELD_X = 0
 export const WIELD_Y = 0
-export const WIELD_INITIAL_HEIGHT = 260
+export const WIELD_CARD_STACK_HEIGHT = 270
 export const WIELD_ACTIONS_WIDTH = 190
 export const WIELD_BORDER_COLOR = BLACK
 export const WIELD_BACKGROUND_COLOR = REGION_BACKGROUND_COLOR
