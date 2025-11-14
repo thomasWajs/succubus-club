@@ -1031,7 +1031,8 @@ class Reveal extends GameMutation<RevealParams> {
         if (this.params.target instanceof CardRegion) {
             return `${verb} ${cardRegionString} ${particle} ${viewerString}`
         } else {
-            return `${verb} 1 card of ${cardRegionString} ${particle} ${viewerString}`
+            const cardString = this.params.viewer === ALL_PLAYERS ? CARD_LOG_PLACEHOLDER : '1 card'
+            return `${verb} ${cardString} of ${cardRegionString} ${particle} ${viewerString}`
         }
     }
 

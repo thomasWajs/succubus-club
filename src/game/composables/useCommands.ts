@@ -9,6 +9,7 @@ import { Card } from '@/model/Card.ts'
 import { resetCamera } from '@/game/camera.ts'
 import { useHistoryStore } from '@/store/history.ts'
 import { useCoreStore } from '@/store/core.ts'
+import { ALL_PLAYERS } from '@/state/types.ts'
 
 const KEYCODE_EQUALS_PLUS_FIREFOX = 61
 const KEYCODE_PLUS = 171
@@ -326,6 +327,25 @@ function createCommands(): Commands {
                         toCardRegion: card.owner.ashHeap,
                         position: 0,
                     })
+                }
+            },
+        }),
+
+        QuickReveal: createCardCommand({
+            name: 'QuickReveal',
+            cardAction: (card: Card) => {
+                if (card.isIn.library || card.isIn.crypt) {
+                    gameMutations.reveal.actSelf({
+                        target: card,
+                        viewer: ALL_PLAYERS,
+                    })
+
+                    setTimeout(() => {
+                        gameMutations.reveal.actSelf({
+                            target: card,
+                            viewer: ALL_PLAYERS,
+                        })
+                    }, 500)
                 }
             },
         }),

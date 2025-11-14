@@ -63,10 +63,10 @@
     />
 
     <Image
-        v-if="showTopCard && cardRegion.length > 0"
+        v-if="showTopCard && topCard"
         ref="image"
-        :texture="cardRegion.cards[0].displayedTexture.textureName"
-        :frame="cardRegion.cards[0].displayedTexture.frameName"
+        :texture="topCard.displayedTexture.textureName"
+        :frame="topCard.displayedTexture.frameName"
         :x="x + (image ? image.displayHeight / 2 : 0) + 5"
         :y="y + (image ? image.displayWidth / 2 : 0) + 5"
         :scale="CARD_IN_STACK_SCALE"
@@ -102,7 +102,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { reactive, ref, computed } from 'vue'
 import Phaser, { GameObjects } from 'phaser'
 import { Image, Rectangle, refObj, Text, useScene } from 'phavuer'
 import {
@@ -120,17 +120,16 @@ import Color = Phaser.Display.Color
 import Pointer = Phaser.Input.Pointer
 import { PhaserDataKey } from '@/game/types.ts'
 import { RegionName } from '@/model/const.ts'
-import { getDraggedCard } from '@/game/utils.ts'
+import { getDraggedCard, positionContextMenu } from '@/game/utils.ts'
 import { Texture } from '@/resources/textures.ts'
 
-const props = defineProps<{
+const { cardRegion, draw } = defineProps<{
     x: number
     y: number
     width: number
     height: number
     color: Color
     cardRegion: AnyCardRegion
-
     showTopCard: boolean
     draw?: 'crypt' | 'library'
 }>()
@@ -141,14 +140,12 @@ const gameBus = useGameBusStore()
 const image = refObj<GameObjects.Image>()
 const isDraggedOver = ref(false)
 
+const topCard = computed(() => (cardRegion.length > 0 ? cardRegion.firstCard : null))
+
 function closeUpAshHeap() {
     // Close up top card of the ash heap
-    if (
-        props.cardRegion.name == RegionName.AshHeap &&
-        props.cardRegion.length > 0 &&
-        !isDraggedOver.value
-    ) {
-        gameBus.setCloseUpCard(props.cardRegion.firstCard)
+    if (cardRegion.name == RegionName.AshHeap && cardRegion.length > 0 && !isDraggedOver.value) {
+        gameBus.setCloseUpCard(cardRegion.firstCard)
     }
 }
 
@@ -157,7 +154,7 @@ function closeUpAshHeap() {
  */
 
 function onBoundariesCreate(boundaries: GameObjects.Rectangle) {
-    boundaries.setData(PhaserDataKey.CardRegionOid, props.cardRegion.oid)
+    boundaries.setData(PhaserDataKey.CardRegionOid, cardRegion.oid)
 
     // boundaries is already interactive because it declare a dropZone
     // so we update its cursor property instead of using setInteractive()
@@ -171,7 +168,7 @@ function onBoundariesCreate(boundaries: GameObjects.Rectangle) {
         ({}, cardImage: GameObjects.Image, target: GameObjects.Rectangle) => {
             // Highlight target region if it's different from the source region
             const card = getDraggedCard(cardImage)
-            if (target == boundaries && card.region.oid != props.cardRegion.oid) {
+            if (target == boundaries && card.region.oid != cardRegion.oid) {
                 isDraggedOver.value = true
             }
         },
@@ -203,7 +200,7 @@ function onBoundariesPointerOut() {
 
 function onBoundariesPointerDown() {
     gameBus.wieldCardStack.show = true
-    gameBus.wieldCardStack.cardRegion = props.cardRegion
+    gameBus.wieldCardStack.cardRegion = cardRegion
 }
 
 /**
@@ -217,7 +214,7 @@ const drawHoverAttrs = reactive({
 })
 
 function onImagePointerMove(pointer: Pointer) {
-    if (props.draw) {
+    if (draw) {
         drawHoverAttrs.isHovered = true
         drawHoverAttrs.x = pointer.x
         drawHoverAttrs.y = pointer.y
@@ -233,7 +230,7 @@ function onImagePointerOut() {
 }
 
 function onImageCreate(image: GameObjects.Image) {
-    if (props.draw) {
+    if (draw) {
         image.setInteractive({ draggable: false, cursor: 'pointer' })
     }
 }
@@ -242,18 +239,29 @@ function onImageCreate(image: GameObjects.Image) {
  * Draw card on click
  */
 
-function onImagePointerDown() {
+function onImagePointerDown(pointer: Pointer) {
     if (!gameState.selfPlayer) {
         return
     }
-    if (props.draw == 'library') {
-        gameMutations.drawLibrary.actSelf({
-            player: gameState.selfPlayer,
-        })
-    } else if (props.draw == 'crypt') {
-        gameMutations.drawCrypt.actSelf({
-            player: gameState.selfPlayer,
-        })
+    if (pointer.leftButtonDown()) {
+        if (draw == 'library') {
+            gameMutations.drawLibrary.actSelf({
+                player: gameState.selfPlayer,
+            })
+        } else if (draw == 'crypt') {
+            gameMutations.drawCrypt.actSelf({
+                player: gameState.selfPlayer,
+            })
+        }
+    } else if (pointer.rightButtonDown() && topCard.value) {
+        gameBus.selectedCards = [topCard.value]
+        gameBus.contextMenu.cards = [topCard.value]
+        gameBus.contextMenu.show = true
+        const setXY = (x: number, y: number) => {
+            gameBus.contextMenu.x = x
+            gameBus.contextMenu.y = y
+        }
+        positionContextMenu(pointer.x, pointer.y, pointer.y, '.context-menu', setXY)
     }
 }
 </script>

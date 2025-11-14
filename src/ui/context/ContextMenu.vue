@@ -68,6 +68,14 @@
             Add/Remove Markers
         </SubmenuContextMenuButton>
 
+        <CommandContextMenuButton
+            v-if="firstCard.isIn.library || firstCard.isIn.crypt"
+            :closeOnClick="true"
+            :command="commands.QuickReveal"
+        >
+            Quick Reveal {{ firstCard == firstCard.region.firstCard ? 'Top Card ' : '' }} To All
+        </CommandContextMenuButton>
+
         <ContextMenuButton
             v-if="firstCard.isIn.hand || firstCard.isIn.library || firstCard.isIn.ashHeap"
             :closeOnClick="true"

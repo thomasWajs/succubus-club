@@ -7,7 +7,7 @@
         <slot />
 
         <template #right>
-            <kbd>{{ command.repr }}</kbd>
+            <kbd v-if="command.repr">{{ command.repr }}</kbd>
         </template>
     </ContextMenuButton>
 </template>

@@ -17,7 +17,7 @@ import { AnyCardRegion } from '@/model/CardRegion.ts'
 import { computed } from 'vue'
 import { isRevealedToViewer } from '@/state/cardVisibility.ts'
 
-const props = defineProps<{
+const { viewer, cardRegion } = defineProps<{
     viewer: CardRevelationViewer
     cardRegion: AnyCardRegion
 }>()
@@ -25,8 +25,8 @@ const props = defineProps<{
 const gameBus = useGameBusStore()
 
 const isActive = computed(() => {
-    const target = gameBus.selectedCards.length > 0 ? gameBus.selectedCards[0] : props.cardRegion
-    return isRevealedToViewer(target, props.viewer)
+    const target = gameBus.selectedCards.length > 0 ? gameBus.selectedCards[0] : cardRegion
+    return isRevealedToViewer(target, viewer)
 })
 
 function reveal() {
@@ -34,13 +34,13 @@ function reveal() {
         gameBus.selectedCards.forEach(card =>
             gameMutations.reveal.actSelf({
                 target: card,
-                viewer: props.viewer,
+                viewer,
             }),
         )
     } else {
         gameMutations.reveal.actSelf({
-            target: props.cardRegion,
-            viewer: props.viewer,
+            target: cardRegion,
+            viewer,
         })
     }
 }
