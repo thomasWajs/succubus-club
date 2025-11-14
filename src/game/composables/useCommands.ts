@@ -18,6 +18,7 @@ export type Command = {
     name: string // The technical name
     label: string // Verbose label for users
     repr: string // The string to represent this key in the UI
+    defaultRepr: string // The default repr
     keyCodes: number[] // Array of Phaser.Input.Keyboard.KeyCodes
     isDisabled: () => boolean
     trigger: () => void
@@ -50,6 +51,7 @@ function createCommands(): Commands {
             name: '',
             label: '',
             repr: '',
+            defaultRepr: command.repr ?? '',
             keyCodes: [],
             isDisabled: () => false,
             trigger: () => {

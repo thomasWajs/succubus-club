@@ -87,7 +87,7 @@
                             </div>
 
                             <div class="key-binding-key">
-                                <kbd>{{ keyBinding.repr }}</kbd>
+                                <kbd>{{ keyBinding.defaultRepr }}</kbd>
                                 <input
                                     class="input-field"
                                     :value="
@@ -100,11 +100,20 @@
                                 />
                             </div>
 
-                            <span
-                                v-if="savedKeyBindings[keyBinding.name]"
-                                class="save-feedback success"
-                            >
-                                ✓ Saved
+                            <span class="feedback-wrapper">
+                                <span
+                                    v-if="conflictingKeyBindings[keyBinding.name]"
+                                    class="save-feedback alert"
+                                >
+                                    ☓ Conflict
+                                </span>
+
+                                <span
+                                    v-if="savedKeyBindings[keyBinding.name]"
+                                    class="save-feedback success"
+                                >
+                                    ✓ Saved
+                                </span>
                             </span>
                         </div>
                     </div>
@@ -234,6 +243,38 @@ const assignableKeyBindings = computed(() => {
 
 const savedKeyBindings = ref<Record<string, boolean>>({})
 
+// Track conflicting key bindings
+const conflictingKeyBindings = computed(() => {
+    const conflicts: Record<string, boolean> = {}
+    const keyBindings = core.userProfile.preferences.keyBindings ?? {}
+
+    // Create a map of key representations to command names
+    const keyToCommands: Record<string, string[]> = {}
+
+    // Check all assignable key bindings
+    assignableKeyBindings.value.forEach(command => {
+        // Use custom binding if exists, otherwise use default
+        const customBinding = keyBindings[command.name]
+        const key = customBinding ? customBinding.repr.toUpperCase() : command.repr.toUpperCase()
+
+        if (!keyToCommands[key]) {
+            keyToCommands[key] = []
+        }
+        keyToCommands[key].push(command.name)
+    })
+
+    // Mark commands that have conflicts
+    Object.values(keyToCommands).forEach(commandNames => {
+        if (commandNames.length > 1) {
+            commandNames.forEach(name => {
+                conflicts[name] = true
+            })
+        }
+    })
+
+    return conflicts
+})
+
 async function handleShortcutKeydown(event: KeyboardEvent, keyBindingName: string) {
     event.preventDefault()
 
@@ -290,6 +331,23 @@ $max-width: 1200px;
     margin: 0 auto;
 }
 
+.save-feedback {
+    font-size: 12px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    white-space: nowrap;
+
+    &.success {
+        color: $vibrant-emerald;
+        background-color: rgba($vibrant-emerald, 0.2);
+    }
+
+    &.alert {
+        color: $warm-coral;
+        background-color: rgba($warm-coral, 0.2);
+    }
+}
+
 /** User Profile **/
 
 .avatar-section {
@@ -318,19 +376,6 @@ $max-width: 1200px;
     box-sizing: border-box;
 }
 
-.save-feedback {
-    font-size: 12px;
-    padding: 2px 6px;
-    border-radius: 4px;
-    transition: opacity 0.3s ease;
-    white-space: nowrap;
-
-    &.success {
-        color: $vibrant-emerald;
-        background-color: rgba($vibrant-emerald, 0.2);
-    }
-}
-
 /** Shortcuts **/
 
 .key-binding-list {
@@ -354,6 +399,8 @@ $max-width: 1200px;
     @include list-item;
     padding: 0.5rem;
     position: relative;
+    display: flex;
+    align-items: center;
 }
 
 .key-binding-key {
@@ -371,8 +418,13 @@ $max-width: 1200px;
     }
 }
 
-.save-feedback {
+.feedback-wrapper {
     position: absolute;
-    right: -4rem;
+    left: 100%;
+    margin-left: 12px;
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+    align-items: center;
 }
 </style>
