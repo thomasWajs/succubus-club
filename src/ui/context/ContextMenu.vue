@@ -97,6 +97,14 @@
             Move to Ash Heap
         </CommandContextMenuButton>
 
+        <CommandContextMenuButton
+            v-if="!firstCard.isIn.removed"
+            :command="commands.RemoveFromGame"
+            :closeOnClick="true"
+        >
+            Remove From Game
+        </CommandContextMenuButton>
+
         <ContextMenuButton
             v-if="!firstCard.isIn.uncontrolled && !firstCard.isIn.crypt"
             :closeOnClick="true"

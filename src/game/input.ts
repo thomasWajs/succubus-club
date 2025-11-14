@@ -120,7 +120,6 @@ function onPointerMove(pointer: Pointer, {}) {
 
 export function setupKeyboardHandlers(scene: Phaser.Scene) {
     const gameState = useGameStateStore()
-    const gameBus = useGameBusStore()
     const commands = useCommands()
 
     if (!scene.input.keyboard) {
@@ -138,11 +137,6 @@ export function setupKeyboardHandlers(scene: Phaser.Scene) {
         for (const keyCode of command.keyCodes) {
             const key = scene.input.keyboard.addKey(keyCode, false)
             key.on('down', () => {
-                // Don't trigger the command by key when wield card stack is open
-                if (gameBus.wieldCardStack.show) {
-                    return
-                }
-
                 if (!command.isDisabled()) {
                     command.trigger()
                 }

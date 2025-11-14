@@ -10,9 +10,10 @@
 
         <input
             v-if="gameState.isPlayer"
-            class="search-input"
             v-model="gameBus.wieldCardStack.searchString"
+            class="search-input"
             placeholder="Search for a card..."
+            @keydown.stop
         />
 
         <button

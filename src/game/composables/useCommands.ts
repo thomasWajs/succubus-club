@@ -331,6 +331,23 @@ function createCommands(): Commands {
             },
         }),
 
+        RemoveFromGame: createCardCommand({
+            name: 'RemoveFromGame',
+            label: 'Remove From Game',
+            repr: 'END',
+            keyCodes: [KeyCodes.END],
+            cardAction: (card: Card) => {
+                if (!card.isIn.removed) {
+                    gameMutations.moveCardToRegion.actSelf({
+                        card,
+                        fromCardRegion: card.region,
+                        toCardRegion: card.owner.removed,
+                        position: 0,
+                    })
+                }
+            },
+        }),
+
         QuickReveal: createCardCommand({
             name: 'QuickReveal',
             cardAction: (card: Card) => {
