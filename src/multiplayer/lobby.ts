@@ -17,14 +17,9 @@ import { joinGameRoom, leaveGameRoom } from '@/multiplayer/room.ts'
 import { hash } from '@/gateway/serialization.ts'
 import { computeKey } from '@/multiplayer/encryption.ts'
 
-let LOBBY_CHANNEL_NAME = 'Lobby'
+const LOBBY_CHANNEL_NAME = 'Lobby'
+const GAME_ROOMS_KEY = 'gameRooms'
 const DEBOUNCE_DELAY = 500 // milliseconds
-let GAME_ROOMS_KEY = 'gameRooms'
-
-if (import.meta.env.DEV) {
-    LOBBY_CHANNEL_NAME = `{dev} ${LOBBY_CHANNEL_NAME}`
-    GAME_ROOMS_KEY = `{dev} ${GAME_ROOMS_KEY}`
-}
 
 let unwatchSelfUser: WatchHandle | null = null
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
