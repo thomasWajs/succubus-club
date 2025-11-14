@@ -129,6 +129,7 @@ import {
     WIELD_Y,
     WORLD_HEIGHT,
     WORLD_WIDTH,
+    RIGHT_COLUMN_WIDTH,
 } from '@/game/const.ts'
 import { Container, Rectangle, Text, useScene } from 'phavuer'
 import { useGameBusStore } from '@/store/bus.ts'
@@ -170,12 +171,11 @@ const INDICATOR_TEXT_STYLE = {
 /** Wield Actions positionning */
 
 const actionsStyle = computed(() => {
-    const scaledCardsPanelWidth = (width - wieldsActionsWidth) * display.scale
     return {
         width: `${wieldsActionsWidth}px`,
         height: `${wieldsActionsHeight}px`,
-        top: `0px`,
-        left: `${scaledCardsPanelWidth + 4}px`,
+        top: '0',
+        right: `${RIGHT_COLUMN_WIDTH + display.horizontalPadding * display.scale}px`,
         transform: `scale(${display.scale})`,
     }
 })

@@ -53,7 +53,7 @@ export const CARD_GLOW_TWEEN_OUTER_STRENGTH = 5
 
 export const GRID_SIZE = 20 // 20 px
 
-export const RIGHT_COLUMN_WIDTH = 342 // 342 px
+export const RIGHT_COLUMN_WIDTH = 342 // column 338px + border 4px = 342px
 export const WORLD_WIDTH = HD_WIDTH - RIGHT_COLUMN_WIDTH // 1578 px
 export const WORLD_HEIGHT = HD_HEIGHT // 1080 px
 
@@ -167,7 +167,7 @@ export const MARKERS_TEXT_STYLE = {
  * Wield Card Stack
  */
 
-export const WIELD_X = 5
+export const WIELD_X = 0
 export const WIELD_Y = 0
 export const WIELD_INITIAL_HEIGHT = 260
 export const WIELD_ACTIONS_WIDTH = 190

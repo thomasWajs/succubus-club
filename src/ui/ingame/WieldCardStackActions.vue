@@ -3,21 +3,21 @@
         id="WieldCardStackActions"
         :style="actionsStyle"
     >
-        <div id="WieldCardStackActionsHeading">
+        <div class="actions-heading">
             <span>{{ cardRegion.cards.length }} Cards</span>
             <span>{{ cardRegion.name }}</span>
         </div>
 
         <input
             v-if="gameState.isPlayer"
-            id="WieldCardStackSearch"
+            class="search-input"
             v-model="gameBus.wieldCardStack.searchString"
             placeholder="Search for a card..."
         />
 
         <button
             v-if="gameState.isPlayer"
-            class="game-button"
+            class="game-button shuffle-button"
             @click="
                 gameMutations.shuffle.actSelf({
                     cardRegion: cardRegion,
@@ -39,7 +39,7 @@
             to :
             <br />
 
-            <div id="RevealGrid">
+            <div class="reveal-grid">
                 <RevelationButton
                     :viewer="ALL_PLAYERS"
                     :cardRegion="cardRegion"
@@ -83,10 +83,10 @@ const gameState = useGameStateStore()
 const gameBus = useGameBusStore()
 </script>
 
-<style lang="scss">
+<style scoped lang="scss">
 #WieldCardStackActions {
     position: absolute;
-    transform-origin: top left;
+    transform-origin: top right;
     background-color: transparent;
     box-sizing: border-box;
     padding: 5px;
@@ -96,7 +96,7 @@ const gameBus = useGameBusStore()
     flex-direction: column;
 }
 
-#WieldCardStackActionsHeading {
+.actions-heading {
     display: flex;
     justify-content: space-between;
     font-size: 18px;
@@ -104,14 +104,18 @@ const gameBus = useGameBusStore()
     color: $ash-grey;
 }
 
-#WieldCardStackSearch {
+.search-input {
     box-sizing: border-box;
     margin: 10px 0;
     padding: 5px 3px;
     font-size: 16px;
 }
 
-#RevealGrid {
+.shuffle-button {
+    margin: 5px 0;
+}
+
+.reveal-grid {
     display: grid;
     grid-template-columns: 50% 50%;
 
