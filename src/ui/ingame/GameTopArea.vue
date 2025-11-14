@@ -9,6 +9,9 @@
         v-show="!gameBus.wieldCardStack.show"
         id="GameTopArea"
         :style="style"
+        @pointermove="forwardPointerEvent"
+        @pointerdown="forwardPointerEvent"
+        @pointerup="forwardPointerEvent"
     >
         <div class="turn-infos">
             <div class="turn">
@@ -323,7 +326,9 @@ import { display } from '@/game/display.ts'
 import { useCommands } from '@/game/composables/useCommands.ts'
 import CommandButton from '@/ui/ingame/CommandButton.vue'
 import { useHistoryStore } from '@/store/history.ts'
+import { useCoreStore } from '@/store/core.ts'
 
+const core = useCoreStore()
 const gameState = useGameStateStore()
 const history = useHistoryStore()
 const bus = useBusStore()
@@ -343,6 +348,34 @@ const style = computed(() => {
         transform: `scale(${display.scale})`,
     }
 })
+
+/**
+ * Dispatch pointer events to the game
+ */
+
+function forwardPointerEvent(event: PointerEvent) {
+    const game = core.phaserGame
+    const newEvent = new PointerEvent(event.type, event)
+
+    switch (event.type) {
+        case 'pointerdown':
+            event.preventDefault()
+            game.canvas.dispatchEvent(newEvent) // Needed to get newEvent.target set to canvas
+            // @ts-expect-error - Phaser internal method exists at runtime
+            game.input.onMouseDown(newEvent)
+            break
+        case 'pointerup':
+            event.preventDefault()
+            game.canvas.dispatchEvent(newEvent) // Needed to get newEvent.target set to canvas
+            // @ts-expect-error - Phaser internal method exists at runtime
+            game.input.onMouseUp(newEvent)
+            break
+        case 'pointermove':
+            // @ts-expect-error - Phaser internal method exists at runtime
+            core.phaserGame.input.onMouseMove(newEvent)
+            break
+    }
+}
 </script>
 
 <style lang="scss">
