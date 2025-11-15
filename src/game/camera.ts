@@ -3,27 +3,34 @@ import Pointer = Phaser.Input.Pointer
 import { display } from '@/game/display.ts'
 
 const ZOOM_SPEED = 0.001
-let scene: Phaser.Scene | undefined
+let tabletopScene: Phaser.Scene | undefined
 
-export function setupCamera(_scene: Phaser.Scene) {
-    scene = _scene
+export function setupCamera(_tabletopScene: Phaser.Scene) {
+    tabletopScene = _tabletopScene
 
     resetCamera()
     // Keep Camera scaled on resize
-    scene.scale.on('resize', resetCamera)
+    tabletopScene.scale.on('resize', resetCamera)
 
     // Commented pending camera fixes. See https://github.com/thomasWajs/succubus-club/issues/12
     if (import.meta.env.VITE_ENABLE_CAMERA) {
-        setupCameraControls(scene)
+        setupCameraControls(tabletopScene)
     }
 }
 
+export function getTabletopScene() {
+    if (!tabletopScene) {
+        throw new Error('Tabletop scene not initialized.')
+    }
+    return tabletopScene
+}
+
 export function resetCamera() {
-    if (!scene) {
+    if (!tabletopScene) {
         return
     }
 
-    const camera = scene.cameras.main
+    const camera = tabletopScene.cameras.main
     camera.setZoom(display.scale)
 
     // Stick the game to the top right corner of the display

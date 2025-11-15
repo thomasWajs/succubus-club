@@ -3,10 +3,10 @@ import Pointer = Phaser.Input.Pointer
 import Phaser, { GameObjects } from 'phaser'
 import { DRAG_DISTANCE_THRESHOLD } from '@/game/const.ts'
 import { useCommands } from '@/game/composables/useCommands.ts'
-import { display } from '@/game/display.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
 import { gameMutations } from '@/state/gameMutations.ts'
 import { PhaserDataKey } from '@/game/types.ts'
+import { getWorldPoint } from '@/game/utils.ts'
 
 /**
  * Pointer Inputs
@@ -79,10 +79,8 @@ function onPointerDown(pointer: Pointer, gameObjects: GameObjects.GameObject[]) 
         // Start a selection area on left click
         if (pointer.leftButtonDown()) {
             gameBus.selectionArea.show = true
-            gameBus.selectionArea.origin = {
-                x: pointer.x / display.scale,
-                y: pointer.y / display.scale,
-            }
+            // Expressed in world coordinates
+            gameBus.selectionArea.origin = getWorldPoint(pointer.x, pointer.y)
         }
     }
 
@@ -108,10 +106,8 @@ function onPointerUp({}, {}) {
 }
 
 function onPointerMove(pointer: Pointer, {}) {
-    useGameBusStore().pointerPosition = {
-        x: pointer.x / display.scale,
-        y: pointer.y / display.scale,
-    }
+    // Expressed in world coordinates
+    useGameBusStore().pointerPosition = getWorldPoint(pointer.x, pointer.y)
 }
 
 /**

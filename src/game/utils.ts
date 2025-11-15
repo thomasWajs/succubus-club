@@ -1,17 +1,27 @@
 import { CARD_HEIGHT, CARD_IN_PLAY_BASE_SCALE, CARD_WIDTH, GRID_SIZE } from '@/game/const.ts'
 import Phaser, { GameObjects } from 'phaser'
 import Pointer = Phaser.Input.Pointer
-import { display } from '@/game/display.ts'
 import { PhaserDataKey } from '@/game/types.ts'
 import { AnyCardRegion, CardRegionOid } from '@/model/CardRegion.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
 import { CardOid } from '@/model/Card.ts'
+import { getTabletopScene } from '@/game/camera.ts'
+
+/**
+ * Given x,y on screen, return the corresponding world coordinates.
+ * Will take into account camera zoom ( display.scale ) + camera scroll.
+ * Useful to convert pointer coordinates to game coordinates.
+ */
+export function getWorldPoint(x: number, y: number) {
+    return getTabletopScene().cameras.main.getWorldPoint(x, y)
+}
 
 export function dropCoordinates(pointer: Pointer, toContainer: GameObjects.Container) {
     if (!pointer || !toContainer) {
         return { x: 0, y: 0 }
     }
-    return toContainer.getLocalPoint(pointer.x / display.scale, pointer.y / display.scale)
+    const worldPoint = getWorldPoint(pointer.x, pointer.y)
+    return toContainer.getLocalPoint(worldPoint.x, worldPoint.y)
 }
 
 export function dropCoordinatesSnapped(pointer: Pointer, toContainer: GameObjects.Container) {

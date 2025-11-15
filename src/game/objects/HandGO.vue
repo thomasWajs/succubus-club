@@ -45,7 +45,7 @@ import Pointer = Phaser.Input.Pointer
 import { CardAttrs, PhaserDataKey } from '@/game/types.ts'
 import { CardOid } from '@/model/Card.ts'
 
-import { dropCoordinates, getDraggedCard } from '@/game/utils.ts'
+import { dropCoordinates, getDraggedCard, getWorldPoint } from '@/game/utils.ts'
 import { display } from '@/game/display.ts'
 
 const gameState = useGameStateStore()
@@ -133,10 +133,11 @@ function onBoundariesCreate(boundaries: GameObjects.Arc) {
             // Add some margin to reorder when the pointer is atop of the cards
             bounds.y -= vertical_margin
 
+            const worldPoint = getWorldPoint(pointer.x, pointer.y)
             if (
                 boundaries.parentContainer &&
                 // Reorder only if we're in the bounds of the hand zone
-                bounds.contains(pointer.x / display.scale, pointer.y / display.scale) &&
+                bounds.contains(worldPoint.x, worldPoint.y) &&
                 // Reorder only if we've travelled far enough horizontally
                 Math.abs(dragX - draggedCardAttrs.x) >= HORIZONTAL_TRAVEL
             ) {

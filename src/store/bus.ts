@@ -96,14 +96,14 @@ export const useGameBusStore = defineStore('gameBus', {
         },
 
         /** Card selection and target declaration **/
-        pointerPosition: null as Vector2Like | null,
+        pointerPosition: null as Vector2Like | null, // Expressed in world coordinates
         cardsInGame: {} as Record<CardOid, CardInGame>,
         playersInGame: {} as Record<PlayerOid, PlayerInGame>,
 
         selectedCards: [] as Card[],
         selectionArea: {
             show: false,
-            origin: null as Vector2Like | null,
+            origin: null as Vector2Like | null, // Expressed in world coordinates
         },
 
         declaringTargetOrigin: null as Card | null,
