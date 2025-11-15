@@ -119,14 +119,17 @@ import Vector2Like = Phaser.Types.Math.Vector2Like
 import ChangePoolMenu from '@/ui/ingame/ChangePoolMenu.vue'
 import HandGO from '@/game/objects/HandGO.vue'
 import SelectionArea from '@/game/objects/SelectionArea.vue'
+import { display } from '@/game/display.ts'
 
 const core = useCoreStore()
 const gameState = useGameStateStore()
 const gameBus = useGameBusStore()
 
 const sceneReady = ref(false)
+let scene: Phaser.Scene | undefined
 
-function init(scene: Phaser.Scene) {
+function init(_scene: Phaser.Scene) {
+    scene = _scene
     setupCamera(scene)
     setupPointerHandlers(scene)
     setupKeyboardHandlers(scene)
@@ -182,14 +185,21 @@ function getWorldPosition(objectId?: CardOid | PlayerOid): Vector2Like | null {
 }
 
 const arrows = computed(() => {
+    if (!scene || !sceneReady.value) {
+        return []
+    }
+
+    const camera = scene.cameras.main
+    const pointerWorldPoint = camera.getWorldPoint(
+        (gameBus.pointerPosition?.x ?? 0) * display.scale,
+        (gameBus.pointerPosition?.y ?? 0) * display.scale,
+    )
+
     const _arrows = [
         // The current declarating target, if any
         {
             from: getWorldPosition(gameBus.declaringTargetOrigin?.oid),
-            to: {
-                x: gameBus.pointerPosition?.x,
-                y: gameBus.pointerPosition?.y,
-            },
+            to: pointerWorldPoint,
         },
         // The already declared targets
         ...gameState.targetDeclarations.map(arrow => {
