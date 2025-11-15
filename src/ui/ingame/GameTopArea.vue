@@ -336,7 +336,8 @@ const gameBus = useGameBusStore()
 const commands = useCommands()
 
 const style = computed(() => {
-    const offsetLeft = display.actualWidth - WORLD_WIDTH * display.scale - display.horizontalPadding
+    const offsetLeft =
+        display.actualWidth - (WORLD_WIDTH + display.horizontalPadding) * display.scale
     const left = TOP_AREA_X * display.scale + offsetLeft
     return {
         width: `${TOP_AREA_WIDTH}px`,

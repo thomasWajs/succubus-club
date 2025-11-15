@@ -42,7 +42,7 @@ import {
 } from '@/game/const.ts'
 import { useGameBusStore } from '@/store/bus.ts'
 import Pointer = Phaser.Input.Pointer
-import { CardAttrs, PhaserDataKey } from '@/game/types.ts'
+import { PhaserDataKey } from '@/game/types.ts'
 import { CardOid } from '@/model/Card.ts'
 
 import { dropCoordinates, getDraggedCard, getWorldPoint } from '@/game/utils.ts'
