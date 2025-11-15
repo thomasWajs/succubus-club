@@ -350,29 +350,72 @@ const style = computed(() => {
 })
 
 /**
- * Dispatch pointer events to the game
+ * Dispatch pointer events to the game.
+ * This is overly complicated because of a strange behaviour of Phaser
+ * which won't capture some pointer events when some others occured outside the canvas.
  */
 
-function forwardPointerEvent(event: PointerEvent) {
+let isTrackingMouse = false
+function startTrackPointerMove() {
+    if (!isTrackingMouse) {
+        isTrackingMouse = true
+        core.phaserGame.canvas.addEventListener('pointermove', onPointerMove)
+        window.addEventListener('pointerup', onPointerUp)
+    }
+}
+
+function stopTrackPointerMove() {
+    if (isTrackingMouse) {
+        isTrackingMouse = false
+        core.phaserGame.canvas.removeEventListener('pointermove', onPointerMove)
+        window.removeEventListener('pointerup', onPointerUp)
+    }
+}
+
+function transformEvent(event: PointerEvent) {
+    event.preventDefault()
     const game = core.phaserGame
     const newEvent = new PointerEvent(event.type, event)
+    // Override the target property to point to the canvas
+    Object.defineProperty(newEvent, 'target', {
+        value: game.canvas,
+        writable: false,
+        enumerable: true,
+    })
+    // game.canvas.dispatchEvent(newEvent) // Needed to get newEvent.target set to canvas
+    return { game, newEvent }
+}
 
+function onPointerDown(event: PointerEvent) {
+    const { game, newEvent } = transformEvent(event)
+    startTrackPointerMove()
+    // @ts-expect-error - Phaser internal method exists at runtime
+    game.input.onMouseDown(newEvent)
+}
+
+function onPointerUp(event: PointerEvent) {
+    const { game, newEvent } = transformEvent(event)
+    stopTrackPointerMove()
+    // @ts-expect-error - Phaser internal method exists at runtime
+    game.input.onMouseUp(newEvent)
+}
+
+function onPointerMove(event: PointerEvent) {
+    const { newEvent } = transformEvent(event)
+    // @ts-expect-error - Phaser internal method exists at runtime
+    core.phaserGame.input.onMouseMove(newEvent)
+}
+
+function forwardPointerEvent(event: PointerEvent) {
     switch (event.type) {
         case 'pointerdown':
-            event.preventDefault()
-            game.canvas.dispatchEvent(newEvent) // Needed to get newEvent.target set to canvas
-            // @ts-expect-error - Phaser internal method exists at runtime
-            game.input.onMouseDown(newEvent)
+            onPointerDown(event)
             break
         case 'pointerup':
-            event.preventDefault()
-            game.canvas.dispatchEvent(newEvent) // Needed to get newEvent.target set to canvas
-            // @ts-expect-error - Phaser internal method exists at runtime
-            game.input.onMouseUp(newEvent)
+            onPointerUp(event)
             break
         case 'pointermove':
-            // @ts-expect-error - Phaser internal method exists at runtime
-            core.phaserGame.input.onMouseMove(newEvent)
+            onPointerMove(event)
             break
     }
 }
