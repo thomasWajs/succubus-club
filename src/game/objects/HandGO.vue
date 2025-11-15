@@ -119,37 +119,28 @@ function onBoundariesCreate(boundaries: GameObjects.Arc) {
     /**
      * Handle reordering for cards in hand
      */
-    scene.input.on(
-        Phaser.Input.Events.DRAG,
-        (pointer: Pointer, cardImage: GameObjects.Image, dragX: number, {}) => {
-            const vertical_margin = 25 / display.scale
-            // Deactivate horizontal travel for now by setting its value to 0
-            const HORIZONTAL_TRAVEL = 0
+    scene.input.on(Phaser.Input.Events.DRAG, (pointer: Pointer, {}, {}, {}) => {
+        const VERTICAL_MARGIN = 25
 
-            gameBus.handDropGapPosition = null
+        gameBus.handDropGapPosition = null
+        const bounds = boundaries.getBounds()
+        // Add some margin to reorder when the pointer is atop of the cards
+        bounds.y -= VERTICAL_MARGIN / display.scale
 
-            const draggedCardAttrs = cardImage.getData(PhaserDataKey.CardAttrs).value as CardAttrs
-            const bounds = boundaries.getBounds()
-            // Add some margin to reorder when the pointer is atop of the cards
-            bounds.y -= vertical_margin
-
-            const worldPoint = getWorldPoint(pointer.x, pointer.y)
-            if (
-                boundaries.parentContainer &&
-                // Reorder only if we're in the bounds of the hand zone
-                bounds.contains(worldPoint.x, worldPoint.y) &&
-                // Reorder only if we've travelled far enough horizontally
-                Math.abs(dragX - draggedCardAttrs.x) >= HORIZONTAL_TRAVEL
-            ) {
-                const coord = dropCoordinates(pointer, boundaries.parentContainer)
-                gameBus.handDropGapPosition = 0
-                for (const [i, card] of getOrderedCardsInHand().entries()) {
-                    if (card.cardAttrs.x < coord.x) {
-                        gameBus.handDropGapPosition = i + 1
-                    }
+        const worldPoint = getWorldPoint(pointer.x, pointer.y)
+        if (
+            boundaries.parentContainer &&
+            // Reorder only if we're in the bounds of the hand zone
+            bounds.contains(worldPoint.x, worldPoint.y)
+        ) {
+            const coord = dropCoordinates(pointer, boundaries.parentContainer)
+            gameBus.handDropGapPosition = 0
+            for (const [i, card] of getOrderedCardsInHand().entries()) {
+                if (card.cardAttrs.x < coord.x) {
+                    gameBus.handDropGapPosition = i + 1
                 }
             }
-        },
-    )
+        }
+    })
 }
 </script>
