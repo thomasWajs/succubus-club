@@ -43,7 +43,7 @@
             text="Play"
             @pointerover="onPointerOver"
             @pointerout="onPointerOut"
-            @click="playCard"
+            @click="overlayClick(playCard)"
         />
 
         <!-- Discard -->
@@ -57,7 +57,7 @@
             text="🔥"
             @pointerover="onPointerOver"
             @pointerout="onPointerOut"
-            @click="() => commands.MoveToAshHeap.cardAction(card)"
+            @click="overlayClick(commands.MoveToAshHeap.cardAction)"
         />
     </template>
 </template>
@@ -83,7 +83,7 @@ import {
     OVERLAY_BUTTON_SIZE,
     PLAY_AREA_WIDTH,
 } from '@/game/const.ts'
-import { LibraryCard } from '@/model/Card.ts'
+import { Card, LibraryCard } from '@/model/Card.ts'
 import { useGameBusStore } from '@/store/bus.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
 import { useCommands } from '@/game/composables/useCommands.ts'
@@ -187,10 +187,16 @@ function onImageCreate(image: GameObjects.Image) {
 }
 
 /**
- * Play button
+ * Overlay
  */
 
-function playCard() {
+function overlayClick(command: (card: Card) => void) {
+    if (!gameBus.declaringTargetOrigin) {
+        command(card)
+    }
+}
+
+function playCard(card: Card) {
     gameMutations.moveCardToRegion.actSelf({
         card,
         fromCardRegion: card.region,
