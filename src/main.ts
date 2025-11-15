@@ -33,6 +33,12 @@ if (widgetActor) {
     widgetActor.style.border = 'none'
     widgetActor.style.backgroundColor = '#4a4250'
 }
+// Disable keystrokes that happens in the widget shadow DOM
+for (const eventType of ['keydown', 'keyup']) {
+    document
+        .querySelector('#sentry-feedback')
+        ?.addEventListener(eventType, e => e.stopPropagation())
+}
 
 const pinia = createPinia()
 initSentryPiniaPlugin(pinia)
