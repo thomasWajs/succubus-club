@@ -326,7 +326,7 @@ type PreconSet = {
     }[]
 }
 
-const EXCLUDED_SETS = ['Promo', 'POD', 'playtest']
+const EXCLUDED_SETS = ['Promo', 'POD', 'playtest', '2P']
 const allPreconSets = computed(() => {
     // In this function, the gr prefix stands for "game resources"
     const grAllSets = gameResources.setsAndPrecons
