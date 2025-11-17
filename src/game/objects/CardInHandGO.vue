@@ -63,7 +63,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onUnmounted, ref, watchEffect, toRef } from 'vue'
+import { computed, onUnmounted, ref, watchEffect, watch, toRef } from 'vue'
 import Phaser, { GameObjects } from 'phaser'
 import { Image, Rectangle, refObj, useScene } from 'phavuer'
 
@@ -72,6 +72,7 @@ import {
     CARD_GLOW_COLOR,
     CARD_GLOW_INNER_STRENGTH,
     CARD_GLOW_OUTER_STRENGTH,
+    CARD_GLOW_TWEEN_INNER_STRENGTH,
     CARD_GLOW_TWEEN_OUTER_STRENGTH,
     CARD_HEIGHT,
     CARD_IN_HAND_SCALE,
@@ -94,11 +95,13 @@ import ButtonGo from '@/game/objects/ButtonGo.vue'
 import { gameMutations } from '@/state/gameMutations.ts'
 import { useCardClick } from '@/game/composables/useCardClick.ts'
 import { useCardOutline } from '@/game/composables/useCardOutline.ts'
+import { useCoreStore } from '@/store/core.ts'
 
 const { card } = defineProps<{
     card: LibraryCard
 }>()
 
+const core = useCoreStore()
 const gameState = useGameStateStore()
 const gameBus = useGameBusStore()
 const commands = useCommands()
@@ -290,56 +293,70 @@ function onDragEndFromHand() {
 
 /**
  * Glow effect on usable card, depending on the phase of the turn.
- * On hold for now, as the glow effect create aliasing on the border of glowing cards.
  */
-
-const GLOW_ENABLED = false
 
 let glowFx: Glow | undefined
 
+const glowEnabled = computed(() => core.userProfile.preferences.glow ?? true)
+watch(glowEnabled, () => toggleGlowEffect)
+
 function applyGlowEffect() {
-    if (!image || !image.value) {
+    if (glowFx || !image.value) {
         return
     }
 
-    glowFx = image.value.preFX?.addGlow(
+    glowFx = image.value.postFX?.addGlow(
         CARD_GLOW_COLOR.color,
         CARD_GLOW_OUTER_STRENGTH,
         CARD_GLOW_INNER_STRENGTH,
         false,
     )
+
     if (glowFx) {
-        scene.tweens.add({
-            targets: glowFx,
-            outerStrength: CARD_GLOW_TWEEN_OUTER_STRENGTH,
-            yoyo: true,
-            loop: -1,
-            ease: 'sine.inout',
-        })
+        if (CARD_GLOW_INNER_STRENGTH != CARD_GLOW_TWEEN_INNER_STRENGTH) {
+            scene.tweens.add({
+                targets: glowFx,
+                innerStrength: CARD_GLOW_TWEEN_INNER_STRENGTH,
+                yoyo: true,
+                loop: -1,
+                ease: 'sine.inout',
+            })
+        }
+
+        if (CARD_GLOW_OUTER_STRENGTH != CARD_GLOW_TWEEN_OUTER_STRENGTH) {
+            scene.tweens.add({
+                targets: glowFx,
+                outerStrength: CARD_GLOW_TWEEN_OUTER_STRENGTH,
+                yoyo: true,
+                loop: -1,
+                ease: 'sine.inout',
+            })
+        }
     }
 }
 
 function removeGlowEffect() {
     if (glowFx) {
+        image.value?.postFX?.remove(glowFx)
+        glowFx.setActive(false)
         glowFx.destroy()
         glowFx = undefined
     }
 }
 
 function toggleGlowEffect() {
-    if (!GLOW_ENABLED) {
-        return
-    }
-    if (card.isUsable() && !isDragging.value) {
+    if (glowEnabled.value && card.isUsable() && !isDragging.value) {
         applyGlowEffect()
     } else if (glowFx) {
         removeGlowEffect()
     }
 }
 
-if (GLOW_ENABLED) {
-    onUnmounted(() => removeGlowEffect())
-}
+onUnmounted(() => {
+    if (glowEnabled.value) {
+        removeGlowEffect()
+    }
+})
 
 /**
  * Expose/Emit

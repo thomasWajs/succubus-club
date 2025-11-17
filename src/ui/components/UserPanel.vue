@@ -50,7 +50,7 @@
                         <div class="label-container">
                             <div class="input-label">My username</div>
                             <div
-                                v-if="showPlayerNameSaveSuccess"
+                                v-if="savedFeedbacks.userProfile.playerName"
                                 class="save-feedback success"
                             >
                                 ✓ Saved
@@ -64,6 +64,26 @@
                             />
                         </div>
                     </div>
+                </div>
+
+                <!-- Preferences Tab -->
+                <div
+                    v-if="activeTab === 'preferences'"
+                    class="tab-content"
+                >
+                    <label class="preference">
+                        <input
+                            v-model="glowPreference"
+                            type="checkbox"
+                        />
+                        <span class="preference-label">Highlight usable cards</span>
+                        <span
+                            v-if="savedFeedbacks.preferences.glow"
+                            class="save-feedback success"
+                        >
+                            ✓ Saved
+                        </span>
+                    </label>
                 </div>
 
                 <!-- User Profile Tab -->
@@ -109,7 +129,7 @@
                                 </span>
 
                                 <span
-                                    v-if="savedKeyBindings[keyBinding.name]"
+                                    v-if="savedFeedbacks.keyBindings[keyBinding.name]"
                                     class="save-feedback success"
                                 >
                                     ✓ Saved
@@ -143,24 +163,34 @@ const activeTab = ref('userProfile')
 
 const tabs = [
     { id: 'userProfile', title: 'User Profile' },
+    { id: 'preferences', title: 'Preferences' },
     { id: 'keyBindings', title: 'Keyboard bindings' },
 ]
 
+/** Save Feedbacks **/
+
+const savedFeedbacks = ref({
+    userProfile: {} as Record<string, boolean>,
+    preferences: {} as Record<string, boolean>,
+    keyBindings: {} as Record<string, boolean>,
+})
+
+function showSaveFeedback(category: keyof typeof savedFeedbacks.value, name: string) {
+    savedFeedbacks.value[category][name] = true
+    setTimeout(() => {
+        savedFeedbacks.value[category][name] = false
+    }, 2000)
+}
+
 /** User Profile **/
 
-const showPlayerNameSaveSuccess = ref(false)
 const fileInput = ref<HTMLInputElement | null>(null)
 
 function updatePlayerName(event: Event) {
     const target = event.target as HTMLInputElement
     core.userProfile.playerName = target.value
     core.userProfile.save()
-
-    // Show success feedback
-    showPlayerNameSaveSuccess.value = true
-    setTimeout(() => {
-        showPlayerNameSaveSuccess.value = false
-    }, 2000) // Hide after 2 seconds
+    showSaveFeedback('userProfile', 'playerName')
 }
 
 function triggerFileUpload() {
@@ -234,14 +264,23 @@ function calculateCropDimensions(
     return { sx, sy, sw, sh }
 }
 
+/** Preferences **/
+
+const glowPreference = computed({
+    get: () => (core.userProfile.preferences.glow ?? 1) === 1,
+    set: async (value: boolean) => {
+        core.userProfile.preferences.glow = value ? 1 : 0
+        await core.userProfile.save()
+        showSaveFeedback('preferences', 'glow')
+    },
+})
+
 /** Keyboard shortcuts **/
 
 const commands = useCommands()
 const assignableKeyBindings = computed(() => {
     return Object.values(commands).filter(command => command.label)
 })
-
-const savedKeyBindings = ref<Record<string, boolean>>({})
 
 // Track conflicting key bindings
 const conflictingKeyBindings = computed(() => {
@@ -309,14 +348,7 @@ async function handleShortcutKeydown(event: KeyboardEvent, keyBindingName: strin
             setupKeyboardHandlers(scene)
         }
     }
-    showSaveFeedback(keyBindingName)
-}
-
-function showSaveFeedback(keyBindingName: string) {
-    savedKeyBindings.value[keyBindingName] = true
-    setTimeout(() => {
-        savedKeyBindings.value[keyBindingName] = false
-    }, 2000)
+    showSaveFeedback('keyBindings', keyBindingName)
 }
 </script>
 
@@ -374,6 +406,25 @@ $max-width: 1200px;
     @include input-base;
     width: 100%;
     box-sizing: border-box;
+}
+
+/** Preferences **/
+
+.preference {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px;
+    margin-bottom: 8px;
+    cursor: pointer;
+
+    input {
+        cursor: pointer;
+    }
+}
+
+.preference-label {
+    font-size: 20px;
 }
 
 /** Shortcuts **/

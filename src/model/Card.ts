@@ -386,20 +386,28 @@ export class LibraryCard extends Card {
     isUsable() {
         const gameState = useGameStateStore()
         const resource = this.resource
-        return (
-            (gameState.selfIsActive &&
-                gameState.turnPhase == TurnPhase.Master &&
-                resource.type == LibraryCardType.Master) ||
-            (gameState.selfIsActive &&
-                gameState.turnPhase == TurnPhase.Minion &&
-                ACTION_TYPES.includes(resource.type)) ||
-            (gameState.selfIsActive &&
-                gameState.turnPhase == TurnPhase.Discard &&
-                resource.type == LibraryCardType.Event) ||
-            (!gameState.selfIsActive &&
-                gameState.turnPhase == TurnPhase.Minion &&
-                resource.type == LibraryCardType.Reaction)
-        )
+        // A card may have multiples types, we must check each of them
+        const types = resource.type.split('/') as LibraryCardType[]
+        for (const type of types) {
+            if (
+                (gameState.selfIsActive &&
+                    gameState.turnPhase == TurnPhase.Master &&
+                    type == LibraryCardType.Master) ||
+                (gameState.selfIsActive &&
+                    gameState.turnPhase == TurnPhase.Minion &&
+                    ACTION_TYPES.includes(type)) ||
+                (gameState.selfIsActive &&
+                    gameState.turnPhase == TurnPhase.Discard &&
+                    type == LibraryCardType.Event) ||
+                (!gameState.selfIsActive &&
+                    gameState.turnPhase == TurnPhase.Minion &&
+                    type == LibraryCardType.Reaction) ||
+                (gameState.turnPhase == TurnPhase.Minion && type == LibraryCardType.Combat)
+            ) {
+                return true
+            }
+        }
+        return false
     }
 }
 

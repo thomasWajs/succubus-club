@@ -42,10 +42,11 @@ export const CARD_OUTLINE_THICKNESS = 2
 export const CARD_OUTLINE_COLOR_HOVER = HIGHLIGHT_YELLOW
 export const CARD_OUTLINE_COLOR_SELECTED = new Color(140, 70, 255)
 
-export const CARD_GLOW_COLOR = new Color(220, 150, 220)
+export const CARD_GLOW_COLOR = new Color(180, 90, 40)
 export const CARD_GLOW_INNER_STRENGTH = 0
+export const CARD_GLOW_TWEEN_INNER_STRENGTH = 0
 export const CARD_GLOW_OUTER_STRENGTH = 2
-export const CARD_GLOW_TWEEN_OUTER_STRENGTH = 5
+export const CARD_GLOW_TWEEN_OUTER_STRENGTH = 2
 
 /**
  * Play Area Dimensions
