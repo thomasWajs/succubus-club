@@ -214,7 +214,7 @@ function scrollLog() {
         }
     })
 }
-watch(history.logEntries, scrollLog)
+watch(() => history.logEntries.length, scrollLog)
 watch(activeTab, scrollLog)
 
 const chatMessageText = ref('')
