@@ -57,6 +57,10 @@ export const useGameStateStore = defineStore('gameState', {
 
         /** Target Declaration **/
         targetDeclarations: [] as TargetDeclaration[],
+
+        /** Timer **/
+        timerRemainingTime: null as number | null, // If null, no timer is running
+        timerIsPaused: true,
     }),
     getters: {
         /**

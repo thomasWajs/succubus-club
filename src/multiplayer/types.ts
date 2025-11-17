@@ -64,6 +64,7 @@ export enum VersioningTarget {
     Shuffle = 'Shuffle',
     Arrow = 'Arrow',
     Scale = 'Scale',
+    Timer = 'Timer',
 }
 
 export type GameMutationMessage = {

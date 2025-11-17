@@ -13,7 +13,8 @@
         @pointerdown="forwardPointerEvent"
         @pointerup="forwardPointerEvent"
     >
-        <div class="turn-infos">
+        <!-- Turn/Phase Controls -->
+        <div class="turn-controls">
             <div class="turn">
                 <CommandButton
                     v-if="gameState.isPlayer"
@@ -22,7 +23,7 @@
                     &lt;
                 </CommandButton>
 
-                <span class="turn-number"> Turn #{{ gameState.turnNumber }} </span>
+                <span class="turn-number"> Turn<br />#{{ gameState.turnNumber }} </span>
                 <span
                     :style="{ backgroundColor: gameState.activePlayer?.color.rgba }"
                     class="active-player inline-player-name"
@@ -36,6 +37,23 @@
                 >
                     &gt;
                 </CommandButton>
+            </div>
+
+            <div class="timer">
+                <div
+                    v-if="timer.timerEnabled.value"
+                    class="timer-display"
+                    :class="{ expired: timer.isExpired.value }"
+                >
+                    {{ timer.formattedTime }}
+
+                    <button
+                        class="game-button small timer-button"
+                        @click="togglePause"
+                    >
+                        {{ gameState.timerIsPaused ? '▶' : '⏸' }}
+                    </button>
+                </div>
             </div>
 
             <div class="phases">
@@ -71,6 +89,7 @@
             </div>
         </div>
 
+        <!-- Action Infos -->
         <div
             v-if="gameState.action"
             class="action-infos"
@@ -248,6 +267,7 @@
             </div>
         </div>
 
+        <!-- Combat Infos -->
         <div v-if="gameState.combat">
             <strong>Combat</strong>
 
@@ -259,6 +279,26 @@
             Strength : {{ gameState.combat?.defending?.strength }} <br />
         </div>
 
+        <div
+            v-if="multiplayer.selfIsHost && !timer.timerChosen.value"
+            class="timer-setup"
+        >
+            <span class="timer-setup-text">Start a 2h timer ? </span>
+            <button
+                class="game-button"
+                @click="timer.acceptTimer()"
+            >
+                Yes
+            </button>
+            <button
+                class="game-button"
+                @click="timer.declineTimer()"
+            >
+                No
+            </button>
+        </div>
+
+        <!-- Next Turn -->
         <CommandButton
             v-if="gameState.turnPhase == TurnPhase.Discard && gameState.selfIsActive"
             class="next-turn"
@@ -267,6 +307,7 @@
             Next Turn
         </CommandButton>
 
+        <!-- The Edge Hint -->
         <div
             v-if="
                 gameState.turnPhase == TurnPhase.Unlock &&
@@ -291,6 +332,7 @@
             and can gain 1 pool from the blood bank
         </div>
 
+        <!-- Permanent Mutations -->
         <div
             v-if="gameState.isPlayer"
             class="game-mutations"
@@ -327,13 +369,17 @@ import { useCommands } from '@/game/composables/useCommands.ts'
 import CommandButton from '@/ui/ingame/CommandButton.vue'
 import { useHistoryStore } from '@/store/history.ts'
 import { useCoreStore } from '@/store/core.ts'
+import { useMultiplayerStore } from '@/store/multiplayer.ts'
+import { useTimer } from '@/game/composables/useTimer.ts'
 
 const core = useCoreStore()
 const gameState = useGameStateStore()
 const history = useHistoryStore()
 const bus = useBusStore()
 const gameBus = useGameBusStore()
+const multiplayer = useMultiplayerStore()
 const commands = useCommands()
+const timer = useTimer()
 
 const style = computed(() => {
     const offsetLeft =
@@ -349,6 +395,21 @@ const style = computed(() => {
         transform: `scale(${display.scale})`,
     }
 })
+
+/**
+ * Timer
+ */
+
+function togglePause() {
+    if (gameState.timerRemainingTime === null) {
+        throw new Error('Timer is not started')
+    }
+    if (gameState.timerIsPaused) {
+        timer.dispatchStartTimer(gameState.timerRemainingTime)
+    } else {
+        timer.dispatchPauseTimer(gameState.timerRemainingTime)
+    }
+}
 
 /**
  * Dispatch pointer events to the game.
@@ -435,12 +496,13 @@ function forwardPointerEvent(event: PointerEvent) {
     overflow: hidden;
 }
 
-.turn-infos {
+.turn-controls {
     color: $shadow-grey;
     font-weight: bold;
+    font-size: 14px;
 
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr;
     align-items: center;
     justify-items: center;
 
@@ -458,9 +520,15 @@ function forwardPointerEvent(event: PointerEvent) {
         }
 
         .active-player {
-            @include flex-center;
+            display: block;
+            text-align: center;
+            line-height: 35px;
+            width: 100px;
+            max-width: 100px;
             padding: 0 5px;
             white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .game-button {
@@ -482,14 +550,14 @@ function forwardPointerEvent(event: PointerEvent) {
 
         .game-button {
             padding: 0 5px;
-            width: 35px;
+            width: 32px;
             height: 35px;
         }
 
         .phase-box {
             @include flex-center;
+            width: 32px;
             height: 35px;
-            width: 35px;
             border: solid 1px $shadow-grey;
             background: $pearl-grey;
             color: $ash-grey;
@@ -500,13 +568,34 @@ function forwardPointerEvent(event: PointerEvent) {
             &.active {
                 background: $lighter-teal;
                 color: black;
-                width: 90px;
+                width: 70px;
                 opacity: 1;
             }
             &:not(.active) {
                 cursor: pointer;
             }
         }
+    }
+
+    .timer-display {
+        font-size: 16px;
+        font-weight: bold;
+        color: black;
+        padding: 0.25rem 0.5rem;
+        background: rgba($pearl-grey, 0.7);
+        border: solid 1px $shadow-grey;
+        min-width: 80px;
+        text-align: center;
+
+        &.expired {
+            color: red;
+        }
+    }
+
+    .timer-button {
+        margin-left: 5px;
+        padding: 2px 5px;
+        font-size: 14px;
     }
 }
 
@@ -528,6 +617,27 @@ function forwardPointerEvent(event: PointerEvent) {
     justify-content: right;
     align-items: center;
 }
+
+.timer-setup {
+    align-self: center;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: rgba($pearl-grey, 0.7);
+    padding: 0.5rem 1rem;
+    border: solid 1px $shadow-grey;
+    border-radius: 2px;
+
+    .timer-setup-text {
+        font-weight: bold;
+        color: $shadow-grey;
+    }
+
+    .game-button {
+        padding: 0.25rem 1rem;
+    }
+}
+
 .next-turn {
     align-self: center;
     border-width: 2px;

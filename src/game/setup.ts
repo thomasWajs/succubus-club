@@ -17,6 +17,7 @@ import { DeckList, validateDeckList } from '@/gateway/deck.ts'
 import { useGameBusStore } from '@/store/bus.ts'
 import { resetSync } from '@/multiplayer/sync.ts'
 import { isCryptId } from '@/resources/cards.ts'
+import { useTimer } from '@/game/composables/useTimer.ts'
 
 const NB_BOTS = 1
 export const BOT_NAME = 'Bot'
@@ -64,9 +65,11 @@ function setupPlayArea(player: Player, deckList: DeckList) {
 
 export function resetState() {
     const core = useCoreStore()
+    const timer = useTimer()
 
     resetSync()
 
+    timer.resetTimer()
     useGameStateStore().$reset()
     useHistoryStore().$reset()
     useGameBusStore().$reset()

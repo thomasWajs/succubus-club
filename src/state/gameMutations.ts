@@ -44,6 +44,7 @@ import { MutationSyncMode, VersioningId, VersioningTarget } from '@/multiplayer/
 import { hashObject } from '@/gateway/serialization.ts'
 import { isRevealedToViewer } from '@/state/cardVisibility.ts'
 import { enqueueBotMutation } from '@/bot/mutationQueue.ts'
+import { useTimer } from '@/game/composables/useTimer.ts'
 
 export type GameMutationId = number
 export interface GameMutationParams {
@@ -1595,6 +1596,52 @@ class ChangeScale extends GameMutation<ChangeScaleParams> {
 }
 
 /**
+ * UI : Timer
+ */
+
+interface TimerParams extends GameMutationParams {
+    remainingTime: number
+    date: Date
+}
+
+class StartTimer extends GameMutation<TimerParams> {
+    readonly syncMode = MutationSyncMode.Ordered
+    isUserCancellable = false
+    isCancellable = false
+
+    protected get _versioningId(): VersioningId {
+        return VersioningTarget.Timer
+    }
+
+    protected updateGameState() {
+        const timeDrift = Date.now() - this.params.date.getTime()
+        useTimer().applyStartTimer(this.params.remainingTime - timeDrift)
+    }
+
+    formatForLog() {
+        return `Start timer ( ${useTimer().formatTime(this.params.remainingTime)} )`
+    }
+}
+
+class PauseTimer extends GameMutation<TimerParams> {
+    readonly syncMode = MutationSyncMode.Ordered
+    isUserCancellable = false
+    isCancellable = false
+
+    protected get _versioningId(): VersioningId {
+        return VersioningTarget.Timer
+    }
+
+    protected updateGameState() {
+        useTimer().applyPauseTimer(this.params.remainingTime)
+    }
+
+    formatForLog() {
+        return `Pause timer ( ${useTimer().formatTime(this.params.remainingTime)} )`
+    }
+}
+
+/**
  * Mutation handling
  */
 
@@ -1770,6 +1817,8 @@ export const gameMutations = {
     UI_arrowRemove: defineMutation(ArrowRemove),
     UI_arrowClear: defineMutation(ArrowClear),
     UI_changeScale: defineMutation(ChangeScale),
+    UI_startTimer: defineMutation(StartTimer),
+    UI_pauseTimer: defineMutation(PauseTimer),
 }
 
 // Set mutation name on each GameMutation subclasses
