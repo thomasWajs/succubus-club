@@ -1,3 +1,15 @@
+## [0.4.1] - 2025-11-17
+
+Features:
+- Optionnal 2 hours timer
+- Quick reveal a top card
+- New command to remove a card from the game
+- Alert on conflicting keyboard shortcuts
+- Align the tabletop to the right on wide screens
+
+Bugfix:
+- Arrows and selection area now works onto the top area
+
 ## [0.4.0] - 2025-11-13
 
 Features:
