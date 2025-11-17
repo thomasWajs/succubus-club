@@ -9,7 +9,7 @@
             class="log-lines"
         >
             <LogLine
-                v-for="(logEntry, index) in history.orderedLogEntries"
+                v-for="(logEntry, index) in history.logEntries"
                 :key="'logEntry-' + index"
                 :logEntry="logEntry"
                 :index="index"

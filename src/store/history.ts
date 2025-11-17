@@ -36,8 +36,6 @@ export const useHistoryStore = defineStore('gameHistory', {
         gameMutations: [] as AnyGameMutation[],
     }),
     getters: {
-        orderedLogEntries: state => state.logEntries,
-
         gameMutationsMap: state => Object.fromEntries(state.gameMutations.map(m => [m.id, m])),
 
         cancelledMutations(state): Set<GameMutationId> {

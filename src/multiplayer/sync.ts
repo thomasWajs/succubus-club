@@ -43,13 +43,13 @@ type ReceivedMutation = {
 }
 let receivedMutations: Set<GameMutationId> = new Set()
 // This is for messages that arrives out of order during a game
-let pendinOrderedMutations: ReceivedMutation[] = []
+let pendingOrderedMutations: ReceivedMutation[] = []
 // This is for messages received before joining or during a resync
 let pendingSyncMessage: (GameMutationMessage | SerializedChatMessage)[] = []
 
 export function resetSync() {
     receivedMutations = new Set()
-    pendinOrderedMutations = []
+    pendingOrderedMutations = []
     // Don't reset pendingSyncMessage here !!
 
     const multiplayer = useMultiplayerStore()
@@ -261,7 +261,7 @@ function flushPendingMutations() {
     while (changed) {
         changed = false
         const stillPending: ReceivedMutation[] = []
-        for (const mutation of pendinOrderedMutations) {
+        for (const mutation of pendingOrderedMutations) {
             if (canApplyOrderedMutation(mutation)) {
                 applyPeerMutation(mutation.gameMutation, mutation.version)
                 changed = true
@@ -269,7 +269,7 @@ function flushPendingMutations() {
                 stillPending.push(mutation)
             }
         }
-        pendinOrderedMutations = stillPending
+        pendingOrderedMutations = stillPending
     }
 }
 
@@ -347,7 +347,7 @@ function _unsafeReceiveMutationMessage(gameMutationMessage: GameMutationMessage)
 
             // Buffer out-of-order mutations
             if (!canApplyOrderedMutation(receivedMutation)) {
-                pendinOrderedMutations.push(receivedMutation)
+                pendingOrderedMutations.push(receivedMutation)
                 multiplayer.stats.pendingMutations++
                 return
             }

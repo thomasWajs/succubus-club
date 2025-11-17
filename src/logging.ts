@@ -4,6 +4,7 @@ import { App } from 'vue'
 import { Pinia } from 'pinia'
 import { useCoreStore } from '@/store/core.ts'
 import { useMultiplayerStore } from '@/store/multiplayer.ts'
+import { serializeHistory } from '@/gateway/serialization.ts'
 
 export function initSentry(app: App) {
     Sentry.init({
@@ -53,6 +54,10 @@ export function initSentryPiniaPlugin(pinia: Pinia) {
                         avatars: '[stripped]',
                     }
                 }
+
+                // Serialized history is a much more compact representation
+                transformedState.history = serializeHistory()
+
                 return transformedState
             },
         }),

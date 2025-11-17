@@ -16,8 +16,9 @@ import { isCryptId } from '@/resources/cards.ts'
 import { CborEncoder, CborDecoderBase } from '@jsonjoy.com/json-pack/lib/cbor'
 import { VectorClockVersion, VersioningId } from '@/multiplayer/types.ts'
 import { useMultiplayerStore } from '@/store/multiplayer.ts'
+import { PlayerVision } from '@/state/types.ts'
 
-const GAME_STATE_VERSION = 4
+const GAME_STATE_VERSION = 5
 
 type JsonValue = null | string | number | boolean | JsonValue[] | { [key: string]: JsonValue }
 export type JsonObject = { [key: string]: JsonValue }
@@ -33,25 +34,40 @@ type SerializedPlayer = Serialized<Player>
 type SerializedCard = Serialized<Card>
 type SerializedCardRegion = Serialized<CardRegion<Card>>
 
-// export type SerializedChatMessage = Serialized<ChatMessage>
-export type SerializedChatMessage = JsonObject
-
-export type SerializedGameMutation = {
-    name: GameMutationName
-    timestamp: string
-    params: JsonObject
-    authorOid: number
-    previousState: JsonObject
-    cancelsMutationId?: GameMutationId
-}
-
 type SerializedGameState = {
     cards: Record<string, SerializedCard>
     players: Record<string, SerializedPlayer>
 } & { [K in Exclude<GameStateKey, 'cards' | 'players'>]: JsonValue }
 
+// Here we use a compressed representation of the GameMutation class, to save space.
+// It's really not readable, but it works.
+export type SerializedGameMutation = {
+    n: GameMutationName // name
+    t: string // timestamp
+    p: JsonObject // params
+    a: number // authorOid
+    s: JsonObject // previousState
+    c?: GameMutationId // cancelsMutationId
+}
+
+// Same compression strategy than for SerializedGameMutation
+export type SerializedLogEntry = {
+    t: number // text as string index in stringPool
+    i: string // timestamp
+    a: number // authorName as string index in stringPool
+    r: number // authorColorRgba as string index in stringPool
+    n?: number // cancelText as string index in stringPool
+    p?: PlayerVision // playerVision
+    c?: JsonValue // card
+    m?: GameMutationId // mutationId
+}
+
+// export type SerializedChatMessage = Serialized<ChatMessage>
+export type SerializedChatMessage = JsonObject
+
 type SerializedHistory = {
-    logEntries: JsonObject[]
+    stringPool: string[]
+    logEntries: SerializedLogEntry[]
     gameMutations: SerializedGameMutation[]
 }
 
@@ -117,70 +133,117 @@ export function serializeObject<T extends object>(object: T): { [K in keyof T]: 
     return result as { [K in keyof T]: JsonValue }
 }
 
-export function deserializeObject<T = unknown>(jsonObject: JsonObject): T {
+export function deserializeValue(value: JsonValue) {
     const gameState = useGameStateStore()
 
-    return JSON.parse(JSON.stringify(jsonObject), (_, value) => {
-        if (typeof value === 'string') {
-            if (value.startsWith(DATE_PREFIX)) {
-                return new Date(value.substring(DATE_PREFIX.length))
-            }
-
-            if (value.startsWith(OID_PREFIX)) {
-                const oid = parseInt(value.substring(OID_PREFIX.length))
-                const stateObject = gameState.allStateObjects[oid]
-                if (!stateObject) {
-                    throw new Error(`Unknown state object : ${oid}`)
-                }
-                return stateObject
-            }
+    if (typeof value === 'string') {
+        if (value.startsWith(DATE_PREFIX)) {
+            return new Date(value.substring(DATE_PREFIX.length))
         }
 
-        return value
+        if (value.startsWith(OID_PREFIX)) {
+            const oid = parseInt(value.substring(OID_PREFIX.length))
+            const stateObject = gameState.allStateObjects[oid]
+            if (!stateObject) {
+                throw new Error(`Unknown state object : ${oid}`)
+            }
+            return stateObject
+        }
+    }
+
+    return value
+}
+
+export function deserializeObject<T = unknown>(jsonObject: JsonObject): T {
+    return JSON.parse(JSON.stringify(jsonObject), (_, value) => {
+        return deserializeValue(value)
     })
 }
 
 export function serializeGameMutation(gameMutation: AnyGameMutation): SerializedGameMutation {
     return {
-        name: gameMutation.name,
-        timestamp: gameMutation.timestamp.toISOString(),
-        params: serializeObject(gameMutation.params),
-        authorOid: gameMutation.author.oid,
-        previousState: serializeObject(gameMutation.previousState),
-        cancelsMutationId: gameMutation.cancelsMutationId,
+        n: gameMutation.name,
+        t: gameMutation.timestamp.toISOString(),
+        p: serializeObject(gameMutation.params),
+        a: gameMutation.author.oid,
+        s: serializeObject(gameMutation.previousState),
+        c: gameMutation.cancelsMutationId,
     }
 }
 
 export function deserializeGameMutation(gameMutationJson: SerializedGameMutation): AnyGameMutation {
     const gameState = useGameStateStore()
 
-    const definition = gameMutations[gameMutationJson.name]
+    const definition = gameMutations[gameMutationJson.n]
     if (!definition) {
-        throw new Error(`Unknown GameMutation : ${gameMutationJson.name}`)
+        throw new Error(`Unknown GameMutation : ${gameMutationJson.n}`)
     }
     const GameMutationClass = definition.gameMutationClass
 
-    const author = gameState.players[gameMutationJson.authorOid]
+    const author = gameState.players[gameMutationJson.a]
     if (!author) {
-        throw new Error(`Unknown player : ${gameMutationJson.authorOid}`)
+        throw new Error(`Unknown player : ${gameMutationJson.a}`)
     }
 
     const gameMutation = new GameMutationClass(
-        deserializeObject(gameMutationJson.params),
-        new Date(gameMutationJson.timestamp),
+        deserializeObject(gameMutationJson.p),
+        new Date(gameMutationJson.t),
         author,
-        gameMutationJson.cancelsMutationId,
+        gameMutationJson.c,
     )
-    gameMutation.previousState = deserializeObject(gameMutationJson.previousState)
+    gameMutation.previousState = deserializeObject(gameMutationJson.s)
     return gameMutation
 }
 
 export function serializeHistory(): SerializedHistory {
     const history = useHistoryStore()
+
+    // Compress strings into a string pool
+    const stringPool: string[] = []
+    const stringToId = new Map<string, number>()
+    const internString = (str: string): number => {
+        if (!stringToId.has(str)) {
+            const id = stringPool.length
+            stringPool.push(str)
+            stringToId.set(str, id)
+        }
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        return stringToId.get(str)!
+    }
+
+    const logEntries: SerializedLogEntry[] = history.logEntries.map(logEntry => ({
+        t: internString(logEntry.text),
+        i: serializeValueRecursive(logEntry.timestamp) as string,
+        a: internString(logEntry.authorName),
+        r: internString(logEntry.authorColorRgba),
+        n: logEntry.cancelText ? internString(logEntry.cancelText) : undefined,
+        p: logEntry.playerVision,
+        c: logEntry.card ? serializeValueRecursive(logEntry.card) : undefined,
+        m: logEntry.mutationId,
+    }))
+
     return {
-        logEntries: history.logEntries.map(l => serializeObject(l)),
+        stringPool,
+        logEntries,
         gameMutations: history.gameMutations.map(m => serializeGameMutation(m as AnyGameMutation)),
     }
+}
+
+export function deserializeHistory(serializedHistory: SerializedHistory) {
+    const history = useHistoryStore()
+
+    const stringPool = serializedHistory.stringPool
+    history.logEntries = serializedHistory.logEntries.map(logEntry => ({
+        text: stringPool[logEntry.t],
+        timestamp: deserializeValue(logEntry.i) as Date,
+        authorName: stringPool[logEntry.a],
+        authorColorRgba: stringPool[logEntry.r],
+        cancelText: logEntry.n ? stringPool[logEntry.n] : undefined,
+        playerVision: logEntry.p,
+        card: logEntry.c ? (deserializeValue(logEntry.c) as Card) : undefined,
+        mutationId: logEntry.m,
+    }))
+    history.gameMutations = serializedHistory.gameMutations.map(m => deserializeGameMutation(m))
 }
 
 export function serializeGame(): SerializedGame {
@@ -216,7 +279,6 @@ export function loadGame(serializedGame: SerializedGame) {
     }
 
     const gameState = useGameStateStore()
-    const history = useHistoryStore()
 
     const gameStateData = serializedGame.gameState
     type PlayerCardRegionsKey = keyof PlayerCardRegions
@@ -273,13 +335,14 @@ export function loadGame(serializedGame: SerializedGame) {
         }
     }
 
-    history.logEntries = serializedGame.history.logEntries.map(l => deserializeObject(l))
-    history.gameMutations = serializedGame.history.gameMutations.map(m =>
-        deserializeGameMutation(m),
-    )
+    deserializeHistory(serializedGame.history)
 
     useCoreStore().gameStateIsReady = true
 }
+
+/**
+ * Hashing functions
+ */
 
 let hasher: XXHashAPI | null = null
 xxhash().then(_hasher_ => (hasher = _hasher_))
