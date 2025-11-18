@@ -161,6 +161,8 @@ export const useGameStateStore = defineStore('gameState', {
             return this.theEdgeControllerOid ? this.players[this.theEdgeControllerOid] : undefined
         },
 
+        // Trigger special layout for 2-players games
+        is2pGame: state => Object.keys(state.players).length == 2,
         /**
          * Return a neighbour player, starting at central player
          * 0 will return self player, 1 will return prey, 2 will return grandprey, etc...

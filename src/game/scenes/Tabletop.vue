@@ -6,51 +6,61 @@
         @init="init"
         @update="update"
     >
-        <template v-if="playerSeats.bottomLeft">
-            <PlayAreaGO
-                key="PlayAreaBottomLeft"
-                :player="playerSeats.bottomLeft"
-                :scale="OTHER_PLAYERS_SCALE"
-                :x="0"
-                :y="BOTTOM_PLAYERS_Y"
-            />
-        </template>
-
-        <template v-if="playerSeats.topLeft">
-            <PlayAreaGO
-                key="PlayAreaTopLeft"
-                :player="playerSeats.topLeft"
-                :scale="OTHER_PLAYERS_SCALE"
-                :x="0"
-                :y="0"
-            />
-        </template>
-
-        <template v-if="playerSeats.topRight">
-            <PlayAreaGO
-                key="PlayAreaBottomRight"
-                :player="playerSeats.topRight"
-                :scale="OTHER_PLAYERS_SCALE"
-                :x="RIGHT_PLAYERS_X"
-                :y="0"
-            />
-        </template>
-
-        <template v-if="playerSeats.bottomRight">
-            <PlayAreaGO
-                key="PlayAreaTopRight"
-                :player="playerSeats.bottomRight"
-                :scale="OTHER_PLAYERS_SCALE"
-                :x="RIGHT_PLAYERS_X"
-                :y="BOTTOM_PLAYERS_Y"
-            />
-        </template>
+        <!-- Play areas for 3+ players, with a central player at the center of the screen -->
+        <PlayAreaGO
+            v-if="playerSeats.bottomLeft"
+            key="PlayAreaBottomLeft"
+            :player="playerSeats.bottomLeft"
+            :scale="OTHER_PLAYERS_SCALE"
+            :x="0"
+            :y="BOTTOM_PLAYERS_Y"
+        />
+        <PlayAreaGO
+            v-if="playerSeats.topLeft"
+            key="PlayAreaTopLeft"
+            :player="playerSeats.topLeft"
+            :scale="OTHER_PLAYERS_SCALE"
+            :x="0"
+            :y="0"
+        />
+        <PlayAreaGO
+            v-if="playerSeats.topRight"
+            key="PlayAreaBottomRight"
+            :player="playerSeats.topRight"
+            :scale="OTHER_PLAYERS_SCALE"
+            :x="RIGHT_PLAYERS_X"
+            :y="0"
+        />
 
         <PlayAreaGO
-            v-if="gameState.centralPlayer"
+            v-if="playerSeats.bottomRight"
+            key="PlayAreaTopRight"
+            :player="playerSeats.bottomRight"
+            :scale="OTHER_PLAYERS_SCALE"
+            :x="RIGHT_PLAYERS_X"
+            :y="BOTTOM_PLAYERS_Y"
+        />
+
+        <!-- Special layout for 2 players -->
+        <PlayAreaGO
+            v-if="playerSeats.opponent2P"
+            key="PlayAreaLeft"
+            :player="playerSeats.opponent2P"
+            :x="TWO_PLAYERS_HORIZONTAL_GUTTER"
+            :y="PLAY_AREA_Y"
+        />
+
+        <!--
+        Play area of the "central player".
+        If the user is a player, it's the self player.
+        If the user is a spectator, it's the first player.
+        In a 2 player game, the "central" player is actually on the right of the screen.
+        -->
+        <PlayAreaGO
+            v-if="playerSeats.central"
             key="PlayAreaCenter"
-            :player="gameState.centralPlayer"
-            :x="PLAY_AREA_X"
+            :player="playerSeats.central"
+            :x="playerSeats.centralX"
             :y="PLAY_AREA_Y"
         />
 
@@ -101,6 +111,8 @@ import {
     RIGHT_PLAYERS_X,
     PLAY_AREA_X,
     PLAY_AREA_Y,
+    WORLD_WIDTH,
+    TWO_PLAYERS_HORIZONTAL_GUTTER,
 } from '@/game/const.ts'
 import { useGameBusStore } from '@/store/bus.ts'
 import PlayAreaGO from '@/game/objects/PlayAreaGO.vue'
@@ -148,18 +160,32 @@ function update() {
  */
 
 const playerSeats = computed(() => {
-    return {
-        bottomLeft: gameState.orderedPlayers.length >= 4 ? gameState.getNthNeighbour(1) : null,
-        topLeft:
-            gameState.orderedPlayers.length == 2 || gameState.orderedPlayers.length == 3 ?
-                gameState.getNthNeighbour(1)
-            : gameState.orderedPlayers.length > 3 ? gameState.getNthNeighbour(2)
-            : null,
-        topRight:
-            gameState.orderedPlayers.length == 3 ? gameState.getNthNeighbour(2)
-            : gameState.orderedPlayers.length >= 4 ? gameState.getNthNeighbour(3)
-            : null,
-        bottomRight: gameState.orderedPlayers.length >= 5 ? gameState.getNthNeighbour(4) : null,
+    // Special layout for 2 players
+    if (gameState.is2pGame) {
+        return {
+            central: gameState.centralPlayer,
+            // In a 2 player game, the "central" player is actually on the right of the screen.
+            centralX: WORLD_WIDTH / 2 + TWO_PLAYERS_HORIZONTAL_GUTTER,
+            opponent2P: gameState.getNthNeighbour(1),
+        }
+    }
+    // Normal layout for 3+ players
+    else {
+        return {
+            central: gameState.centralPlayer,
+            centralX: PLAY_AREA_X,
+            bottomLeft: gameState.orderedPlayers.length >= 4 ? gameState.getNthNeighbour(1) : null,
+            topLeft:
+                gameState.orderedPlayers.length == 2 || gameState.orderedPlayers.length == 3 ?
+                    gameState.getNthNeighbour(1)
+                : gameState.orderedPlayers.length > 3 ? gameState.getNthNeighbour(2)
+                : null,
+            topRight:
+                gameState.orderedPlayers.length == 3 ? gameState.getNthNeighbour(2)
+                : gameState.orderedPlayers.length >= 4 ? gameState.getNthNeighbour(3)
+                : null,
+            bottomRight: gameState.orderedPlayers.length >= 5 ? gameState.getNthNeighbour(4) : null,
+        }
     }
 })
 

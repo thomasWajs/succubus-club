@@ -149,7 +149,7 @@ const cardAttrs = computed((): CardAttrs => {
         maxSpacing,
     )
     const totalWidth = spacing * (handLength - 1) + CARD_WIDTH * CARD_IN_HAND_SCALE
-    const offsetX = (HAND_WIDTH - totalWidth) / 2
+    const offsetX = gameState.is2pGame ? HAND_WIDTH - totalWidth : (HAND_WIDTH - totalWidth) / 2
     const x = offsetX + spacing * cardIndex + (image.value?.displayWidth ?? 0) / 2
     return { category, x, y: 0, rotation: 0, scale: CARD_IN_HAND_SCALE }
 })
