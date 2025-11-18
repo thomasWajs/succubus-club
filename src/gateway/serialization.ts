@@ -2,6 +2,7 @@ import {
     AnyGameMutation,
     GameMutationId,
     GameMutationName,
+    GameMutationParams,
     gameMutations,
 } from '@/state/gameMutations.ts'
 import { GameStateKey, useGameStateStore } from '@/store/gameState.ts'
@@ -10,7 +11,7 @@ import { Player, PlayerCardRegions, PlayerOid } from '@/model/Player.ts'
 import { CardRegion } from '@/model/CardRegion.ts'
 import xxhash, { XXHashAPI } from 'xxhash-wasm'
 import { stringify as stableStringify } from 'safe-stable-stringify'
-import { useHistoryStore } from '@/store/history.ts'
+import { ChatMessage, useHistoryStore } from '@/store/history.ts'
 import { useCoreStore } from '@/store/core.ts'
 import { isCryptId } from '@/resources/cards.ts'
 import { CborEncoder, CborDecoderBase } from '@jsonjoy.com/json-pack/lib/cbor'
@@ -21,7 +22,6 @@ import { PlayerVision } from '@/state/types.ts'
 const GAME_STATE_VERSION = 5
 
 type JsonValue = null | string | number | boolean | JsonValue[] | { [key: string]: JsonValue }
-export type JsonObject = { [key: string]: JsonValue }
 
 type Serialized<T> = JsonValue & {
     [K in keyof T]: T[K] extends Date ? string
@@ -44,9 +44,9 @@ type SerializedGameState = {
 export type SerializedGameMutation = {
     n: GameMutationName // name
     t: string // timestamp
-    p: JsonObject // params
+    p: Serialized<GameMutationParams> // params
     a: number // authorOid
-    s: JsonObject // previousState
+    s: Serialized<GameMutationParams> // previousState
     c?: GameMutationId // cancelsMutationId
 }
 
@@ -57,13 +57,12 @@ export type SerializedLogEntry = {
     a: number // authorName as string index in stringPool
     r: number // authorColorRgba as string index in stringPool
     n?: number // cancelText as string index in stringPool
-    p?: PlayerVision // playerVision
+    p?: Serialized<PlayerVision> // playerVision
     c?: JsonValue // card
     m?: GameMutationId // mutationId
 }
 
-// export type SerializedChatMessage = Serialized<ChatMessage>
-export type SerializedChatMessage = JsonObject
+export type SerializedChatMessage = Serialized<ChatMessage>
 
 type SerializedHistory = {
     stringPool: string[]
@@ -112,7 +111,7 @@ function serializeValueRecursive(value: unknown): JsonValue {
 
     // Handle plain objects
     if (typeof value === 'object') {
-        const result: JsonObject = {}
+        const result: Serialized<unknown> = {}
         for (const [k, v] of Object.entries(value)) {
             result[k] = serializeValueRecursive(v)
         }
@@ -123,14 +122,8 @@ function serializeValueRecursive(value: unknown): JsonValue {
     return null
 }
 
-export function serializeObject<T extends object>(object: T): { [K in keyof T]: JsonValue } {
-    const result: Record<string, JsonValue> = {}
-
-    for (const [key, value] of Object.entries(object)) {
-        result[key] = serializeValueRecursive(value)
-    }
-
-    return result as { [K in keyof T]: JsonValue }
+export function serializeObject<T extends object>(object: T) {
+    return serializeValueRecursive(object) as Serialized<T>
 }
 
 export function deserializeValue(value: JsonValue) {
@@ -154,8 +147,8 @@ export function deserializeValue(value: JsonValue) {
     return value
 }
 
-export function deserializeObject<T = unknown>(jsonObject: JsonObject): T {
-    return JSON.parse(JSON.stringify(jsonObject), (_, value) => {
+export function deserializeObject<T = unknown>(serializedObject: Serialized<T>): T {
+    return JSON.parse(JSON.stringify(serializedObject), (_, value) => {
         return deserializeValue(value)
     })
 }
@@ -186,7 +179,7 @@ export function deserializeGameMutation(gameMutationJson: SerializedGameMutation
     }
 
     const gameMutation = new GameMutationClass(
-        deserializeObject(gameMutationJson.p),
+        deserializeObject(gameMutationJson.p) as never,
         new Date(gameMutationJson.t),
         author,
         gameMutationJson.c,
@@ -217,7 +210,7 @@ export function serializeHistory(): SerializedHistory {
         a: internString(logEntry.authorName),
         r: internString(logEntry.authorColorRgba),
         n: logEntry.cancelText ? internString(logEntry.cancelText) : undefined,
-        p: logEntry.playerVision,
+        p: logEntry.playerVision ? serializeObject(logEntry.playerVision) : undefined,
         c: logEntry.card ? serializeValueRecursive(logEntry.card) : undefined,
         m: logEntry.mutationId,
     }))
@@ -239,7 +232,7 @@ export function deserializeHistory(serializedHistory: SerializedHistory) {
         authorName: stringPool[logEntry.a],
         authorColorRgba: stringPool[logEntry.r],
         cancelText: logEntry.n ? stringPool[logEntry.n] : undefined,
-        playerVision: logEntry.p,
+        playerVision: logEntry.p ? deserializeObject<PlayerVision>(logEntry.p) : undefined,
         card: logEntry.c ? (deserializeValue(logEntry.c) as Card) : undefined,
         mutationId: logEntry.m,
     }))

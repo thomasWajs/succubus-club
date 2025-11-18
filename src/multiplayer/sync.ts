@@ -100,7 +100,7 @@ function flushPendingMessages() {
         // Chat Message
         else if (Object.hasOwn(message, 'text')) {
             // We call the unsafe function because we're already in a lock
-            _unsafeReceiveChatMessage(message)
+            _unsafeReceiveChatMessage(message as SerializedChatMessage)
         }
     }
     resetPendingSyncMessage()
@@ -119,7 +119,7 @@ export function _unsafeReceiveChatMessage(serializedMessage: SerializedChatMessa
     if (!isReadyToReceive(serializedMessage)) {
         return
     }
-    const chatMessage = deserializeObject(serializedMessage) as ChatMessage
+    const chatMessage = deserializeObject<ChatMessage>(serializedMessage)
     useHistoryStore().addChatMessage(chatMessage)
 }
 
