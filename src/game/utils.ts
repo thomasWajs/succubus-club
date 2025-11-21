@@ -1,7 +1,14 @@
-import { CARD_HEIGHT, CARD_IN_PLAY_BASE_SCALE, CARD_WIDTH, GRID_SIZE } from '@/game/const.ts'
+import {
+    CARD_HEIGHT,
+    CARD_IN_HAND_SCALE,
+    CARD_IN_PLAY_BASE_SCALE,
+    CARD_WIDTH,
+    GRID_SIZE,
+    WIELD_CARD_SCALE,
+} from '@/game/const.ts'
 import Phaser, { GameObjects } from 'phaser'
 import Pointer = Phaser.Input.Pointer
-import { PhaserDataKey } from '@/game/types.ts'
+import { RegionCategory, PhaserDataKey } from '@/game/types.ts'
 import { AnyCardRegion, CardRegionOid } from '@/model/CardRegion.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
 import { CardOid } from '@/model/Card.ts'
@@ -83,25 +90,7 @@ export function positionContextMenu(
     }, 0)
 }
 
-export function getDropCardRegion(droppedOn: GameObjects.GameObject): AnyCardRegion | null {
-    const gameState = useGameStateStore()
-
-    const cardRegionOid = droppedOn.getData(PhaserDataKey.CardRegionOid) as CardRegionOid
-    // Not dropped on any region
-    if (!cardRegionOid) {
-        return null
-    }
-
-    const cardRegion = gameState.cardRegions[cardRegionOid] as AnyCardRegion
-    // Dropped on a region that doesn't exist in the game state, that should never happen
-    if (!cardRegion) {
-        throw new Error(`onDrop: targetCardRegion not found for oid ${cardRegionOid}`)
-    }
-
-    return cardRegion
-}
-
-export function getDraggedCard(cardImage: GameObjects.Image) {
+export function getCardDragged(cardImage: GameObjects.Image) {
     const gameState = useGameStateStore()
 
     const cardOid = cardImage.getData(PhaserDataKey.CardOid) as CardOid
@@ -116,4 +105,32 @@ export function getDraggedCard(cardImage: GameObjects.Image) {
     }
 
     return card
+}
+
+export function getCardRegionDraggedOver(dragTarget: GameObjects.GameObject) {
+    const gameState = useGameStateStore()
+
+    const cardRegionOid = dragTarget.getData(PhaserDataKey.CardRegionOid) as CardRegionOid
+    if (!cardRegionOid) {
+        return null
+    }
+
+    const cardRegion = gameState.cardRegions[cardRegionOid]
+    // Dropped on a region that doesn't exist in the game state, that should never happen
+    if (!cardRegion) {
+        throw new Error(`onDrag: card region not found for oid ${cardRegion}`)
+    }
+
+    return cardRegion
+}
+
+export function getCardScale(category: RegionCategory, cardRegion?: AnyCardRegion): number {
+    switch (category) {
+        case RegionCategory.Table:
+            return CARD_IN_PLAY_BASE_SCALE * (cardRegion?.owner.scale ?? 1)
+        case RegionCategory.Hand:
+            return CARD_IN_HAND_SCALE
+        case RegionCategory.Stack:
+            return WIELD_CARD_SCALE
+    }
 }

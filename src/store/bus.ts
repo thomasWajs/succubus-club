@@ -1,12 +1,13 @@
-import { Raw, Component } from 'vue'
+import { Component, Raw } from 'vue'
 import { acceptHMRUpdate, defineStore } from 'pinia'
 import { Card, CardOid } from '@/model/Card.ts'
-import Phaser, { GameObjects } from 'phaser'
+import Phaser from 'phaser'
 import { Player, PlayerOid } from '@/model/Player.ts'
 import { AnyCardRegion } from '@/model/CardRegion.ts'
 import { SavingState } from '@/gateway/savedGames.ts'
+import { AlignmentGuide } from '@/state/types.ts'
+import { CardInGame, DragOver, PlayerInGame } from '@/game/types.ts'
 import Rectangle = Phaser.Geom.Rectangle
-import Pointer = Phaser.Input.Pointer
 import Vector2Like = Phaser.Types.Math.Vector2Like
 
 export enum AlertState {
@@ -20,30 +21,6 @@ export type AlertMessage = {
     type: AlertState
     dismissible: boolean
     blockInteraction: boolean
-}
-
-export type CardDragEvent = {
-    originCard: Card
-    pointer: Pointer
-    dragX?: number
-    dragY?: number
-    droppedOn?: GameObjects.GameObject
-}
-
-type PositionGetter = () => Vector2Like | null
-export type PlayerInGame = {
-    playerOid: PlayerOid
-    getWorldPosition: PositionGetter
-}
-export type CardInGame = {
-    cardOid: CardOid
-    getWorldPosition: PositionGetter
-    bringToTop: () => void
-    isUnderSelectionArea: () => boolean
-    onDragStart: (event: CardDragEvent) => void
-    onDrag: (event: CardDragEvent) => void
-    onDragEnd: (event: CardDragEvent) => void
-    onDrop: (event: CardDragEvent) => void
 }
 
 export const useBusStore = defineStore('bus', {
@@ -107,6 +84,10 @@ export const useGameBusStore = defineStore('gameBus', {
         },
 
         declaringTargetOrigin: null as Card | null,
+
+        /** Alignment guides **/
+        dragOver: null as DragOver | null,
+        alignmentGuides: [] as AlignmentGuide[],
 
         /** Hand **/
         handDropGapPosition: null as null | number,

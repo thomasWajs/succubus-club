@@ -10,12 +10,12 @@
         :strokeColor="color.color"
         :strokeAlpha="color.alphaGL"
         :fillColor="
-            isDraggedOver || isRegionHovered ?
+            highlightDropZone || isRegionHovered ?
                 REGION_BACKGROUND_COLOR_DRAG_OVER.color
             :   REGION_BACKGROUND_COLOR.color
         "
         :fillAlpha="
-            isDraggedOver || isRegionHovered ?
+            highlightDropZone || isRegionHovered ?
                 REGION_BACKGROUND_COLOR_DRAG_OVER.alphaGL
             :   REGION_BACKGROUND_COLOR.alphaGL
         "
@@ -104,7 +104,7 @@
 <script setup lang="ts">
 import { reactive, ref, computed } from 'vue'
 import Phaser, { GameObjects } from 'phaser'
-import { Image, Rectangle, refObj, Text, useScene } from 'phavuer'
+import { Image, Rectangle, refObj, Text } from 'phavuer'
 import {
     CARD_IN_STACK_SCALE,
     CARD_OUTLINE_COLOR_HOVER,
@@ -118,9 +118,9 @@ import { useGameStateStore } from '@/store/gameState.ts'
 import { useGameBusStore } from '@/store/bus.ts'
 import Color = Phaser.Display.Color
 import Pointer = Phaser.Input.Pointer
-import { PhaserDataKey } from '@/game/types.ts'
+import { PhaserDataKey, RegionCategory } from '@/game/types.ts'
 import { RegionName } from '@/model/const.ts'
-import { getDraggedCard, positionContextMenu } from '@/game/utils.ts'
+import { positionContextMenu } from '@/game/utils.ts'
 import { Texture } from '@/resources/textures.ts'
 
 const { cardRegion, draw } = defineProps<{
@@ -138,16 +138,10 @@ const gameState = useGameStateStore()
 const gameBus = useGameBusStore()
 
 const image = refObj<GameObjects.Image>()
-const isDraggedOver = ref(false)
 
 const topCard = computed(() => (cardRegion.length > 0 ? cardRegion.firstCard : null))
 
-function closeUpAshHeap() {
-    // Close up top card of the ash heap
-    if (cardRegion.name == RegionName.AshHeap && cardRegion.length > 0 && !isDraggedOver.value) {
-        gameBus.setCloseUpCard(cardRegion.firstCard)
-    }
-}
+const isRegionHovered = ref(false)
 
 /**
  * Boundaries
@@ -155,35 +149,23 @@ function closeUpAshHeap() {
 
 function onBoundariesCreate(boundaries: GameObjects.Rectangle) {
     boundaries.setData(PhaserDataKey.CardRegionOid, cardRegion.oid)
+    boundaries.setData(PhaserDataKey.RegionCategory, RegionCategory.Table)
 
     // boundaries is already interactive because it declare a dropZone
     // so we update its cursor property instead of using setInteractive()
     if (boundaries.input?.cursor) {
         boundaries.input.cursor = 'pointer'
     }
-
-    const scene = useScene()
-    scene.input.on(
-        Phaser.Input.Events.DRAG_ENTER,
-        ({}, cardImage: GameObjects.Image, target: GameObjects.Rectangle) => {
-            // Highlight target region if it's different from the source region
-            const card = getDraggedCard(cardImage)
-            if (target == boundaries && card.region.oid != cardRegion.oid) {
-                isDraggedOver.value = true
-            }
-        },
-    )
-    scene.input.on(Phaser.Input.Events.DRAG_LEAVE, ({}, {}, target: GameObjects.Rectangle) => {
-        if (target == boundaries) {
-            isDraggedOver.value = false
-        }
-    })
-    scene.input.on(Phaser.Input.Events.DRAG_END, ({}, {}, {}) => {
-        isDraggedOver.value = false
-    })
 }
 
-const isRegionHovered = ref(false)
+const highlightDropZone = computed(() => {
+    return (
+        gameState.isPlayer && // don't highlight for spectators
+        gameBus.dragOver && // A drag is in progress
+        gameBus.dragOver.cardRegion?.oid == cardRegion.oid && // This region is dragged over
+        gameBus.dragOver.card.region.oid != cardRegion.oid // THe dragged card is not already in this region
+    )
+})
 
 function onBoundariesPointerOver() {
     isRegionHovered.value = true
@@ -262,6 +244,17 @@ function onImagePointerDown(pointer: Pointer) {
             gameBus.contextMenu.y = y
         }
         positionContextMenu(pointer.x, pointer.y, pointer.y, '.context-menu', setXY)
+    }
+}
+
+/**
+ * Closeup for ash heap
+ */
+
+function closeUpAshHeap() {
+    // Close up top card of the ash heap
+    if (cardRegion.name == RegionName.AshHeap && cardRegion.length > 0 && !gameBus.dragOver) {
+        gameBus.setCloseUpCard(cardRegion.firstCard)
     }
 }
 </script>

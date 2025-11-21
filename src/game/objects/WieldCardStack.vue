@@ -141,7 +141,7 @@ import EventData = Phaser.Types.Input.EventData
 import WieldCardStackActions from '@/ui/ingame/WieldCardStackActions.vue'
 import { display } from '@/game/display.ts'
 
-const props = defineProps<{
+const { cardRegion } = defineProps<{
     cardRegion: AnyCardRegion
 }>()
 
@@ -194,7 +194,7 @@ onMounted(() => {
  */
 
 const cards = computed(() => {
-    let cards = props.cardRegion.cards
+    let cards = cardRegion.cards
     if (gameBus.wieldCardStack.searchString) {
         cards = cards.filter(card =>
             card.secureName

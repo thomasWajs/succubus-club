@@ -5,8 +5,8 @@ import { DRAG_DISTANCE_THRESHOLD } from '@/game/const.ts'
 import { useCommands } from '@/game/composables/useCommands.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
 import { gameMutations } from '@/state/gameMutations.ts'
-import { PhaserDataKey } from '@/game/types.ts'
-import { getWorldPoint } from '@/game/utils.ts'
+import { PhaserDataKey, RegionCategory } from '@/game/types.ts'
+import { getCardDragged, getCardRegionDraggedOver, getWorldPoint } from '@/game/utils.ts'
 
 /**
  * Pointer Inputs
@@ -18,6 +18,11 @@ export function setupPointerHandlers(scene: Phaser.Scene) {
     scene.input.on(Phaser.Input.Events.POINTER_DOWN, onPointerDown)
     scene.input.on(Phaser.Input.Events.POINTER_UP, onPointerUp)
     scene.input.on(Phaser.Input.Events.POINTER_MOVE, onPointerMove)
+
+    scene.input.on(Phaser.Input.Events.DRAG_START, onDragStart)
+    scene.input.on(Phaser.Input.Events.DRAG_ENTER, onDragEnter)
+    scene.input.on(Phaser.Input.Events.DRAG_LEAVE, onDragLeave)
+    scene.input.on(Phaser.Input.Events.DRAG_END, onDragEnd)
 }
 
 function resetSelectionArea() {
@@ -110,6 +115,38 @@ function onPointerMove(pointer: Pointer, {}) {
     useGameBusStore().pointerPosition = getWorldPoint(pointer.x, pointer.y)
 }
 
+function onDragStart({}, cardImage: GameObjects.Image) {
+    const gameBus = useGameBusStore()
+    gameBus.dragOver = {
+        cardImage,
+        card: getCardDragged(cardImage),
+    }
+    gameBus.alignmentGuides = []
+}
+
+function onDragEnter({}, {}, target: GameObjects.GameObject) {
+    const gameBus = useGameBusStore()
+    if (gameBus.dragOver) {
+        gameBus.dragOver.target = target
+        gameBus.dragOver.cardRegion = getCardRegionDraggedOver(target) ?? undefined
+        gameBus.dragOver.regionCategory =
+            (target.getData(PhaserDataKey.RegionCategory) as RegionCategory) ?? undefined
+    }
+}
+
+function onDragLeave() {
+    const gameBus = useGameBusStore()
+    if (gameBus.dragOver) {
+        gameBus.dragOver.target = undefined
+        gameBus.dragOver.cardRegion = undefined
+    }
+}
+
+function onDragEnd() {
+    const gameBus = useGameBusStore()
+    gameBus.dragOver = null
+    gameBus.alignmentGuides = []
+}
 /**
  * Keyboard Inputs
  */

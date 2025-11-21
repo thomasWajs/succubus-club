@@ -3,6 +3,7 @@
     <Image
         ref="dragPlaceholder"
         :key="key + 'dragPlaceholder'"
+        :origin="0"
         :x="cardAttrs.x"
         :y="cardAttrs.y"
         :texture="card.displayedTexture.textureName"
@@ -15,12 +16,13 @@
     <Image
         ref="image"
         :key="key + 'image'"
-        :x="dragAttrs.x + offsetX"
-        :y="dragAttrs.y + offsetY"
+        :origin="0"
+        :x="dragAttrs.isDragging ? dragAttrs.x : cardAttrs.x"
+        :y="dragAttrs.isDragging ? dragAttrs.y : cardAttrs.y"
         :texture="card.displayedTexture.textureName"
         :frame="card.displayedTexture.frameName"
-        :alpha="dragAttrs.alpha"
-        :scale="cardScale"
+        :alpha="dragAttrs.isDragging ? CARD_DRAGGING_ALPHA : 1"
+        :scale="dragAttrs.isDragging ? dragAttrs.scale : cardAttrs.scale"
         :rotation="cardAttrs.rotation"
         @create="onImageCreate"
         @pointerover="onPointerOver"
@@ -38,6 +40,7 @@
         ref="cardOutline"
         :key="key + 'cardOutline'"
         :visible="!!getCardOutlineColor"
+        :origin="0"
         :x="cardAttrs.x"
         :y="cardAttrs.y"
         :width="displaySize.width"
@@ -197,7 +200,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onBeforeUnmount, onMounted, reactive, watch, toRef } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, toRef, watch } from 'vue'
 import Phaser, { GameObjects } from 'phaser'
 import { Circle, Image, Rectangle, refObj, Text } from 'phavuer'
 import {
@@ -213,7 +216,6 @@ import {
     COUNTER_RADIUS,
     COUNTER_TEXT_STYLE,
     GREEN_COUNTER_FILL_COLOR,
-    GRID_SIZE,
     MARKER_HEIGHT,
     MARKER_MARGIN_TOP,
     MARKER_PADDING,
@@ -223,19 +225,16 @@ import {
     OVERLAY_BUTTON_SIZE,
 } from '@/game/const.ts'
 import { Card } from '@/model/Card.ts'
-import { CardDragEvent, useGameBusStore } from '@/store/bus.ts'
-import { gameMutations } from '@/state/gameMutations.ts'
-import Vector2Like = Phaser.Types.Math.Vector2Like
-import Pointer = Phaser.Input.Pointer
-import { CardAttrs, CardCategory, PhaserDataKey } from '@/game/types.ts'
-import { RegionName } from '@/model/const.ts'
+import { useGameBusStore } from '@/store/bus.ts'
+import { CardAttrs, RegionCategory, PhaserDataKey, CardDragEvent } from '@/game/types.ts'
 import { useCardClick } from '@/game/composables/useCardClick.ts'
 import { useCardOutline } from '@/game/composables/useCardOutline.ts'
-import { Validity } from '@/state/types.ts'
-import { dropCoordinatesSnapped, getDropCardRegion } from '@/game/utils.ts'
+import { getCardScale } from '@/game/utils.ts'
 import ButtonGo from '@/game/objects/ButtonGo.vue'
 import { useCommands } from '@/game/composables/useCommands.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
+import Pointer = Phaser.Input.Pointer
+import { useCardDragDrop } from '@/game/composables/useCardDragDrop.ts'
 
 const { card, regionName } = defineProps<{
     card: Card
@@ -247,6 +246,7 @@ const key = computed(() => regionName + card.oid.toString())
 const gameState = useGameStateStore()
 const gameBus = useGameBusStore()
 const commands = useCommands()
+
 const image = refObj<GameObjects.Image>()
 const dragPlaceholder = refObj<GameObjects.Image>()
 const cardOutline = refObj<GameObjects.Rectangle>()
@@ -270,22 +270,21 @@ function registerMarkersTexts(index: number, text: typeof Text | null) {
 }
 
 const scale = computed(() => card.region.owner.scale)
-const cardScale = computed(() => CARD_IN_PLAY_BASE_SCALE * scale.value)
-
-const offsetX = computed(() =>
-    card.isLocked ? displaySize.value.height / 2 : displaySize.value.width / 2,
-)
-const offsetY = computed(() =>
-    card.isLocked ? displaySize.value.width / 2 : displaySize.value.height / 2,
-)
+const cardScale = computed(() => getCardScale(RegionCategory.Table, card.region))
 
 const cardAttrs = computed((): CardAttrs => {
+    const offsetX = card.isLocked ? displaySize.value.height : 0
+    const offsetY = 0
+
     return {
-        category: CardCategory.CardOnTable,
-        x: card.x + offsetX.value,
-        y: card.y + offsetY.value,
+        category: RegionCategory.Table,
+        x: card.x + offsetX,
+        y: card.y + offsetY,
+        offsetX,
+        offsetY,
         rotation: card.isLocked ? Math.PI / 2 : 0,
         scale: cardScale.value,
+        container: image.value?.parentContainer,
     }
 })
 
@@ -308,9 +307,55 @@ function onImageCreate(image: GameObjects.Image) {
 }
 
 /**
- * Positions for overlays ( counters & buttons )
+ * Bring to top
  */
 
+function bringToTop() {
+    if (!image.value) {
+        return
+    }
+
+    const container = image.value.parentContainer
+    container.bringToTop(image.value)
+
+    for (const gameObject of [
+        greenCounterCircle,
+        greenCounterText,
+        bloodCounterCircle,
+        bloodCounterText,
+        cardOutline,
+    ]) {
+        if (gameObject.value) container.bringToTop(gameObject.value)
+    }
+    for (const button of [burnBloodButton, gainBloodButton, ashHeapButton, influenceButton]) {
+        button.value?.bringToTop()
+    }
+
+    markersRectangles.forEach(rectangle => {
+        if (rectangle) container.bringToTop(rectangle)
+    })
+    markersTexts.forEach(text => {
+        if (text) container.bringToTop(text)
+    })
+}
+
+/**
+ * Overlay ( counters & buttons )
+ */
+
+const showOverlay = computed(() => {
+    return isHovered.value && gameBus.selectedCards.length <= 1 && gameState.isPlayer
+})
+
+function overlayClick(pointer: Pointer, command: (card: Card) => void) {
+    if (gameBus.declaringTargetOrigin) {
+        onPointerDown(pointer)
+    } else {
+        command(card)
+    }
+}
+
+// Positions for overlays
 const overlays = computed(() => {
     const counterRadius = (COUNTER_RADIUS + COUNTER_OUTLINE_THICKNESS) * scale.value
     const overOffset = showOverlay.value ? counterRadius * COUNTER_HOVER_OFFSET_MULTIPLIER + 3 : 0
@@ -410,24 +455,8 @@ const {
 
 function onPointerOver() {
     outlineOver()
-    bringCardToTop()
+    bringToTop()
 }
-
-/**
- * Overlay
- */
-
-function overlayClick(pointer: Pointer, command: (card: Card) => void) {
-    if (gameBus.declaringTargetOrigin) {
-        onPointerDown(pointer)
-    } else {
-        command(card)
-    }
-}
-
-const showOverlay = computed(() => {
-    return isHovered.value && gameBus.selectedCards.length <= 1 && gameState.isPlayer
-})
 
 /**
  * Select/Deselect on simple click
@@ -449,14 +478,12 @@ function dispatchDragEvent(
     pointer: Pointer,
     dragX?: number,
     dragY?: number,
-    droppedOn?: GameObjects.Rectangle,
 ) {
     const event = {
         originCard: card,
         pointer,
         dragX,
         dragY,
-        droppedOn,
     }
     for (const cardInGame of gameBus.selectedCardsInGame) {
         cardInGame[eventName](event)
@@ -475,176 +502,44 @@ function dispatchDragEnd(pointer: Pointer) {
     dispatchDragEvent('onDragEnd', pointer)
 }
 
-function dispatchDrop(pointer: Pointer, droppedOn: GameObjects.Rectangle) {
-    dispatchDragEvent('onDrop', pointer, 0, 0, droppedOn)
+function dispatchDrop(pointer: Pointer) {
+    dispatchDragEvent('onDrop', pointer)
 }
 
 /**
- * Dragging
+ * Drag'n'Drop
  */
 
-// Track if the card were dropped into a drop zone
-let droppedAfterDrag = false
+const dragDrop = useCardDragDrop(
+    toRef(() => card),
+    cardAttrs,
+    bringToTop,
+)
 
-const dragAttrs = reactive({
-    x: card.x, // X position of the drag cursor
-    y: card.y, // Y position of the drag cursor
-    alpha: 1,
-    deltaX: 0, // X distance from the dragged card origin
-    deltaY: 0, // Y distance from the dragged card origin
-})
-// Redraw the Card GameObject when the position in Card's state is updated
-watch([() => card.x, () => card.y], ([x, y]) => {
-    dragAttrs.x = x
-    dragAttrs.y = y
-
-    // When any players move a card, it must appear on top of the other cards
-    bringCardToTop()
-})
-
-function bringCardToTop() {
-    if (!image.value) {
-        return
-    }
-
-    const container = image.value.parentContainer
-    container.bringToTop(image.value)
-
-    for (const gameObject of [
-        greenCounterCircle,
-        greenCounterText,
-        bloodCounterCircle,
-        bloodCounterText,
-        cardOutline,
-    ]) {
-        if (gameObject.value) container.bringToTop(gameObject.value)
-    }
-    for (const button of [burnBloodButton, gainBloodButton, ashHeapButton, influenceButton]) {
-        button.value?.bringToTop()
-    }
-
-    markersRectangles.forEach(rectangle => {
-        if (rectangle) container.bringToTop(rectangle)
-    })
-    markersTexts.forEach(text => {
-        if (text) container.bringToTop(text)
-    })
-}
+const dragAttrs = dragDrop.dragAttrs
 
 function onDragStart(event: CardDragEvent) {
-    // This may happen when moving region,
-    // on the old CardGo component that is about to be unmounted
-    if (!image.value) {
-        return
-    }
-    // Spectators can't interact with the game
-    if (gameState.isSpectator) {
-        return
-    }
-
-    droppedAfterDrag = false
-
-    // The dragged card must be on top of the other cards
-    bringCardToTop()
-
-    dragAttrs.alpha = CARD_DRAGGING_ALPHA
-    dragAttrs.deltaX = card.x - event.originCard.x
-    dragAttrs.deltaY = card.y - event.originCard.y
+    dragDrop.onDragStart(event.originCard)
 }
 
 function onDrag(event: CardDragEvent) {
-    // This may happen when moving region,
-    // on the old CardGo component that is about to be unmounted
-    if (!image.value || !event.dragX || !event.dragY) {
-        return
+    if (event.dragX && event.dragY) {
+        dragDrop.onDrag(event.pointer, event.dragX, event.dragY)
     }
-    // Spectators can't interact with the game
-    if (gameState.isSpectator) {
-        return
-    }
-
-    dragAttrs.x = Phaser.Math.Snap.To(event.dragX + dragAttrs.deltaX - offsetX.value, GRID_SIZE)
-    dragAttrs.y =
-        Phaser.Math.Snap.Ceil(event.dragY + dragAttrs.deltaY - offsetY.value, GRID_SIZE) -
-        GRID_SIZE / 2
 }
 
 function onDragEnd() {
-    dragAttrs.alpha = 1
-    dragAttrs.deltaX = 0
-    dragAttrs.deltaY = 0
-
-    // We didn't dropped in a zone, get back to the initial position
-    if (!droppedAfterDrag) {
-        dragAttrs.x = card.x
-        dragAttrs.y = card.y
-    }
+    dragDrop.onDragEnd()
 }
 
-/**
- * Drop on new position
- */
-
-function onDrop(event: CardDragEvent) {
-    // This may happen when moving region,
-    // on the old CardGo component that is about to be unmounted
-    if (!image.value || !event.droppedOn) {
-        return
-    }
-
-    const targetCardRegion = getDropCardRegion(event.droppedOn)
-    // Not dropped on any region, abort
-    if (!targetCardRegion) {
-        return
-    }
-
-    let validity: Validity
-    // Move inside the same region, just update card position
-    if (targetCardRegion.oid == card.region.oid) {
-        validity = gameMutations.moveCard.actSelf({
-            card,
-            x: dragAttrs.x,
-            y: dragAttrs.y,
-        })
-    }
-    // Move to hand
-    else if (targetCardRegion.name == RegionName.Hand) {
-        validity = gameMutations.moveCardToRegion.actSelf({
-            card,
-            fromCardRegion: card.region,
-            toCardRegion: targetCardRegion,
-            position: gameBus.handDropGapPosition ?? 0,
-        })
-    }
-    // Move to another region
-    else {
-        let coord: Vector2Like = { x: dragAttrs.x, y: dragAttrs.y }
-
-        const fromContainer = image.value.parentContainer
-        const toContainer = event.droppedOn.parentContainer
-
-        // If the card change of container, recompute its position to the new referential
-        if (fromContainer != toContainer) {
-            // Compute new card position in the target container referential
-            coord = dropCoordinatesSnapped(event.pointer, toContainer)
-            // Adjust position for dragging delta
-            coord.x += dragAttrs.deltaX
-            coord.y += dragAttrs.deltaY
-        }
-
-        validity = gameMutations.moveCardToRegion.actSelf({
-            card,
-            fromCardRegion: card.region,
-            toCardRegion: targetCardRegion,
-            x: coord.x,
-            y: coord.y,
-        })
-    }
-
-    // If the action is valid, the drop is confirmed.
-    // Else, the card will go back to its initial position
-    droppedAfterDrag = validity.isValid
+function onDrop() {
+    dragDrop.onDrop()
 }
+
+// When any players move a card, it must appear on top of the other cards
+watch([() => card.x, () => card.y], () => {
+    bringToTop()
+})
 
 /**
  * World position ( for arrows )
@@ -667,7 +562,7 @@ function getWorldPosition() {
 const cardInGame = {
     cardOid: card.oid,
     getWorldPosition,
-    bringToTop: bringCardToTop,
+    bringToTop,
     isUnderSelectionArea,
     onDragStart,
     onDrag,

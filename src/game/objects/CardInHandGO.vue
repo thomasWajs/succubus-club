@@ -2,12 +2,13 @@
     <Image
         ref="image"
         :key="key + 'image'"
-        :x="isDragging ? dragPosition.x + (image ? image.displayWidth / 2 : 0) : cardAttrs.x"
-        :y="(isDragging ? dragPosition.y : cardAttrs.y) + (image ? image.displayHeight / 2 : 0)"
+        :origin="0"
+        :x="dragAttrs.isDragging ? dragAttrs.x : cardAttrs.x"
+        :y="dragAttrs.isDragging ? dragAttrs.y : cardAttrs.y"
         :texture="card.displayedTexture.textureName"
         :frame="card.displayedTexture.frameName"
-        :alpha="isDragging ? CARD_DRAGGING_ALPHA : 1"
-        :scale="cardAttrs.scale"
+        :alpha="dragAttrs.isDragging ? CARD_DRAGGING_ALPHA : 1"
+        :scale="dragAttrs.isDragging ? dragAttrs.scale : cardAttrs.scale"
         @create="onImageCreate"
         @pointerover="onPointerOverHand"
         @pointerout="onPointerOutHand"
@@ -21,9 +22,10 @@
     <Rectangle
         ref="cardOutline"
         :key="key + 'cardOutline'"
-        :visible="!isDragging && !!getCardOutlineColor"
+        :visible="!dragAttrs.isDragging && !!getCardOutlineColor"
+        :origin="0"
         :x="cardAttrs.x"
-        :y="cardAttrs.y + (image ? image.displayHeight / 2 : 0)"
+        :y="cardAttrs.y"
         :width="image ? image.displayWidth : 0"
         :height="image ? image.displayHeight : 0"
         :lineWidth="CARD_OUTLINE_THICKNESS"
@@ -31,7 +33,7 @@
     />
 
     <!-- Hovered buttons -->
-    <template v-if="isHovered && !isDragging">
+    <template v-if="isHovered && !dragAttrs.isDragging">
         <!-- Play -->
         <ButtonGo
             ref="playButton"
@@ -89,13 +91,14 @@ import { useGameBusStore } from '@/store/bus.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
 import { useCommands } from '@/game/composables/useCommands.ts'
 import Glow = Phaser.FX.Glow
-import { CardAttrs, CardCategory, PhaserDataKey } from '@/game/types.ts'
+import { CardAttrs, RegionCategory, PhaserDataKey } from '@/game/types.ts'
 import { useCardDragDrop } from '@/game/composables/useCardDragDrop.ts'
 import ButtonGo from '@/game/objects/ButtonGo.vue'
 import { gameMutations } from '@/state/gameMutations.ts'
 import { useCardClick } from '@/game/composables/useCardClick.ts'
 import { useCardOutline } from '@/game/composables/useCardOutline.ts'
 import { useCoreStore } from '@/store/core.ts'
+import { getCardScale } from '@/game/utils.ts'
 
 const { card } = defineProps<{
     card: LibraryCard
@@ -115,66 +118,43 @@ const discardButton = ref<typeof ButtonGo>()
 const key = computed(() => `hand${card.oid.toString()}`)
 
 const cardAttrs = computed((): CardAttrs => {
-    const category = CardCategory.CardInHand
+    const category = RegionCategory.Hand
+    const container = image.value?.parentContainer
+    const hand = gameState.selfPlayer?.hand
+    let x = 0
 
-    if (!gameState.selfPlayer) {
-        return { category, x: 0, y: 0, rotation: 0, scale: 1 }
-    }
-
-    const hand = gameState.selfPlayer.hand
-
-    let handLength = hand.length
-    let cardIndex = hand.indexOf(card)
-    let cardIndexOffset = 0
-    // When dragging any card into the hand,
-    // display the card at its position after drop
-    if (gameBus.handDropGapPosition !== null) {
-        handLength++
-        if (cardIndex >= gameBus.handDropGapPosition) {
-            cardIndexOffset++
+    if (hand) {
+        let handLength = hand.length
+        let cardIndex = hand.indexOf(card)
+        let cardIndexOffset = 0
+        // When dragging any card into the hand,
+        // display the card at its position after drop
+        if (gameBus.handDropGapPosition !== null) {
+            handLength++
+            if (cardIndex >= gameBus.handDropGapPosition) {
+                cardIndexOffset++
+            }
         }
-    }
-    // When the dragged card comes from the hand, remove it from calculations
-    if (gameBus.draggedHandCardPosition !== null) {
-        handLength--
-        if (cardIndex > gameBus.draggedHandCardPosition) {
-            cardIndexOffset--
+        // When the dragged card comes from the hand, remove it from calculations
+        if (gameBus.draggedHandCardPosition !== null) {
+            handLength--
+            if (cardIndex > gameBus.draggedHandCardPosition) {
+                cardIndexOffset--
+            }
         }
+        cardIndex += cardIndexOffset
+
+        const maxSpacing = CARD_WIDTH * CARD_IN_HAND_SCALE + 10
+        const spacing = Math.min(
+            (HAND_WIDTH - CARD_WIDTH * CARD_IN_HAND_SCALE) / (handLength - 1),
+            maxSpacing,
+        )
+        const totalWidth = spacing * (handLength - 1) + CARD_WIDTH * CARD_IN_HAND_SCALE
+        const offsetX = gameState.is2pGame ? HAND_WIDTH - totalWidth : (HAND_WIDTH - totalWidth) / 2
+        x = offsetX + spacing * cardIndex
     }
-    cardIndex += cardIndexOffset
 
-    const maxSpacing = CARD_WIDTH * CARD_IN_HAND_SCALE + 10
-    const spacing = Math.min(
-        (HAND_WIDTH - CARD_WIDTH * CARD_IN_HAND_SCALE) / (handLength - 1),
-        maxSpacing,
-    )
-    const totalWidth = spacing * (handLength - 1) + CARD_WIDTH * CARD_IN_HAND_SCALE
-    const offsetX = gameState.is2pGame ? HAND_WIDTH - totalWidth : (HAND_WIDTH - totalWidth) / 2
-    const x = offsetX + spacing * cardIndex + (image.value?.displayWidth ?? 0) / 2
-    return { category, x, y: 0, rotation: 0, scale: CARD_IN_HAND_SCALE }
-})
-
-/**
- * Positions for overlays ( counters & buttons )
- */
-
-const ASH_HEAP_BUTTON_SIZE = OVERLAY_BUTTON_SIZE * 1.5
-
-const overlays = computed(() => {
-    const totalAshHeapButtonSize = ASH_HEAP_BUTTON_SIZE + COUNTER_OUTLINE_THICKNESS
-    const rightEdge = cardAttrs.value.x + (CARD_WIDTH * CARD_IN_HAND_SCALE) / 2
-    const bottomEdge = cardAttrs.value.y + CARD_HEIGHT * CARD_IN_HAND_SCALE
-
-    return {
-        play: {
-            x: rightEdge - 32,
-            y: cardAttrs.value.y + 15,
-        },
-        ashHeap: {
-            x: rightEdge - totalAshHeapButtonSize / 2 - 1, // -1 is to account for outline thickness
-            y: bottomEdge - totalAshHeapButtonSize / 2 - 1, // -1 is to account for outline thickness
-        },
-    }
+    return { category, x, y: 0, rotation: 0, scale: getCardScale(category), container }
 })
 
 /**
@@ -190,8 +170,48 @@ function onImageCreate(image: GameObjects.Image) {
 }
 
 /**
- * Overlay
+ * Bring to top
  */
+
+function bringToTop(withOutline = false) {
+    if (!image.value) {
+        return
+    }
+
+    const container = image.value.parentContainer
+    if (dragPlaceholder.value) {
+        container.bringToTop(dragPlaceholder.value)
+    }
+    container.bringToTop(image.value)
+    if (withOutline && cardOutline.value) {
+        container.bringToTop(cardOutline.value)
+    }
+    playButton.value?.bringToTop()
+    discardButton.value?.bringToTop()
+}
+
+/**
+ * Overlay ( counters & buttons )
+ */
+
+const ASH_HEAP_BUTTON_SIZE = OVERLAY_BUTTON_SIZE * 1.5
+
+const overlays = computed(() => {
+    const totalAshHeapButtonSize = ASH_HEAP_BUTTON_SIZE + COUNTER_OUTLINE_THICKNESS
+    const rightEdge = cardAttrs.value.x + CARD_WIDTH * CARD_IN_HAND_SCALE
+    const bottomEdge = cardAttrs.value.y + CARD_HEIGHT * CARD_IN_HAND_SCALE
+
+    return {
+        play: {
+            x: rightEdge - 32,
+            y: cardAttrs.value.y + 15,
+        },
+        ashHeap: {
+            x: rightEdge - totalAshHeapButtonSize / 2 - 1, // -1 is to account for outline thickness
+            y: bottomEdge - totalAshHeapButtonSize / 2 - 1, // -1 is to account for outline thickness
+        },
+    }
+})
 
 function overlayClick(command: (card: Card) => void) {
     if (!gameBus.declaringTargetOrigin) {
@@ -229,23 +249,6 @@ function onPointerOutHand() {
     emit('resetVisibility')
 }
 
-function bringToTop(withOutline = false) {
-    if (!image.value) {
-        return
-    }
-
-    const container = image.value.parentContainer
-    if (dragPlaceholder.value) {
-        container.bringToTop(dragPlaceholder.value)
-    }
-    container.bringToTop(image.value)
-    if (withOutline && cardOutline.value) {
-        container.bringToTop(cardOutline.value)
-    }
-    playButton.value?.bringToTop()
-    discardButton.value?.bringToTop()
-}
-
 /**
  * Context Menu on right click
  */
@@ -259,11 +262,10 @@ const { onPointerDown } = useCardClick(
  * Drag'n'Drop
  */
 
-const { isDragging, dragPosition, onDragStart, onDragEnd, onDrop } = useCardDragDrop(
+const { dragAttrs, onDragStart, onDrag, onDragEnd, onDrop } = useCardDragDrop(
     toRef(() => card),
     cardAttrs,
-    image,
-    cardOutline,
+    bringToTop,
 )
 
 function onDragStartFromHand() {
@@ -274,22 +276,14 @@ function onDragStartFromHand() {
     onDragStart()
 }
 
-function onDrag({}, dragX: number, dragY: number) {
-    if (!image.value) {
-        return
-    }
-    dragPosition.x = Phaser.Math.Snap.To(dragX - image.value.displayWidth / 2, GRID_SIZE)
-    dragPosition.y =
-        Phaser.Math.Snap.Ceil(dragY - image.value.displayHeight / 2, GRID_SIZE) - GRID_SIZE / 2
-}
-
 function onDragEndFromHand() {
-    if (!gameState.selfPlayer) {
-        return
-    }
     gameBus.draggedHandCardPosition = null
     onDragEnd()
 }
+
+/**
+ * Alignment guides
+ */
 
 /**
  * Glow effect on usable card, depending on the phase of the turn.
@@ -345,7 +339,7 @@ function removeGlowEffect() {
 }
 
 function toggleGlowEffect() {
-    if (glowEnabled.value && card.isUsable() && !isDragging.value) {
+    if (glowEnabled.value && card.isUsable() && !dragAttrs.isDragging) {
         applyGlowEffect()
     } else if (glowFx) {
         removeGlowEffect()

@@ -59,8 +59,8 @@ export const WORLD_WIDTH = HD_WIDTH - RIGHT_COLUMN_WIDTH // 1578 px
 export const WORLD_HEIGHT = HD_HEIGHT // 1080 px
 
 export const PLAY_AREA_WIDTH = 32 * GRID_SIZE //640px
-export const PLAY_AREA_X = (WORLD_WIDTH - PLAY_AREA_WIDTH) / 2
-export const PLAY_AREA_Y = WORLD_HEIGHT * 0.25 + 1
+export const PLAY_AREA_X = (WORLD_WIDTH - PLAY_AREA_WIDTH) / 2 // 469 px
+export const PLAY_AREA_Y = WORLD_HEIGHT * 0.25 + 1 // 271px
 
 export const PLAYER_BAR_HEIGHT = GRID_SIZE * 1.5 // 30px
 export const CONTROLLED_ZONE_HEIGHT = GRID_SIZE * 20 // 400px
@@ -190,6 +190,15 @@ export const WIELD_SCROLLBAR_ALPHA = 0.6
 export const ARROW_HEAD_WIDTH = 20
 export const ARROW_HEAD_HEIGHT = 20
 export const ARROW_COLOR = new Color(135, 45, 60)
+
+/**
+ * Alignment guides
+ */
+
+export const ALIGNMENT_GUIDE_THRESHOLD = GRID_SIZE * 1.25 // Distance threshold for snapping
+export const ALIGNMENT_GUIDE_COLOR = new Color(50, 200, 50)
+export const ALIGNMENT_GUIDE_WIDTH = 1
+export const ALIGNMENT_GUIDE_OVERSHOOT = 20
 
 /**
  * Misc

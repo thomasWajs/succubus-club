@@ -42,10 +42,10 @@ import {
 } from '@/game/const.ts'
 import { useGameBusStore } from '@/store/bus.ts'
 import Pointer = Phaser.Input.Pointer
-import { PhaserDataKey } from '@/game/types.ts'
+import { PhaserDataKey, RegionCategory } from '@/game/types.ts'
 import { CardOid } from '@/model/Card.ts'
 
-import { dropCoordinates, getDraggedCard, getWorldPoint } from '@/game/utils.ts'
+import { dropCoordinates, getCardDragged, getWorldPoint } from '@/game/utils.ts'
 import { display } from '@/game/display.ts'
 
 const gameState = useGameStateStore()
@@ -89,6 +89,7 @@ function sortCardInHandsVisibility() {
 
 function onBoundariesCreate(boundaries: GameObjects.Arc) {
     boundaries.setData(PhaserDataKey.CardRegionOid, hand.value?.oid)
+    boundaries.setData(PhaserDataKey.RegionCategory, RegionCategory.Hand)
 
     const scene = useScene()
     scene.input.on(Phaser.Input.Events.DRAG_START, () => {
@@ -98,7 +99,7 @@ function onBoundariesCreate(boundaries: GameObjects.Arc) {
         Phaser.Input.Events.DRAG_ENTER,
         ({}, cardImage: GameObjects.Image, target: GameObjects.Arc) => {
             // Highlight target region if it's different from the source region
-            const card = getDraggedCard(cardImage)
+            const card = getCardDragged(cardImage)
             if (target == boundaries && card.region.oid != hand.value?.oid) {
                 isDraggedOver.value = true
             }

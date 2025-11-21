@@ -1,4 +1,5 @@
 <template>
+    <!-- Region boundaries -->
     <Rectangle
         ref="boundaries"
         :origin="0"
@@ -10,10 +11,12 @@
         :strokeColor="color.color"
         :strokeAlpha="color.alphaGL"
         :fillColor="
-            isDraggedOver ? REGION_BACKGROUND_COLOR_DRAG_OVER.color : REGION_BACKGROUND_COLOR.color
+            highlightDropZone ?
+                REGION_BACKGROUND_COLOR_DRAG_OVER.color
+            :   REGION_BACKGROUND_COLOR.color
         "
         :fillAlpha="
-            isDraggedOver ?
+            highlightDropZone ?
                 REGION_BACKGROUND_COLOR_DRAG_OVER.alphaGL
             :   REGION_BACKGROUND_COLOR_DRAG_OVER.alphaGL
         "
@@ -21,6 +24,7 @@
         @create="onBoundariesCreate"
     />
 
+    <!-- Region name displayed as text -->
     <Text
         ref="regionName"
         :text="cardRegion.name"
@@ -33,6 +37,7 @@
         :y="y + height - 5"
     />
 
+    <!-- Cards for this region -->
     <CardGO
         v-for="card in cardRegion.cards"
         :key="cardRegion.name + card.oid"
@@ -42,20 +47,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed } from 'vue'
 import Phaser, { GameObjects } from 'phaser'
-import { Rectangle, Text, useScene } from 'phavuer'
+import { Rectangle, Text } from 'phavuer'
 import { REGION_BACKGROUND_COLOR, REGION_BACKGROUND_COLOR_DRAG_OVER } from '@/game/const.ts'
 import CardGO from '@/game/objects/CardGO.vue'
 import { AnyCardRegion } from '@/model/CardRegion.ts'
 import Color = Phaser.Display.Color
-import { PhaserDataKey } from '@/game/types.ts'
-import { getDraggedCard } from '@/game/utils.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
+import { useGameBusStore } from '@/store/bus.ts'
+import { PhaserDataKey, RegionCategory } from '@/game/types.ts'
 
 const gameState = useGameStateStore()
+const gameBus = useGameBusStore()
 
-const props = defineProps<{
+const { cardRegion } = defineProps<{
     x: number
     y: number
     width: number
@@ -64,33 +70,17 @@ const props = defineProps<{
     cardRegion: AnyCardRegion
 }>()
 
-const isDraggedOver = ref(false)
+const highlightDropZone = computed(() => {
+    return (
+        gameState.isPlayer && // don't highlight for spectators
+        gameBus.dragOver && // A drag is in progress
+        gameBus.dragOver.cardRegion?.oid == cardRegion.oid && // This region is dragged over
+        gameBus.dragOver.card.region.oid != cardRegion.oid // THe dragged card is not already in this region
+    )
+})
 
 function onBoundariesCreate(boundaries: GameObjects.Rectangle) {
-    boundaries.setData(PhaserDataKey.CardRegionOid, props.cardRegion.oid)
-
-    const scene = useScene()
-    scene.input.on(
-        Phaser.Input.Events.DRAG_ENTER,
-        ({}, cardImage: GameObjects.Image, target: GameObjects.Rectangle) => {
-            // Highlight target region if it's different from the source region
-            const card = getDraggedCard(cardImage)
-            if (
-                target == boundaries &&
-                card.region.oid != props.cardRegion.oid &&
-                gameState.isPlayer
-            ) {
-                isDraggedOver.value = true
-            }
-        },
-    )
-    scene.input.on(Phaser.Input.Events.DRAG_LEAVE, ({}, {}, target: GameObjects.Rectangle) => {
-        if (target == boundaries) {
-            isDraggedOver.value = false
-        }
-    })
-    scene.input.on(Phaser.Input.Events.DRAG_END, ({}, {}, {}) => {
-        isDraggedOver.value = false
-    })
+    boundaries.setData(PhaserDataKey.CardRegionOid, cardRegion.oid)
+    boundaries.setData(PhaserDataKey.RegionCategory, RegionCategory.Table)
 }
 </script>

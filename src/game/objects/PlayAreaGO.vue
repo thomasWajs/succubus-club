@@ -123,24 +123,41 @@
             @pointerover="onPointerOver"
             @pointerout="onPointerOut"
         />
+
+        <Line
+            v-for="(line, index) of alignmentLines"
+            :key="index"
+            :origin="0"
+            :x1="line.x1"
+            :y1="line.y1"
+            :x2="line.x2"
+            :y2="line.y2"
+            :lineWidth="ALIGNMENT_GUIDE_WIDTH"
+            :strokeColor="ALIGNMENT_GUIDE_COLOR.color"
+        />
     </Container>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { GameObjects } from 'phaser'
-import { Container, Text, Rectangle } from 'phavuer'
+import Phaser, { GameObjects } from 'phaser'
+import { Container, Line, Text, Rectangle } from 'phavuer'
 import {
     CARD_OUTLINE_COLOR_HOVER,
     CARD_OUTLINE_THICKNESS,
     CARD_STACKS_HEIGHT,
     CARD_STACKS_Y,
     CONTROLLED_ZONE_HEIGHT,
+    ALIGNMENT_GUIDE_COLOR,
+    ALIGNMENT_GUIDE_WIDTH,
     PLAY_AREA_HEIGHT,
     PLAY_AREA_WIDTH,
     PLAYER_BAR_HEIGHT,
     TORPOR_ZONE_HEIGHT,
     TORPOR_ZONE_Y,
+    ALIGNMENT_GUIDE_OVERSHOOT,
+    CARD_WIDTH,
+    CARD_HEIGHT,
 } from '@/game/const.ts'
 import RegionGO from '@/game/objects/RegionGO.vue'
 import CardStackRegionGO from '@/game/objects/CardStackRegionGO.vue'
@@ -149,6 +166,7 @@ import { useGameStateStore } from '@/store/gameState.ts'
 import PlayerBarGo from '@/game/objects/PlayerBarGo.vue'
 import { PhaserDataKey } from '@/game/types.ts'
 import { useGameBusStore } from '@/store/bus.ts'
+import { GUIDE_VERTICAL } from '@/state/types.ts'
 
 const { player } = defineProps<{
     player: Player
@@ -179,5 +197,52 @@ onMounted(() => {
     for (const card of Object.values(gameBus.cardsInGame)) {
         card.bringToTop()
     }
+})
+
+/**
+ * Alignment guides
+ */
+
+const alignmentLines = computed(() => {
+    if (gameBus.dragOver?.cardRegion?.owner != player) {
+        return []
+    }
+
+    const lines: Phaser.Geom.Line[] = []
+
+    for (const guide of gameBus.alignmentGuides) {
+        // Vertical line
+        if (guide.type === GUIDE_VERTICAL) {
+            const minY = Math.min(guide.dragY, ...guide.withCards.map(card => card.y))
+            const maxY = Math.max(guide.dragY, ...guide.withCards.map(card => card.y))
+            const height = CARD_HEIGHT * guide.scale
+
+            lines.push(
+                new Phaser.Geom.Line(
+                    guide.dragX,
+                    minY - ALIGNMENT_GUIDE_OVERSHOOT,
+                    guide.dragX,
+                    maxY + height + ALIGNMENT_GUIDE_OVERSHOOT,
+                ),
+            )
+        }
+        // Horizontal line
+        else {
+            const minX = Math.min(guide.dragX, ...guide.withCards.map(card => card.x))
+            const maxX = Math.max(guide.dragX, ...guide.withCards.map(card => card.x))
+            const width = CARD_WIDTH * guide.scale
+
+            lines.push(
+                new Phaser.Geom.Line(
+                    minX - ALIGNMENT_GUIDE_OVERSHOOT,
+                    guide.dragY,
+                    maxX + width + ALIGNMENT_GUIDE_OVERSHOOT,
+                    guide.dragY,
+                ),
+            )
+        }
+    }
+
+    return lines
 })
 </script>

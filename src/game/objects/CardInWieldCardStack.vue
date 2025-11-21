@@ -3,28 +3,28 @@
         ref="dragPlaceholder"
         :key="key + 'dragPlaceholder'"
         :origin="0"
-        :x="x"
-        :y="y"
+        :x="cardAttrs.x"
+        :y="cardAttrs.y"
         :texture="card.displayedTexture.textureName"
         :frame="card.displayedTexture.frameName"
-        :scale="WIELD_CARD_SCALE"
+        :scale="cardAttrs.scale"
     />
 
     <Image
         ref="image"
         :key="key + 'image'"
         :origin="0"
-        :x="isDragging ? dragPosition.x : x"
-        :y="isDragging ? dragPosition.y : y"
+        :x="dragAttrs.isDragging ? dragAttrs.x : cardAttrs.x"
+        :y="dragAttrs.isDragging ? dragAttrs.y : cardAttrs.y"
         :texture="card.displayedTexture.textureName"
         :frame="card.displayedTexture.frameName"
-        :alpha="isDragging ? CARD_DRAGGING_ALPHA : 1"
-        :scale="WIELD_CARD_SCALE"
+        :alpha="dragAttrs.isDragging ? CARD_DRAGGING_ALPHA : 1"
+        :scale="dragAttrs.isDragging ? dragAttrs.scale : cardAttrs.scale"
         @create="onImageCreate"
         @pointerover="onPointerOver"
         @pointerout="onPointerOut"
         @pointerdown="onPointerDown"
-        @dragstart="onDragStart"
+        @dragstart="onDragStart()"
         @drag="onDrag"
         @dragend="onDragEndFromStack"
         @drop="onDrop"
@@ -37,10 +37,10 @@
         :key="key + 'cardOutline'"
         :visible="!!getCardOutlineColor"
         :origin="0"
-        :x="x"
-        :y="y"
-        :width="image ? image.displayWidth : 0"
-        :height="image ? image.displayHeight : 0"
+        :x="cardAttrs.x"
+        :y="cardAttrs.y"
+        :width="CARD_WIDTH * cardAttrs.scale"
+        :height="CARD_HEIGHT * cardAttrs.scale"
         :lineWidth="CARD_OUTLINE_THICKNESS"
         :strokeColor="getCardOutlineColor"
     />
@@ -51,14 +51,20 @@ import { computed, toRef } from 'vue'
 import { GameObjects } from 'phaser'
 import { Image, Rectangle, refObj } from 'phavuer'
 
-import { CARD_DRAGGING_ALPHA, CARD_OUTLINE_THICKNESS, WIELD_CARD_SCALE } from '@/game/const.ts'
+import {
+    CARD_DRAGGING_ALPHA,
+    CARD_HEIGHT,
+    CARD_OUTLINE_THICKNESS,
+    CARD_WIDTH,
+} from '@/game/const.ts'
 import { Card } from '@/model/Card.ts'
-import { CardAttrs, CardCategory, PhaserDataKey } from '@/game/types.ts'
+import { CardAttrs, RegionCategory, PhaserDataKey } from '@/game/types.ts'
 import { useCardClick } from '@/game/composables/useCardClick.ts'
 import { useCardOutline } from '@/game/composables/useCardOutline.ts'
 import { useCardDragDrop } from '@/game/composables/useCardDragDrop.ts'
 import { useGameBusStore } from '@/store/bus.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
+import { getCardScale } from '@/game/utils.ts'
 
 const gameBus = useGameBusStore()
 const gameState = useGameStateStore()
@@ -77,11 +83,12 @@ const key = computed(() => `wield${card.oid.toString()}`)
 
 const cardAttrs = computed((): CardAttrs => {
     return {
-        category: CardCategory.CardInStack,
+        category: RegionCategory.Stack,
         x,
         y,
         rotation: 0,
-        scale: WIELD_CARD_SCALE,
+        scale: getCardScale(RegionCategory.Stack),
+        container: image.value?.parentContainer,
     }
 })
 
@@ -92,6 +99,25 @@ const cardAttrs = computed((): CardAttrs => {
 function onImageCreate(image: GameObjects.Image) {
     image.setData(PhaserDataKey.CardOid, card.oid)
     image.setData(PhaserDataKey.CardAttrs, cardAttrs)
+}
+
+/**
+ * Bring to top
+ */
+
+function bringToTop() {
+    if (!image.value) {
+        return
+    }
+
+    const container = image.value.parentContainer
+    if (dragPlaceholder.value) {
+        container.bringToTop(dragPlaceholder.value)
+    }
+    container.bringToTop(image.value)
+    if (cardOutline.value) {
+        container.bringToTop(cardOutline.value)
+    }
 }
 
 /**
@@ -118,11 +144,10 @@ const { onPointerDown } = useCardClick(
  * Drag'n'Drop
  */
 
-const { isDragging, dragPosition, onDragStart, onDrag, onDragEnd, onDrop } = useCardDragDrop(
+const { dragAttrs, onDragStart, onDrag, onDragEnd, onDrop } = useCardDragDrop(
     toRef(() => card),
     cardAttrs,
-    image,
-    cardOutline,
+    bringToTop,
 )
 
 // A modified version of onDragEnd that unselect the card at the end of the drag.

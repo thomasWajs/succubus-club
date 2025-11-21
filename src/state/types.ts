@@ -60,3 +60,16 @@ export type Arrow = {
     from: Vector2Like
     to: Vector2Like
 }
+
+/** Alignment guides **/
+
+export const GUIDE_VERTICAL = 'vertical'
+export const GUIDE_HORIZONTAL = 'horizontal'
+
+export interface AlignmentGuide {
+    type: typeof GUIDE_VERTICAL | typeof GUIDE_HORIZONTAL
+    dragX: number
+    dragY: number
+    scale: number
+    withCards: Card[]
+}
