@@ -1,5 +1,5 @@
 import { Card } from '@/model/Card.ts'
-import { ComputedRef, reactive, Ref } from 'vue'
+import { ComputedRef, reactive, Ref, computed } from 'vue'
 import Phaser, { GameObjects } from 'phaser'
 import Pointer = Phaser.Input.Pointer
 import { CardMovement, gameMutations } from '@/state/gameMutations.ts'
@@ -11,18 +11,22 @@ import { RegionName } from '@/model/const.ts'
 import { AlignmentGuide, GUIDE_HORIZONTAL, GUIDE_VERTICAL } from '@/state/types.ts'
 import { ALIGNMENT_GUIDE_THRESHOLD, GRID_SIZE } from '@/game/const.ts'
 import { AnyCardRegion } from '@/model/CardRegion.ts'
+import { useCoreStore } from '@/store/core.ts'
 
 export function useCardDragDrop(
     cardRef: Ref<Card>,
     cardAttrsRef: ComputedRef<CardAttrs>,
     bringToTop: () => void,
 ) {
+    const core = useCoreStore()
     const gameState = useGameStateStore()
     const gameBus = useGameBusStore()
 
     /**
      * Alignment guides
      */
+
+    const alignmentEnabled = computed(() => core.userProfile.preferences.alignmentGuides ?? true)
 
     function findAlignmentGuides(
         cardRegion: AnyCardRegion,
@@ -155,7 +159,7 @@ export function useCardDragDrop(
             }
 
             // If we're dragging over a ready region, trigger the alignment guides
-            if (cardRegion && cardRegion.name == RegionName.Ready) {
+            if (alignmentEnabled.value && cardRegion && cardRegion.name == RegionName.Ready) {
                 // Find alignment guides and apply snapping
                 gameBus.alignmentGuides = findAlignmentGuides(cardRegion, localX, localY)
 

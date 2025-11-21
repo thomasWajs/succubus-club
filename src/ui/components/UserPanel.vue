@@ -71,14 +71,18 @@
                     v-if="activeTab === 'preferences'"
                     class="tab-content"
                 >
-                    <label class="preference">
+                    <label
+                        v-for="preference in preferences"
+                        :key="preference.key"
+                        class="preference"
+                    >
                         <input
-                            v-model="glowPreference"
+                            v-model="preference.value.value"
                             type="checkbox"
                         />
-                        <span class="preference-label">Highlight usable cards</span>
+                        <span class="preference-label">{{ preference.label }}</span>
                         <span
-                            v-if="savedFeedbacks.preferences.glow"
+                            v-if="savedFeedbacks.preferences[preference.key]"
                             class="save-feedback success"
                         >
                             ✓ Saved
@@ -150,7 +154,7 @@ import { useCoreStore } from '@/store/core.ts'
 import { ref, computed } from 'vue'
 import UserAvatar from '@/ui/components/UserAvatar.vue'
 import { storeAvatar } from '@/gateway/user.ts'
-import { DbUserProfile } from '@/gateway/db.ts'
+import { DbUserProfile, UserPreferences } from '@/gateway/db.ts'
 import { updateCommands, useCommands } from '@/game/composables/useCommands.ts'
 import { setupKeyboardHandlers } from '@/game/input.ts'
 
@@ -266,14 +270,27 @@ function calculateCropDimensions(
 
 /** Preferences **/
 
-const glowPreference = computed({
-    get: () => (core.userProfile.preferences.glow ?? 1) === 1,
-    set: async (value: boolean) => {
-        core.userProfile.preferences.glow = value ? 1 : 0
-        await core.userProfile.save()
-        showSaveFeedback('preferences', 'glow')
-    },
-})
+type PreferenceKey = keyof Omit<UserPreferences, 'keyBindings'>
+
+function createPreference(key: PreferenceKey, label: string) {
+    return {
+        key,
+        label,
+        value: computed({
+            get: () => (core.userProfile.preferences[key] ?? 1) === 1,
+            set: async (value: boolean) => {
+                core.userProfile.preferences[key] = value ? 1 : 0
+                await core.userProfile.save()
+                showSaveFeedback('preferences', key)
+            },
+        }),
+    }
+}
+
+const preferences = [
+    createPreference('glow', 'Highlight usable cards'),
+    createPreference('alignmentGuides', 'Show alignment guides'),
+]
 
 /** Keyboard shortcuts **/
 
