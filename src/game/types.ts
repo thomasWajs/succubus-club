@@ -62,6 +62,7 @@ export type CardDragEvent = {
     pointer: Pointer
     dragX?: number
     dragY?: number
+    originDragAttrs?: DragAttrs
 }
 
 export type DragOver = {

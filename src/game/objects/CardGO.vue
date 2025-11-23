@@ -3,27 +3,29 @@
     <Image
         ref="dragPlaceholder"
         :key="key + 'dragPlaceholder'"
-        :origin="0"
+        :origin="0.5"
         :x="cardAttrs.x"
         :y="cardAttrs.y"
         :texture="card.displayedTexture.textureName"
         :frame="card.displayedTexture.frameName"
         :scale="cardScale"
         :rotation="cardAttrs.rotation"
+        :tween="rotationTween"
     />
 
     <!-- Main Card Image -->
     <Image
         ref="image"
         :key="key + 'image'"
-        :origin="0"
-        :x="dragAttrs.isDragging ? dragAttrs.x : cardAttrs.x"
-        :y="dragAttrs.isDragging ? dragAttrs.y : cardAttrs.y"
+        :origin="0.5"
+        :x="dragAttrs.isDragging ? dragAttrs.x + (cardAttrs.offsetX ?? 0) : cardAttrs.x"
+        :y="dragAttrs.isDragging ? dragAttrs.y + (cardAttrs.offsetY ?? 0) : cardAttrs.y"
         :texture="card.displayedTexture.textureName"
         :frame="card.displayedTexture.frameName"
         :alpha="dragAttrs.isDragging ? CARD_DRAGGING_ALPHA : 1"
         :scale="dragAttrs.isDragging ? dragAttrs.scale : cardAttrs.scale"
         :rotation="cardAttrs.rotation"
+        :tween="rotationTween"
         @create="onImageCreate"
         @pointerover="onPointerOver"
         @pointerout="onPointerOut"
@@ -40,7 +42,7 @@
         ref="cardOutline"
         :key="key + 'cardOutline'"
         :visible="!!getCardOutlineColor"
-        :origin="0"
+        :origin="0.5"
         :x="cardAttrs.x"
         :y="cardAttrs.y"
         :width="displaySize.width"
@@ -48,6 +50,7 @@
         :rotation="cardAttrs.rotation"
         :lineWidth="CARD_OUTLINE_THICKNESS"
         :strokeColor="getCardOutlineColor"
+        :tween="rotationTween"
     />
 
     <!-- Blood Counter -->
@@ -262,6 +265,12 @@ const gainBloodButton = ref<typeof ButtonGo>()
 const ashHeapButton = ref<typeof ButtonGo>()
 const influenceButton = ref<typeof ButtonGo>()
 
+const rotationTween = ref({
+    rotation: 0, //Math.PI / 2,
+    repeat: 0,
+    duration: 200,
+})
+
 function registerMarkersRectangles(index: number, rectangle: typeof Rectangle | null) {
     markersRectangles[index] = rectangle?.object ?? null
 }
@@ -272,9 +281,18 @@ function registerMarkersTexts(index: number, text: typeof Text | null) {
 const scale = computed(() => card.region.owner.scale)
 const cardScale = computed(() => getCardScale(RegionCategory.Table, card.region))
 
+// This is available in image.value.displayWidth and image.value.displayHeight
+// but it's not reactive, so we need to recompute it every time the card size changes
+const displaySize = computed(() => {
+    return {
+        width: CARD_WIDTH * (cardScale.value ?? 0),
+        height: CARD_HEIGHT * (cardScale.value ?? 0),
+    }
+})
+
 const cardAttrs = computed((): CardAttrs => {
-    const offsetX = card.isLocked ? displaySize.value.height : 0
-    const offsetY = 0
+    const offsetX = card.isLocked ? displaySize.value.height / 2 : displaySize.value.width / 2
+    const offsetY = card.isLocked ? displaySize.value.width / 2 : displaySize.value.height / 2
 
     return {
         category: RegionCategory.Table,
@@ -285,15 +303,6 @@ const cardAttrs = computed((): CardAttrs => {
         rotation: card.isLocked ? Math.PI / 2 : 0,
         scale: cardScale.value,
         container: image.value?.parentContainer,
-    }
-})
-
-// This is available in image.value.displayWidth and image.value.displayHeight
-// but it's not reactive, so we need to recompute it every time the card size changes
-const displaySize = computed(() => {
-    return {
-        width: CARD_WIDTH * (cardScale.value ?? 0),
-        height: CARD_HEIGHT * (cardScale.value ?? 0),
     }
 })
 
@@ -484,8 +493,17 @@ function dispatchDragEvent(
         pointer,
         dragX,
         dragY,
+        originDragAttrs: dragAttrs,
     }
+    // First compute this card position.
+    cardInGame[eventName](event)
+
+    // Then for other cards of the selection,
+    // they will position themselves depending on this card.
     for (const cardInGame of gameBus.selectedCardsInGame) {
+        if (cardInGame.cardOid === card.oid) {
+            continue
+        }
         cardInGame[eventName](event)
     }
 }
@@ -524,7 +542,7 @@ function onDragStart(event: CardDragEvent) {
 
 function onDrag(event: CardDragEvent) {
     if (event.dragX && event.dragY) {
-        dragDrop.onDrag(event.pointer, event.dragX, event.dragY)
+        dragDrop.onDrag(event.pointer, event.dragX, event.dragY, event.originDragAttrs)
     }
 }
 

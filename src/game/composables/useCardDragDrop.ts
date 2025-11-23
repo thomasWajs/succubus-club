@@ -34,7 +34,7 @@ export function useCardDragDrop(
         posY: number,
     ): AlignmentGuide[] {
         const guides: AlignmentGuide[] = []
-        const otherCards = cardRegion.cards.filter(c => c.oid !== cardRef.value.oid)
+        const otherCards = cardRegion.cards.filter(c => !gameBus.selectedCards.includes(c))
 
         if (otherCards.length === 0) return guides
 
@@ -97,18 +97,20 @@ export function useCardDragDrop(
             return
         }
 
+        const card = cardRef.value
+
         dragAttrs.isDragging = true
-        dragAttrs.x = cardAttrsRef.value.x
-        dragAttrs.y = cardAttrsRef.value.y
+        dragAttrs.x = card.x
+        dragAttrs.y = card.y
         // Delta is used only for multi-card drag. Else default to 0 and have no effect
-        dragAttrs.deltaX = dragAttrs.x - (originCard?.x ?? dragAttrs.x)
-        dragAttrs.deltaY = dragAttrs.y - (originCard?.y ?? dragAttrs.y)
+        dragAttrs.deltaX = card.x - (originCard?.x ?? card.x)
+        dragAttrs.deltaY = card.y - (originCard?.y ?? card.y)
         dragAttrs.scale = cardAttrsRef.value.scale
 
         bringToTop()
     }
 
-    function onDrag(pointer: Pointer, dragX: number, dragY: number) {
+    function onDrag(pointer: Pointer, dragX: number, dragY: number, originDragAttrs?: DragAttrs) {
         const cardAttrs = cardAttrsRef.value
 
         // Spectators can't interact with the game
@@ -116,10 +118,18 @@ export function useCardDragDrop(
             return
         }
 
+        // Special case for multi-card drag :
+        // we need to update the drag position based on the delta of the origin card
+        if (originDragAttrs && (dragAttrs.deltaX != 0 || dragAttrs.deltaY != 0)) {
+            dragAttrs.x = originDragAttrs.x + dragAttrs.deltaX
+            dragAttrs.y = originDragAttrs.y + dragAttrs.deltaY
+            return
+        }
+
         // Default case : not above a region.
         // We use the dragged position and card scale as is.
-        let posX = dragX + dragAttrs.deltaX - (cardAttrs.offsetX ?? 0)
-        let posY = dragY + dragAttrs.deltaY - (cardAttrs.offsetY ?? 0)
+        let posX = dragX - (cardAttrs.offsetX ?? 0)
+        let posY = dragY - (cardAttrs.offsetY ?? 0)
         dragAttrs.scale = cardAttrs.scale
 
         // Above a region :
@@ -140,12 +150,12 @@ export function useCardDragDrop(
             const toContainer = gameBus.dragOver.target.parentContainer
 
             // Difference between the origin and target container
-            const offsetX = toContainer.x - cardAttrs.container.x
-            const offsetY = toContainer.y - cardAttrs.container.y
+            const containerOffsetX = toContainer.x - cardAttrs.container.x
+            const containerOffsetY = toContainer.y - cardAttrs.container.y
 
             // Position in the container referential
-            let localX = posX - offsetX
-            let localY = posY - offsetY
+            let localX = posX - containerOffsetX
+            let localY = posY - containerOffsetY
 
             // Over playArea from outside ( hand, stack, another playArea ).
             if (isOverPlayArea && fromContainer != toContainer) {
@@ -154,8 +164,8 @@ export function useCardDragDrop(
                     pointer,
                     toContainer as GameObjects.Container,
                 )
-                localX = dropCoord.x + dragAttrs.deltaX
-                localY = dropCoord.y + dragAttrs.deltaY
+                localX = dropCoord.x
+                localY = dropCoord.y
             }
 
             // If we're dragging over a ready region, trigger the alignment guides
@@ -180,8 +190,8 @@ export function useCardDragDrop(
                 localY = Phaser.Math.Snap.Ceil(localY, GRID_SIZE) - GRID_SIZE / 2
             }
 
-            posX = localX + offsetX
-            posY = localY + offsetY
+            posX = localX + containerOffsetX
+            posY = localY + containerOffsetY
         }
 
         dragAttrs.x = posX
@@ -224,10 +234,6 @@ export function useCardDragDrop(
             x = localPoint.x
             y = localPoint.y
         }
-
-        // const toContainer = droppedOn.parentContainer
-        // Compute new card position in the target container referential
-        // const coord = dropCoordinatesSnapped(pointer, toContainer)
 
         const movement: CardMovement = {
             card,

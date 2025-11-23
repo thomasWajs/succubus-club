@@ -195,7 +195,7 @@ export const ARROW_COLOR = new Color(135, 45, 60)
  * Alignment guides
  */
 
-export const ALIGNMENT_GUIDE_THRESHOLD = GRID_SIZE * 1.25 // Distance threshold for snapping
+export const ALIGNMENT_GUIDE_THRESHOLD = GRID_SIZE * 0.75 // Distance threshold for showing alignment guide
 export const ALIGNMENT_GUIDE_COLOR = new Color(50, 200, 50)
 export const ALIGNMENT_GUIDE_WIDTH = 1
 export const ALIGNMENT_GUIDE_OVERSHOOT = 20

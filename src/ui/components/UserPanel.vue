@@ -289,7 +289,7 @@ function createPreference(key: PreferenceKey, label: string) {
 
 const preferences = [
     createPreference('glow', 'Highlight usable cards'),
-    createPreference('alignmentGuides', 'Show alignment guides'),
+    createPreference('alignmentGuides', 'Use alignment guides'),
 ]
 
 /** Keyboard shortcuts **/
