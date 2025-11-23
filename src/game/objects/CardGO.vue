@@ -54,7 +54,7 @@
     />
 
     <!-- Blood Counter -->
-    <template v-if="card.blood > 0 || card.isMinion()">
+    <template v-if="card.blood > 0 || (card.isMinion() && !isTweening)">
         <!-- Red Circle -->
         <Circle
             ref="bloodCounterCircle"
@@ -265,12 +265,6 @@ const gainBloodButton = ref<typeof ButtonGo>()
 const ashHeapButton = ref<typeof ButtonGo>()
 const influenceButton = ref<typeof ButtonGo>()
 
-const rotationTween = ref({
-    rotation: 0, //Math.PI / 2,
-    repeat: 0,
-    duration: 200,
-})
-
 function registerMarkersRectangles(index: number, rectangle: typeof Rectangle | null) {
     markersRectangles[index] = rectangle?.object ?? null
 }
@@ -316,6 +310,30 @@ function onImageCreate(image: GameObjects.Image) {
 }
 
 /**
+ * Tweens
+ */
+
+const ROTATION_TWEEN_DURATION = 150
+
+const isTweening = ref(false)
+const rotationTween = ref({})
+
+watch(cardAttrs, (newAttrs, oldAttrs) => {
+    if (oldAttrs.rotation !== newAttrs.rotation) {
+        isTweening.value = true
+        rotationTween.value = {
+            props: {
+                rotation: { getStart: () => oldAttrs.rotation, getEnd: () => newAttrs.rotation },
+                x: { getStart: () => oldAttrs.x, getEnd: () => newAttrs.x },
+                y: { getStart: () => oldAttrs.y, getEnd: () => newAttrs.y },
+            },
+            duration: ROTATION_TWEEN_DURATION,
+            onComplete: () => (isTweening.value = false),
+        }
+    }
+})
+
+/**
  * Bring to top
  */
 
@@ -353,7 +371,12 @@ function bringToTop() {
  */
 
 const showOverlay = computed(() => {
-    return isHovered.value && gameBus.selectedCards.length <= 1 && gameState.isPlayer
+    return (
+        isHovered.value &&
+        gameBus.selectedCards.length <= 1 &&
+        gameState.isPlayer &&
+        !isTweening.value
+    )
 })
 
 function overlayClick(pointer: Pointer, command: (card: Card) => void) {
