@@ -45,7 +45,6 @@ export type CardAttrs = {
     offsetY?: number
     rotation: number
     scale: number
-    container: GameObjects.Container | undefined
 }
 
 export type DragAttrs = {

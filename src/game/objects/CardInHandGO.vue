@@ -119,7 +119,6 @@ const key = computed(() => `hand${card.oid.toString()}`)
 
 const cardAttrs = computed((): CardAttrs => {
     const category = RegionCategory.Hand
-    const container = image.value?.parentContainer
     const hand = gameState.selfPlayer?.hand
     let x = 0
 
@@ -154,7 +153,7 @@ const cardAttrs = computed((): CardAttrs => {
         x = offsetX + spacing * cardIndex
     }
 
-    return { category, x, y: 0, rotation: 0, scale: getCardScale(category), container }
+    return { category, x, y: 0, rotation: 0, scale: getCardScale(category) }
 })
 
 /**

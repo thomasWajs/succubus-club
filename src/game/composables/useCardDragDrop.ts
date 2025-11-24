@@ -114,7 +114,7 @@ export function useCardDragDrop(
         const cardAttrs = cardAttrsRef.value
 
         // Spectators can't interact with the game
-        if (gameState.isSpectator || !gameBus.dragOver || !cardAttrs.container) {
+        if (gameState.isSpectator || !gameBus.dragOver) {
             return
         }
 
@@ -150,8 +150,8 @@ export function useCardDragDrop(
             const toContainer = gameBus.dragOver.target.parentContainer
 
             // Difference between the origin and target container
-            const containerOffsetX = toContainer.x - cardAttrs.container.x
-            const containerOffsetY = toContainer.y - cardAttrs.container.y
+            const containerOffsetX = toContainer.x - fromContainer.x
+            const containerOffsetY = toContainer.y - fromContainer.y
 
             // Position in the container referential
             let localX = posX - containerOffsetX
@@ -211,14 +211,8 @@ export function useCardDragDrop(
 
     function onDrop() {
         const card = cardRef.value
-        const cardAttrs = cardAttrsRef.value
         // Not dropped on any region, abort
-        if (
-            !cardAttrs.container ||
-            !gameBus.dragOver ||
-            !gameBus.dragOver.target ||
-            !gameBus.dragOver.cardRegion
-        ) {
+        if (!gameBus.dragOver || !gameBus.dragOver.target || !gameBus.dragOver.cardRegion) {
             return
         }
 

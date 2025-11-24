@@ -88,7 +88,6 @@ const cardAttrs = computed((): CardAttrs => {
         y,
         rotation: 0,
         scale: getCardScale(RegionCategory.Stack),
-        container: image.value?.parentContainer,
     }
 })
 

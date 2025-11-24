@@ -296,7 +296,6 @@ const cardAttrs = computed((): CardAttrs => {
         offsetY,
         rotation: card.isLocked ? Math.PI / 2 : 0,
         scale: cardScale.value,
-        container: image.value?.parentContainer,
     }
 })
 
