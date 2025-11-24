@@ -86,7 +86,7 @@ export const useGameBusStore = defineStore('gameBus', {
         declaringTargetOrigin: null as Card | null,
 
         /** Alignment guides **/
-        dragOver: null as DragOver | null,
+        dragOver: null as Raw<DragOver> | null,
         alignmentGuides: [] as AlignmentGuide[],
 
         /** Hand **/

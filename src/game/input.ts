@@ -1,3 +1,4 @@
+import { markRaw } from 'vue'
 import { useGameBusStore } from '@/store/bus.ts'
 import Pointer = Phaser.Input.Pointer
 import Phaser, { GameObjects } from 'phaser'
@@ -117,10 +118,10 @@ function onPointerMove(pointer: Pointer, {}) {
 
 function onDragStart({}, cardImage: GameObjects.Image) {
     const gameBus = useGameBusStore()
-    gameBus.dragOver = {
+    gameBus.dragOver = markRaw({
         cardImage,
         card: getCardDragged(cardImage),
-    }
+    })
     gameBus.alignmentGuides = []
 }
 
