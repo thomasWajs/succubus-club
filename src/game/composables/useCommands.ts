@@ -101,13 +101,16 @@ function createCommands(): Commands {
             label: 'Advance Turn',
             repr: '↵',
             keyCodes: [KeyCodes.ENTER],
+            isDisabled: () => {
+                return !!gameState.activePlayer?.isBot
+            },
             trigger: () => {
                 gameMutations.goToTurn.actSelf({ index: gameState.turnNumber + 1 })
             },
         }),
         BackTurn: createCommand({
             isDisabled: () => {
-                return gameState.turnNumber == 1
+                return gameState.turnNumber == 1 || !!gameState.activePlayer?.isBot
             },
             trigger: () => {
                 gameMutations.goToTurn.actSelf({ index: gameState.turnNumber - 1 })
@@ -120,7 +123,10 @@ function createCommands(): Commands {
             repr: '→',
             keyCodes: [KeyCodes.RIGHT, KeyCodes.SPACE],
             isDisabled: () => {
-                return gameState.turnPhaseIndex >= TurnSequence.length - 1
+                return (
+                    gameState.turnPhaseIndex >= TurnSequence.length - 1 ||
+                    !!gameState.activePlayer?.isBot
+                )
             },
             trigger: () => {
                 gameMutations.goToTurnPhase.actSelf({ index: gameState.turnPhaseIndex + 1 })
@@ -132,7 +138,7 @@ function createCommands(): Commands {
             repr: '←',
             keyCodes: [KeyCodes.LEFT],
             isDisabled: () => {
-                return gameState.turnPhaseIndex == 0
+                return gameState.turnPhaseIndex == 0 || !!gameState.activePlayer?.isBot
             },
             trigger: () => {
                 gameMutations.goToTurnPhase.actSelf({ index: gameState.turnPhaseIndex - 1 })

@@ -5,6 +5,7 @@ import { useGameStateStore } from '@/store/gameState.ts'
 import { Card, CryptCard, LibraryCard, Minion, Vampire } from '@/model/Card.ts'
 import Phaser from 'phaser'
 import { PermanentId } from '@/multiplayer/types.ts'
+import { BOT_PERM_ID } from '@/game/setup.ts'
 
 const PLAYER_NAME_LEGIBLE_LENGTH = 22
 
@@ -100,6 +101,10 @@ export class Player extends BaseModel {
                 CardRegionVisibility.VisibleToAll,
             ),
         }
+    }
+
+    get isBot() {
+        return this.permId.startsWith(BOT_PERM_ID)
     }
 
     /**
