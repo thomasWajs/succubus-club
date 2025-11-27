@@ -1,12 +1,17 @@
 export const latestChangelog = {
-    version: '0.4.1',
-    date: '2025-11-17',
+    version: '0.5.0',
+    date: '2025-11-27',
     features: [
-        'Optionnal 2 hours timer',
-        'Quick reveal a top card',
-        'New command to remove a card from the game',
-        'Alert on conflicting keyboard shortcuts',
-        'Align the tabletop to the right on wide screens',
+        'Dedicated UI for 2 players',
+        'User preferences for disabling UI features',
+        'Card grouping in play',
+        'Alignment guides in play',
+        'Highlight cards in hands usable in the current phase',
+        'Animate card lock/unlock',
     ],
-    bugfixes: ['Arrows and selection area now works onto the top area'],
+    bugfixes: [
+        'Last oust now gives 2 VP',
+        'Cards dragged on lib/crypt now always go on top',
+        'Prevent infinite loop on the bot',
+    ],
 }
