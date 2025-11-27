@@ -14,7 +14,6 @@ import {
 } from '@/game/utils.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
 import { CardAttrs, RegionCategory, DragAttrs, CardGroup } from '@/game/types.ts'
-import { RegionName } from '@/model/const.ts'
 import { AlignmentGuide, GUIDE_HORIZONTAL, GUIDE_VERTICAL } from '@/state/types.ts'
 import { ALIGNMENT_GUIDE_THRESHOLD, GRID_SIZE } from '@/game/const.ts'
 import { AnyCardRegion } from '@/model/CardRegion.ts'
@@ -108,7 +107,7 @@ export function useCardDragDrop(
         if (
             !groupingEnabled.value ||
             cardRegion.owner.oid != gameState.selfPlayer?.oid ||
-            cardRegion.name != RegionName.Ready ||
+            cardRegion.is.ready ||
             gameBus.selectedCards.length > 1 ||
             card.oid in gameBus.cardGroupsByCard ||
             otherCards.length === 0
@@ -244,7 +243,7 @@ export function useCardDragDrop(
             }
 
             // If we're dragging over a ready region, trigger the alignment guides
-            if (alignmentEnabled.value && cardRegion && cardRegion.name == RegionName.Ready) {
+            if (alignmentEnabled.value && cardRegion && cardRegion.is.ready) {
                 // Find alignment guides and apply snapping
                 gameBus.alignmentGuides = findAlignmentGuides(cardRegion, localX, localY)
 
@@ -320,8 +319,7 @@ export function useCardDragDrop(
             }
         }
 
-        const position =
-            targetCardRegion.name == RegionName.Hand ? (gameBus.handDropGapPosition ?? 0) : 0
+        const position = targetCardRegion.is.hand ? (gameBus.handDropGapPosition ?? 0) : 0
         const movement: CardMovement = { card, x, y, position }
 
         // We're not changing region, just move the card inside the same region

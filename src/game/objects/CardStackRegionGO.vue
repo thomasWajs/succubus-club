@@ -119,7 +119,6 @@ import { useGameBusStore } from '@/store/bus.ts'
 import Color = Phaser.Display.Color
 import Pointer = Phaser.Input.Pointer
 import { PhaserDataKey, RegionCategory } from '@/game/types.ts'
-import { RegionName } from '@/model/const.ts'
 import { positionContextMenu } from '@/game/utils.ts'
 import { Texture } from '@/resources/textures.ts'
 
@@ -253,7 +252,7 @@ function onImagePointerDown(pointer: Pointer) {
 
 function closeUpAshHeap() {
     // Close up top card of the ash heap
-    if (cardRegion.name == RegionName.AshHeap && cardRegion.length > 0 && !gameBus.dragOver) {
+    if (cardRegion.is.ashHeap && cardRegion.length > 0 && !gameBus.dragOver) {
         gameBus.setCloseUpCard(cardRegion.firstCard)
     }
 }

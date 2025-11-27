@@ -1,5 +1,5 @@
 import { ActionCardImplementation } from '@/resources/cardImpl/base.ts'
-import { DisciplineLevel, RegionName } from '@/model/const.ts'
+import { DisciplineLevel } from '@/model/const.ts'
 import { gameMutations } from '@/state/gameMutations.ts'
 import { Card, CryptCard, Minion } from '@/model/Card.ts'
 import { Player } from '@/model/Player.ts'
@@ -35,7 +35,7 @@ export class GovernTheUnaligned extends ActionCardImplementation {
             if (!(this.usage.target instanceof Card && this.usage.target.isVampire())) {
                 return Invalid('[SUP] Target must be a vampire')
             }
-            if (this.usage.target.region.name != RegionName.Uncontrolled) {
+            if (this.usage.target.region.is.uncontrolled) {
                 return Invalid('[SUP] Target must be uncontrolled')
             }
             if (actingMinion.minionAttrs.capacity <= this.usage.target.minionAttrs.capacity) {

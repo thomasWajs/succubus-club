@@ -42,6 +42,24 @@ export class CardRegion<CardType extends Card> extends BaseModel {
         return useGameStateStore().regionOwners[this.oid]
     }
 
+    // Shortcuts to check this region
+    get is() {
+        return {
+            play: [RegionName.Ready, RegionName.Torpor, RegionName.Uncontrolled].includes(
+                this.name,
+            ),
+            controlled: [RegionName.Ready, RegionName.Torpor].includes(this.name),
+            ready: this.name == RegionName.Ready,
+            torpor: this.name == RegionName.Torpor,
+            uncontrolled: this.name == RegionName.Uncontrolled,
+            crypt: this.name == RegionName.Crypt,
+            library: this.name == RegionName.Library,
+            hand: this.name == RegionName.Hand,
+            ashHeap: this.name == RegionName.AshHeap,
+            removed: this.name == RegionName.Removed,
+        }
+    }
+
     indexOf(card: CardType): number {
         return this.cardsOid.indexOf(card.oid)
     }

@@ -3,14 +3,7 @@ import { useHistoryStore } from '@/store/history.ts'
 import { GameStateStore, useGameStateStore } from '@/store/gameState.ts'
 import { AnyCardRegion, CardRegion } from '@/model/CardRegion.ts'
 import { Card, CardOid, CryptCard, LibraryCard, Minion } from '@/model/Card.ts'
-import {
-    DEFAULT_DPA,
-    DEFAULT_MPA,
-    DEFAULT_TRANSFERS,
-    Marker,
-    RegionName,
-    TurnSequence,
-} from '@/model/const.ts'
+import { DEFAULT_DPA, DEFAULT_MPA, DEFAULT_TRANSFERS, Marker, TurnSequence } from '@/model/const.ts'
 import {
     CARD_LOG_PLACEHOLDER,
     CONTROLLED_ZONE_HEIGHT,
@@ -808,17 +801,14 @@ class MoveCardToRegion extends GameMutation<MoveCardToRegionParams> {
 
         // Can move only library cards to the hand and the library
         if (
-            [RegionName.Hand, RegionName.Library].includes(this.params.toCardRegion.name) &&
+            (this.params.toCardRegion.is.hand || this.params.toCardRegion.is.library) &&
             !(this.params.card instanceof LibraryCard)
         ) {
             return Invalid(`Can move only library cards to ${this.params.toCardRegion.name}`)
         }
 
         // Can move only crypt cards to the crypt
-        if (
-            this.params.toCardRegion.name == RegionName.Crypt &&
-            !(this.params.card instanceof CryptCard)
-        ) {
+        if (this.params.toCardRegion.is.crypt && !(this.params.card instanceof CryptCard)) {
             return Invalid(`Can move only crypt cards to ${this.params.toCardRegion.name}`)
         }
 
@@ -839,11 +829,11 @@ class MoveCardToRegion extends GameMutation<MoveCardToRegionParams> {
     }
 
     formatForLog() {
-        if (this.params.fromCardRegion.name === RegionName.Hand) {
-            if (this.params.toCardRegion.name === RegionName.Ready) {
+        if (this.params.fromCardRegion.is.hand) {
+            if (this.params.toCardRegion.is.ready) {
                 return `Play ${CARD_LOG_PLACEHOLDER}`
             }
-            if (this.params.toCardRegion.name === RegionName.AshHeap) {
+            if (this.params.toCardRegion.is.ashHeap) {
                 return `Discard ${CARD_LOG_PLACEHOLDER} ${this.formatPlayerStateForLog(this.params.card.controller)}`
             }
         }
@@ -884,23 +874,18 @@ class MoveToBottom extends GameMutation<MoveToBottomParams> {
 
     getValidity() {
         // Can only send to the bottom of library and crypt
-        if (![RegionName.Library, RegionName.Crypt].includes(this.params.toCardRegion.name)) {
+
+        if (!this.params.toCardRegion.is.library || !this.params.toCardRegion.is.crypt) {
             return Invalid(`Can only move to the bottom of library or crypt`)
         }
 
         // Can move only library cards to the the library
-        if (
-            this.params.toCardRegion.name == RegionName.Library &&
-            !(this.params.card instanceof LibraryCard)
-        ) {
+        if (this.params.toCardRegion.is.library && !(this.params.card instanceof LibraryCard)) {
             return Invalid(`Can move only library cards to ${this.params.toCardRegion.name}`)
         }
 
         // Can move only crypt cards to the crypt
-        if (
-            this.params.toCardRegion.name == RegionName.Crypt &&
-            !(this.params.card instanceof CryptCard)
-        ) {
+        if (this.params.toCardRegion.is.crypt && !(this.params.card instanceof CryptCard)) {
             return Invalid(`Can move only crypt cards to ${this.params.toCardRegion.name}`)
         }
 
