@@ -194,10 +194,13 @@ export class Player extends BaseModel {
     }
 
     changePool(amount: number) {
+        const nbCompetingPlayers = useGameStateStore().competingPlayers.length
+
         if (this.pool == 0 && amount > 0) {
             this.isOusted = false
             if (this.predator) {
-                this.predator.victoryPoints--
+                // The last oust had given 2 VP
+                this.predator.victoryPoints -= nbCompetingPlayers == 1 ? 2 : 1
             }
         }
 
@@ -205,7 +208,8 @@ export class Player extends BaseModel {
 
         if (this.pool <= 0) {
             if (this.predator) {
-                this.predator.victoryPoints++
+                // The last oust gives 2 VP
+                this.predator.victoryPoints += nbCompetingPlayers == 2 ? 2 : 1
             }
             this.isOusted = true
         }
