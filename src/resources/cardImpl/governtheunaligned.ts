@@ -35,7 +35,7 @@ export class GovernTheUnaligned extends ActionCardImplementation {
             if (!(this.usage.target instanceof Card && this.usage.target.isVampire())) {
                 return Invalid('[SUP] Target must be a vampire')
             }
-            if (this.usage.target.region.is.uncontrolled) {
+            if (!this.usage.target.region.is.uncontrolled) {
                 return Invalid('[SUP] Target must be uncontrolled')
             }
             if (actingMinion.minionAttrs.capacity <= this.usage.target.minionAttrs.capacity) {

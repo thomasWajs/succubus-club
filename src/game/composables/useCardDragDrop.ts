@@ -107,7 +107,7 @@ export function useCardDragDrop(
         if (
             !groupingEnabled.value ||
             cardRegion.owner.oid != gameState.selfPlayer?.oid ||
-            cardRegion.is.ready ||
+            !cardRegion.is.ready ||
             gameBus.selectedCards.length > 1 ||
             card.oid in gameBus.cardGroupsByCard ||
             otherCards.length === 0
