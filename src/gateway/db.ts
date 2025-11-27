@@ -19,6 +19,7 @@ export enum DeckSource {
 export type UserPreferences = {
     glow?: number // We cannot index boolean with Dexie, so fallback on 0=false / 1=true
     alignmentGuides?: number // We cannot index boolean with Dexie, so fallback on 0=false / 1=true
+    cardGrouping?: number // We cannot index boolean with Dexie, so fallback on 0=false / 1=true
     // CommandName ==> character
     keyBindings?: Record<string, { repr: string; keyCode: number }>
 }

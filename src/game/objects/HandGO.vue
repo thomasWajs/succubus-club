@@ -81,9 +81,7 @@ function getOrderedCardsInHand() {
  */
 function sortCardInHandsVisibility() {
     for (const card of getOrderedCardsInHand()) {
-        if (card.bringToTop) {
-            card.bringToTop()
-        }
+        card?.bringToTop()
     }
 }
 

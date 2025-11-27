@@ -8,10 +8,11 @@ import {
 } from '@/game/const.ts'
 import Phaser, { GameObjects } from 'phaser'
 import Pointer = Phaser.Input.Pointer
+import Rectangle = Phaser.Geom.Rectangle
 import { RegionCategory, PhaserDataKey } from '@/game/types.ts'
 import { AnyCardRegion, CardRegionOid } from '@/model/CardRegion.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
-import { CardOid } from '@/model/Card.ts'
+import { Card, CardOid } from '@/model/Card.ts'
 import { getTabletopScene } from '@/game/camera.ts'
 
 /**
@@ -133,4 +134,24 @@ export function getCardScale(category: RegionCategory, cardRegion?: AnyCardRegio
         case RegionCategory.Stack:
             return WIELD_CARD_SCALE
     }
+}
+
+export function dilateRectangle(rect: Rectangle, dilatation: number) {
+    return new Rectangle(
+        rect.x - dilatation,
+        rect.y - dilatation,
+        rect.width + dilatation * 2,
+        rect.height + dilatation * 2,
+    )
+}
+
+// Returns the rectangle occupied by a card on the play Area
+export function getCardRectangleAt(cardRegion: AnyCardRegion, x: number, y: number) {
+    const scale = getCardScale(RegionCategory.Table, cardRegion)
+    return new Rectangle(x, y, CARD_WIDTH * scale, CARD_HEIGHT * scale)
+}
+
+// Transform a card in play into the rectangle that it occupies on the Play Area
+export function getCardRectangle(card: Card) {
+    return getCardRectangleAt(card.region, card.x, card.y)
 }

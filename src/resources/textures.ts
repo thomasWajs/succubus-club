@@ -2,8 +2,10 @@ import { ASSETS_URL, atlasTextureUrl } from '@/resources/cards.ts'
 import { fetchWithRetry } from '@/resources'
 
 export enum Texture {
+    BrokenChain = 'brokenChain',
     CardbackCrypt = 'cardbackCrypt',
     CardbackLibrary = 'cardbackLibrary',
+    CardGroup = 'cardGroup',
     WieldCardStack = 'wieldCardStack',
     TheEdge = 'theEdge',
     TheEdgeTeal = 'theEdgeTeal',

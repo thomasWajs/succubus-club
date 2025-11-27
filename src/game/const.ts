@@ -41,6 +41,7 @@ export const CARD_DRAGGING_ALPHA = 0.7
 export const CARD_OUTLINE_THICKNESS = 2
 export const CARD_OUTLINE_COLOR_HOVER = HIGHLIGHT_YELLOW
 export const CARD_OUTLINE_COLOR_SELECTED = new Color(140, 70, 255)
+export const CARD_OUTLINE_COLOR_INDIRECT_HOVER = CARD_OUTLINE_COLOR_HOVER.clone().desaturate(35)
 
 export const CARD_GLOW_COLOR = new Color(180, 90, 40)
 export const CARD_GLOW_INNER_STRENGTH = 0
@@ -119,6 +120,18 @@ export const SELECTION_AREA_LINE_THICKNESS = 1
 export const SELECTION_AREA_COLOR = HIGHLIGHT_YELLOW
 
 /**
+ * Card Group
+ */
+
+export const CARD_GROUP_OUTLINE_COLOR = new Phaser.Display.Color(10, 165, 140)
+export const CARD_GROUP_BOUNDING_BOX_THICKNESS = 1
+export const CARD_GROUP_BOUNDING_BOX_COLOR = new Color(75, 75, 75)
+export const CARD_GROUP_ICON_WIDTH = 40
+export const CARD_GROUP_ICON_HEIGHT = 50
+export const CARD_GROUP_ICON_MARGIN = 5
+export const CARD_GROUP_BACKGROUND_COLOR = new Color(255, 255, 255, 255 * 0.5)
+
+/**
  * Counter
  */
 
@@ -141,7 +154,6 @@ export const GREEN_COUNTER_FILL_COLOR = new Color(0, 150, 0)
 export const BUTTON_BORDER_WIDTH = 1
 export const BUTTON_BORDER_COLOR = new Color(26, 26, 26)
 export const BUTTON_BACKGROUND_COLOR = new Color(21, 47, 47)
-export const BUTTON_BACKGROUND_COLOR_HOVER = BUTTON_BACKGROUND_COLOR.clone().brighten(12)
 export const BUTTON_TEXT_STYLE = {
     color: 'white',
     fontStyle: 'bold',

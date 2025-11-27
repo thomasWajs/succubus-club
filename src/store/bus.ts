@@ -6,7 +6,7 @@ import { Player, PlayerOid } from '@/model/Player.ts'
 import { AnyCardRegion } from '@/model/CardRegion.ts'
 import { SavingState } from '@/gateway/savedGames.ts'
 import { AlignmentGuide } from '@/state/types.ts'
-import { CardInGame, DragOver, PlayerInGame } from '@/game/types.ts'
+import { CardGroup, CardInGame, DragAttrs, DragOver, PlayerInGame } from '@/game/types.ts'
 import Rectangle = Phaser.Geom.Rectangle
 import Vector2Like = Phaser.Types.Math.Vector2Like
 
@@ -72,22 +72,32 @@ export const useGameBusStore = defineStore('gameBus', {
             canView: false,
         },
 
-        /** Card selection and target declaration **/
+        /** Pointer **/
         pointerPosition: null as Vector2Like | null, // Expressed in world coordinates
+        hoveredCard: null as Card | null,
+        dragAttrs: null as DragAttrs | null,
+
+        /** Game Objects **/
         cardsInGame: {} as Record<CardOid, CardInGame>,
         playersInGame: {} as Record<PlayerOid, PlayerInGame>,
 
+        /** Card selection **/
         selectedCards: [] as Card[],
         selectionArea: {
             show: false,
             origin: null as Vector2Like | null, // Expressed in world coordinates
         },
 
-        declaringTargetOrigin: null as Card | null,
+        /** Card groups **/
+        cardGroups: [] as CardGroup[],
+        cardGroupCandidate: null as CardGroup | null,
 
         /** Alignment guides **/
-        dragOver: null as Raw<DragOver> | null,
+        dragOver: null as DragOver | null,
         alignmentGuides: [] as AlignmentGuide[],
+
+        /** Target declaration **/
+        declaringTargetOrigin: null as Card | null,
 
         /** Hand **/
         handDropGapPosition: null as null | number,
@@ -147,6 +157,43 @@ export const useGameBusStore = defineStore('gameBus', {
         selectedCardsInGame(state): CardInGame[] {
             return state.selectedCards.map(c => state.cardsInGame[c.oid]).filter(c => c)
         },
+        cardGroupsByCard(state): Record<CardOid, CardGroup> {
+            const result: Record<CardOid, CardGroup> = {}
+            for (const group of state.cardGroups) {
+                for (const cardOid of group) {
+                    result[cardOid] = group
+                }
+            }
+            return result
+        },
+        // Indirect hover: cards that are not directly hovere, but are part of a group of the hovered card
+        indirectHoveredCards(state): CardOid[] {
+            if (state.hoveredCard) {
+                return [...(this.cardGroupsByCard[state.hoveredCard.oid] ?? [])].filter(
+                    cardOid => cardOid != state.hoveredCard?.oid,
+                )
+            }
+            return []
+        },
+
+        // Indirect selection: cards that are not directly selected, but are part of a group of selected cards
+        indirectSelectedCards(state): CardOid[] {
+            const result = new Set<CardOid>()
+            const selectedCardsOid = state.selectedCards.map(c => c.oid)
+            for (const selectedCard of state.selectedCards) {
+                for (const cardOid of this.cardGroupsByCard[selectedCard.oid] ?? []) {
+                    if (!selectedCardsOid.includes(cardOid)) {
+                        result.add(cardOid)
+                    }
+                }
+            }
+            return [...result]
+        },
+        indirectSelectedCardsInGame(state): CardInGame[] {
+            return this.indirectSelectedCards
+                .map(cardOid => state.cardsInGame[cardOid])
+                .filter(c => c)
+        },
     },
 
     actions: {
@@ -165,6 +212,10 @@ export const useGameBusStore = defineStore('gameBus', {
         hideContextMenu() {
             this.contextMenu.show = false
             this.hideContextSubmenu()
+        },
+
+        removeFromSelection(card: Card) {
+            this.selectedCards = this.selectedCards.filter(c => c.oid != card.oid)
         },
     },
 })

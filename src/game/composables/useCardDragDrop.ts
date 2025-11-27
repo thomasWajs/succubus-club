@@ -2,11 +2,18 @@ import { Card } from '@/model/Card.ts'
 import { ComputedRef, reactive, Ref, computed } from 'vue'
 import Phaser, { GameObjects } from 'phaser'
 import Pointer = Phaser.Input.Pointer
+import Rectangle = Phaser.Geom.Rectangle
 import { CardMovement, gameMutations } from '@/state/gameMutations.ts'
 import { useGameBusStore } from '@/store/bus.ts'
-import { dropCoordinatesSnapped, getCardScale } from '@/game/utils.ts'
+import {
+    dilateRectangle,
+    dropCoordinatesSnapped,
+    getCardRectangle,
+    getCardRectangleAt,
+    getCardScale,
+} from '@/game/utils.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
-import { CardAttrs, RegionCategory, DragAttrs } from '@/game/types.ts'
+import { CardAttrs, RegionCategory, DragAttrs, CardGroup } from '@/game/types.ts'
 import { RegionName } from '@/model/const.ts'
 import { AlignmentGuide, GUIDE_HORIZONTAL, GUIDE_VERTICAL } from '@/state/types.ts'
 import { ALIGNMENT_GUIDE_THRESHOLD, GRID_SIZE } from '@/game/const.ts'
@@ -34,7 +41,11 @@ export function useCardDragDrop(
         posY: number,
     ): AlignmentGuide[] {
         const guides: AlignmentGuide[] = []
-        const otherCards = cardRegion.cards.filter(c => !gameBus.selectedCards.includes(c))
+        const otherCards = cardRegion.cards.filter(
+            c =>
+                !gameBus.selectedCards.includes(c) &&
+                !gameBus.indirectSelectedCards.includes(c.oid),
+        )
 
         if (otherCards.length === 0) return guides
 
@@ -78,6 +89,59 @@ export function useCardDragDrop(
     }
 
     /**
+     * Card Groups
+     */
+
+    const groupingEnabled = computed(() => core.userProfile.preferences.cardGrouping ?? true)
+
+    function findCardGroupCandidate(
+        cardRegion: AnyCardRegion,
+        posX: number,
+        posY: number,
+    ): CardGroup | null {
+        const card = cardRef.value
+        const otherCards = cardRegion.cards.filter(c => c.oid != card.oid)
+
+        // No card grouping possible outside of self ready area
+        // No card grouping possible for multi-drag.
+        // No card grouping possible if the card is already in a group
+        if (
+            !groupingEnabled.value ||
+            cardRegion.owner.oid != gameState.selfPlayer?.oid ||
+            cardRegion.name != RegionName.Ready ||
+            gameBus.selectedCards.length > 1 ||
+            card.oid in gameBus.cardGroupsByCard ||
+            otherCards.length === 0
+        ) {
+            return null
+        }
+
+        let cardRectangle = getCardRectangleAt(cardRegion, posX, posY)
+        // Dilate by 1px to also detect cards that are exactly on the border.
+        cardRectangle = dilateRectangle(cardRectangle, 1)
+        let maxAreaIntersection = 0
+        let cardCandidate = null
+        for (const otherCard of otherCards) {
+            let otherCardRectangle = getCardRectangle(otherCard)
+            otherCardRectangle = dilateRectangle(otherCardRectangle, 1)
+            const intersectionArea = Rectangle.Area(
+                Rectangle.Intersection(cardRectangle, otherCardRectangle),
+            )
+            if (intersectionArea > maxAreaIntersection) {
+                maxAreaIntersection = intersectionArea
+                cardCandidate = otherCard
+            }
+        }
+
+        if (cardCandidate) {
+            const existing = gameBus.cardGroupsByCard[cardCandidate.oid]
+            return existing ?? new Set([cardCandidate.oid])
+        }
+
+        return null
+    }
+
+    /**
      * Dragging
      */
 
@@ -86,6 +150,8 @@ export function useCardDragDrop(
         isDragging: false,
         x: 0,
         y: 0,
+        localX: 0,
+        localY: 0,
         deltaX: 0,
         deltaY: 0,
         scale: cardAttrsRef.value.scale,
@@ -102,10 +168,17 @@ export function useCardDragDrop(
         dragAttrs.isDragging = true
         dragAttrs.x = card.x
         dragAttrs.y = card.y
+        dragAttrs.localX = card.x
+        dragAttrs.localY = card.y
         // Delta is used only for multi-card drag. Else default to 0 and have no effect
         dragAttrs.deltaX = card.x - (originCard?.x ?? card.x)
         dragAttrs.deltaY = card.y - (originCard?.y ?? card.y)
         dragAttrs.scale = cardAttrsRef.value.scale
+
+        gameBus.cardGroupCandidate = null
+        if (!originCard || card == originCard) {
+            gameBus.dragAttrs = dragAttrs
+        }
 
         bringToTop()
     }
@@ -114,7 +187,7 @@ export function useCardDragDrop(
         const cardAttrs = cardAttrsRef.value
 
         // Spectators can't interact with the game
-        if (gameState.isSpectator || !gameBus.dragOver) {
+        if (!dragAttrs.isDragging || gameState.isSpectator || !gameBus.dragOver) {
             return
         }
 
@@ -123,6 +196,8 @@ export function useCardDragDrop(
         if (originDragAttrs && (dragAttrs.deltaX != 0 || dragAttrs.deltaY != 0)) {
             dragAttrs.x = originDragAttrs.x + dragAttrs.deltaX
             dragAttrs.y = originDragAttrs.y + dragAttrs.deltaY
+            dragAttrs.localX = originDragAttrs.localX + dragAttrs.deltaX
+            dragAttrs.localY = originDragAttrs.localY + dragAttrs.deltaY
             return
         }
 
@@ -137,7 +212,7 @@ export function useCardDragDrop(
         // - snap the position to the grid
         // - display alignment guides
         if (
-            gameBus.dragOver.target &&
+            gameBus.dragOver.gameObjects.target &&
             gameBus.dragOver.cardRegion &&
             gameBus.dragOver.regionCategory
         ) {
@@ -146,8 +221,8 @@ export function useCardDragDrop(
             dragAttrs.scale = getCardScale(gameBus.dragOver.regionCategory, cardRegion)
 
             const isOverPlayArea = gameBus.dragOver.regionCategory == RegionCategory.Table
-            const fromContainer = gameBus.dragOver.cardImage.parentContainer
-            const toContainer = gameBus.dragOver.target.parentContainer
+            const fromContainer = gameBus.dragOver.gameObjects.cardImage.parentContainer
+            const toContainer = gameBus.dragOver.gameObjects.target.parentContainer
 
             // Difference between the origin and target container
             const containerOffsetX = toContainer.x - fromContainer.x
@@ -190,8 +265,14 @@ export function useCardDragDrop(
                 localY = Phaser.Math.Snap.Ceil(localY, GRID_SIZE) - GRID_SIZE / 2
             }
 
+            // Card group outline
+            gameBus.cardGroupCandidate = findCardGroupCandidate(cardRegion, localX, localY)
+
             posX = localX + containerOffsetX
             posY = localY + containerOffsetY
+
+            dragAttrs.localX = localX
+            dragAttrs.localY = localY
         }
 
         dragAttrs.x = posX
@@ -203,6 +284,8 @@ export function useCardDragDrop(
         dragAttrs.deltaX = 0
         dragAttrs.deltaY = 0
         dragAttrs.scale = cardAttrsRef.value.scale
+        gameBus.cardGroupCandidate = null
+        gameBus.dragAttrs = null
     }
 
     /**
@@ -212,21 +295,29 @@ export function useCardDragDrop(
     function onDrop() {
         const card = cardRef.value
         // Not dropped on any region, abort
-        if (!gameBus.dragOver || !gameBus.dragOver.target || !gameBus.dragOver.cardRegion) {
+        if (
+            !dragAttrs.isDragging ||
+            !gameBus.dragOver ||
+            !gameBus.dragOver.gameObjects.target ||
+            !gameBus.dragOver.cardRegion
+        ) {
             return
         }
 
         const targetCardRegion = gameBus.dragOver.cardRegion
-        const fromContainer = gameBus.dragOver.cardImage.parentContainer
-        const toContainer = gameBus.dragOver.target.parentContainer
 
-        let [x, y] = [dragAttrs.x, dragAttrs.y]
-        // If we're changing container, we need to switch referential
-        if (fromContainer != toContainer) {
-            const worldPoint = fromContainer.getWorldTransformMatrix().transformPoint(x, y)
-            const localPoint = toContainer.getLocalPoint(worldPoint.x, worldPoint.y)
-            x = localPoint.x
-            y = localPoint.y
+        // If we're changing container, we need to use the local referential
+        const [x, y] =
+            targetCardRegion.oid == card.region.oid ?
+                [dragAttrs.x, dragAttrs.y]
+            :   [dragAttrs.localX, dragAttrs.localY]
+
+        const cardGroup = findCardGroupCandidate(targetCardRegion, x, y)
+        if (cardGroup) {
+            cardGroup.add(card.oid)
+            if (!gameBus.cardGroups.includes(cardGroup)) {
+                gameBus.cardGroups.push(cardGroup)
+            }
         }
 
         const movement: CardMovement = {

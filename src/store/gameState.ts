@@ -13,6 +13,7 @@ import Phaser from 'phaser'
 import Color = Phaser.Display.Color
 import { TargetDeclaration, CardRevelation, CardRevelationTargetOid } from '@/state/types.ts'
 import { PermanentId } from '@/multiplayer/types.ts'
+import { useGameBusStore } from '@/store/bus.ts'
 
 export type GameStateStore = ReturnType<typeof useGameStateStore>
 export type GameState = GameStateStore['$state']
@@ -217,8 +218,19 @@ export const useGameStateStore = defineStore('gameState', {
                 // Card is already there, nothing to do
                 return
             }
+
+            const wasInPlay = card.isIn.play
+
             card.region.remove(card)
             to.insert(card, position)
+
+            // Deselect a card when moved out of the play area.
+            // Game state is clearly not the ideal place to put this,
+            // but it's the central point for moving cards around regions.
+            // If someone has a better idea, feel free to refactor.
+            if (wasInPlay && !card.isIn.play) {
+                useGameBusStore().removeFromSelection(card)
+            }
         },
 
         initCardRevelation(oid: CardRevelationTargetOid) {

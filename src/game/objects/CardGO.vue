@@ -299,6 +299,13 @@ const cardAttrs = computed((): CardAttrs => {
     }
 })
 
+// cardAttrs watcher for non-declarative programming
+watch(cardAttrs, (newAttrs, oldAttrs) => {
+    if (oldAttrs.rotation !== newAttrs.rotation) {
+        startRotationTween(newAttrs, oldAttrs)
+    }
+})
+
 /**
  * Save Card model on the Image Game Object
  */
@@ -317,20 +324,18 @@ const ROTATION_TWEEN_DURATION = 150
 const isTweening = ref(false)
 const rotationTween = ref({})
 
-watch(cardAttrs, (newAttrs, oldAttrs) => {
-    if (oldAttrs.rotation !== newAttrs.rotation) {
-        isTweening.value = true
-        rotationTween.value = {
-            props: {
-                rotation: { getStart: () => oldAttrs.rotation, getEnd: () => newAttrs.rotation },
-                x: { getStart: () => oldAttrs.x, getEnd: () => newAttrs.x },
-                y: { getStart: () => oldAttrs.y, getEnd: () => newAttrs.y },
-            },
-            duration: ROTATION_TWEEN_DURATION,
-            onComplete: () => (isTweening.value = false),
-        }
+function startRotationTween(newAttrs: CardAttrs, oldAttrs: CardAttrs) {
+    isTweening.value = true
+    rotationTween.value = {
+        props: {
+            rotation: { getStart: () => oldAttrs.rotation, getEnd: () => newAttrs.rotation },
+            x: { getStart: () => oldAttrs.x, getEnd: () => newAttrs.x },
+            y: { getStart: () => oldAttrs.y, getEnd: () => newAttrs.y },
+        },
+        duration: ROTATION_TWEEN_DURATION,
+        onComplete: () => (isTweening.value = false),
     }
-})
+}
 
 /**
  * Bring to top
@@ -356,7 +361,6 @@ function bringToTop() {
     for (const button of [burnBloodButton, gainBloodButton, ashHeapButton, influenceButton]) {
         button.value?.bringToTop()
     }
-
     markersRectangles.forEach(rectangle => {
         if (rectangle) container.bringToTop(rectangle)
     })
@@ -374,6 +378,7 @@ const showOverlay = computed(() => {
         isHovered.value &&
         gameBus.selectedCards.length <= 1 &&
         gameState.isPlayer &&
+        !dragAttrs.isDragging &&
         !isTweening.value
     )
 })
@@ -517,17 +522,49 @@ function dispatchDragEvent(
         dragY,
         originDragAttrs: dragAttrs,
     }
-    // First compute this card position.
-    cardInGame[eventName](event)
 
-    // Then for other cards of the selection,
-    // they will position themselves depending on this card.
-    for (const cardInGame of gameBus.selectedCardsInGame) {
-        if (cardInGame.cardOid === card.oid) {
-            continue
-        }
-        cardInGame[eventName](event)
+    // Put this card first.
+    // For drag, this will compute this card position first,
+    // so the other cards can position themselves depending on this card.
+    const cardsInGame = [
+        cardInGame,
+        ...gameBus.selectedCardsInGame,
+        ...gameBus.indirectSelectedCardsInGame,
+    ]
+
+    // For non-drag events, sort the cards by x/y, depending on the direction of the drag,
+    // so a card at an old position won't be shifted by Card.setCoordinates()
+    if (eventName != 'onDrag') {
+        cardsInGame.sort((c1, c2) => {
+            const _dragX = dragAttrs.x - card.x
+            const _dragY = dragAttrs.y - card.y
+
+            const card1 = gameState.cards[c1.cardOid]
+            const card2 = gameState.cards[c2.cardOid]
+
+            // Compare X positions based on drag direction
+            // If dragging right (_dragX > 0), prioritize cards on the right (higher x)
+            // If dragging left (_dragX < 0), prioritize cards on the left (lower x)
+            const xDelta = (card2.x - card1.x) * (_dragX >= 0 ? 1 : -1)
+
+            // Compare Y positions based on drag direction
+            // If dragging down (_dragY > 0), prioritize cards at the bottom (higher y)
+            // If dragging up (_dragY < 0), prioritize cards at the top (lower y)
+            const yDelta = (card2.y - card1.y) * (_dragY >= 0 ? 1 : -1)
+
+            // Prioritize Y axis first, then X axis
+            return yDelta * 10000 + xDelta
+        })
     }
+
+    for (const cardInGame of cardsInGame) {
+        cardInGame[eventName](event)
+        cardInGame.bringToTop()
+    }
+
+    // End by a bringToTop the direct recipient of the event,
+    // so he's the one entirely visible
+    bringToTop()
 }
 
 function dispatchDragStart(pointer: Pointer) {
@@ -575,11 +612,6 @@ function onDragEnd() {
 function onDrop() {
     dragDrop.onDrop()
 }
-
-// When any players move a card, it must appear on top of the other cards
-watch([() => card.x, () => card.y], () => {
-    bringToTop()
-})
 
 /**
  * World position ( for arrows )

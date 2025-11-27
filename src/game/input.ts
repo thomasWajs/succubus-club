@@ -118,17 +118,19 @@ function onPointerMove(pointer: Pointer, {}) {
 
 function onDragStart({}, cardImage: GameObjects.Image) {
     const gameBus = useGameBusStore()
-    gameBus.dragOver = markRaw({
-        cardImage,
+    gameBus.dragOver = {
         card: getCardDragged(cardImage),
-    })
+        gameObjects: markRaw({
+            cardImage,
+        }),
+    }
     gameBus.alignmentGuides = []
 }
 
 function onDragEnter({}, {}, target: GameObjects.GameObject) {
     const gameBus = useGameBusStore()
     if (gameBus.dragOver) {
-        gameBus.dragOver.target = target
+        gameBus.dragOver.gameObjects.target = target
         gameBus.dragOver.cardRegion = getCardRegionDraggedOver(target) ?? undefined
         gameBus.dragOver.regionCategory =
             (target.getData(PhaserDataKey.RegionCategory) as RegionCategory) ?? undefined
@@ -138,7 +140,7 @@ function onDragEnter({}, {}, target: GameObjects.GameObject) {
 function onDragLeave() {
     const gameBus = useGameBusStore()
     if (gameBus.dragOver) {
-        gameBus.dragOver.target = undefined
+        gameBus.dragOver.gameObjects.target = undefined
         gameBus.dragOver.cardRegion = undefined
     }
 }

@@ -135,6 +135,8 @@
             :lineWidth="ALIGNMENT_GUIDE_WIDTH"
             :strokeColor="ALIGNMENT_GUIDE_COLOR.color"
         />
+
+        <CardGroupGO v-if="player == gameState.selfPlayer" />
     </Container>
 </template>
 
@@ -167,6 +169,7 @@ import PlayerBarGo from '@/game/objects/PlayerBarGo.vue'
 import { PhaserDataKey } from '@/game/types.ts'
 import { useGameBusStore } from '@/store/bus.ts'
 import { GUIDE_VERTICAL } from '@/state/types.ts'
+import CardGroupGO from '@/game/objects/CardGroupGO.vue'
 
 const { player } = defineProps<{
     player: Player

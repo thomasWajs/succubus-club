@@ -18,7 +18,7 @@
         :fillAlpha="
             highlightDropZone ?
                 REGION_BACKGROUND_COLOR_DRAG_OVER.alphaGL
-            :   REGION_BACKGROUND_COLOR_DRAG_OVER.alphaGL
+            :   REGION_BACKGROUND_COLOR.alphaGL
         "
         :dropZone="true"
         @create="onBoundariesCreate"

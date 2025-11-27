@@ -1,3 +1,4 @@
+import { Raw } from 'vue'
 import Phaser, { GameObjects } from 'phaser'
 import { AnyCardRegion } from '@/model/CardRegion.ts'
 import { Card, CardOid } from '@/model/Card.ts'
@@ -26,6 +27,8 @@ export type PlayerInGame = {
     getWorldPosition: PositionGetter
 }
 
+export type CardGroup = Set<CardOid>
+
 export type CardInGame = {
     cardOid: CardOid
     getWorldPosition: PositionGetter
@@ -49,8 +52,10 @@ export type CardAttrs = {
 
 export type DragAttrs = {
     isDragging: boolean
-    x: number // X position of the dragged card
-    y: number // Y position of the dragged card
+    x: number // X position of the dragged card, relative to its parent container
+    y: number // Y position of the dragged card, relative to its parent container
+    localX: number // X position of the dragged card, relative to the target container
+    localY: number // Y position of the dragged card, relative to the target container
     deltaX: number // X distance from the dragged card origin
     deltaY: number // Y distance from the dragged card origin
     scale: number
@@ -65,9 +70,12 @@ export type CardDragEvent = {
 }
 
 export type DragOver = {
-    cardImage: GameObjects.Image // The dragged card image
     card: Card // The dragged card model
-    target?: GameObjects.GameObject // Game object dragged over
     cardRegion?: AnyCardRegion // CardRegion dragged over, if any
     regionCategory?: RegionCategory // RegionCategory dragged over, if any
+
+    gameObjects: Raw<{
+        cardImage: GameObjects.Image // The dragged card image
+        target?: GameObjects.GameObject // Game object dragged over
+    }>
 }

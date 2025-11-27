@@ -1,15 +1,18 @@
 <template>
     <Rectangle
         ref="buttonRectangle"
+        :origin="origin"
+        :originX="originX"
+        :originY="originY"
         :x="x"
         :y="y"
         :width="width"
         :height="height"
         :scale="scale"
         :lineWidth="BUTTON_BORDER_WIDTH"
-        :strokeColor="BUTTON_BORDER_COLOR.color"
-        :fillColor="backgroundColor.color"
-        :fillAlpha="backgroundColor.alphaGL"
+        :strokeColor="borderColor.color"
+        :fillColor="bgColor.color"
+        :fillAlpha="bgColor.alphaGL"
         @create="onRectangleCreate"
         @pointerover="onPointerOver"
         @pointerout="onPointerOut"
@@ -32,17 +35,22 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import Phaser, { GameObjects } from 'phaser'
+import Color = Phaser.Display.Color
 import { refObj, Rectangle, Text } from 'phavuer'
 import {
     BUTTON_BORDER_WIDTH,
     BUTTON_BORDER_COLOR,
     BUTTON_BACKGROUND_COLOR,
     BUTTON_TEXT_STYLE,
-    BUTTON_BACKGROUND_COLOR_HOVER,
 } from '@/game/const.ts'
 import Pointer = Phaser.Input.Pointer
 
-const { name, textStyle } = defineProps<{
+const {
+    name,
+    textStyle,
+    backgroundColor = BUTTON_BACKGROUND_COLOR,
+    borderColor = BUTTON_BORDER_COLOR,
+} = defineProps<{
     x: number
     y: number
     width: number
@@ -50,7 +58,12 @@ const { name, textStyle } = defineProps<{
     scale?: number
     text?: string
     textStyle?: object
+    backgroundColor?: Color
+    borderColor?: Color
     name?: string
+    origin?: number
+    originX?: number
+    originY?: number
 }>()
 
 const buttonRectangle = refObj<GameObjects.Rectangle>()
@@ -78,8 +91,8 @@ function onClick(pointer: Pointer) {
     emit('click', pointer)
 }
 
-const backgroundColor = computed(() => {
-    return isHovered.value ? BUTTON_BACKGROUND_COLOR_HOVER : BUTTON_BACKGROUND_COLOR
+const bgColor = computed(() => {
+    return isHovered.value ? backgroundColor.clone().brighten(12) : backgroundColor
 })
 
 function bringToTop() {

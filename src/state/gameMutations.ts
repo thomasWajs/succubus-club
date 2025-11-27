@@ -265,10 +265,18 @@ class ChangeBlood extends ChangeCounterMutation {
     readonly syncMode = MutationSyncMode.Merge
 
     getValidity() {
+        // There's no blood outside of the play area
+        if (!this.params.card.isIn.play)
+            return Invalid(
+                `${this.params.card.secureName} : Cannot change blood because it is not in play`,
+            )
+
         // Cannot get a negative blood amount
-        return this.params.card.blood + this.params.amount < 0 ?
-                Invalid(`${this.params.card.secureName} : Cannot go below 0 blood`)
-            :   VALID
+        if (this.params.card.blood + this.params.amount < 0) {
+            return Invalid(`${this.params.card.secureName} : Cannot go below 0 blood`)
+        }
+
+        return VALID
     }
 
     protected updateGameState() {
@@ -295,10 +303,18 @@ class ChangeGreenCounter extends ChangeCounterMutation {
     readonly syncMode = MutationSyncMode.Merge
 
     getValidity() {
+        // There's no counters outside of the play area
+        if (!this.params.card.isIn.play)
+            return Invalid(
+                `${this.params.card.secureName} : Cannot change counter because it is not in play`,
+            )
+
         // Cannot get a negative counter amount
-        return this.params.card.greenCounter + this.params.amount < 0 ?
-                Invalid(`${this.params.card.secureName} : Cannot go below 0 green counter`)
-            :   VALID
+        if (this.params.card.greenCounter + this.params.amount < 0) {
+            return Invalid(`${this.params.card.secureName} : Cannot go below 0 counter`)
+        }
+
+        return VALID
     }
 
     protected updateGameState() {
