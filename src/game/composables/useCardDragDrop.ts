@@ -320,12 +320,9 @@ export function useCardDragDrop(
             }
         }
 
-        const movement: CardMovement = {
-            card,
-            x,
-            y,
-            position: gameBus.handDropGapPosition ?? 0,
-        }
+        const position =
+            targetCardRegion.name == RegionName.Hand ? (gameBus.handDropGapPosition ?? 0) : 0
+        const movement: CardMovement = { card, x, y, position }
 
         // We're not changing region, just move the card inside the same region
         if (targetCardRegion.oid == card.region.oid) {
