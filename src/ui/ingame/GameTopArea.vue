@@ -371,6 +371,7 @@ import { useHistoryStore } from '@/store/history.ts'
 import { useCoreStore } from '@/store/core.ts'
 import { useMultiplayerStore } from '@/store/multiplayer.ts'
 import { useTimer } from '@/game/composables/useTimer.ts'
+import { WorldAlignment } from '@/gateway/db.ts'
 
 const core = useCoreStore()
 const gameState = useGameStateStore()
@@ -381,16 +382,28 @@ const multiplayer = useMultiplayerStore()
 const commands = useCommands()
 const timer = useTimer()
 
+const worldAlignment = computed(
+    () => core.userProfile.preferences.worldAlignment ?? WorldAlignment.Center,
+)
+
 const style = computed(() => {
-    const offsetLeft =
-        display.actualWidth - (WORLD_WIDTH + display.horizontalPadding) * display.scale
+    let offsetLeft, top
+    if (worldAlignment.value == WorldAlignment.TopRight) {
+        offsetLeft = display.actualWidth - (WORLD_WIDTH + display.horizontalPadding) * display.scale
+        top = 0
+    } else {
+        offsetLeft = display.horizontalSpaceAvailable / 2
+        top = display.verticalSpaceAvailable / 2
+    }
+
     const left = TOP_AREA_X * display.scale + offsetLeft
+
     return {
         width: `${TOP_AREA_WIDTH}px`,
         maxWidth: `${TOP_AREA_WIDTH}px`,
         height: `${TOP_AREA_HEIGHT}px`,
         maxHeight: `${TOP_AREA_HEIGHT}px`,
-        top: `0px`,
+        top: `${top}px`,
         left: `${left}px`,
         transform: `scale(${display.scale})`,
     }

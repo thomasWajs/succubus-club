@@ -66,11 +66,24 @@ kbd {
 }
 
 .input-label {
-    color: $pale-grey;
+    color: $pearl-grey;
     font-size: 0.95rem;
     font-weight: 500;
     margin-bottom: 0.5rem;
     letter-spacing: 0.5px;
+}
+
+select {
+    background: $ash-grey;
+    color: white;
+    cursor: pointer;
+    font-size: 16px;
+    padding: 0.25rem 0.35rem;
+
+    &:focus {
+        outline: none;
+        border-color: $royal-purple;
+    }
 }
 
 .checkbox-label {
@@ -88,8 +101,8 @@ kbd {
         height: 18px;
     }
 
-    &:hover {
-        color: $mist-grey;
+    .input-label{
+        margin-bottom: 0;
     }
 }
 

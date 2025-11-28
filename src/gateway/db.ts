@@ -16,7 +16,13 @@ export enum DeckSource {
     Text = 'Text',
 }
 
+export enum WorldAlignment {
+    TopRight = 'TopRight',
+    Center = 'Center',
+}
+
 export type UserPreferences = {
+    worldAlignment?: WorldAlignment
     glow?: number // We cannot index boolean with Dexie, so fallback on 0=false / 1=true
     alignmentGuides?: number // We cannot index boolean with Dexie, so fallback on 0=false / 1=true
     cardGrouping?: number // We cannot index boolean with Dexie, so fallback on 0=false / 1=true

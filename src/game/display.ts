@@ -18,6 +18,7 @@ function getDisplay() {
 
     const scale = Math.min(horizontalScale, verticalScale)
 
+    const verticalSpaceAvailable = actualHeight - WORLD_HEIGHT * scale
     const horizontalSpaceAvailable = actualWidth - WORLD_WIDTH * scale
     const horizontalPadding = Math.min(horizontalSpaceAvailable / 2, 20)
 
@@ -29,6 +30,7 @@ function getDisplay() {
         horizontalScale,
         verticalScale,
         scale,
+        verticalSpaceAvailable,
         horizontalSpaceAvailable,
         horizontalPadding,
     }

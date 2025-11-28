@@ -71,23 +71,57 @@
                     v-if="activeTab === 'preferences'"
                     class="tab-content"
                 >
-                    <label
+                    <div
                         v-for="preference in preferences"
                         :key="preference.key"
                         class="preference"
                     >
-                        <input
-                            v-model="preference.value.value"
-                            type="checkbox"
-                        />
-                        <span class="preference-label">{{ preference.label }}</span>
-                        <span
-                            v-if="savedFeedbacks.preferences[preference.key]"
-                            class="save-feedback success"
+                        <!-- Checkbox Preference -->
+                        <label
+                            v-if="preference.type === UserPreferenceType.Checkbox"
+                            class="checkbox-label"
                         >
-                            ✓ Saved
-                        </span>
-                    </label>
+                            <input
+                                v-model="(preference as CheckboxPreference).value.value"
+                                type="checkbox"
+                            />
+                            <span class="input-label preference-label">{{ preference.label }}</span>
+                            <span
+                                v-if="savedFeedbacks.preferences[preference.key]"
+                                class="save-feedback success"
+                            >
+                                ✓ Saved
+                            </span>
+                        </label>
+
+                        <!-- Select Preference -->
+                        <div v-else-if="preference.type === UserPreferenceType.Select">
+                            <div class="label-container">
+                                <div class="input-label preference-label">
+                                    {{ preference.label }}
+                                </div>
+                                <div
+                                    v-if="savedFeedbacks.preferences[preference.key]"
+                                    class="save-feedback success"
+                                >
+                                    ✓ Saved
+                                </div>
+                            </div>
+
+                            <select
+                                v-model="(preference as SelectPreference).value.value"
+                                class="preference-select"
+                            >
+                                <option
+                                    v-for="option in (preference as SelectPreference).options"
+                                    :key="option.value"
+                                    :value="option.value"
+                                >
+                                    {{ option.label }}
+                                </option>
+                            </select>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- User Profile Tab -->
@@ -154,7 +188,7 @@ import { useCoreStore } from '@/store/core.ts'
 import { ref, computed } from 'vue'
 import UserAvatar from '@/ui/components/UserAvatar.vue'
 import { storeAvatar } from '@/gateway/user.ts'
-import { DbUserProfile, UserPreferences } from '@/gateway/db.ts'
+import { DbUserProfile, UserPreferences, WorldAlignment } from '@/gateway/db.ts'
 import { updateCommands, useCommands } from '@/game/composables/useCommands.ts'
 import { setupKeyboardHandlers } from '@/game/input.ts'
 
@@ -272,14 +306,39 @@ function calculateCropDimensions(
 
 type PreferenceKey = keyof Omit<UserPreferences, 'keyBindings'>
 
-function createPreference(key: PreferenceKey, label: string) {
+enum UserPreferenceType {
+    Checkbox = 'Checkbox',
+    Select = 'Select',
+}
+
+interface BasePreference {
+    type: UserPreferenceType
+    key: PreferenceKey
+    label: string
+}
+
+interface CheckboxPreference extends BasePreference {
+    type: UserPreferenceType.Checkbox
+    value: ReturnType<typeof computed<boolean>>
+}
+
+interface SelectPreference extends BasePreference {
+    type: UserPreferenceType.Select
+    options: Array<{ value: string; label: string }>
+    value: ReturnType<typeof computed<string>>
+}
+
+type Preference = CheckboxPreference | SelectPreference
+
+function createCheckboxPreference(key: PreferenceKey, label: string): CheckboxPreference {
     return {
+        type: UserPreferenceType.Checkbox,
         key,
         label,
         value: computed({
             get: () => (core.userProfile.preferences[key] ?? 1) === 1,
             set: async (value: boolean) => {
-                core.userProfile.preferences[key] = value ? 1 : 0
+                core.userProfile.preferences[key] = (value ? 1 : 0) as any
                 await core.userProfile.save()
                 showSaveFeedback('preferences', key)
             },
@@ -287,10 +346,35 @@ function createPreference(key: PreferenceKey, label: string) {
     }
 }
 
-const preferences = [
-    createPreference('glow', 'Highlight usable cards'),
-    createPreference('alignmentGuides', 'Use alignment guides'),
-    createPreference('cardGrouping', 'Use card grouping'),
+function createSelectPreference(
+    key: PreferenceKey,
+    label: string,
+    options: Array<{ value: string; label: string }>,
+): SelectPreference {
+    return {
+        type: UserPreferenceType.Select,
+        key,
+        label,
+        options,
+        value: computed({
+            get: () => (core.userProfile.preferences[key] as string) ?? options[0].value,
+            set: async (value: string) => {
+                core.userProfile.preferences[key] = value as any
+                await core.userProfile.save()
+                showSaveFeedback('preferences', key)
+            },
+        }),
+    }
+}
+
+const preferences: Preference[] = [
+    createSelectPreference('worldAlignment', 'Tabletop Alignment', [
+        { value: WorldAlignment.Center, label: 'Center' },
+        { value: WorldAlignment.TopRight, label: 'Top Right' },
+    ]),
+    createCheckboxPreference('glow', 'Highlight usable cards'),
+    createCheckboxPreference('alignmentGuides', 'Use alignment guides'),
+    createCheckboxPreference('cardGrouping', 'Use card grouping'),
 ]
 
 /** Keyboard shortcuts **/
@@ -429,20 +513,18 @@ $max-width: 1200px;
 /** Preferences **/
 
 .preference {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 5px;
-    margin-bottom: 8px;
-    cursor: pointer;
-
-    input {
-        cursor: pointer;
-    }
+    max-width: 400px;
+    padding-bottom: 20px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid $bone-grey;
 }
 
 .preference-label {
-    font-size: 20px;
+    font-size: 17px;
+}
+
+.preference-select {
+    min-width: 150px;
 }
 
 /** Shortcuts **/
