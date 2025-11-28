@@ -64,9 +64,35 @@
                         >
                             <div class="deck-info-left">
                                 <span class="source-badge">{{ deck.source }}</span>
-                                <span class="deck-name">{{ deck.name }}</span>
+                                <input
+                                    v-if="editingDeckId === deck.id"
+                                    ref="editInput"
+                                    v-model="editingDeckName"
+                                    class="deck-name-input"
+                                    @keyup.enter="saveEdit(deck as DbDeck)"
+                                    @keyup.escape="cancelEdit"
+                                />
+                                <span
+                                    v-else
+                                    class="deck-name"
+                                    >{{ deck.name }}</span
+                                >
                             </div>
                             <div class="deck-actions">
+                                <button
+                                    v-if="editingDeckId === deck.id"
+                                    class="action-btn ok-btn"
+                                    @click="saveEdit(deck as DbDeck)"
+                                >
+                                    OK
+                                </button>
+                                <button
+                                    v-else
+                                    class="action-btn edit-btn"
+                                    @click="startEdit(deck as DbDeck)"
+                                >
+                                    Edit name
+                                </button>
                                 <button
                                     class="action-btn load-btn"
                                     @click="loadFromHistory(deck as DbDeck)"
@@ -194,9 +220,32 @@
                         <h3 class="success-title">Deck Loaded Successfully!</h3>
                         <div class="success-message">
                             Your deck
-                            <strong>{{ core.selfDeck?.name ?? 'Unknown Deck' }}</strong> has been
+                            <strong>{{ core.selfDeck?.name ?? 'Unnamed Deck' }}</strong> has been
                             loaded and is ready to use.
                         </div>
+
+                        <!-- Deck name input for unnamed decks -->
+                        <div
+                            v-if="!core.selfDeck?.name"
+                            class="deck-name-section"
+                        >
+                            <label class="input-label">Give your deck a name:</label>
+                            <div class="deck-name-input-group">
+                                <input
+                                    v-model="successDeckName"
+                                    class="input-field"
+                                    placeholder="Enter deck name..."
+                                    @keyup.enter="saveDeckName"
+                                />
+                                <button
+                                    class="action-btn save-name-btn"
+                                    @click="saveDeckName"
+                                >
+                                    Save
+                                </button>
+                            </div>
+                        </div>
+
                         <div class="success-actions">
                             <button
                                 class="action-btn success-close-btn"
@@ -297,6 +346,67 @@ function loadFromHistory(deck: DbDeck) {
 async function removeFromHistory(deck: DbDeck) {
     await deck.delete()
     loadDeckHistory()
+}
+
+/** Deck Editing **/
+
+const editingDeckId = ref<number | null>(null)
+const editingDeckName = ref('')
+const editInput = ref<HTMLInputElement[]>([])
+
+function startEdit(deck: DbDeck) {
+    editingDeckId.value = deck.id
+    editingDeckName.value = deck.name
+    // Focus input on next tick
+    setTimeout(() => {
+        const input = editInput.value[0]
+        if (input) {
+            input.focus()
+            input.select()
+        }
+    }, 0)
+}
+
+async function saveEdit(deck: DbDeck) {
+    if (!editingDeckName.value.trim()) {
+        cancelEdit()
+        return
+    }
+
+    const name = editingDeckName.value.trim()
+    await db.decks.update(deck.id, { name })
+
+    // Update the current deck name if it's the one being edited
+    if (core.selfDeck?.id === deck.id) {
+        core.selfDeck.name = name
+    }
+
+    await loadDeckHistory()
+    cancelEdit()
+}
+
+function cancelEdit() {
+    editingDeckId.value = null
+    editingDeckName.value = ''
+}
+
+/** Success Tab Deck Naming **/
+
+const successDeckName = ref('')
+
+async function saveDeckName() {
+    const name = successDeckName.value.trim()
+    if (!name || !core.selfDeck?.id) {
+        return
+    }
+
+    await db.decks.update(core.selfDeck.id, { name })
+    // Update the current deck name
+    core.selfDeck.name = name
+    // Refresh history to reflect the change
+    await loadDeckHistory()
+    // Clear the input
+    successDeckName.value = ''
 }
 
 /** VDB Import **/
@@ -559,6 +669,30 @@ $max-width: 1200px;
         color: $pearl-grey;
         font-weight: 600;
     }
+}
+
+.deck-name-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    width: 100%;
+    max-width: 400px;
+    padding: 1.5rem;
+    background: $ash-grey;
+    border: 1px solid $bone-grey;
+
+    .input-label {
+        color: $ghost-white;
+    }
+}
+
+.deck-name-input-group {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.save-name-btn {
+    @include button-purple;
 }
 
 .success-actions {

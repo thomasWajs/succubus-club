@@ -3,12 +3,11 @@ import { acceptHMRUpdate, defineStore } from 'pinia'
 import { GameType } from '@/state/types.ts'
 import { Conductor } from '@/bot/conductor.ts'
 import { DbDeck, DbUserProfile } from '@/gateway/db.ts'
-import { Deck } from '@/gateway/deck.ts'
 import { shallowRef } from 'vue'
 import { storeAvatar } from '@/gateway/user.ts'
 
 const userProfile = await DbUserProfile.get()
-let lastDeck = null as Deck | null
+let lastDeck = null as DbDeck | null
 if (userProfile.lastDeckId) {
     lastDeck = await DbDeck.get(userProfile.lastDeckId)
 }
@@ -35,7 +34,7 @@ export const useCoreStore = defineStore('core', {
         gameStateIsReady: false,
 
         userProfile,
-        selfDeck: lastDeck as Deck | null,
+        selfDeck: lastDeck as DbDeck | null,
 
         conductor: null as Conductor | null,
     }),
