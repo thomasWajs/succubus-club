@@ -1,36 +1,81 @@
 <template>
     <div id="RightColumnPlayers">
         <div
-            v-for="player in gameState.players"
-            :key="player.oid"
-            class="player"
-            :class="{
-                acting: player === gameState.activePlayer,
-                ousted: player.isOusted,
-                disconnected: disconnectedPlayers[player.oid],
-            }"
+            class="header"
+            @click="isCollapsed = !isCollapsed"
         >
+            <span class="header-text">Connected ({{ connectedUsersCount }})</span>
             <span
-                v-if="player == gameState.activePlayer"
-                class="active-player"
-                >▶
-            </span>
-            <span v-if="disconnectedPlayers[player.oid]"> 🔌 </span>
-            <span v-if="player.isOusted"> 💀 </span>
-
-            <span
-                class="player-name"
-                :style="{ color: player.color.rgba }"
+                class="toggle-arrow"
+                :class="{ isCollapsed }"
+                >▼</span
             >
-                {{ player.shortName }}
-            </span>
+        </div>
+        <div v-if="!isCollapsed">
+            <div
+                v-for="player in gameState.players"
+                :key="player.oid"
+                class="player"
+                :class="{
+                    acting: player === gameState.activePlayer,
+                    ousted: player.isOusted,
+                    disconnected: disconnectedPlayers[player.oid],
+                }"
+            >
+                <span
+                    v-if="player == gameState.activePlayer"
+                    class="active-player"
+                    >▶
+                </span>
+
+                <span v-if="player.isOusted"> 💀 </span>
+                <span
+                    class="player-name"
+                    :style="{ color: player.color.rgba }"
+                >
+                    {{ player.shortName }}
+                </span>
+
+                <span
+                    v-if="player.isBot"
+                    class="role-icon"
+                >
+                    🤖
+                </span>
+                <span
+                    v-else-if="disconnectedPlayers[player.oid]"
+                    class="role-icon"
+                >
+                    🔌
+                </span>
+                <span
+                    v-else
+                    class="role-icon"
+                >
+                    👤
+                </span>
+            </div>
+
+            <template v-if="core.gameType == GameType.Multiplayer && spectatorUsers.length > 0">
+                <div class="separator" />
+                <div
+                    v-for="spectator in spectatorUsers"
+                    :key="spectator.permId"
+                    class="player spectator"
+                >
+                    <span class="player-name">
+                        {{ spectator.name }}
+                    </span>
+                    <span class="role-icon spectator-icon">👁️</span>
+                </div>
+            </template>
         </div>
     </div>
 </template>
 
 <script setup lang="ts">
 import { useGameStateStore } from '@/store/gameState.ts'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useMultiplayerStore } from '@/store/multiplayer.ts'
 import { GameType } from '@/state/types.ts'
 import { useCoreStore } from '@/store/core.ts'
@@ -38,6 +83,8 @@ import { useCoreStore } from '@/store/core.ts'
 const core = useCoreStore()
 const gameState = useGameStateStore()
 const multiplayer = useMultiplayerStore()
+
+const isCollapsed = ref(true)
 
 const disconnectedPlayers = computed(() => {
     if (core.gameType != GameType.Multiplayer) {
@@ -51,6 +98,23 @@ const disconnectedPlayers = computed(() => {
         ]),
     )
 })
+
+const spectatorUsers = computed(() => {
+    if (!multiplayer.currentGameRoom) {
+        return []
+    }
+    return multiplayer.currentGameRoom.spectators
+        .map(permId => multiplayer.users[permId])
+        .filter(user => user !== undefined)
+})
+
+const connectedUsersCount = computed(() => {
+    const playersCount = Object.values(gameState.players).filter(
+        player => !disconnectedPlayers.value[player.oid],
+    ).length
+    const spectatorsCount = spectatorUsers.value.length
+    return playersCount + spectatorsCount
+})
 </script>
 
 <style lang="scss" scoped>
@@ -61,6 +125,34 @@ $window-right: 340px;
 #RightColumnPlayers {
     margin: 4px 0;
     background: $right-column-section-bg;
+
+    .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 6px 8px;
+        cursor: pointer;
+        user-select: none;
+
+        .header-text {
+            flex: 1;
+        }
+
+        .toggle-arrow {
+            transition: transform 0.2s ease;
+            font-size: 12px;
+
+            &.isCollapsed {
+                transform: rotate(-90deg);
+            }
+        }
+    }
+
+    .separator {
+        height: 1px;
+        background: $mist-grey;
+        margin: 4px 0;
+    }
 
     .player {
         display: flex;
@@ -97,6 +189,12 @@ $window-right: 340px;
             color: $blood-red;
             flex-shrink: 0;
         }
+
+        .role-icon {
+            margin-left: auto;
+            flex-shrink: 0;
+            font-size: 14px;
+        }
     }
 
     .player-name {
@@ -106,27 +204,6 @@ $window-right: 340px;
         white-space: nowrap;
         min-width: 0; /* Important for ellipsis to work */
         flex-shrink: 1; /* Allows this element to shrink */
-    }
-
-    .pool-diamond {
-        display: inline-block;
-        width: 18px;
-        height: 18px;
-        background-color: white;
-        border: 2px solid $shadow-grey;
-        transform: rotate(45deg);
-        text-align: center;
-        line-height: 18px;
-        font-weight: bold;
-        font-size: 12px;
-        margin: 0 3px;
-        cursor: pointer;
-
-        // Counter-rotate the text so it appears upright
-        span {
-            transform: rotate(-45deg);
-            display: inline-block;
-        }
     }
 }
 </style>

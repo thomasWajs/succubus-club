@@ -105,6 +105,8 @@ export async function joinGameRoom(gameRoom: GameRoom, key?: Key) {
         multiplayer.currentGameRoomId = gameRoom.id
         if (canUserBeAPlayer(gameRoom, multiplayer.selfUser)) {
             multiplayer.upsertGameRoomPlayer(multiplayer.selfUser)
+        } else {
+            multiplayer.upsertGameRoomSpectator(multiplayer.selfUser)
         }
 
         // The host is responsible for sending game room updates to the other players
@@ -221,6 +223,8 @@ function onMemberJoin(presence: PresenceMessage) {
         if (gameRoom && !multiplayer.isHostConnected) {
             broadcastGameRoom(gameRoom)
         }
+    } else {
+        multiplayer.upsertGameRoomSpectator(user)
     }
 
     multiplayer.stats.peerJoins++
@@ -234,6 +238,7 @@ function onMemberLeave(presence: PresenceMessage) {
     if (user) {
         alertDisconnect(user)
         multiplayer.removeGameRoomPlayer(user)
+        multiplayer.removeGameRoomSpectator(user)
         multiplayer.stats.peerLeaves++
 
         // Special-case : host is not connected anymore, and can't broadcast with its watcher.

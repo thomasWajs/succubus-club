@@ -28,6 +28,7 @@ export type GameRoom = {
     allowSpectators: boolean
     players: PermanentId[] // permanentId in arbitrary order
     seating?: PermanentId[] // permanentId in the order of the seating
+    spectators: PermanentId[] // permanentId in arbitrary order
 }
 
 /**

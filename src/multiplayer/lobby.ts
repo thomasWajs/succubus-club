@@ -183,7 +183,10 @@ async function syncGameRooms(snapshot: DataSnapshot) {
             if (pruneChannels && !activeChannels.includes(roomId)) {
                 await deleteGameRoom(roomId)
             } else {
-                // multiplayer.upsertGameRoom(gameRoom as GameRoom)
+                // rtdb removes empty arrays, which breaks typescript assumptions, which sucks
+                if (!gameRoom.spectators) {
+                    gameRoom.spectators = []
+                }
                 gameRooms[roomId] = gameRoom
             }
         }
@@ -224,6 +227,7 @@ export async function createGameRoom(
         allowSpectators,
         players: [multiplayer.selfUser.permId],
         seating,
+        spectators: [],
     }
     multiplayer.upsertGameRoom(gameRoom)
     await joinGameRoom(gameRoom, key)

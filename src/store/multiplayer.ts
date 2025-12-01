@@ -135,5 +135,17 @@ export const useMultiplayerStore = defineStore('multiplayer', {
                 )
             }
         },
+        upsertGameRoomSpectator(user: User) {
+            if (this.currentGameRoom && !this.currentGameRoom.spectators.includes(user.permId)) {
+                this.currentGameRoom.spectators.push(user.permId)
+            }
+        },
+        removeGameRoomSpectator(user: User) {
+            if (this.currentGameRoom) {
+                this.currentGameRoom.spectators = this.currentGameRoom.spectators.filter(
+                    permId => permId !== user.permId,
+                )
+            }
+        },
     },
 })
