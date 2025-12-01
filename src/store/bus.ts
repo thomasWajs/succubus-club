@@ -219,11 +219,13 @@ export const useGameBusStore = defineStore('gameBus', {
         },
         removeFromCardGroup(card: Card) {
             const cardGroup = this.cardGroupsByCard[card.oid]
-            // If there's only 2 cards left, delete the card group entirely
-            if (cardGroup.size == 2) {
-                this.removeCardGroup(cardGroup)
-            } else {
-                cardGroup.delete(card.oid)
+            if (cardGroup) {
+                // If there's only 2 cards left, delete the card group entirely
+                if (cardGroup.size == 2) {
+                    this.removeCardGroup(cardGroup)
+                } else {
+                    cardGroup.delete(card.oid)
+                }
             }
         },
         removeCardGroup(cardGroup: CardGroup) {
