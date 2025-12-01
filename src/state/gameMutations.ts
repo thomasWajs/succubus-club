@@ -875,7 +875,7 @@ class MoveToBottom extends GameMutation<MoveToBottomParams> {
     getValidity() {
         // Can only send to the bottom of library and crypt
 
-        if (!this.params.toCardRegion.is.library || !this.params.toCardRegion.is.crypt) {
+        if (!(this.params.toCardRegion.is.library || this.params.toCardRegion.is.crypt)) {
             return Invalid(`Can only move to the bottom of library or crypt`)
         }
 
