@@ -130,6 +130,7 @@ import {
     WORLD_HEIGHT,
     WORLD_WIDTH,
     RIGHT_COLUMN_WIDTH,
+    TOP_AREA_X,
 } from '@/game/const.ts'
 import { Container, Rectangle, Text, useScene } from 'phavuer'
 import { useGameBusStore } from '@/store/bus.ts'
@@ -140,11 +141,14 @@ import Phaser, { GameObjects } from 'phaser'
 import EventData = Phaser.Types.Input.EventData
 import WieldCardStackActions from '@/ui/ingame/WieldCardStackActions.vue'
 import { display } from '@/game/display.ts'
+import { WorldAlignment } from '@/gateway/db.ts'
+import { useCoreStore } from '@/store/core.ts'
 
 const { cardRegion } = defineProps<{
     cardRegion: AnyCardRegion
 }>()
 
+const core = useCoreStore()
 const gameBus = useGameBusStore()
 const scene = useScene()
 
@@ -168,14 +172,27 @@ const INDICATOR_TEXT_STYLE = {
     wordWrap: { width: 1 },
 }
 
-/** Wield Actions positionning */
+/** Wield Actions positioning */
+
+const worldAlignment = computed(
+    () => core.userProfile.preferences.worldAlignment ?? WorldAlignment.Center,
+)
 
 const actionsStyle = computed(() => {
+    let right, top
+    if (worldAlignment.value == WorldAlignment.TopRight) {
+        right = RIGHT_COLUMN_WIDTH + display.horizontalPadding * display.scale
+        top = 0
+    } else {
+        right = RIGHT_COLUMN_WIDTH + display.horizontalSpaceAvailable / 2
+        top = display.verticalSpaceAvailable / 2
+    }
+
     return {
         width: `${wieldsActionsWidth}px`,
         height: `${wieldsActionsHeight}px`,
-        top: '0',
-        right: `${RIGHT_COLUMN_WIDTH + display.horizontalPadding * display.scale}px`,
+        top: `${top}px`,
+        right: `${right}px`,
         transform: `scale(${display.scale})`,
     }
 })
