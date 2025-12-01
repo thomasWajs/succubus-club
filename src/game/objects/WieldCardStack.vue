@@ -130,7 +130,6 @@ import {
     WORLD_HEIGHT,
     WORLD_WIDTH,
     RIGHT_COLUMN_WIDTH,
-    TOP_AREA_X,
 } from '@/game/const.ts'
 import { Container, Rectangle, Text, useScene } from 'phavuer'
 import { useGameBusStore } from '@/store/bus.ts'
