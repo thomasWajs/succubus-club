@@ -224,12 +224,15 @@ export const useGameStateStore = defineStore('gameState', {
             card.region.remove(card)
             to.insert(card, position)
 
-            // Deselect a card when moved out of the play area.
             // Game state is clearly not the ideal place to put this,
             // but it's the central point for moving cards around regions.
             // If someone has a better idea, feel free to refactor.
             if (wasInPlay && !card.isIn.play) {
-                useGameBusStore().removeFromSelection(card)
+                const gameState = useGameBusStore()
+                // Deselect a card when moved out of the play area.
+                gameState.removeFromSelection(card)
+                // Remove from card group when moved out of the play area.
+                gameState.removeFromCardGroup(card)
             }
         },
 
