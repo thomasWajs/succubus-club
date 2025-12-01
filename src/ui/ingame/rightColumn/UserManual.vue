@@ -6,6 +6,7 @@
                 <div class="info-item">The Edge is near the VP count</div>
                 <div class="info-item">Logs won't reveal cards to other players</div>
                 <div class="info-item">Only you can see your uncontrolled zone</div>
+                <div class="info-item">UI features are configurables in the user preferences</div>
             </div>
         </section>
 
