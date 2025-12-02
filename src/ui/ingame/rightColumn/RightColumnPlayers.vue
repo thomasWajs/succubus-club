@@ -179,31 +179,24 @@ $window-right: 340px;
             font-weight: bold;
         }
 
-        .the-edge-button {
-            width: 16px;
-            padding: 3px;
-            flex-shrink: 0;
-        }
-
         .disconnected {
             color: $blood-red;
             flex-shrink: 0;
         }
 
+        .player-name {
+            display: inline-block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            min-width: 0; /* Important for ellipsis to work */
+            flex-grow: 1;
+        }
+
         .role-icon {
-            margin-left: auto;
             flex-shrink: 0;
             font-size: 14px;
         }
-    }
-
-    .player-name {
-        display: inline-block;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        min-width: 0; /* Important for ellipsis to work */
-        flex-shrink: 1; /* Allows this element to shrink */
     }
 }
 </style>

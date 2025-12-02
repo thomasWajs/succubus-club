@@ -17,7 +17,15 @@
         @drag="onDrag"
         @dragend="onDragEndFromHand"
         @drop="onDrop"
-    />
+    >
+        <!-- Glow effect -->
+        <FxGlow
+            v-if="showGlowEffect"
+            :color="CARD_GLOW_COLOR.color"
+            :outerStrength="CARD_IN_HAND_GLOW_OUTER_STRENGTH"
+            :innerStrength="CARD_IN_HAND_GLOW_INNER_STRENGTH"
+        />
+    </Image>
 
     <Rectangle
         ref="cardOutline"
@@ -65,17 +73,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onUnmounted, ref, watchEffect, watch, toRef } from 'vue'
-import Phaser, { GameObjects } from 'phaser'
-import { Image, Rectangle, refObj, useScene } from 'phavuer'
+import { computed, ref, toRef } from 'vue'
+import { GameObjects } from 'phaser'
+import { Image, Rectangle, FxGlow, refObj } from 'phavuer'
 
 import {
     CARD_DRAGGING_ALPHA,
     CARD_GLOW_COLOR,
-    CARD_GLOW_INNER_STRENGTH,
-    CARD_GLOW_OUTER_STRENGTH,
-    CARD_GLOW_TWEEN_INNER_STRENGTH,
-    CARD_GLOW_TWEEN_OUTER_STRENGTH,
+    CARD_IN_HAND_GLOW_INNER_STRENGTH,
+    CARD_IN_HAND_GLOW_OUTER_STRENGTH,
     CARD_HEIGHT,
     CARD_IN_HAND_SCALE,
     CARD_OUTLINE_THICKNESS,
@@ -90,7 +96,6 @@ import { Card, LibraryCard } from '@/model/Card.ts'
 import { useGameBusStore } from '@/store/bus.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
 import { useCommands } from '@/game/composables/useCommands.ts'
-import Glow = Phaser.FX.Glow
 import { CardAttrs, RegionCategory, PhaserDataKey } from '@/game/types.ts'
 import { useCardDragDrop } from '@/game/composables/useCardDragDrop.ts'
 import ButtonGo from '@/game/objects/ButtonGo.vue'
@@ -108,7 +113,6 @@ const core = useCoreStore()
 const gameState = useGameStateStore()
 const gameBus = useGameBusStore()
 const commands = useCommands()
-const scene = useScene()
 const image = refObj<GameObjects.Image>()
 const dragPlaceholder = refObj<GameObjects.Image>()
 const cardOutline = refObj<GameObjects.Rectangle>()
@@ -163,9 +167,6 @@ const cardAttrs = computed((): CardAttrs => {
 function onImageCreate(image: GameObjects.Image) {
     image.setData(PhaserDataKey.CardOid, card.oid)
     image.setData(PhaserDataKey.CardAttrs, cardAttrs)
-
-    // Watch for usable and dragging state changes to toggle glow
-    watchEffect(toggleGlowEffect)
 }
 
 /**
@@ -281,75 +282,13 @@ function onDragEndFromHand() {
 }
 
 /**
- * Alignment guides
- */
-
-/**
  * Glow effect on usable card, depending on the phase of the turn.
  */
 
-let glowFx: Glow | undefined
-
-const glowEnabled = computed(() => core.userProfile.preferences.glow ?? true)
-watch(glowEnabled, () => toggleGlowEffect)
-
-function applyGlowEffect() {
-    if (glowFx || !image.value) {
-        return
-    }
-
-    glowFx = image.value.postFX?.addGlow(
-        CARD_GLOW_COLOR.color,
-        CARD_GLOW_OUTER_STRENGTH,
-        CARD_GLOW_INNER_STRENGTH,
-        false,
-    )
-
-    if (glowFx) {
-        if (CARD_GLOW_INNER_STRENGTH != CARD_GLOW_TWEEN_INNER_STRENGTH) {
-            scene.tweens.add({
-                targets: glowFx,
-                innerStrength: CARD_GLOW_TWEEN_INNER_STRENGTH,
-                yoyo: true,
-                loop: -1,
-                ease: 'sine.inout',
-            })
-        }
-
-        if (CARD_GLOW_OUTER_STRENGTH != CARD_GLOW_TWEEN_OUTER_STRENGTH) {
-            scene.tweens.add({
-                targets: glowFx,
-                outerStrength: CARD_GLOW_TWEEN_OUTER_STRENGTH,
-                yoyo: true,
-                loop: -1,
-                ease: 'sine.inout',
-            })
-        }
-    }
-}
-
-function removeGlowEffect() {
-    if (glowFx) {
-        image.value?.postFX?.remove(glowFx)
-        glowFx.setActive(false)
-        glowFx.destroy()
-        glowFx = undefined
-    }
-}
-
-function toggleGlowEffect() {
-    if (glowEnabled.value && card.isUsable() && !dragAttrs.isDragging) {
-        applyGlowEffect()
-    } else if (glowFx) {
-        removeGlowEffect()
-    }
-}
-
-onUnmounted(() => {
-    if (glowEnabled.value) {
-        removeGlowEffect()
-    }
-})
+const glowInHandEnabled = computed(() => core.userProfile.preferences.glowInHand ?? true)
+const showGlowEffect = computed(
+    () => glowInHandEnabled.value && card.isPlayable() && !dragAttrs.isDragging,
+)
 
 /**
  * Expose/Emit

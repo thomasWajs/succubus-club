@@ -89,91 +89,51 @@
             </div>
         </div>
 
-        <!-- Action Infos -->
         <div
-            v-if="gameState.action"
-            class="action-infos"
+            v-if="glowInPlayEnabled"
+            class="cards-during-current-phase"
         >
-            <div class="action-infos-column">
-                <strong>Action : {{ gameState.action.minionAction?.name }}</strong>
+            <span
+                class="cards-count"
+                :class="{ 'has-effect': gameState.cardsDuringCurrentPhase.length > 0 }"
+            >
+                {{ gameState.cardsDuringCurrentPhase.length }} cards with an effect
+            </span>
+        </div>
 
-                <span>Acting Minion : {{ gameState.action.actingMinion?.name }}</span>
+        <div class="central-box">
+            <!-- Action Infos -->
+            <div
+                v-if="gameState.action"
+                class="action-infos"
+            >
+                <div class="action-infos-column">
+                    <strong>Action : {{ gameState.action.minionAction?.name }}</strong>
 
-                <!-- <span>Is directed ? : {{ gameState.action.minionAction?.isDirected }}</span> -->
-                <!--  <span>Target : {{ gameState.action.minionAction.target?.name }}</span> -->
-                <span>
-                    Blocking Minion :
-                    <template v-if="gameState.action.blockingMinion">
-                        {{ gameState.action.blockingMinion?.name }}
-                    </template>
-                    <template v-else-if="gameState.action.blockingMinion == NO_BLOCK">
-                        No Block
-                    </template>
-                    <template v-else>?</template>
-                </span>
-            </div>
+                    <span>Acting Minion : {{ gameState.action.actingMinion?.name }}</span>
 
-            <div class="action-infos-column">
-                <div class="action-property">
-                    Stealth : {{ gameState.action.stealth }}
-                    <button
-                        class="game-button small"
-                        @click="
-                            gameMutations.ACTION_changeProperty.actSelf({
-                                propertyName: ActionProperty.stealth,
-                                amount: +1,
-                            })
-                        "
-                    >
-                        +1
-                    </button>
-                    <button
-                        class="game-button small"
-                        @click="
-                            gameMutations.ACTION_changeProperty.actSelf({
-                                propertyName: ActionProperty.stealth,
-                                amount: -1,
-                            })
-                        "
-                    >
-                        -1
-                    </button>
+                    <!-- <span>Is directed ? : {{ gameState.action.minionAction?.isDirected }}</span> -->
+                    <!--  <span>Target : {{ gameState.action.minionAction.target?.name }}</span> -->
+                    <span>
+                        Blocking Minion :
+                        <template v-if="gameState.action.blockingMinion">
+                            {{ gameState.action.blockingMinion?.name }}
+                        </template>
+                        <template v-else-if="gameState.action.blockingMinion == NO_BLOCK">
+                            No Block
+                        </template>
+                        <template v-else>?</template>
+                    </span>
                 </div>
 
-                <div class="action-property">
-                    Intercept : {{ gameState.action?.intercept }}
-                    <button
-                        class="game-button small"
-                        @click="
-                            gameMutations.ACTION_changeProperty.actSelf({
-                                propertyName: ActionProperty.intercept,
-                                amount: +1,
-                            })
-                        "
-                    >
-                        +1
-                    </button>
-                    <button
-                        class="game-button small"
-                        @click="
-                            gameMutations.ACTION_changeProperty.actSelf({
-                                propertyName: ActionProperty.intercept,
-                                amount: -1,
-                            })
-                        "
-                    >
-                        -1
-                    </button>
-                </div>
-
-                <div class="action-property">
-                    <template v-if="gameState.action.minionAction?.isBleed">
-                        Bleed : {{ gameState.action.bleed }}
+                <div class="action-infos-column">
+                    <div class="action-property">
+                        Stealth : {{ gameState.action.stealth }}
                         <button
                             class="game-button small"
                             @click="
                                 gameMutations.ACTION_changeProperty.actSelf({
-                                    propertyName: ActionProperty.bleed,
+                                    propertyName: ActionProperty.stealth,
                                     amount: +1,
                                 })
                             "
@@ -184,152 +144,207 @@
                             class="game-button small"
                             @click="
                                 gameMutations.ACTION_changeProperty.actSelf({
-                                    propertyName: ActionProperty.bleed,
+                                    propertyName: ActionProperty.stealth,
                                     amount: -1,
                                 })
                             "
                         >
                             -1
                         </button>
-                    </template>
-                </div>
+                    </div>
 
-                <div
-                    v-if="gameState.action.minionAction?.isHunt"
-                    class="action-property"
-                >
-                    Hunt : {{ gameState.action.hunt }}
-                    <button
-                        class="game-button small"
-                        @click="
-                            gameMutations.ACTION_changeProperty.actSelf({
-                                propertyName: ActionProperty.hunt,
-                                amount: +1,
-                            })
-                        "
-                    >
-                        +1
-                    </button>
-                    <button
-                        class="game-button small"
-                        @click="
-                            gameMutations.ACTION_changeProperty.actSelf({
-                                propertyName: ActionProperty.hunt,
-                                amount: -1,
-                            })
-                        "
-                    >
-                        -1
-                    </button>
-                </div>
-
-                <div class="action-property">
-                    <span style="white-space: nowrap">
-                        Impulse :
-                        <span
-                            class="inline-player-name"
-                            :style="{
-                                backgroundColor: gameState.action.impulsePlayer?.color.rgba,
-                            }"
+                    <div class="action-property">
+                        Intercept : {{ gameState.action?.intercept }}
+                        <button
+                            class="game-button small"
+                            @click="
+                                gameMutations.ACTION_changeProperty.actSelf({
+                                    propertyName: ActionProperty.intercept,
+                                    amount: +1,
+                                })
+                            "
                         >
-                            {{ gameState.action.impulsePlayer?.shortName }}
+                            +1
+                        </button>
+                        <button
+                            class="game-button small"
+                            @click="
+                                gameMutations.ACTION_changeProperty.actSelf({
+                                    propertyName: ActionProperty.intercept,
+                                    amount: -1,
+                                })
+                            "
+                        >
+                            -1
+                        </button>
+                    </div>
+
+                    <div class="action-property">
+                        <template v-if="gameState.action.minionAction?.isBleed">
+                            Bleed : {{ gameState.action.bleed }}
+                            <button
+                                class="game-button small"
+                                @click="
+                                    gameMutations.ACTION_changeProperty.actSelf({
+                                        propertyName: ActionProperty.bleed,
+                                        amount: +1,
+                                    })
+                                "
+                            >
+                                +1
+                            </button>
+                            <button
+                                class="game-button small"
+                                @click="
+                                    gameMutations.ACTION_changeProperty.actSelf({
+                                        propertyName: ActionProperty.bleed,
+                                        amount: -1,
+                                    })
+                                "
+                            >
+                                -1
+                            </button>
+                        </template>
+                    </div>
+
+                    <div
+                        v-if="gameState.action.minionAction?.isHunt"
+                        class="action-property"
+                    >
+                        Hunt : {{ gameState.action.hunt }}
+                        <button
+                            class="game-button small"
+                            @click="
+                                gameMutations.ACTION_changeProperty.actSelf({
+                                    propertyName: ActionProperty.hunt,
+                                    amount: +1,
+                                })
+                            "
+                        >
+                            +1
+                        </button>
+                        <button
+                            class="game-button small"
+                            @click="
+                                gameMutations.ACTION_changeProperty.actSelf({
+                                    propertyName: ActionProperty.hunt,
+                                    amount: -1,
+                                })
+                            "
+                        >
+                            -1
+                        </button>
+                    </div>
+
+                    <div class="action-property">
+                        <span style="white-space: nowrap">
+                            Impulse :
+                            <span
+                                class="inline-player-name"
+                                :style="{
+                                    backgroundColor: gameState.action.impulsePlayer?.color.rgba,
+                                }"
+                            >
+                                {{ gameState.action.impulsePlayer?.shortName }}
+                            </span>
                         </span>
-                    </span>
 
-                    <button
-                        class="game-button"
-                        :disabled="
-                            !gameState.action.selfHasImpulse || !gameState.action.canAttemptBlock
-                        "
-                        @click="
-                            gameMutations.ACTION_declareBlock.actSelf({
-                                blockingMinion: NO_BLOCK,
-                            })
-                        "
-                    >
-                        No block
-                    </button>
+                        <button
+                            class="game-button"
+                            :disabled="
+                                !gameState.action.selfHasImpulse ||
+                                !gameState.action.canAttemptBlock
+                            "
+                            @click="
+                                gameMutations.ACTION_declareBlock.actSelf({
+                                    blockingMinion: NO_BLOCK,
+                                })
+                            "
+                        >
+                            No block
+                        </button>
 
-                    <button
-                        class="game-button"
-                        :disabled="
-                            !gameState.action.selfHasImpulse || gameState.action.canAttemptBlock
-                        "
-                        @click="
-                            gameMutations.ACTION_declareReaction.actSelf({
-                                reaction: NO_REACTION,
-                            })
-                        "
-                    >
-                        Pass impulse
-                    </button>
+                        <button
+                            class="game-button"
+                            :disabled="
+                                !gameState.action.selfHasImpulse || gameState.action.canAttemptBlock
+                            "
+                            @click="
+                                gameMutations.ACTION_declareReaction.actSelf({
+                                    reaction: NO_REACTION,
+                                })
+                            "
+                        >
+                            Pass impulse
+                        </button>
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Combat Infos -->
-        <div v-if="gameState.combat">
-            <strong>Combat</strong>
+            <!-- Combat Infos -->
+            <div v-if="gameState.combat">
+                <strong>Combat</strong>
 
-            Acting Minion : {{ gameState.combat?.acting?.minion?.name }} <br />
-            Strength : {{ gameState.combat?.acting?.strength }} <br />
+                Acting Minion : {{ gameState.combat?.acting?.minion?.name }} <br />
+                Strength : {{ gameState.combat?.acting?.strength }} <br />
 
-            Defending Minion : {{ gameState.combat?.defending?.minion?.name }}
-            <br />
-            Strength : {{ gameState.combat?.defending?.strength }} <br />
-        </div>
+                Defending Minion : {{ gameState.combat?.defending?.minion?.name }}
+                <br />
+                Strength : {{ gameState.combat?.defending?.strength }} <br />
+            </div>
 
-        <div
-            v-if="multiplayer.selfIsHost && !timer.timerChosen.value"
-            class="timer-setup"
-        >
-            <span class="timer-setup-text">Start a 2h timer ? </span>
-            <button
-                class="game-button"
-                @click="timer.acceptTimer()"
+            <div
+                v-if="multiplayer.selfIsHost && !timer.timerChosen.value"
+                class="timer-setup"
             >
-                Yes
-            </button>
-            <button
-                class="game-button"
-                @click="timer.declineTimer()"
-            >
-                No
-            </button>
-        </div>
+                <span class="timer-setup-text">Start a 2h timer ? </span>
+                <button
+                    class="game-button"
+                    @click="timer.acceptTimer()"
+                >
+                    Yes
+                </button>
+                <button
+                    class="game-button"
+                    @click="timer.declineTimer()"
+                >
+                    No
+                </button>
+            </div>
 
-        <!-- Next Turn -->
-        <CommandButton
-            v-if="gameState.turnPhase == TurnPhase.Discard && gameState.selfIsActive"
-            class="next-turn"
-            :command="commands.AdvanceTurn"
-        >
-            Next Turn
-        </CommandButton>
-
-        <!-- The Edge Hint -->
-        <div
-            v-if="
-                gameState.turnPhase == TurnPhase.Unlock &&
-                gameState.theEdgeController &&
-                gameState.theEdgeController == gameState.activePlayer
-            "
-            id="TheEdgeHint"
-        >
-            <span
-                class="inline-player-name"
-                :style="{
-                    backgroundColor: gameState.theEdgeController.color.rgba,
-                }"
+            <!-- Next Turn -->
+            <CommandButton
+                v-if="gameState.turnPhase == TurnPhase.Discard && gameState.selfIsActive"
+                class="next-turn"
+                :command="commands.AdvanceTurn"
             >
-                {{ gameState.theEdgeController.name }}
-            </span>
-            controls The Edge
-            <img
-                src="/assets/theEdgeTeal.webp"
-                class="theEdgeImage"
-            />
-            and can gain 1 pool from the blood bank
+                Next Turn
+            </CommandButton>
+
+            <!-- The Edge Hint -->
+            <div
+                v-if="
+                    gameState.turnPhase == TurnPhase.Unlock &&
+                    gameState.theEdgeController &&
+                    gameState.theEdgeController == gameState.activePlayer
+                "
+                id="TheEdgeHint"
+            >
+                <span
+                    class="inline-player-name"
+                    :style="{
+                        backgroundColor: gameState.theEdgeController.color.rgba,
+                    }"
+                >
+                    {{ gameState.theEdgeController.name }}
+                </span>
+                controls The Edge
+                <img
+                    src="/assets/theEdgeTeal.webp"
+                    class="theEdgeImage"
+                />
+                and can gain 1 pool from the blood bank
+            </div>
         </div>
 
         <!-- Permanent Mutations -->
@@ -382,6 +397,7 @@ const multiplayer = useMultiplayerStore()
 const commands = useCommands()
 const timer = useTimer()
 
+const glowInPlayEnabled = computed(() => core.userProfile.preferences.glowInPlay ?? true)
 const worldAlignment = computed(
     () => core.userProfile.preferences.worldAlignment ?? WorldAlignment.Center,
 )
@@ -504,7 +520,6 @@ function forwardPointerEvent(event: PointerEvent) {
     padding: 6px 0;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
     transform-origin: top left;
     overflow: hidden;
 }
@@ -610,6 +625,27 @@ function forwardPointerEvent(event: PointerEvent) {
         padding: 2px 5px;
         font-size: 14px;
     }
+}
+
+.cards-during-current-phase {
+    display: flex;
+    justify-content: end;
+    padding-top: 5px;
+
+    .cards-count {
+        background-color: $pale-grey;
+        padding: 3px 5px;
+
+        &.has-effect {
+            background-color: darken(desaturate(rgba(180, 90, 40, 0.8), 15%), 5%);
+            transition: background-color 0.4s linear;
+        }
+    }
+}
+
+.central-box {
+    @include flex-center;
+    flex-grow: 1;
 }
 
 .action-infos {

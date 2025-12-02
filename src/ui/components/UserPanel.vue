@@ -372,7 +372,8 @@ const preferences: Preference[] = [
         { value: WorldAlignment.Center, label: 'Center' },
         { value: WorldAlignment.TopRight, label: 'Top Right' },
     ]),
-    createCheckboxPreference('glow', 'Highlight usable cards'),
+    createCheckboxPreference('glowInHand', 'Highlight playable cards in hand'),
+    createCheckboxPreference('glowInPlay', 'Highlight cards in play with a "during X do Y" effect'),
     createCheckboxPreference('alignmentGuides', 'Use alignment guides'),
     createCheckboxPreference('cardGrouping', 'Use card grouping'),
 ]
@@ -513,7 +514,7 @@ $max-width: 1200px;
 /** Preferences **/
 
 .preference {
-    max-width: 400px;
+    max-width: 550px;
     padding-bottom: 20px;
     margin-bottom: 20px;
     border-bottom: 1px solid $bone-grey;

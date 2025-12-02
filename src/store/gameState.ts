@@ -120,6 +120,12 @@ export const useGameStateStore = defineStore('gameState', {
             return owners
         },
 
+        /**
+         * Cards with an effect in the current phase
+         */
+        cardsDuringCurrentPhase: (state): Card[] =>
+            Object.values(state.cards).filter(card => card.isDuringCurrentPhase()),
+
         // May be undefined for spectators
         selfPlayerOid: (state): PlayerOid | undefined =>
             state.usersToPlayer[useCoreStore().userProfile.permanentId],
@@ -164,6 +170,7 @@ export const useGameStateStore = defineStore('gameState', {
 
         // Trigger special layout for 2-players games
         is2pGame: state => Object.keys(state.players).length == 2,
+
         /**
          * Return a neighbour player, starting at central player
          * 0 will return self player, 1 will return prey, 2 will return grandprey, etc...

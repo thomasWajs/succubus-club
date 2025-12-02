@@ -40,7 +40,7 @@
         "firebase": "^12.4.0",
         "idle-js": "^1.2.0",
         "phaser": "^3.90.0",
-        "phavuer": "^0.16.5",
+        "phavuer": "^0.19.6",
         "pinia": "^3.0.3",
         "safe-stable-stringify": "^2.5.0",
         "vue": "^3.5.17",

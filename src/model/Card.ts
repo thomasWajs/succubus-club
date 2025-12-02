@@ -238,6 +238,29 @@ export abstract class Card extends BaseModel {
         return useGameBusStore().selectedCards.includes(this)
     }
 
+    // Does the cards have a "during X phase" that apply in the current state ?
+    isDuringCurrentPhase() {
+        // Glow only card that are controlled
+        if (!this.isIn.controlled) {
+            return false
+        }
+
+        const gameState = useGameStateStore()
+        const text = this.resource.text
+        const phase = gameState.turnPhase.toLowerCase()
+
+        return (
+            // Match "during each [...] phase"
+            new RegExp(`during each(.)*${phase} phase`, 'i').test(text) ||
+            // Match "during their [...] phase"
+            (this.region.owner == gameState.activePlayer &&
+                new RegExp(`during(.)*their(.)*${phase} phase`, 'i').test(text)) ||
+            // Match "during your [...] phase"
+            (this.controller == gameState.activePlayer &&
+                new RegExp(`during your ${phase} phase`, 'i').test(text))
+        )
+    }
+
     abstract get backTexture(): CardTexture
 
     get texture(): CardTexture {
@@ -370,7 +393,7 @@ export class LibraryCard extends Card {
         return LIB_CARD_IMPLEMENTATIONS[this.krcgId]
     }
 
-    isUsable() {
+    isPlayable() {
         const gameState = useGameStateStore()
         const resource = this.resource
         // A card may have multiples types, we must check each of them

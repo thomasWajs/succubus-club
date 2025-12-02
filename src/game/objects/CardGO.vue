@@ -34,7 +34,15 @@
         @drag="dispatchDrag"
         @dragend="dispatchDragEnd"
         @drop="dispatchDrop"
-    />
+    >
+        <!-- Glow effect -->
+        <FxGlow
+            v-if="showGlowEffect"
+            :color="CARD_GLOW_COLOR.color"
+            :outerStrength="CARD_IN_PLAY_GLOW_OUTER_STRENGTH"
+            :innerStrength="CARD_IN_PLAY_GLOW_INNER_STRENGTH"
+        />
+    </Image>
 
     <!-- Card Outline -->
     <Rectangle
@@ -205,10 +213,11 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, toRef, watch } from 'vue'
 import Phaser, { GameObjects } from 'phaser'
-import { Circle, Image, Rectangle, refObj, Text } from 'phavuer'
+import { Circle, Image, Rectangle, refObj, Text, FxGlow } from 'phavuer'
 import {
     BLOOD_COUNTER_FILL_COLOR,
     CARD_DRAGGING_ALPHA,
+    CARD_GLOW_COLOR,
     CARD_HEIGHT,
     CARD_IN_PLAY_BASE_SCALE,
     CARD_OUTLINE_THICKNESS,
@@ -226,6 +235,8 @@ import {
     MARKERS_FILL_COLOR,
     MARKERS_TEXT_STYLE,
     OVERLAY_BUTTON_SIZE,
+    CARD_IN_PLAY_GLOW_INNER_STRENGTH,
+    CARD_IN_PLAY_GLOW_OUTER_STRENGTH,
 } from '@/game/const.ts'
 import { Card } from '@/model/Card.ts'
 import { useGameBusStore } from '@/store/bus.ts'
@@ -238,6 +249,7 @@ import { useCommands } from '@/game/composables/useCommands.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
 import Pointer = Phaser.Input.Pointer
 import { useCardDragDrop } from '@/game/composables/useCardDragDrop.ts'
+import { useCoreStore } from '@/store/core.ts'
 
 const { card, regionName } = defineProps<{
     card: Card
@@ -246,6 +258,7 @@ const { card, regionName } = defineProps<{
 
 const key = computed(() => regionName + card.oid.toString())
 
+const core = useCoreStore()
 const gameState = useGameStateStore()
 const gameBus = useGameBusStore()
 const commands = useCommands()
@@ -336,6 +349,15 @@ function startRotationTween(newAttrs: CardAttrs, oldAttrs: CardAttrs) {
         onComplete: () => (isTweening.value = false),
     }
 }
+
+/**
+ * Glow effect on usable card, depending on the phase of the turn.
+ */
+
+const glowInPlayEnabled = computed(() => core.userProfile.preferences.glowInPlay ?? true)
+const showGlowEffect = computed(
+    () => glowInPlayEnabled.value && card.isDuringCurrentPhase() && !dragAttrs.isDragging,
+)
 
 /**
  * Bring to top

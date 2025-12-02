@@ -44,10 +44,10 @@ export const CARD_OUTLINE_COLOR_SELECTED = new Color(140, 70, 255)
 export const CARD_OUTLINE_COLOR_INDIRECT_HOVER = CARD_OUTLINE_COLOR_HOVER.clone().desaturate(35)
 
 export const CARD_GLOW_COLOR = new Color(180, 90, 40)
-export const CARD_GLOW_INNER_STRENGTH = 0
-export const CARD_GLOW_TWEEN_INNER_STRENGTH = 0
-export const CARD_GLOW_OUTER_STRENGTH = 2
-export const CARD_GLOW_TWEEN_OUTER_STRENGTH = 2
+export const CARD_IN_HAND_GLOW_INNER_STRENGTH = 0
+export const CARD_IN_HAND_GLOW_OUTER_STRENGTH = 2
+export const CARD_IN_PLAY_GLOW_INNER_STRENGTH = 0
+export const CARD_IN_PLAY_GLOW_OUTER_STRENGTH = 3
 
 /**
  * Play Area Dimensions
