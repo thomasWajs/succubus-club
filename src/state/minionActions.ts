@@ -20,7 +20,7 @@ export abstract class MinionAction {
 
     protected constructor(
         public actingMinion: Minion,
-        public target?: Card | Minion | Player,
+        public target?: Card | Player,
     ) {}
 
     get isUndirected() {

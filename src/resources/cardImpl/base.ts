@@ -6,7 +6,7 @@ import { Validity } from '@/state/types.ts'
 // Needs to be evolved to account for multi-discipline cards and multi-type cards
 export type ActionCardUsage = {
     level?: DisciplineLevel
-    target?: Card | Minion | Player
+    target?: Card | Player
 }
 
 export type ActionModifierUsage = {
