@@ -1,3 +1,16 @@
+## [0.5.1] - 2025-12-04
+
+Features:
+- Highlight cards usable "during" the current phase
+- List connected spectators
+- Edit name of an imported deck
+- Chose world alignment in preferences
+- Enhance card grouping
+
+Bugfix:
+- A ton of fixes on drag'n'drop scaling/offset
+- "Move to the bottom" works again
+
 ## [0.5.0] - 2025-11-27
 
 Features:

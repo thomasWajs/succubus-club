@@ -1,17 +1,12 @@
 export const latestChangelog = {
-    version: '0.5.0',
-    date: '2025-11-27',
+    version: '0.5.1',
+    date: '2025-12-04',
     features: [
-        'Dedicated UI for 2 players',
-        'User preferences for disabling UI features',
-        'Card grouping in play',
-        'Alignment guides in play',
-        'Highlight cards in hands usable in the current phase',
-        'Animate card lock/unlock',
+        'Highlight cards usable "during" the current phase',
+        'List connected spectators',
+        'Edit name of an imported deck',
+        'Chose world alignment in preferences',
+        'Enhance card grouping',
     ],
-    bugfixes: [
-        'Last oust now gives 2 VP',
-        'Cards dragged on lib/crypt now always go on top',
-        'Prevent infinite loop on the bot',
-    ],
+    bugfixes: ["A ton of fixes on drag'n'drop scaling/offset", '"Move to the bottom" works again'],
 }
