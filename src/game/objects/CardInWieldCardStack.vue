@@ -19,7 +19,7 @@
         :texture="card.displayedTexture.textureName"
         :frame="card.displayedTexture.frameName"
         :alpha="dragAttrs.isDragging ? CARD_DRAGGING_ALPHA : 1"
-        :scale="dragAttrs.isDragging ? dragAttrs.scale : cardAttrs.scale"
+        :scale="dragAttrs.isDragging ? dragAttrs.cardScale : cardAttrs.scale"
         @create="onImageCreate"
         @pointerover="onPointerOver"
         @pointerout="onPointerOut"

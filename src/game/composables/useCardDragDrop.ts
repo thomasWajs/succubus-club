@@ -153,7 +153,8 @@ export function useCardDragDrop(
         localY: 0,
         deltaX: 0,
         deltaY: 0,
-        scale: cardAttrsRef.value.scale,
+        cardScale: cardAttrsRef.value.scale,
+        scaleRatio: 1,
     })
 
     function onDragStart(originCard?: Card) {
@@ -170,9 +171,10 @@ export function useCardDragDrop(
         dragAttrs.localX = card.x
         dragAttrs.localY = card.y
         // Delta is used only for multi-card drag. Else default to 0 and have no effect
-        dragAttrs.deltaX = card.x - (originCard?.x ?? card.x)
-        dragAttrs.deltaY = card.y - (originCard?.y ?? card.y)
-        dragAttrs.scale = cardAttrsRef.value.scale
+        dragAttrs.deltaX = originCard ? card.x - originCard.x : 0
+        dragAttrs.deltaY = originCard ? card.y - originCard.y : 0
+        dragAttrs.cardScale = cardAttrsRef.value.scale
+        dragAttrs.scaleRatio = 1
 
         gameBus.cardGroupCandidate = null
         if (!originCard || card == originCard) {
@@ -193,10 +195,12 @@ export function useCardDragDrop(
         // Special case for multi-card drag :
         // we need to update the drag position based on the delta of the origin card
         if (originDragAttrs && (dragAttrs.deltaX != 0 || dragAttrs.deltaY != 0)) {
-            dragAttrs.x = originDragAttrs.x + dragAttrs.deltaX
-            dragAttrs.y = originDragAttrs.y + dragAttrs.deltaY
+            dragAttrs.x = originDragAttrs.x + dragAttrs.deltaX * originDragAttrs.scaleRatio
+            dragAttrs.y = originDragAttrs.y + dragAttrs.deltaY * originDragAttrs.scaleRatio
             dragAttrs.localX = originDragAttrs.localX + dragAttrs.deltaX
             dragAttrs.localY = originDragAttrs.localY + dragAttrs.deltaY
+            dragAttrs.cardScale = originDragAttrs.cardScale
+            dragAttrs.scaleRatio = originDragAttrs.scaleRatio
             return
         }
 
@@ -204,32 +208,32 @@ export function useCardDragDrop(
         // We use the dragged position and card scale as is.
         let posX = dragX - (cardAttrs.offsetX ?? 0)
         let posY = dragY - (cardAttrs.offsetY ?? 0)
-        dragAttrs.scale = cardAttrs.scale
+        dragAttrs.cardScale = cardAttrs.scale
+        dragAttrs.scaleRatio = 1
 
         // Above a region :
         // - override with the scale of the region
         // - snap the position to the grid
         // - display alignment guides
+        // - search for a card group candidate
         if (
             gameBus.dragOver.gameObjects.target &&
             gameBus.dragOver.cardRegion &&
             gameBus.dragOver.regionCategory
         ) {
             const cardRegion = gameBus.dragOver.cardRegion
-
-            dragAttrs.scale = getCardScale(gameBus.dragOver.regionCategory, cardRegion)
-
             const isOverPlayArea = gameBus.dragOver.regionCategory == RegionCategory.Table
             const fromContainer = gameBus.dragOver.gameObjects.cardImage.parentContainer
             const toContainer = gameBus.dragOver.gameObjects.target.parentContainer
+            const scaleRatio = toContainer.scale / fromContainer.scale
 
-            // Difference between the origin and target container
-            const containerOffsetX = toContainer.x - fromContainer.x
-            const containerOffsetY = toContainer.y - fromContainer.y
+            dragAttrs.cardScale =
+                getCardScale(gameBus.dragOver.regionCategory, cardRegion) * scaleRatio
+            dragAttrs.scaleRatio = scaleRatio
 
             // Position in the container referential
-            let localX = posX - containerOffsetX
-            let localY = posY - containerOffsetY
+            let localX = posX
+            let localY = posY
 
             // Over playArea from outside ( hand, stack, another playArea ).
             if (isOverPlayArea && fromContainer != toContainer) {
@@ -267,11 +271,13 @@ export function useCardDragDrop(
             // Card group outline
             gameBus.cardGroupCandidate = findCardGroupCandidate(cardRegion, localX, localY)
 
-            posX = localX + containerOffsetX
-            posY = localY + containerOffsetY
-
             dragAttrs.localX = localX
             dragAttrs.localY = localY
+
+            const worldPoint = toContainer.getWorldTransformMatrix().transformPoint(localX, localY)
+            const localPoint = fromContainer.getLocalPoint(worldPoint.x, worldPoint.y)
+            posX = localPoint.x
+            posY = localPoint.y
         }
 
         dragAttrs.x = posX
@@ -282,7 +288,7 @@ export function useCardDragDrop(
         dragAttrs.isDragging = false
         dragAttrs.deltaX = 0
         dragAttrs.deltaY = 0
-        dragAttrs.scale = cardAttrsRef.value.scale
+        dragAttrs.cardScale = cardAttrsRef.value.scale
         gameBus.cardGroupCandidate = null
         gameBus.dragAttrs = null
     }

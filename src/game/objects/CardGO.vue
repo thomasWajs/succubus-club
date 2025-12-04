@@ -18,12 +18,20 @@
         ref="image"
         :key="key + 'image'"
         :origin="0.5"
-        :x="dragAttrs.isDragging ? dragAttrs.x + (cardAttrs.offsetX ?? 0) : cardAttrs.x"
-        :y="dragAttrs.isDragging ? dragAttrs.y + (cardAttrs.offsetY ?? 0) : cardAttrs.y"
+        :x="
+            dragAttrs.isDragging ?
+                dragAttrs.x + (cardAttrs.offsetX ?? 0) * dragAttrs.scaleRatio
+            :   cardAttrs.x
+        "
+        :y="
+            dragAttrs.isDragging ?
+                dragAttrs.y + (cardAttrs.offsetY ?? 0) * dragAttrs.scaleRatio
+            :   cardAttrs.y
+        "
         :texture="card.displayedTexture.textureName"
         :frame="card.displayedTexture.frameName"
         :alpha="dragAttrs.isDragging ? CARD_DRAGGING_ALPHA : 1"
-        :scale="dragAttrs.isDragging ? dragAttrs.scale : cardAttrs.scale"
+        :scale="dragAttrs.isDragging ? dragAttrs.cardScale : cardAttrs.scale"
         :rotation="cardAttrs.rotation"
         :tween="rotationTween"
         @create="onImageCreate"

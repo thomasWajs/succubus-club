@@ -58,7 +58,8 @@ export type DragAttrs = {
     localY: number // Y position of the dragged card, relative to the target container
     deltaX: number // X distance from the dragged card origin
     deltaY: number // Y distance from the dragged card origin
-    scale: number
+    cardScale: number // scale of the dragged card
+    scaleRatio: number // scale ratio of the origin container compared to the target container
 }
 
 export type CardDragEvent = {
