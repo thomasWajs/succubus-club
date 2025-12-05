@@ -13,30 +13,22 @@
             v-if="firstCard.isIn.controlled"
             :closeOnClick="true"
             :command="commands.DeclareTarget"
-        >
-            Declare target
-        </CommandContextMenuButton>
+        />
 
         <CommandContextMenuButton
             v-if="firstCard.isIn.uncontrolled"
             :command="commands.Influence"
-        >
-            Influence
-        </CommandContextMenuButton>
+        />
 
         <CommandContextMenuButton
             v-if="firstCard.isIn.play"
             :command="commands.GainBlood"
-        >
-            Gain Blood
-        </CommandContextMenuButton>
+        />
 
         <CommandContextMenuButton
             v-if="firstCard.isIn.play"
             :command="commands.BurnBlood"
-        >
-            Burn Blood
-        </CommandContextMenuButton>
+        />
 
         <CommandContextMenuButton
             v-if="firstCard.isIn.controlled"
@@ -56,9 +48,7 @@
             v-if="firstCard.isIn.controlled"
             :command="commands.Flip"
             :closeOnClick="true"
-        >
-            Flip
-        </CommandContextMenuButton>
+        />
 
         <SubmenuContextMenuButton
             v-if="firstCard.isIn.controlled"
@@ -93,17 +83,13 @@
             v-if="firstCard.isIn.controlled || firstCard.isIn.hand"
             :command="commands.MoveToAshHeap"
             :closeOnClick="true"
-        >
-            Move to Ash Heap
-        </CommandContextMenuButton>
+        />
 
         <CommandContextMenuButton
             v-if="!firstCard.isIn.removed"
             :command="commands.RemoveFromGame"
             :closeOnClick="true"
-        >
-            Remove From Game
-        </CommandContextMenuButton>
+        />
 
         <ContextMenuButton
             v-if="!firstCard.isIn.uncontrolled && !firstCard.isIn.crypt"
@@ -136,6 +122,12 @@
         >
             Move to Bottom of Crypt
         </ContextMenuButton>
+
+        <CommandContextMenuButton
+            v-if="firstCard.isIn.play"
+            :command="commands.PingCard"
+            :closeOnClick="true"
+        />
 
         <ContextMenuButton
             v-if="firstCard.isIn.controlled && core.gameType == GameType.TrainBot"

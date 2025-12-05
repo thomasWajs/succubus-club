@@ -43,13 +43,15 @@
         @dragend="dispatchDragEnd"
         @drop="dispatchDrop"
     >
-        <!-- Glow effect -->
+        <!-- Glow effect for "isDuringCurrentPhase" -->
         <FxGlow
             v-if="showGlowEffect"
             :color="CARD_GLOW_COLOR.color"
             :outerStrength="CARD_IN_PLAY_GLOW_OUTER_STRENGTH"
             :innerStrength="CARD_IN_PLAY_GLOW_INNER_STRENGTH"
         />
+
+        <PingCardFX v-if="gameBus.pingedCards.includes(card.oid)" />
     </Image>
 
     <!-- Card Outline -->
@@ -258,6 +260,7 @@ import { useGameStateStore } from '@/store/gameState.ts'
 import Pointer = Phaser.Input.Pointer
 import { useCardDragDrop } from '@/game/composables/useCardDragDrop.ts'
 import { useCoreStore } from '@/store/core.ts'
+import PingCardFX from '@/game/objects/PingCardFX.vue'
 
 const { card, regionName } = defineProps<{
     card: Card

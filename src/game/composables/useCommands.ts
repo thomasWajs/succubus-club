@@ -429,6 +429,18 @@ function createCommands(): Commands {
                 })
             },
         }),
+
+        PingCard: createCardCommand({
+            name: 'PingCard',
+            label: 'Ping Card',
+            repr: 'P',
+            keyCodes: [KeyCodes.P],
+            cardAction: (card: Card) => {
+                gameMutations.UI_pingCard.actSelf({
+                    card,
+                })
+            },
+        }),
     })
 }
 

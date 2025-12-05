@@ -96,6 +96,7 @@
             <span
                 class="cards-count"
                 :class="{ 'has-effect': gameState.cardsDuringCurrentPhase.length > 0 }"
+                @click="pingCardsDuringCurrentPhase"
             >
                 {{ gameState.cardsDuringCurrentPhase.length }} cards with an effect
             </span>
@@ -378,7 +379,7 @@ import { useGameStateStore } from '@/store/gameState.ts'
 import { TOP_AREA_HEIGHT, TOP_AREA_WIDTH, TOP_AREA_X, WORLD_WIDTH } from '@/game/const.ts'
 import { gameMutations } from '@/state/gameMutations.ts'
 import { TurnPhase, TurnSequence } from '@/model/const.ts'
-import { ActionProperty, NO_BLOCK, NO_REACTION } from '@/state/actionState.ts'
+import { NO_BLOCK } from '@/state/actionState.ts'
 import { display } from '@/game/display.ts'
 import { useCommands } from '@/game/composables/useCommands.ts'
 import CommandButton from '@/ui/ingame/CommandButton.vue'
@@ -437,6 +438,18 @@ function togglePause() {
         timer.dispatchStartTimer(gameState.timerRemainingTime)
     } else {
         timer.dispatchPauseTimer(gameState.timerRemainingTime)
+    }
+}
+
+/**
+ * Cards during current phase
+ */
+
+function pingCardsDuringCurrentPhase() {
+    for (const card of gameState.cardsDuringCurrentPhase) {
+        // We ping directly through the game bus, and not through a gameMutation
+        // because we don't want to spam other players.
+        gameBus.pingCard(card.oid)
     }
 }
 
@@ -639,6 +652,7 @@ function forwardPointerEvent(event: PointerEvent) {
         &.has-effect {
             background-color: darken(desaturate(rgba(180, 90, 40, 0.8), 15%), 5%);
             transition: background-color 0.4s linear;
+            cursor: pointer;
         }
     }
 }

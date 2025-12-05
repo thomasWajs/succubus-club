@@ -4,7 +4,9 @@
         :disabled="command.isDisabled()"
         :closeOnClick="closeOnClick"
     >
-        <slot />
+        <slot>
+            {{ command.label }}
+        </slot>
 
         <template #right>
             <kbd v-if="command.repr">{{ command.repr }}</kbd>

@@ -9,6 +9,7 @@ import { AlignmentGuide } from '@/state/types.ts'
 import { CardGroup, CardInGame, DragAttrs, DragOver, PlayerInGame } from '@/game/types.ts'
 import Rectangle = Phaser.Geom.Rectangle
 import Vector2Like = Phaser.Types.Math.Vector2Like
+import { CARD_PING_DURATION } from '@/game/const.ts'
 
 export enum AlertState {
     Error = 'error',
@@ -98,6 +99,9 @@ export const useGameBusStore = defineStore('gameBus', {
 
         /** Target declaration **/
         declaringTargetOrigin: null as Card | null,
+
+        /** Card ping **/
+        pingedCards: [] as CardOid[],
 
         /** Hand **/
         handDropGapPosition: null as null | number,
@@ -230,6 +234,14 @@ export const useGameBusStore = defineStore('gameBus', {
         },
         removeCardGroup(cardGroup: CardGroup) {
             this.cardGroups = this.cardGroups.filter(cg => cg != cardGroup)
+        },
+
+        pingCard(cardOid: CardOid) {
+            this.pingedCards.push(cardOid)
+            // Remove the ping after CARD_PING_DURATION milliseconds
+            setTimeout(() => {
+                this.pingedCards = this.pingedCards.filter(c => c != cardOid)
+            }, CARD_PING_DURATION * 2)
         },
     },
 })

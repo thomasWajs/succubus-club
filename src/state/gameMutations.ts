@@ -32,7 +32,7 @@ import {
 import { CombatantMinion, CombatState } from '@/state/combatState.ts'
 import { useCoreStore } from '@/store/core.ts'
 import { broadcastGameMutation } from '@/multiplayer/room.ts'
-import { useBusStore } from '@/store/bus.ts'
+import { useBusStore, useGameBusStore } from '@/store/bus.ts'
 import { MutationSyncMode, VersioningId, VersioningTarget } from '@/multiplayer/types.ts'
 import { hashObject } from '@/gateway/serialization.ts'
 import { isRevealedToViewer } from '@/state/cardVisibility.ts'
@@ -1643,6 +1643,26 @@ class PauseTimer extends GameMutation<TimerParams> {
 }
 
 /**
+ * UI : Ping Card
+ */
+
+class PingCard extends CardMutation {
+    isCancellable = false
+    isUserCancellable = false
+    readonly syncMode = MutationSyncMode.Merge
+
+    getValidity() {
+        // Can apply only to cards in play
+        return this.params.card.isIn.play ? VALID : Invalid('Cannot ping cards out of play')
+    }
+
+    protected updateGameState() {
+        // This one is kinda special : we update the game bus instead of the game state
+        useGameBusStore().pingCard(this.params.card.oid)
+    }
+}
+
+/**
  * Mutation handling
  */
 
@@ -1820,6 +1840,7 @@ export const gameMutations = {
     UI_changeScale: defineMutation(ChangeScale),
     UI_startTimer: defineMutation(StartTimer),
     UI_pauseTimer: defineMutation(PauseTimer),
+    UI_pingCard: defineMutation(PingCard),
 }
 
 // Set mutation name on each GameMutation subclasses
