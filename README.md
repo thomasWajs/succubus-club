@@ -82,6 +82,7 @@ A very special thanks to the crash-test team, who endured the pain of the buggy 
 An immense thanks to the amazing people who have financially supported this project. Your support is the blood that keeps this project alive!
  - Juan Carlos Eruntalon
  - tryptych
+ - Diego Farras
 
 ---
 

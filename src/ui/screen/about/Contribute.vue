@@ -82,6 +82,7 @@
         <ul class="blood-list">
             <li>Juan Carlos Eruntalon</li>
             <li>tryptych</li>
+            <li>Diego Farras</li>
         </ul>
 
         <h1>Testers</h1>
