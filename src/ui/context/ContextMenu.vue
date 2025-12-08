@@ -67,6 +67,20 @@
         </CommandContextMenuButton>
 
         <ContextMenuButton
+            v-if="firstCard.isIn.library || firstCard.isIn.crypt"
+            :closeOnClick="true"
+            :cardAction="
+                (card: Card) =>
+                    gameMutations.shuffle.actSelf({
+                        cardRegion: card.region,
+                        newCardsOrder: card.region.generateShuffledCardsOrder(),
+                    })
+            "
+        >
+            Shuffle
+        </ContextMenuButton>
+
+        <ContextMenuButton
             v-if="firstCard.isIn.hand || firstCard.isIn.library || firstCard.isIn.ashHeap"
             :closeOnClick="true"
             :cardAction="
