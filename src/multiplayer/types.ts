@@ -63,7 +63,7 @@ export enum VersioningTarget {
     Card = 'Card',
     Reveal = 'Reveal',
     Shuffle = 'Shuffle',
-    Arrow = 'Arrow',
+    TargetDeclaration = 'TargetDeclaration',
     Scale = 'Scale',
     Timer = 'Timer',
 }

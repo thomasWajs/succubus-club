@@ -22,7 +22,8 @@
             @click="
                 gameMutations.shuffle.actSelf({
                     cardRegion: cardRegion,
-                    newCardsOrder: cardRegion.generateShuffledCardsOrder(),
+                    cardsOrder: cardRegion.generateShuffledCardsOrder(),
+                    previousCardsOrder: [...cardRegion.cardsOid],
                 })
             "
         >

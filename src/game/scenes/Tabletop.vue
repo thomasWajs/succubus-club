@@ -220,10 +220,10 @@ const arrows = computed(() => {
             },
         },
         // The already declared targets
-        ...gameState.targetDeclarations.map(arrow => {
+        ...gameState.targetDeclarations.map(tg => {
             return {
-                from: getWorldPosition(arrow.originOid),
-                to: getWorldPosition(arrow.targetOid),
+                from: getWorldPosition(tg.originOid),
+                to: getWorldPosition(tg.targetOid),
             }
         }),
     ]

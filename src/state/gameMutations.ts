@@ -26,6 +26,7 @@ import {
     getViewerKey,
     Invalid,
     PlayerVision,
+    TargetDeclaration,
     VALID,
     Validity,
 } from '@/state/types.ts'
@@ -50,8 +51,8 @@ export abstract class GameMutation<ParamsType extends GameMutationParams> {
     readonly id: GameMutationId // Used to identify mutation when cancelling it
     abstract readonly syncMode: MutationSyncMode
 
-    isCancellable = true
     isUserCancellable = true
+    isIgnoredForCancel = false
     cancelToResolveConflict = false // will be set to true if the mutation is cancelled to resolve a conflict
 
     playerVision = {} as PlayerVision
@@ -142,7 +143,7 @@ export abstract class GameMutation<ParamsType extends GameMutationParams> {
      */
 
     cancel() {
-        if (!this.isUserCancellable || !this.isCancellable) {
+        if (!this.isUserCancellable) {
             throw new Error('Cannot cancel this type of mutation')
         }
         dispatchMutation(this.getCancelMutation())
@@ -173,6 +174,10 @@ type EmptyParams = GameMutationParams
 
 interface CardParams extends GameMutationParams {
     card: Card
+}
+
+interface CardsListParams extends GameMutationParams {
+    cards: Card[]
 }
 
 // Used to change blood/life/green counters
@@ -405,33 +410,25 @@ class ChangePool extends GameMutation<ChangePoolParams> {
  * Change The Edge Control
  */
 interface ChangeTheEdgeControlParams extends GameMutationParams {
-    newController: Player | undefined
+    theEdgeController: Player | undefined
 }
 
 class ChangeTheEdgeControl extends GameMutation<ChangeTheEdgeControlParams> {
     readonly syncMode = MutationSyncMode.Ordered
+    declare public previousState: ChangeTheEdgeControlParams
 
     protected get _versioningId(): VersioningId {
         return `${VersioningTarget.TheEdge}`
     }
 
-    getValidity() {
-        return (
-                this.params.newController &&
-                    this.params.newController.oid == useGameStateStore().theEdgeControllerOid
-            ) ?
-                Invalid(`${this.params.newController.name} : Already controls the Edge`)
-            :   VALID
-    }
-
     protected updateGameState(gameState: GameStateStore) {
-        this.previousState.oldController = gameState.theEdgeController
-        gameState.theEdgeControllerOid = this.params.newController?.oid
+        this.previousState.theEdgeController = gameState.theEdgeController
+        gameState.theEdgeControllerOid = this.params.theEdgeController?.oid
     }
 
     formatForLog() {
-        if (this.params.newController) {
-            return `${this.params.newController.name} gains the Edge`
+        if (this.params.theEdgeController) {
+            return `${this.params.theEdgeController.name} gains the Edge`
         } else {
             return `Burns the Edge`
         }
@@ -439,7 +436,7 @@ class ChangeTheEdgeControl extends GameMutation<ChangeTheEdgeControlParams> {
 
     getCancelMutation(): AnyGameMutation {
         return gameMutations.changeTheEdgeControl.createCancelMutation(this, {
-            newController: this.previousState.oldController as Player | undefined,
+            theEdgeController: this.previousState.theEdgeController,
         })
     }
 }
@@ -450,6 +447,7 @@ class ChangeTheEdgeControl extends GameMutation<ChangeTheEdgeControlParams> {
 
 class Discard extends CardMutation {
     readonly syncMode = MutationSyncMode.Exclusive
+    declare public previousState: { position: number }
 
     get allowedPlayer() {
         return this.params.card.controller
@@ -477,7 +475,7 @@ class Discard extends CardMutation {
             card: this.params.card,
             fromCardRegion: this.params.card.region,
             toCardRegion: this.params.card.controller.hand,
-            position: this.previousState.position as number,
+            position: this.previousState.position,
         })
     }
 }
@@ -488,6 +486,7 @@ class Discard extends CardMutation {
 
 class DiscardAtRandom extends CardMutation {
     readonly syncMode = MutationSyncMode.Exclusive
+    declare public previousState: { position: number }
 
     get allowedPlayer() {
         return this.params.card.controller
@@ -514,7 +513,7 @@ class DiscardAtRandom extends CardMutation {
             card: this.params.card,
             fromCardRegion: this.params.card.region,
             toCardRegion: this.params.card.controller.hand,
-            position: this.previousState.position as number,
+            position: this.previousState.position,
         })
     }
 }
@@ -524,6 +523,7 @@ class DiscardAtRandom extends CardMutation {
  */
 class DrawCrypt extends PlayerMutation {
     readonly syncMode = MutationSyncMode.Exclusive
+    declare public previousState: CardParams
 
     get allowedPlayer() {
         return this.params.player
@@ -539,7 +539,7 @@ class DrawCrypt extends PlayerMutation {
         gameState.moveCardToRegion(card, this.params.player.uncontrolled)
         card.setCoordinates(PLAY_AREA_WIDTH / 2, TORPOR_ZONE_Y)
 
-        this.previousState.cardDrawed = card
+        this.previousState.card = card
     }
 
     formatForLog() {
@@ -547,7 +547,7 @@ class DrawCrypt extends PlayerMutation {
     }
 
     getCancelMutation(): AnyGameMutation {
-        const card = this.previousState.cardDrawed as Card
+        const card = this.previousState.card
         return gameMutations.moveCardToRegion.createCancelMutation(this, {
             card,
             fromCardRegion: card.region,
@@ -562,6 +562,7 @@ class DrawCrypt extends PlayerMutation {
  */
 class DrawLibrary extends PlayerMutation {
     readonly syncMode = MutationSyncMode.Exclusive
+    declare public previousState: CardParams
 
     get allowedPlayer() {
         return this.params.player
@@ -576,7 +577,7 @@ class DrawLibrary extends PlayerMutation {
 
     protected updateGameState(gameState: GameStateStore) {
         const card = this.params.player.library.firstCard
-        this.previousState.cardDrawed = card
+        this.previousState.card = card
         gameState.moveCardToRegion(card, this.params.player.hand)
     }
 
@@ -585,7 +586,7 @@ class DrawLibrary extends PlayerMutation {
     }
 
     getCancelMutation(): AnyGameMutation {
-        const card = this.previousState.cardDrawed as Card
+        const card = this.previousState.card
         return gameMutations.moveCardToRegion.createCancelMutation(this, {
             card,
             fromCardRegion: card.region,
@@ -601,6 +602,7 @@ class DrawLibrary extends PlayerMutation {
 
 class GoToTurn extends GameMutation<ChangeIndexParams> {
     readonly syncMode = MutationSyncMode.Ordered
+    declare public previousState: { turnNumber: number }
 
     protected get _versioningId(): VersioningId {
         return `${VersioningTarget.Turn}`
@@ -659,13 +661,14 @@ class GoToTurn extends GameMutation<ChangeIndexParams> {
 
     getCancelMutation(): AnyGameMutation {
         return gameMutations.goToTurn.createCancelMutation(this, {
-            index: this.previousState.turnNumber as number,
+            index: this.previousState.turnNumber,
         })
     }
 }
 
 class GoToTurnPhase extends GameMutation<ChangeIndexParams> {
     readonly syncMode = MutationSyncMode.Ordered
+    declare public previousState: { turnPhaseIndex: number }
 
     protected get _versioningId(): VersioningId {
         return `${VersioningTarget.TurnPhase}`
@@ -691,7 +694,7 @@ class GoToTurnPhase extends GameMutation<ChangeIndexParams> {
 
     getCancelMutation(): AnyGameMutation {
         return gameMutations.goToTurnPhase.createCancelMutation(this, {
-            index: this.previousState.turnPhaseIndex as number,
+            index: this.previousState.turnPhaseIndex,
         })
     }
 }
@@ -737,7 +740,9 @@ type MoveCardParams = CardMovement
 
 class MoveCard extends GameMutation<MoveCardParams> {
     isUserCancellable = false
+    isIgnoredForCancel = true
     readonly syncMode = MutationSyncMode.Ordered
+    declare public previousState: Omit<CardMovement, 'card'>
 
     protected get _versioningId(): VersioningId {
         return `${VersioningTarget.Card}-${this.params.card.oid}`
@@ -748,17 +753,19 @@ class MoveCard extends GameMutation<MoveCardParams> {
     }
 
     protected updateGameState() {
+        const card = this.params.card
+
         this.previousState = {
-            position: this.params.card.position,
-            x: this.params.card.x,
-            y: this.params.card.y,
+            position: card.position,
+            x: card.x,
+            y: card.y,
         }
 
         if (this.params.position != undefined) {
-            this.params.card.region.move(this.params.card, this.params.position)
+            card.region.move(card, this.params.position)
         }
         if (this.params.x != undefined && this.params.y != undefined) {
-            this.params.card.setCoordinates(this.params.x, this.params.y)
+            card.setCoordinates(this.params.x, this.params.y)
         }
     }
 
@@ -771,9 +778,7 @@ class MoveCard extends GameMutation<MoveCardParams> {
     getCancelMutation(): AnyGameMutation {
         return gameMutations.moveCard.createCancelMutation(this, {
             card: this.params.card,
-            position: this.previousState.position as number,
-            x: this.previousState.x as number,
-            y: this.previousState.y as number,
+            ...this.previousState,
         })
     }
 }
@@ -788,6 +793,7 @@ interface MoveCardToRegionParams extends CardMovement {
 
 class MoveCardToRegion extends GameMutation<MoveCardToRegionParams> {
     readonly syncMode = MutationSyncMode.Ordered
+    declare public previousState: Omit<CardMovement, 'card'>
 
     protected get _versioningId(): VersioningId {
         return `${VersioningTarget.Card}-${this.params.card.oid}`
@@ -816,15 +822,17 @@ class MoveCardToRegion extends GameMutation<MoveCardToRegionParams> {
     }
 
     protected updateGameState(gameState: GameStateStore) {
+        const card = this.params.card
+
         this.previousState = {
-            position: this.params.card.position,
-            x: this.params.card.x,
-            y: this.params.card.y,
+            position: card.position,
+            x: card.x,
+            y: card.y,
         }
 
-        gameState.moveCardToRegion(this.params.card, this.params.toCardRegion, this.params.position)
+        gameState.moveCardToRegion(card, this.params.toCardRegion, this.params.position)
         if (this.params.x != undefined && this.params.y != undefined) {
-            this.params.card.setCoordinates(this.params.x, this.params.y)
+            card.setCoordinates(this.params.x, this.params.y)
         }
     }
 
@@ -850,9 +858,7 @@ class MoveCardToRegion extends GameMutation<MoveCardToRegionParams> {
             card: this.params.card,
             fromCardRegion: this.params.toCardRegion,
             toCardRegion: this.params.fromCardRegion,
-            position: this.previousState.position as number,
-            x: this.previousState.x as number,
-            y: this.previousState.y as number,
+            ...this.previousState,
         })
     }
 }
@@ -867,6 +873,7 @@ interface MoveToBottomParams extends GameMutationParams {
 
 class MoveToBottom extends GameMutation<MoveToBottomParams> {
     readonly syncMode = MutationSyncMode.Ordered
+    declare public previousState: Omit<CardMovement, 'card'> & { cardRegion: AnyCardRegion }
 
     protected get _versioningId(): VersioningId {
         return `${VersioningTarget.Card}-${this.params.card.oid}`
@@ -893,21 +900,23 @@ class MoveToBottom extends GameMutation<MoveToBottomParams> {
     }
 
     protected updateGameState(gameState: GameStateStore) {
+        const card = this.params.card
+
         this.previousState = {
-            fromCardRegion: this.params.card.region,
-            position: this.params.card.position,
-            x: this.params.card.x,
-            y: this.params.card.y,
+            cardRegion: card.region,
+            position: card.position,
+            x: card.x,
+            y: card.y,
         }
 
         // The card is already in the correct region, move it inside the region
-        if (this.params.toCardRegion.oid == this.params.card.region.oid) {
-            this.params.card.region.move(this.params.card, this.params.toCardRegion.length)
+        if (this.params.toCardRegion.oid == card.region.oid) {
+            card.region.move(card, this.params.toCardRegion.length)
         }
         // The card comes from another region, move it to the target region
         else {
             gameState.moveCardToRegion(
-                this.params.card,
+                card,
                 this.params.toCardRegion,
                 this.params.toCardRegion.length,
             )
@@ -926,10 +935,8 @@ class MoveToBottom extends GameMutation<MoveToBottomParams> {
         return gameMutations.moveCardToRegion.createCancelMutation(this, {
             card: this.params.card,
             fromCardRegion: this.params.toCardRegion,
-            toCardRegion: this.previousState.fromCardRegion as AnyCardRegion,
-            position: this.previousState.position as number,
-            x: this.previousState.x as number,
-            y: this.previousState.y as number,
+            toCardRegion: this.previousState.cardRegion,
+            ...this.previousState,
         })
     }
 }
@@ -940,22 +947,25 @@ class MoveToBottom extends GameMutation<MoveToBottomParams> {
 
 class PlayFaceDown extends CardMutation {
     readonly syncMode = MutationSyncMode.Ordered
+    declare public previousState: Omit<CardMovement, 'card'> & { cardRegion: AnyCardRegion }
 
     protected get _versioningId(): VersioningId {
         return `${VersioningTarget.Card}-${this.params.card.oid}`
     }
 
     protected updateGameState(gameState: GameStateStore) {
+        const card = this.params.card
+
         this.previousState = {
-            fromCardRegion: this.params.card.region,
-            position: this.params.card.position,
-            x: this.params.card.x,
-            y: this.params.card.y,
+            cardRegion: card.region,
+            position: card.position,
+            x: card.x,
+            y: card.y,
         }
 
-        this.params.card.flip()
-        gameState.moveCardToRegion(this.params.card, this.params.card.controller.ready)
-        this.params.card.setCoordinates(PLAY_AREA_WIDTH / 2, CONTROLLED_ZONE_HEIGHT / 2)
+        card.flip()
+        gameState.moveCardToRegion(card, card.controller.ready)
+        card.setCoordinates(PLAY_AREA_WIDTH / 2, CONTROLLED_ZONE_HEIGHT / 2)
     }
 
     formatForLog() {
@@ -966,17 +976,15 @@ class PlayFaceDown extends CardMutation {
         return gameMutations.playFaceDownInverse.createCancelMutation(this, {
             card: this.params.card,
             fromCardRegion: this.params.card.controller.ready,
-            toCardRegion: this.previousState.fromCardRegion as AnyCardRegion,
-            position: this.previousState.position as number,
-            x: this.previousState.x as number,
-            y: this.previousState.y as number,
+            toCardRegion: this.previousState.cardRegion,
+            ...this.previousState,
         })
     }
 }
 
-// This is a bit silly, but there's no existing mutation
-// that can represent the inverse of PlayFaceDown
-// because of the flip + movement
+// This is only for cancel.
+// There's no existing mutation that can represent
+// the inverse of PlayFaceDown because of the flip + movement
 class PlayFaceDownInverse extends MoveCardToRegion {
     protected updateGameState(gameState: GameStateStore) {
         super.updateGameState(gameState)
@@ -994,6 +1002,7 @@ interface RevealParams extends GameMutationParams {
 
 class Reveal extends GameMutation<RevealParams> {
     readonly syncMode = MutationSyncMode.Ordered
+    declare public previousState: { viewer: CardRevelationViewer }
 
     protected get _versioningId(): VersioningId {
         return `${VersioningTarget.Reveal}-${this.params.target.oid}`
@@ -1045,7 +1054,7 @@ class Reveal extends GameMutation<RevealParams> {
     getCancelMutation(): AnyGameMutation {
         return gameMutations.reveal.createCancelMutation(this, {
             target: this.params.target,
-            viewer: this.previousState.viewer as CardRevelationViewer,
+            viewer: this.previousState.viewer,
         })
     }
 }
@@ -1056,6 +1065,7 @@ class Reveal extends GameMutation<RevealParams> {
 
 class SetFlip extends ChangeCardBoolMutation {
     readonly syncMode = MutationSyncMode.Ordered
+    declare public previousState: { isFlipped: boolean }
 
     protected get _versioningId(): VersioningId {
         return `${VersioningTarget.Card}-${this.params.card.oid}`
@@ -1080,7 +1090,7 @@ class SetFlip extends ChangeCardBoolMutation {
     getCancelMutation(): AnyGameMutation {
         return gameMutations.setFlip.createCancelMutation(this, {
             card: this.params.card,
-            newValue: this.previousState.isFlipped as boolean,
+            newValue: this.previousState.isFlipped,
         })
     }
 }
@@ -1091,6 +1101,7 @@ class SetFlip extends ChangeCardBoolMutation {
 
 class SetLock extends ChangeCardBoolMutation {
     readonly syncMode = MutationSyncMode.Ordered
+    declare public previousState: { isLocked: boolean }
 
     protected get _versioningId(): VersioningId {
         return `${VersioningTarget.Card}-${this.params.card.oid}`
@@ -1123,14 +1134,14 @@ class SetLock extends ChangeCardBoolMutation {
 /**
  * Shuffle
  */
+
 interface ShuffleParams extends GameMutationParams {
     cardRegion: AnyCardRegion
-    newCardsOrder: CardOid[]
+    previousCardsOrder: CardOid[]
+    cardsOrder: CardOid[]
 }
 
 class Shuffle extends GameMutation<ShuffleParams> {
-    isCancellable = false
-    isUserCancellable = false
     readonly syncMode = MutationSyncMode.Ordered
 
     protected get _versioningId(): VersioningId {
@@ -1138,29 +1149,47 @@ class Shuffle extends GameMutation<ShuffleParams> {
     }
 
     protected updateGameState() {
-        this.params.cardRegion.cardsOid = this.params.newCardsOrder
+        this.params.cardRegion.cardsOid = this.params.cardsOrder
     }
 
     formatForLog() {
-        return `Shuffle ${this.params.cardRegion.owner.name}'s ${this.params.cardRegion.name}`
+        return `${this.cancelsMutationId ? 'Rewind shuffle' : 'Shuffle'} ${this.params.cardRegion.owner.name}'s ${this.params.cardRegion.name}`
+    }
+
+    getCancelMutation(): AnyGameMutation {
+        return gameMutations.shuffle.createCancelMutation(this, {
+            cardRegion: this.params.cardRegion,
+            cardsOrder: this.params.previousCardsOrder,
+            previousCardsOrder: this.params.cardsOrder,
+        })
     }
 }
 
 /**
  * Unlock ALl
  */
+
+interface UnlockAllInverseParams extends PlayerParams, CardsListParams {}
+
 class UnlockAll extends PlayerMutation {
-    isCancellable = false
-    isUserCancellable = false
     readonly syncMode = MutationSyncMode.Exclusive
+    declare public previousState: UnlockAllInverseParams
 
     get allowedPlayer() {
         return this.params.player
     }
 
     protected updateGameState() {
+        this.previousState = {
+            player: this.params.player,
+            cards: [],
+        }
+
         for (const cardRegion of this.params.player.allCardRegions) {
             for (const card of cardRegion.cards) {
+                if (card.isLocked) {
+                    this.previousState.cards.push(card)
+                }
                 card.unlock()
             }
         }
@@ -1168,6 +1197,28 @@ class UnlockAll extends PlayerMutation {
 
     formatForLog() {
         return `Unlock All`
+    }
+
+    getCancelMutation(): AnyGameMutation {
+        return gameMutations.unlockAllInverse.createCancelMutation(this, this.previousState)
+    }
+}
+
+class UnlockAllInverse extends GameMutation<UnlockAllInverseParams> {
+    readonly syncMode = MutationSyncMode.Exclusive
+
+    get allowedPlayer() {
+        return this.params.player
+    }
+
+    protected updateGameState() {
+        for (const card of this.params.cards) {
+            card.lock()
+        }
+    }
+
+    formatForLog() {
+        return `Lock some cards`
     }
 }
 
@@ -1488,12 +1539,15 @@ interface TargetDeclarationParams extends GameMutationParams {
     target: Card | Player
 }
 
-class ArrowAdd extends GameMutation<TargetDeclarationParams> {
+interface TargetDeclarationsParams extends GameMutationParams {
+    targetDeclarations: TargetDeclaration[]
+}
+
+class AddTargetDeclaration extends GameMutation<TargetDeclarationParams> {
     readonly syncMode = MutationSyncMode.Ordered
-    isUserCancellable = false
 
     protected get _versioningId(): VersioningId {
-        return VersioningTarget.Arrow
+        return VersioningTarget.TargetDeclaration
     }
 
     get card() {
@@ -1516,19 +1570,18 @@ class ArrowAdd extends GameMutation<TargetDeclarationParams> {
     }
 
     getCancelMutation(): AnyGameMutation {
-        return gameMutations.UI_arrowRemove.createCancelMutation(this, {
+        return gameMutations.UI_removeTargetDeclaration.createCancelMutation(this, {
             origin: this.params.origin,
             target: this.params.target,
         })
     }
 }
 
-class ArrowRemove extends GameMutation<TargetDeclarationParams> {
+class RemoveTargetDeclaration extends GameMutation<TargetDeclarationParams> {
     readonly syncMode = MutationSyncMode.Ordered
-    isUserCancellable = false
 
     protected get _versioningId(): VersioningId {
-        return VersioningTarget.Arrow
+        return VersioningTarget.TargetDeclaration
     }
 
     get card() {
@@ -1548,28 +1601,33 @@ class ArrowRemove extends GameMutation<TargetDeclarationParams> {
     }
 
     getCancelMutation(): AnyGameMutation {
-        return gameMutations.UI_arrowAdd.createCancelMutation(this, {
+        return gameMutations.UI_addTargetDeclaration.createCancelMutation(this, {
             origin: this.params.origin,
             target: this.params.target,
         })
     }
 }
 
-class ArrowClear extends GameMutation<EmptyParams> {
+class ChangeTargetDeclaration extends GameMutation<TargetDeclarationsParams> {
     readonly syncMode = MutationSyncMode.Ordered
-    isUserCancellable = false
-    isCancellable = false
 
     protected get _versioningId(): VersioningId {
-        return VersioningTarget.Arrow
+        return VersioningTarget.TargetDeclaration
     }
 
     protected updateGameState(gameState: GameStateStore) {
-        gameState.targetDeclarations = []
+        this.previousState.targetDeclarations = [...gameState.targetDeclarations]
+        gameState.targetDeclarations = this.params.targetDeclarations
     }
 
     formatForLog() {
-        return `Clear targets`
+        return this.params.targetDeclarations.length == 0 ? 'Clear targets' : 'Set targets'
+    }
+
+    getCancelMutation(): AnyGameMutation {
+        return gameMutations.UI_changeTargetDeclaration.createCancelMutation(this, {
+            targetDeclarations: this.previousState.targetDeclarations as TargetDeclaration[],
+        })
     }
 }
 
@@ -1584,8 +1642,7 @@ interface ChangeScaleParams extends GameMutationParams {
 
 class ChangeScale extends GameMutation<ChangeScaleParams> {
     readonly syncMode = MutationSyncMode.Ordered
-    isUserCancellable = false
-    isCancellable = false
+    isIgnoredForCancel = true
 
     protected get _versioningId(): VersioningId {
         return VersioningTarget.Scale
@@ -1607,8 +1664,7 @@ interface TimerParams extends GameMutationParams {
 
 class StartTimer extends GameMutation<TimerParams> {
     readonly syncMode = MutationSyncMode.Ordered
-    isUserCancellable = false
-    isCancellable = false
+    isIgnoredForCancel = true
 
     protected get _versioningId(): VersioningId {
         return VersioningTarget.Timer
@@ -1626,8 +1682,7 @@ class StartTimer extends GameMutation<TimerParams> {
 
 class PauseTimer extends GameMutation<TimerParams> {
     readonly syncMode = MutationSyncMode.Ordered
-    isUserCancellable = false
-    isCancellable = false
+    isIgnoredForCancel = true
 
     protected get _versioningId(): VersioningId {
         return VersioningTarget.Timer
@@ -1647,8 +1702,7 @@ class PauseTimer extends GameMutation<TimerParams> {
  */
 
 class PingCard extends CardMutation {
-    isCancellable = false
-    isUserCancellable = false
+    isIgnoredForCancel = true
     readonly syncMode = MutationSyncMode.Merge
 
     getValidity() {
@@ -1819,6 +1873,7 @@ export const gameMutations = {
     setLock: defineMutation(SetLock),
     shuffle: defineMutation(Shuffle),
     unlockAll: defineMutation(UnlockAll),
+    unlockAllInverse: defineMutation(UnlockAllInverse),
 
     /**
      * Action mutations
@@ -1834,9 +1889,9 @@ export const gameMutations = {
     /**
      * UI mutations
      */
-    UI_arrowAdd: defineMutation(ArrowAdd),
-    UI_arrowRemove: defineMutation(ArrowRemove),
-    UI_arrowClear: defineMutation(ArrowClear),
+    UI_addTargetDeclaration: defineMutation(AddTargetDeclaration),
+    UI_removeTargetDeclaration: defineMutation(RemoveTargetDeclaration),
+    UI_changeTargetDeclaration: defineMutation(ChangeTargetDeclaration),
     UI_changeScale: defineMutation(ChangeScale),
     UI_startTimer: defineMutation(StartTimer),
     UI_pauseTimer: defineMutation(PauseTimer),

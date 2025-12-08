@@ -51,13 +51,12 @@ export const useHistoryStore = defineStore('gameHistory', {
             for (let i = state.gameMutations.length - 1; i >= 0; i--) {
                 const mutation = state.gameMutations[i] as AnyGameMutation
 
-                // Card moves are ignored
-                if (mutation.name == 'moveCard') {
+                // Some mutations are totally ignored for cancels
+                if (mutation.isIgnoredForCancel) {
                     continue
                 }
 
-                // Stop there if mutation is not cancellable,
-                // ( except for card moves which are ignored )
+                // Stop there if mutation is not cancellable
                 if (!mutation.isUserCancellable) {
                     return null
                 }

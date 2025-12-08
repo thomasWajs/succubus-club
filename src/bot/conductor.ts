@@ -104,7 +104,7 @@ export class Conductor {
             })
 
             if (action.target) {
-                gameMutations.UI_arrowAdd.act(this.bot.player, {
+                gameMutations.UI_addTargetDeclaration.act(this.bot.player, {
                     origin:
                         action instanceof ActionCardAction ?
                             action.actionCard

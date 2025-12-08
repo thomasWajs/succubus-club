@@ -73,7 +73,8 @@
                 (card: Card) =>
                     gameMutations.shuffle.actSelf({
                         cardRegion: card.region,
-                        newCardsOrder: card.region.generateShuffledCardsOrder(),
+                        cardsOrder: card.region.generateShuffledCardsOrder(),
+                        previousCardsOrder: [...card.region.cardsOid],
                     })
             "
         >

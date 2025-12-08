@@ -402,7 +402,7 @@ function createCommands(): Commands {
                 return gameState.targetDeclarations.length == 0
             },
             trigger: () => {
-                gameMutations.UI_arrowClear.actSelf({})
+                gameMutations.UI_changeTargetDeclaration.actSelf({ targetDeclarations: [] })
             },
         }),
 

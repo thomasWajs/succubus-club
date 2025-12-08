@@ -81,7 +81,7 @@ export function useCardClick(cardRef: Ref<Card>, invertLockOnDoubleClick: boolea
         // Special case for arrow tracing : both click will end the tracing
         const card = cardRef.value
         if (gameBus.declaringTargetOrigin && card && card.isIn.play) {
-            gameMutations.UI_arrowAdd.actSelf({
+            gameMutations.UI_addTargetDeclaration.actSelf({
                 origin: gameBus.declaringTargetOrigin,
                 target: cardRef.value,
             })

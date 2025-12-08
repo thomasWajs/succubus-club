@@ -78,7 +78,7 @@ export abstract class MinionAction {
 
         if (this.actingMinion.controller.oid != useGameStateStore().theEdgeControllerOid) {
             gameMutations.changeTheEdgeControl.act(this.actingMinion.controller, {
-                newController: this.actingMinion.controller,
+                theEdgeController: this.actingMinion.controller,
             })
         }
     }

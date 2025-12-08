@@ -92,7 +92,7 @@
         @create="onTheEdgeCreate"
         @pointerdown="
             gameMutations.changeTheEdgeControl.actSelf({
-                newController: player == gameState.theEdgeController ? undefined : player,
+                theEdgeController: player == gameState.theEdgeController ? undefined : player,
             })
         "
     />
