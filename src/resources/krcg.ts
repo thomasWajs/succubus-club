@@ -13,6 +13,7 @@ type KrcgDeck = {
 const KRCG_API_ENDPOINTS = {
     convert: 'https://api.krcg.org/convert/json',
     vdb: 'https://api.krcg.org/vdb',
+    amaranth: 'https://api.krcg.org/amaranth',
 }
 
 function convertKrcgToDeck(krcgDeck: KrcgDeck): Deck {
@@ -53,6 +54,19 @@ export async function fetchVdb(vdbDeckUrl: string): Promise<Deck> {
     const response = await fetch(KRCG_API_ENDPOINTS.vdb, {
         method: 'POST',
         body: JSON.stringify({ url: vdbDeckUrl }),
+        headers: {
+            'Content-Type': 'application/json',
+        },
+    })
+
+    const krcgDeck = await checkKrcgResponse(response)
+    return convertKrcgToDeck(krcgDeck)
+}
+
+export async function fetchAmaranth(amaranthDeckUrl: string): Promise<Deck> {
+    const response = await fetch(KRCG_API_ENDPOINTS.amaranth, {
+        method: 'POST',
+        body: JSON.stringify({ url: amaranthDeckUrl }),
         headers: {
             'Content-Type': 'application/json',
         },

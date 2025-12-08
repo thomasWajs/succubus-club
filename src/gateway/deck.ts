@@ -1,7 +1,7 @@
 import { db, DbDeck, DeckSource } from '@/gateway/db.ts'
 import { isCryptId, KrcgId } from '@/resources/cards.ts'
 import { useCoreStore } from '@/store/core.ts'
-import { convertFromText, fetchVdb } from '@/resources/krcg.ts'
+import { convertFromText, fetchAmaranth, fetchVdb } from '@/resources/krcg.ts'
 import { MAX_LIB_SIZE, MIN_CRYPT_SIZE, MIN_LIB_SIZE } from '@/model/const.ts'
 
 // A deck list in a simple format {KrcgId: nbOccurence}
@@ -48,6 +48,16 @@ export async function getOrImportVdb(vdbDeckUrl: string) {
         DeckSource.Vdb,
         vdbDeckUrl,
         () => fetchVdb(vdbDeckUrl),
+        true,
+    )
+    await selectDeck(dbDeck)
+}
+
+export async function getOrImportAmaranth(amaranthDeckUrl: string) {
+    const dbDeck = await getOrImportDeck(
+        DeckSource.Amaranth,
+        amaranthDeckUrl,
+        () => fetchAmaranth(amaranthDeckUrl),
         true,
     )
     await selectDeck(dbDeck)

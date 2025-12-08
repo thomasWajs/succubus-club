@@ -142,6 +142,38 @@
                     </div>
                 </div>
 
+                <!-- Amaranth Import Tab -->
+                <div
+                    v-if="activeTab === 'amaranth-import'"
+                    class="tab-content"
+                >
+                    <div
+                        v-if="isLoading"
+                        class="loading-message"
+                    >
+                        Loading from Amaranth...
+                    </div>
+                    <div
+                        v-else
+                        class="import-form"
+                    >
+                        <div class="input-group">
+                            <label class="input-label">Amaranth URL:</label>
+                            <input
+                                v-model="amaranthDeckUrl"
+                                class="input-field"
+                                placeholder="https://amaranth.vtes.co.nz/#deck/DECK_ID"
+                            />
+                        </div>
+                        <button
+                            class="action-btn primary"
+                            @click="loadFromAmaranth"
+                        >
+                            Load from Amaranth
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Text Import Tab -->
                 <div
                     v-if="activeTab === 'text'"
@@ -265,7 +297,13 @@
 import { computed, ref } from 'vue'
 import TopPanel from './TopPanel.vue'
 import { useBusStore } from '@/store/bus.ts'
-import { getOrImportPrecon, getOrImportText, getOrImportVdb, selectDeck } from '@/gateway/deck.ts'
+import {
+    getOrImportAmaranth,
+    getOrImportPrecon,
+    getOrImportText,
+    getOrImportVdb,
+    selectDeck,
+} from '@/gateway/deck.ts'
 import { useCoreStore } from '@/store/core.ts'
 import { db, DbDeck } from '@/gateway/db.ts'
 import { gameResources } from '@/resources/cards.ts'
@@ -287,6 +325,7 @@ const activeTab = ref('history')
 const tabs = [
     { id: 'history', title: 'History' },
     { id: 'vdb-import', title: 'VDB Import' },
+    { id: 'amaranth-import', title: 'Amaranth Import' },
     { id: 'text', title: 'Text Import' },
     { id: 'preconstructed', title: 'Preconstructed' },
 ]
@@ -415,6 +454,14 @@ const vdbDeckUrl = ref('')
 
 function loadFromVdb() {
     loadDeck(() => getOrImportVdb(vdbDeckUrl.value))
+}
+
+/** Amaranth Import **/
+
+const amaranthDeckUrl = ref('')
+
+function loadFromAmaranth() {
+    loadDeck(() => getOrImportAmaranth(amaranthDeckUrl.value))
 }
 
 /** Text Import **/
