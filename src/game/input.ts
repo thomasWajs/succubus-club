@@ -71,8 +71,10 @@ function onPointerDown(pointer: Pointer, gameObjects: GameObjects.GameObject[]) 
             })
             gameBus.declaringTargetOrigin = null
         }
+    } else if (gameObjects[0]?.name == 'cardGroupIcon') {
+        // nothing to do, but prevent the default behavior of the click event.
+        // This is more legible than a complex if condition
     }
-
     // Here we handle other clicks outside a CardGO
     else if (gameObjects.length == 0 || gameObjects[0].type != 'Image') {
         // Here it's a click outside a card :
@@ -81,6 +83,8 @@ function onPointerDown(pointer: Pointer, gameObjects: GameObjects.GameObject[]) 
         gameBus.declaringTargetOrigin = null
         gameBus.contextMenu.cards = []
         gameBus.hideContextMenu()
+        gameBus.cardGroupCandidate = null
+        gameBus.cardPendingIntoGroup = null
 
         // Start a selection area on left click
         if (pointer.leftButtonDown()) {

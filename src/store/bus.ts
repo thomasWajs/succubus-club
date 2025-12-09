@@ -92,6 +92,7 @@ export const useGameBusStore = defineStore('gameBus', {
         /** Card groups **/
         cardGroups: [] as CardGroup[],
         cardGroupCandidate: null as CardGroup | null,
+        cardPendingIntoGroup: null as Card | null,
 
         /** Alignment guides **/
         dragOver: null as DragOver | null,

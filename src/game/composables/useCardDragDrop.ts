@@ -177,6 +177,7 @@ export function useCardDragDrop(
         dragAttrs.scaleRatio = 1
 
         gameBus.cardGroupCandidate = null
+        gameBus.cardPendingIntoGroup = null
         if (!originCard || card == originCard) {
             gameBus.dragAttrs = dragAttrs
         }
@@ -289,7 +290,6 @@ export function useCardDragDrop(
         dragAttrs.deltaX = 0
         dragAttrs.deltaY = 0
         dragAttrs.cardScale = cardAttrsRef.value.scale
-        gameBus.cardGroupCandidate = null
         gameBus.dragAttrs = null
     }
 
@@ -317,12 +317,8 @@ export function useCardDragDrop(
                 [dragAttrs.x, dragAttrs.y]
             :   [dragAttrs.localX, dragAttrs.localY]
 
-        const cardGroup = findCardGroupCandidate(targetCardRegion, x, y)
-        if (cardGroup) {
-            cardGroup.add(card.oid)
-            if (!gameBus.cardGroups.includes(cardGroup)) {
-                gameBus.cardGroups.push(cardGroup)
-            }
+        if (gameBus.cardGroupCandidate) {
+            gameBus.cardPendingIntoGroup = card
         }
 
         const position = targetCardRegion.is.hand ? (gameBus.handDropGapPosition ?? 0) : 0

@@ -14,8 +14,9 @@
             :strokeColor="CARD_GROUP_BOUNDING_BOX_COLOR.color"
         />
 
-        <template v-if="target.type == TargetType.Selected">
+        <template v-if="target.type == TargetType.Selected || target.type == TargetType.Pending">
             <ButtonGo
+                name="cardGroupIcon"
                 :originX="0.5"
                 :originY="0"
                 :x="target.boundingBox.x + target.boundingBox.width / 2"
@@ -23,11 +24,13 @@
                 :width="CARD_GROUP_ICON_WIDTH"
                 :height="CARD_GROUP_ICON_HEIGHT"
                 :backgroundColor="CARD_GROUP_BACKGROUND_COLOR"
-                @click="onClick(target)"
+                @click="onIconClick(target)"
             >
                 <Image
                     ref="cardGroupIcon"
-                    :texture="Texture.BrokenChain"
+                    :texture="
+                        target.type == TargetType.Pending ? Texture.CardGroup : Texture.BrokenChain
+                    "
                     :originY="0"
                     :x="target.boundingBox.x + target.boundingBox.width / 2"
                     :y="
@@ -54,7 +57,7 @@
         </template>
 
         <!-- Dragged card outline -->
-        <template v-if="target.type == TargetType.Drag">
+        <template v-if="target.type == TargetType.Drag || target.type == TargetType.Pending">
             <Rectangle
                 :origin="0"
                 :x="
@@ -93,12 +96,14 @@ import {
 import ButtonGo from '@/game/objects/ButtonGo.vue'
 import { CardGroup } from '@/game/types.ts'
 import Card from '@/model/Card.ts'
+import { AnyCardRegion } from '@/model/CardRegion.ts'
 
 const gameState = useGameStateStore()
 const gameBus = useGameBusStore()
 
 enum TargetType {
     Drag = 'drag',
+    Pending = 'pending',
     Hovered = 'hovered',
     Selected = 'selected',
 }
@@ -134,7 +139,22 @@ function getBoundingBox(cardGroupRects: Phaser.Geom.Rectangle[]): Phaser.Geom.Re
     return dilateRectangle(boundingBox, 10)
 }
 
-function createCardGroupTarget(type: TargetType, card: Card): CardGroupTarget | null {
+function createFutureCardGroupTarget(
+    type: TargetType,
+    cardGroup: CardGroup,
+    card: Card,
+    cardRegion: AnyCardRegion,
+    x: number,
+    y: number,
+): CardGroupTarget | null {
+    const cardRectangle = getCardRectangleAt(cardRegion, x, y)
+    const cardGroupRects = cardsToRectangles(cardGroup)
+    cardGroupRects.push(cardRectangle)
+    const boundingBox = getBoundingBox(cardGroupRects)
+    return { type, card, cardRectangle, cardGroupRects, boundingBox }
+}
+
+function createExistingCardGroupTarget(type: TargetType, card: Card): CardGroupTarget | null {
     const cardRectangle = getCardRectangle(card)
     const cardGroup = gameBus.cardGroupsByCard[card.oid]
     if (cardGroup) {
@@ -154,38 +174,71 @@ const targets = computed(() => {
         }
     }
 
+    // Dragging a card around other cards
     if (
         gameBus.cardGroupCandidate &&
         gameBus.dragOver &&
         gameBus.dragOver.cardRegion &&
         gameBus.dragAttrs
     ) {
-        const card = gameBus.dragOver.card
-        const cardRectangle = getCardRectangleAt(
-            gameBus.dragOver.cardRegion,
-            gameBus.dragAttrs.localX,
-            gameBus.dragAttrs.localY,
+        addTarget(
+            createFutureCardGroupTarget(
+                TargetType.Drag,
+                gameBus.cardGroupCandidate,
+                gameBus.dragOver.card,
+                gameBus.dragOver.cardRegion,
+                gameBus.dragAttrs.localX,
+                gameBus.dragAttrs.localY,
+            ),
         )
-        const cardGroupRects = cardsToRectangles(gameBus.cardGroupCandidate)
-        cardGroupRects.push(cardRectangle)
-        const boundingBox = getBoundingBox(cardGroupRects)
-        addTarget({ type: TargetType.Drag, card, cardRectangle, cardGroupRects, boundingBox })
     }
 
+    // Card group pending creation/addition
+    if (gameBus.cardGroupCandidate && gameBus.cardPendingIntoGroup) {
+        addTarget(
+            createFutureCardGroupTarget(
+                TargetType.Pending,
+                gameBus.cardGroupCandidate,
+                gameBus.cardPendingIntoGroup,
+                gameBus.cardPendingIntoGroup.region,
+                gameBus.cardPendingIntoGroup.x,
+                gameBus.cardPendingIntoGroup.y,
+            ),
+        )
+    }
+
+    // Hovering the mouse over an existing card group
     if (gameBus.hoveredCard && gameBus.hoveredCard.isIn.play) {
-        addTarget(createCardGroupTarget(TargetType.Hovered, gameBus.hoveredCard))
+        addTarget(createExistingCardGroupTarget(TargetType.Hovered, gameBus.hoveredCard))
     }
 
+    // A card belonging to a card group is selected
     for (const card of gameBus.selectedCards) {
-        addTarget(createCardGroupTarget(TargetType.Selected, card))
+        addTarget(createExistingCardGroupTarget(TargetType.Selected, card))
     }
 
     return targets
 })
 
-function onClick(target: CardGroupTarget) {
-    if (target.cardGroup) {
+function onIconClick(target: CardGroupTarget) {
+    // Break the card group
+    if (target.type == TargetType.Selected && target.cardGroup) {
         gameBus.removeCardGroup(target.cardGroup)
+    }
+    // Create the group, or add card to the existing group
+    else if (
+        target.type == TargetType.Pending &&
+        gameBus.cardPendingIntoGroup &&
+        gameBus.cardGroupCandidate
+    ) {
+        const cardGroupCandidate = gameBus.cardGroupCandidate
+        cardGroupCandidate.add(gameBus.cardPendingIntoGroup.oid)
+        if (!gameBus.cardGroups.includes(cardGroupCandidate)) {
+            gameBus.cardGroups.push(cardGroupCandidate)
+        }
+        gameBus.selectedCards = [gameBus.cardPendingIntoGroup]
+        gameBus.cardPendingIntoGroup = null
+        gameBus.cardGroupCandidate = null
     }
 }
 </script>
