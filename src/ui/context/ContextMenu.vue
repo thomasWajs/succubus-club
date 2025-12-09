@@ -46,6 +46,12 @@
 
         <CommandContextMenuButton
             v-if="firstCard.isIn.controlled"
+            :command="commands.InvertLock"
+            :closeOnClick="true"
+        />
+
+        <CommandContextMenuButton
+            v-if="firstCard.isIn.controlled"
             :command="commands.Flip"
             :closeOnClick="true"
         />

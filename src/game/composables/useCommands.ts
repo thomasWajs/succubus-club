@@ -261,6 +261,19 @@ function createCommands(): Commands {
             },
         }),
 
+        InvertLock: createCardCommand({
+            name: 'InvertLock',
+            label: 'Lock / Unlock',
+            repr: 'L',
+            keyCodes: [KeyCodes.L],
+            cardAction: (card: Card) => {
+                gameMutations.setLock.actSelf({
+                    card,
+                    newValue: !card.isLocked,
+                })
+            },
+        }),
+
         Flip: createCardCommand({
             name: 'Flip',
             label: 'Flip',
