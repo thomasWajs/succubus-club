@@ -15,7 +15,7 @@
 </template>
 
 <script setup lang="ts">
-import ContextMenuButton from '@/ui/context/ContextMenuButton.vue'
+import ContextMenuButton from '@/ui/context/menu/ContextMenuButton.vue'
 import { Command } from '@/game/composables/useCommands.ts'
 
 const { command, closeOnClick } = defineProps<{

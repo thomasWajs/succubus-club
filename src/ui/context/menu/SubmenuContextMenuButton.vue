@@ -13,7 +13,7 @@
 </template>
 
 <script setup lang="ts">
-import ContextMenuButton from '@/ui/context/ContextMenuButton.vue'
+import ContextMenuButton from '@/ui/context/menu/ContextMenuButton.vue'
 import { useGameBusStore } from '@/store/bus.ts'
 import { Component, ref, markRaw } from 'vue'
 import { positionContextMenu } from '@/game/utils.ts'

@@ -60,7 +60,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import ContextMenuButton from '@/ui/context/ContextMenuButton.vue'
+import ContextMenuButton from '@/ui/context/menu/ContextMenuButton.vue'
 import { Card } from '@/model/Card.ts'
 import { Marker, MainMarkers } from '@/model/const.ts'
 import { gameMutations } from '@/state/gameMutations.ts'
