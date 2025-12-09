@@ -1,3 +1,15 @@
+## [0.5.2] - 2025-12-09
+
+Features:
+- Cards can be pinged
+- Shuffle lib/crypt on right click
+- Import a deck from Amaranth
+- All actions are now cancellable
+
+Bugfix:
+- Card grouping is now opt-in instead of automatic
+- Fix stealth/intercept for the bot
+
 ## [0.5.1] - 2025-12-04
 
 Features:
