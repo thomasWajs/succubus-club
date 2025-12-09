@@ -1,12 +1,13 @@
 import { Card } from '@/model/Card.ts'
 import { ComputedRef, reactive, Ref, computed } from 'vue'
-import Phaser, { GameObjects } from 'phaser'
+import Phaser from 'phaser'
 import Pointer = Phaser.Input.Pointer
 import Rectangle = Phaser.Geom.Rectangle
 import { CardMovement, gameMutations } from '@/state/gameMutations.ts'
 import { useGameBusStore } from '@/store/bus.ts'
 import {
     dilateRectangle,
+    dropCoordinates,
     dropCoordinatesSnapped,
     getCardRectangle,
     getCardRectangleAt,
@@ -236,13 +237,19 @@ export function useCardDragDrop(
             let localX = posX
             let localY = posY
 
-            // Over playArea from outside ( hand, stack, another playArea ).
-            if (isOverPlayArea && fromContainer != toContainer) {
-                // Find closest x/y coords centered around the pointer
-                const dropCoord = dropCoordinatesSnapped(
-                    pointer,
-                    toContainer as GameObjects.Container,
-                )
+            // The card is being dragged from another region.
+            if (fromContainer != toContainer) {
+                let dropCoord
+                // Over playArea from outside ( hand, stack, another playArea ).
+                if (isOverPlayArea) {
+                    // Find closest x/y coords centered around the pointer
+                    dropCoord = dropCoordinatesSnapped(pointer, toContainer)
+                }
+                // Over a non-playArea
+                else {
+                    dropCoord = dropCoordinates(pointer, toContainer)
+                }
+
                 localX = dropCoord.x
                 localY = dropCoord.y
             }
@@ -276,9 +283,9 @@ export function useCardDragDrop(
             dragAttrs.localY = localY
 
             const worldPoint = toContainer.getWorldTransformMatrix().transformPoint(localX, localY)
-            const localPoint = fromContainer.getLocalPoint(worldPoint.x, worldPoint.y)
-            posX = localPoint.x
-            posY = localPoint.y
+            const dragPoint = fromContainer.getLocalPoint(worldPoint.x, worldPoint.y)
+            posX = dragPoint.x
+            posY = dragPoint.y
         }
 
         dragAttrs.x = posX

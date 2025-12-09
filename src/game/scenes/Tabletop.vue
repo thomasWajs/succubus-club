@@ -6,6 +6,13 @@
         @init="init"
         @update="update"
     >
+        <!-- Order of declaration is important here :
+        Hand MUST come before the rest for drag alpha -->
+        <HandGO
+            v-if="gameState.selfPlayer"
+            key="Hand"
+        />
+
         <!-- Play areas for 3+ players, with a central player at the center of the screen -->
         <PlayAreaGO
             v-if="playerSeats.bottomLeft"
@@ -62,11 +69,6 @@
             :player="playerSeats.central"
             :x="playerSeats.centralX"
             :y="PLAY_AREA_Y"
-        />
-
-        <HandGO
-            v-if="gameState.selfPlayer"
-            key="Hand"
         />
 
         <!-- Menus -->
