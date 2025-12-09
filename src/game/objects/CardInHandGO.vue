@@ -114,7 +114,6 @@ const gameState = useGameStateStore()
 const gameBus = useGameBusStore()
 const commands = useCommands()
 const image = refObj<GameObjects.Image>()
-const dragPlaceholder = refObj<GameObjects.Image>()
 const cardOutline = refObj<GameObjects.Rectangle>()
 const playButton = ref<typeof ButtonGo>()
 const discardButton = ref<typeof ButtonGo>()
@@ -179,9 +178,6 @@ function bringToTop(withOutline = false) {
     }
 
     const container = image.value.parentContainer
-    if (dragPlaceholder.value) {
-        container.bringToTop(dragPlaceholder.value)
-    }
     container.bringToTop(image.value)
     if (withOutline && cardOutline.value) {
         container.bringToTop(cardOutline.value)

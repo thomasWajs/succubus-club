@@ -155,3 +155,15 @@ export function getCardRectangleAt(cardRegion: AnyCardRegion, x: number, y: numb
 export function getCardRectangle(card: Card) {
     return getCardRectangleAt(card.region, card.x, card.y)
 }
+
+export function getOverlappingCards(card: Card) {
+    const overlappingCards: Card[] = []
+    const rectangle = getCardRectangle(card)
+    const otherCards = card.region.cards.filter(c => c.oid != card.oid)
+    for (const otherCard of otherCards) {
+        if (Rectangle.Overlaps(rectangle, getCardRectangle(otherCard))) {
+            overlappingCards.push(otherCard)
+        }
+    }
+    return overlappingCards
+}

@@ -8,6 +8,7 @@
         :texture="card.displayedTexture.textureName"
         :frame="card.displayedTexture.frameName"
         :scale="cardAttrs.scale"
+        :visible="dragAttrs.isDragging"
     />
 
     <Image

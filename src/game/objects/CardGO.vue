@@ -11,6 +11,7 @@
         :scale="cardScale"
         :rotation="cardAttrs.rotation"
         :tween="rotationTween"
+        :visible="dragAttrs.isDragging"
     />
 
     <!-- Main Card Image -->
@@ -253,7 +254,7 @@ import { useGameBusStore } from '@/store/bus.ts'
 import { CardAttrs, RegionCategory, PhaserDataKey, CardDragEvent } from '@/game/types.ts'
 import { useCardClick } from '@/game/composables/useCardClick.ts'
 import { useCardOutline } from '@/game/composables/useCardOutline.ts'
-import { getCardScale } from '@/game/utils.ts'
+import { getCardScale, getOverlappingCards } from '@/game/utils.ts'
 import ButtonGo from '@/game/objects/ButtonGo.vue'
 import { useCommands } from '@/game/composables/useCommands.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
@@ -514,7 +515,7 @@ const {
     isHovered,
     isUnderSelectionArea,
     onPointerOver: outlineOver,
-    onPointerOut,
+    onPointerOut: outlineOut,
     getCardOutlineColor,
 } = useCardOutline(
     toRef(() => card),
@@ -525,6 +526,18 @@ const {
 function onPointerOver() {
     outlineOver()
     bringToTop()
+}
+
+function onPointerOut() {
+    outlineOut()
+
+    const overlappingCards = getOverlappingCards(card)
+    // When not overing, always keep minions on top of other cards
+    for (const otherCard of overlappingCards) {
+        if (otherCard.isMinion()) {
+            gameBus.cardsInGame[otherCard.oid]?.bringToTop()
+        }
+    }
 }
 
 /**
