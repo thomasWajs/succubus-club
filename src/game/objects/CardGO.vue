@@ -574,8 +574,8 @@ function dispatchDragEvent(
     // so the other cards can position themselves depending on this card.
     const cardsInGame = [
         cardInGame,
-        ...gameBus.selectedCardsInGame,
-        ...gameBus.indirectSelectedCardsInGame,
+        ...gameBus.selectedCardsInGame.filter(c => c.cardOid !== card.oid),
+        ...gameBus.indirectSelectedCardsInGame.filter(c => c.cardOid !== card.oid),
     ]
 
     // For non-drag events, sort the cards by x/y, depending on the direction of the drag,
