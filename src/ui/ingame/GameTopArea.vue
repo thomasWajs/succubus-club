@@ -295,7 +295,11 @@
             </div>
 
             <div
-                v-if="multiplayer.selfIsHost && !timer.timerChosen.value"
+                v-if="
+                    multiplayer.selfIsHost &&
+                    !timer.timerChosen.value &&
+                    gameState.timerRemainingTime === null
+                "
                 class="timer-setup"
             >
                 <span class="timer-setup-text">Start a 2h timer ? </span>

@@ -18,6 +18,7 @@ import { CborEncoder, CborDecoderBase } from '@jsonjoy.com/json-pack/lib/cbor'
 import { VectorClockVersion, VersioningId } from '@/multiplayer/types.ts'
 import { useMultiplayerStore } from '@/store/multiplayer.ts'
 import { PlayerVision } from '@/state/types.ts'
+import { useTimer } from '@/game/composables/useTimer.ts'
 
 const GAME_STATE_VERSION = 5
 
@@ -329,6 +330,12 @@ export function loadGame(serializedGame: SerializedGame) {
     }
 
     deserializeHistory(serializedGame.history)
+
+    // Start timer if needed.
+    // TODO : account for time drift !
+    if (gameState.timerRemainingTime !== null) {
+        useTimer().applyStartTimer(gameState.timerRemainingTime)
+    }
 
     useCoreStore().gameStateIsReady = true
 }
