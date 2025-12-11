@@ -12,6 +12,8 @@ export type Deck = {
     cards: DeckList
 }
 
+export class DeckValidationError extends Error {}
+
 export async function getOrImportDeck(
     source: DeckSource,
     sourceId: string,
@@ -87,12 +89,18 @@ export function validateDeckList(deckList: DeckList) {
     }
 
     if (cryptSize < MIN_CRYPT_SIZE) {
-        throw new Error(`Crypt size must be at least ${MIN_CRYPT_SIZE} (got ${cryptSize})`)
+        throw new DeckValidationError(
+            `Crypt size must be at least ${MIN_CRYPT_SIZE} (got ${cryptSize})`,
+        )
     }
     if (libSize < MIN_LIB_SIZE) {
-        throw new Error(`Library size must be at least ${MIN_LIB_SIZE} (got ${libSize})`)
+        throw new DeckValidationError(
+            `Library size must be at least ${MIN_LIB_SIZE} (got ${libSize})`,
+        )
     }
     if (libSize > MAX_LIB_SIZE) {
-        throw new Error(`Library size must be at most ${MAX_LIB_SIZE} (got ${libSize})`)
+        throw new DeckValidationError(
+            `Library size must be at most ${MAX_LIB_SIZE} (got ${libSize})`,
+        )
     }
 }

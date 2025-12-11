@@ -84,6 +84,7 @@ import IdleModal from '@/ui/components/IdleModal.vue'
 import { ref } from 'vue'
 import * as logging from '@/logging.ts'
 import { isCrawler, screenBigEnough } from '@/game/display.ts'
+import { DeckValidationError } from '@/gateway/deck.ts'
 
 const core = useCoreStore()
 const bus = useBusStore()
@@ -123,7 +124,9 @@ async function startTrainGame() {
             message = `${message} : ${error.message}`
         }
         bus.alertError(message)
-        logging.captureException(error)
+        if (!(error instanceof DeckValidationError)) {
+            logging.captureException(error)
+        }
     }
 }
 
