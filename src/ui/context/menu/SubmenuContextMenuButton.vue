@@ -49,10 +49,18 @@ function calculateSubmenuPosition() {
 }
 
 function showSubmenu() {
-    if (!gameBus.contextMenu.submenu.show && !disabled) {
-        gameBus.contextMenu.submenu.component = markRaw(submenuComponent)
-        calculateSubmenuPosition()
+    if (
+        // Don't show menu if disabled
+        disabled ||
+        // Don't show if this component is already visible
+        (gameBus.contextMenu.submenu.show &&
+            gameBus.contextMenu.submenu.component == submenuComponent)
+    ) {
+        return
     }
+
+    gameBus.contextMenu.submenu.component = markRaw(submenuComponent)
+    calculateSubmenuPosition()
 }
 </script>
 

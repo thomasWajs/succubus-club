@@ -7,6 +7,7 @@
             left: gameBus.contextMenu.submenu.x + 'px',
             top: gameBus.contextMenu.submenu.y + 'px',
         }"
+        @mousedown.stop
     >
         <component :is="gameBus.contextMenu.submenu.component" />
     </div>
@@ -17,9 +18,3 @@ import { useGameBusStore } from '@/store/bus.ts'
 
 const gameBus = useGameBusStore()
 </script>
-
-<style lang="scss">
-.context-submenu {
-    width: 150px;
-}
-</style>

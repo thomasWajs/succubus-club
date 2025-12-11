@@ -56,21 +56,19 @@
             :closeOnClick="true"
         />
 
-        <SubmenuContextMenuButton
-            v-if="firstCard.isIn.controlled"
-            :disabled="!singleCard"
-            :submenuComponent="MarkersSubmenu"
-        >
-            Add/Remove Markers
-        </SubmenuContextMenuButton>
-
-        <CommandContextMenuButton
-            v-if="firstCard.isIn.library || firstCard.isIn.crypt"
+        <ContextMenuButton
+            v-if="firstCard.isIn.controlled && core.gameType == GameType.TrainBot"
             :closeOnClick="true"
-            :command="commands.QuickReveal"
+            :disabled="!singleMinion || !gameState.action?.canAttemptBlock"
+            :cardAction="
+                () =>
+                    gameMutations.ACTION_declareBlock.actSelf({
+                        blockingMinion: singleMinion ?? NO_BLOCK,
+                    })
+            "
         >
-            Quick Reveal {{ firstCard == firstCard.region.firstCard ? 'Top Card ' : '' }} To All
-        </CommandContextMenuButton>
+            Attempt block
+        </ContextMenuButton>
 
         <ContextMenuButton
             v-if="firstCard.isIn.library || firstCard.isIn.crypt"
@@ -87,126 +85,46 @@
             Shuffle
         </ContextMenuButton>
 
-        <ContextMenuButton
-            v-if="firstCard.isIn.hand || firstCard.isIn.library || firstCard.isIn.ashHeap"
-            :closeOnClick="true"
-            :cardAction="
-                (card: Card) =>
-                    gameMutations.playFaceDown.actSelf({
-                        card: card,
-                    })
-            "
-        >
-            Play Face Down
-        </ContextMenuButton>
-
         <CommandContextMenuButton
-            v-if="firstCard.isIn.controlled || firstCard.isIn.hand"
-            :command="commands.MoveToAshHeap"
+            v-if="firstCard.isIn.library || firstCard.isIn.crypt"
             :closeOnClick="true"
-        />
-
-        <CommandContextMenuButton
-            v-if="!firstCard.isIn.removed"
-            :command="commands.RemoveFromGame"
-            :closeOnClick="true"
-        />
-
-        <ContextMenuButton
-            v-if="!firstCard.isIn.uncontrolled && !firstCard.isIn.crypt"
-            :closeOnClick="true"
-            :cardAction="
-                (card: Card) =>
-                    gameState.selfPlayer ?
-                        gameMutations.moveToBottom.actSelf({
-                            card: card,
-                            toCardRegion: gameState.selfPlayer.library,
-                        })
-                    :   null
-            "
+            :command="commands.QuickReveal"
         >
-            Move to Bottom of Library
-        </ContextMenuButton>
+            Quick Reveal {{ firstCard == firstCard.region.firstCard ? 'Top Card ' : '' }} To All
+        </CommandContextMenuButton>
 
-        <ContextMenuButton
-            v-if="firstCard.isIn.play || firstCard.isIn.crypt"
-            :closeOnClick="true"
-            :cardAction="
-                (card: Card) =>
-                    gameState.selfPlayer ?
-                        gameMutations.moveToBottom.actSelf({
-                            card: card,
-                            toCardRegion: gameState.selfPlayer.crypt,
-                        })
-                    :   null
-            "
+        <SubmenuContextMenuButton
+            v-if="firstCard.isIn.controlled"
+            :disabled="!singleCard"
+            :submenuComponent="MarkersSubmenu"
         >
-            Move to Bottom of Crypt
-        </ContextMenuButton>
+            Add/Remove Markers
+        </SubmenuContextMenuButton>
 
-        <CommandContextMenuButton
-            v-if="firstCard.isIn.play"
-            :command="commands.PingCard"
-            :closeOnClick="true"
-        />
-
-        <ContextMenuButton
-            v-if="firstCard.isIn.controlled && core.gameType == GameType.TrainBot"
-            :closeOnClick="true"
-            :disabled="!singleMinion || !gameState.action?.canAttemptBlock"
-            :cardAction="
-                () =>
-                    gameMutations.ACTION_declareBlock.actSelf({
-                        blockingMinion: singleMinion ?? NO_BLOCK,
-                    })
-            "
+        <SubmenuContextMenuButton
+            v-if="firstCard.isIn.controlled"
+            :submenuComponent="InfrequentMenuButtons"
         >
-            Attempt block
-        </ContextMenuButton>
-
-        <ContextMenuButton
-            v-if="singleCard && !singleCard.isVampire() && singleCard.isIn.ready"
-            :closeOnClick="true"
-            :cardAction="(card: Card) => card.becomeVampire()"
-        >
-            Become a vampire
-        </ContextMenuButton>
-
-        <ContextMenuButton
-            v-if="singleCard && !singleCard.isMinion() && singleCard.isIn.ready"
-            :closeOnClick="true"
-            :cardAction="(card: Card) => card.becomeMinion()"
-        >
-            Become an ally
-        </ContextMenuButton>
+            More...
+        </SubmenuContextMenuButton>
+        <InfrequentMenuButtons v-else />
     </div>
 </template>
 
 <script setup lang="ts">
-import { useGameBusStore } from '@/store/bus.ts'
 import { gameMutations } from '@/state/gameMutations.ts'
-import { computed } from 'vue'
-import { Card, Minion } from '@/model/Card.ts'
-import { useGameStateStore } from '@/store/gameState.ts'
-import { useCoreStore } from '@/store/core.ts'
-import { useCommands } from '@/game/composables/useCommands.ts'
+import { Card } from '@/model/Card.ts'
 import { GameType } from '@/state/types.ts'
 import ContextMenuButton from '@/ui/context/menu/ContextMenuButton.vue'
 import CommandContextMenuButton from '@/ui/context/menu/CommandContextMenuButton.vue'
 import SubmenuContextMenuButton from '@/ui/context/menu/SubmenuContextMenuButton.vue'
 import MarkersSubmenu from '@/ui/context/menu/MarkersSubmenu.vue'
 import { NO_BLOCK } from '@/state/actionState.ts'
+import InfrequentMenuButtons from '@/ui/context/menu/InfrequentMenuButtons.vue'
+import { useContextSelection } from '@/ui/context/menu/useContextSelection.ts'
 
-const core = useCoreStore()
-const gameState = useGameStateStore()
-const gameBus = useGameBusStore()
-const commands = useCommands()
-
-const firstCard = computed(() => gameBus.contextMenu.cards[0])
-const singleCard = computed(() => (gameBus.contextMenu.cards.length == 1 ? firstCard.value : null))
-const singleMinion = computed<Minion | null>(() =>
-    singleCard.value && singleCard.value.isMinion() ? singleCard.value : null,
-)
+const { core, gameState, gameBus, commands, firstCard, singleCard, singleMinion } =
+    useContextSelection()
 </script>
 
 <style lang="scss" scoped>
