@@ -199,24 +199,45 @@ export class Player extends BaseModel {
     }
 
     changePool(amount: number) {
-        const nbCompetingPlayers = useGameStateStore().competingPlayers.length
+        const gameState = useGameStateStore()
+        const nbCompetingPlayers = gameState.competingPlayers.length
+        const activePlayerOid = gameState.activePlayer?.oid || -1
+        const activePlayerTurnIndex = gameState.turnOrder.indexOf(activePlayerOid)
+        const thisPlayerTurnIndex = gameState.turnOrder.indexOf(this.oid)
+        const wasOusted = this.isOusted
 
-        if (this.pool == 0 && amount > 0) {
+        // De-oust this player ( e.g. : when cancelling an ousting mutation )
+        if (wasOusted && this.pool == 0 && amount > 0) {
             this.isOusted = false
             if (this.predator) {
                 // The last oust had given 2 VP
                 this.predator.victoryPoints -= nbCompetingPlayers == 1 ? 2 : 1
             }
+
+            // Update the activePlayerIndex if it's after the de-ousted player
+            if (activePlayerTurnIndex > thisPlayerTurnIndex) {
+                gameState.activePlayerIndex++
+            }
         }
 
         this.pool = Math.max(0, this.pool + amount)
 
-        if (this.pool <= 0) {
+        // Oust this player
+        if (this.pool == 0 && !wasOusted) {
             if (this.predator) {
                 // The last oust gives 2 VP
                 this.predator.victoryPoints += nbCompetingPlayers == 2 ? 2 : 1
             }
             this.isOusted = true
+
+            // Update the activePLayerIndex if it's after the ousted player
+            if (activePlayerTurnIndex >= thisPlayerTurnIndex) {
+                gameState.activePlayerIndex--
+            }
+            // If ousted during our own turn, advance immediatly to the next turn
+            if (activePlayerOid == this.oid) {
+                gameState.changeTurn(gameState.turnNumber + 1)
+            }
         }
     }
 }

@@ -4,7 +4,13 @@ import { Player, PlayerOid } from '@/model/Player.ts'
 import { BaseModel, ObjectId } from '@/model/BaseModel.ts'
 import { AnyCardRegion, CardRegionOid } from '@/model/CardRegion.ts'
 import { KrcgId } from '@/resources/cards.ts'
-import { DEFAULT_DPA, DEFAULT_MPA, INITIAL_POOL, TurnSequence } from '@/model/const.ts'
+import {
+    DEFAULT_DPA,
+    DEFAULT_MPA,
+    DEFAULT_TRANSFERS,
+    INITIAL_POOL,
+    TurnSequence,
+} from '@/model/const.ts'
 import { ActionState } from '@/state/actionState.ts'
 import { CombatState } from '@/state/combatState.ts'
 import { useCoreStore } from '@/store/core.ts'
@@ -240,6 +246,34 @@ export const useGameStateStore = defineStore('gameState', {
                 gameState.removeFromSelection(card)
                 // Remove from card group when moved out of the play area.
                 gameState.removeFromCardGroup(card)
+            }
+        },
+
+        changeTurn(newTurnNumber: number) {
+            // The turn didn't change, nothing to do
+            if (newTurnNumber == this.turnNumber) {
+                return
+            } else {
+                // Will normally be 1 or -1
+                const delta = newTurnNumber - this.turnNumber
+                this.turnNumber = newTurnNumber
+                this.activePlayerIndex =
+                    (this.activePlayerIndex + delta + this.competingPlayers.length) %
+                    this.competingPlayers.length
+
+                // Forward
+                if (delta > 0) {
+                    this.turnPhaseIndex = 0
+                    this.turnResources = {
+                        mpa: DEFAULT_MPA,
+                        transfers: Math.min(DEFAULT_TRANSFERS, this.turnNumber),
+                        dpa: DEFAULT_DPA,
+                    }
+                }
+                // Backward
+                else {
+                    this.turnPhaseIndex = 4
+                }
             }
         },
 

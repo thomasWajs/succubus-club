@@ -3,7 +3,7 @@ import { useHistoryStore } from '@/store/history.ts'
 import { GameStateStore, useGameStateStore } from '@/store/gameState.ts'
 import { AnyCardRegion, CardRegion } from '@/model/CardRegion.ts'
 import { Card, CardOid, CryptCard, LibraryCard, Minion } from '@/model/Card.ts'
-import { DEFAULT_DPA, DEFAULT_MPA, DEFAULT_TRANSFERS, Marker, TurnSequence } from '@/model/const.ts'
+import { Marker, TurnSequence } from '@/model/const.ts'
 import {
     CARD_LOG_PLACEHOLDER,
     CONTROLLED_ZONE_HEIGHT,
@@ -390,6 +390,15 @@ interface ChangePoolParams extends GameMutationParams {
 class ChangePool extends GameMutation<ChangePoolParams> {
     readonly syncMode = MutationSyncMode.Merge
 
+    getValidity() {
+        // Cannot get a negative pool amount
+        if (this.params.player.pool + this.params.amount < 0) {
+            return Invalid(`${this.params.player.name} : Cannot go below 0 pool`)
+        }
+
+        return VALID
+    }
+
     protected updateGameState() {
         this.params.player.changePool(this.params.amount)
     }
@@ -616,44 +625,15 @@ class GoToTurn extends GameMutation<ChangeIndexParams> {
         return VALID
     }
 
-    forward = false
-    backward = false
     protected updateGameState(gameState: GameStateStore) {
         this.previousState.turnNumber = gameState.turnNumber
-
-        // The turn didn't change, nothing to do
-        if (this.params.index == gameState.turnNumber) {
-            return
-        } else {
-            // Will normally be 1 or -1
-            const delta = this.params.index - gameState.turnNumber
-            gameState.turnNumber = this.params.index
-            gameState.activePlayerIndex =
-                (gameState.activePlayerIndex + delta + gameState.competingPlayers.length) %
-                gameState.competingPlayers.length
-
-            // Forward
-            if (delta > 0) {
-                this.forward = true
-                gameState.turnPhaseIndex = 0
-                gameState.turnResources = {
-                    mpa: DEFAULT_MPA,
-                    transfers: Math.min(DEFAULT_TRANSFERS, gameState.turnNumber),
-                    dpa: DEFAULT_DPA,
-                }
-            }
-            // Backward
-            else {
-                this.backward = true
-                gameState.turnPhaseIndex = 4
-            }
-        }
+        gameState.changeTurn(this.params.index)
     }
 
     formatForLog() {
-        if (this.forward) {
+        if (this.params.index > this.previousState.turnNumber) {
             return `Advance to turn ${useGameStateStore().turnNumber}`
-        } else if (this.backward) {
+        } else if (this.params.index < this.previousState.turnNumber) {
             return `Back to turn ${useGameStateStore().turnNumber}`
         }
         return null
