@@ -13,7 +13,7 @@ import { DbSavedGame } from '@/gateway/db.ts'
 import { initAutoSaveGame } from '@/gateway/savedGames.ts'
 import router, { ROUTES } from '@/ui/router.ts'
 import { useHistoryStore } from '@/store/history.ts'
-import { DeckList, validateDeckList } from '@/gateway/deck.ts'
+import { DeckList } from '@/gateway/deck.ts'
 import { useGameBusStore } from '@/store/bus.ts'
 import { resetSync } from '@/multiplayer/sync.ts'
 import { isCryptId } from '@/resources/cards.ts'
@@ -41,8 +41,6 @@ function loadDeck(player: Player, deckList: DeckList) {
 
 function setupPlayArea(player: Player, deckList: DeckList) {
     const gameState = useGameStateStore()
-
-    validateDeckList(deckList)
 
     loadDeck(player, deckList)
 

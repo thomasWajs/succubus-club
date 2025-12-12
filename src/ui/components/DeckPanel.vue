@@ -256,6 +256,24 @@
                             loaded and is ready to use.
                         </div>
 
+                        <div
+                            v-if="deckWarnings.length"
+                            class="alert-message"
+                        >
+                            <span class="alert-icon">⚠</span>
+                            <div class="alert-text">
+                                <div>Validation warnings:</div>
+                                <ul class="warnings-list">
+                                    <li
+                                        v-for="(w, i) in deckWarnings"
+                                        :key="i"
+                                    >
+                                        {{ w }}
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
                         <!-- Deck name input for unnamed decks -->
                         <div
                             v-if="!core.selfDeck?.name"
@@ -303,6 +321,7 @@ import {
     getOrImportText,
     getOrImportVdb,
     selectDeck,
+    validateDeckList,
 } from '@/gateway/deck.ts'
 import { useCoreStore } from '@/store/core.ts'
 import { db, DbDeck } from '@/gateway/db.ts'
@@ -313,6 +332,11 @@ const bus = useBusStore()
 
 const isLoading = ref(false)
 const errorMessage = ref('')
+
+const deckWarnings = computed(() => {
+    const cards = core.selfDeck?.cards
+    return cards ? validateDeckList(cards) : []
+})
 
 function clearError() {
     errorMessage.value = ''
@@ -483,7 +507,7 @@ type PreconSet = {
     }[]
 }
 
-const EXCLUDED_SETS = ['Promo', 'POD', 'playtest', '2P']
+const EXCLUDED_SETS = ['Promo', 'POD', 'playtest']
 const allPreconSets = computed(() => {
     // In this function, the gr prefix stands for "game resources"
     const grAllSets = gameResources.setsAndPrecons
@@ -773,5 +797,14 @@ $max-width: 1200px;
 .alert-text {
     flex: 1;
     line-height: 1.4;
+}
+
+.warnings-list {
+    margin: 0.5rem 0 0 1.25rem;
+
+    li {
+        margin: 0.25rem 0;
+        font-weight: 500;
+    }
 }
 </style>

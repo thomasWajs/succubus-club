@@ -12,8 +12,6 @@ export type Deck = {
     cards: DeckList
 }
 
-export class DeckValidationError extends Error {}
-
 export async function getOrImportDeck(
     source: DeckSource,
     sourceId: string,
@@ -31,7 +29,6 @@ export async function getOrImportDeck(
 
     if (!dbDeck) {
         const deck = await importer()
-        validateDeckList(deck.cards)
         dbDeck = await DbDeck.create(deck.name, deck.cards, source, sourceId)
     }
     return dbDeck
@@ -77,30 +74,32 @@ export async function getOrImportPrecon(name: string, cards: DeckList) {
     await selectDeck(dbDeck)
 }
 
-export function validateDeckList(deckList: DeckList) {
-    let libSize = 0,
-        cryptSize = 0
+export function countCards(deckList: DeckList) {
+    const counter = {
+        lib: 0,
+        crypt: 0,
+    }
     for (const [krcgId, quantity] of Object.entries(deckList)) {
         if (isCryptId(krcgId)) {
-            cryptSize += quantity
+            counter.crypt += quantity
         } else {
-            libSize += quantity
+            counter.lib += quantity
         }
     }
+    return counter
+}
 
-    if (cryptSize < MIN_CRYPT_SIZE) {
-        throw new DeckValidationError(
-            `Crypt size must be at least ${MIN_CRYPT_SIZE} (got ${cryptSize})`,
-        )
+export function validateDeckList(deckList: DeckList) {
+    const counter = countCards(deckList)
+    const warnings = []
+    if (counter.crypt < MIN_CRYPT_SIZE) {
+        warnings.push(`Crypt size must be at least ${MIN_CRYPT_SIZE} (got ${counter.crypt})`)
     }
-    if (libSize < MIN_LIB_SIZE) {
-        throw new DeckValidationError(
-            `Library size must be at least ${MIN_LIB_SIZE} (got ${libSize})`,
-        )
+    if (counter.lib < MIN_LIB_SIZE) {
+        warnings.push(`Library size must be at least ${MIN_LIB_SIZE} (got ${counter.lib})`)
     }
-    if (libSize > MAX_LIB_SIZE) {
-        throw new DeckValidationError(
-            `Library size must be at most ${MAX_LIB_SIZE} (got ${libSize})`,
-        )
+    if (counter.lib > MAX_LIB_SIZE) {
+        warnings.push(`Library size must be at most ${MAX_LIB_SIZE} (got ${counter.lib})`)
     }
+    return warnings
 }

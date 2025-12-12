@@ -224,6 +224,18 @@
                                 >
                                     {{ getUserStatusText(user) }}
                                 </span>
+                                <div
+                                    v-if="getDeckWarnings(user).length > 0"
+                                    class="deck-warnings"
+                                >
+                                    <span
+                                        v-for="(warning, idx) in getDeckWarnings(user)"
+                                        :key="idx"
+                                        class="deck-warning"
+                                    >
+                                        ⚠ {{ warning }}
+                                    </span>
+                                </div>
                             </div>
                         </div>
 
@@ -384,6 +396,8 @@ import * as logging from '@/logging.ts'
 import { useBusStore } from '@/store/bus.ts'
 import { createGameRoom } from '@/multiplayer/lobby.ts'
 import { computeKey } from '@/multiplayer/encryption.ts'
+import { countCards } from '@/gateway/deck.ts'
+import { MAX_LIB_SIZE, MIN_CRYPT_SIZE, MIN_LIB_SIZE } from '@/model/const.ts'
 
 const core = useCoreStore()
 const multiplayer = useMultiplayerStore()
@@ -489,6 +503,24 @@ function getUserStatusText(user: User) {
         return 'Ready'
     }
     return 'Not Ready'
+}
+
+function getDeckWarnings(user: User) {
+    if (!user.deckList) {
+        return []
+    }
+
+    const counter = countCards(user.deckList)
+    const warnings = []
+
+    if (counter.lib < MIN_LIB_SIZE || counter.lib > MAX_LIB_SIZE) {
+        warnings.push(`lib: ${counter.lib}`)
+    }
+    if (counter.crypt < MIN_CRYPT_SIZE) {
+        warnings.push(`crypt: ${counter.crypt}`)
+    }
+
+    return warnings
 }
 
 /**
@@ -608,7 +640,7 @@ if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
 .lobby-content {
     display: grid;
     grid-template-columns: 300px 1fr;
-    grid-template-rows: 1fr 350px;
+    grid-template-rows: 1fr 360px;
     grid-template-areas:
         'players-sidebar rooms-section'
         'current-room current-room';
@@ -954,6 +986,21 @@ if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
     &.not-ready {
         color: $warm-coral;
     }
+}
+
+.deck-warnings {
+    display: flex;
+    gap: 0.15rem;
+    align-items: center;
+}
+
+.deck-warning {
+    font-size: 0.7rem;
+    color: $warm-coral;
+    background: rgba($wine-crimson, 0.3);
+    padding: 0.15rem 0.4rem;
+    border-radius: 0.25rem;
+    border: 1px solid $warm-coral;
 }
 
 .attack-arrow {
