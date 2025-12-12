@@ -50,12 +50,6 @@
             :closeOnClick="true"
         />
 
-        <CommandContextMenuButton
-            v-if="firstCard.isIn.controlled"
-            :command="commands.Flip"
-            :closeOnClick="true"
-        />
-
         <ContextMenuButton
             v-if="firstCard.isIn.controlled && core.gameType == GameType.TrainBot"
             :closeOnClick="true"

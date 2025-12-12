@@ -1,4 +1,10 @@
 <template>
+    <CommandContextMenuButton
+        v-if="firstCard.isIn.controlled"
+        :command="commands.Flip"
+        :closeOnClick="true"
+    />
+
     <ContextMenuButton
         v-if="firstCard.isIn.hand || firstCard.isIn.library || firstCard.isIn.ashHeap"
         :closeOnClick="true"
