@@ -1621,7 +1621,7 @@ interface ChangeScaleParams extends GameMutationParams {
 }
 
 class ChangeScale extends GameMutation<ChangeScaleParams> {
-    readonly syncMode = MutationSyncMode.Ordered
+    readonly syncMode = MutationSyncMode.Merge
     isIgnoredForCancel = true
 
     protected get _versioningId(): VersioningId {
@@ -1658,6 +1658,13 @@ class StartTimer extends GameMutation<TimerParams> {
     formatForLog() {
         return `Start timer ( ${useTimer().formatTime(this.params.remainingTime)} )`
     }
+
+    getCancelMutation(): AnyGameMutation {
+        return gameMutations.UI_pauseTimer.createCancelMutation(this, {
+            remainingTime: this.params.remainingTime,
+            date: this.params.date,
+        })
+    }
 }
 
 class PauseTimer extends GameMutation<TimerParams> {
@@ -1674,6 +1681,13 @@ class PauseTimer extends GameMutation<TimerParams> {
 
     formatForLog() {
         return `Pause timer ( ${useTimer().formatTime(this.params.remainingTime)} )`
+    }
+
+    getCancelMutation(): AnyGameMutation {
+        return gameMutations.UI_startTimer.createCancelMutation(this, {
+            remainingTime: this.params.remainingTime,
+            date: this.params.date,
+        })
     }
 }
 
