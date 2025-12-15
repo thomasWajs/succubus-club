@@ -246,6 +246,10 @@ export const useGameStateStore = defineStore('gameState', {
                 gameState.removeFromSelection(card)
                 // Remove from card group when moved out of the play area.
                 gameState.removeFromCardGroup(card)
+                // Reset counters/markers when leaving play
+                card.blood = 0
+                card.greenCounter = 0
+                card.markers = []
             }
         },
 
