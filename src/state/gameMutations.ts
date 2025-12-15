@@ -1634,6 +1634,34 @@ class ChangeScale extends GameMutation<ChangeScaleParams> {
 }
 
 /**
+ * UI : Change separators
+ */
+
+interface ChangeSeparatorsParams extends GameMutationParams {
+    player: Player
+    verticalX?: number
+    horizontalY?: number
+}
+
+class ChangeSeparators extends GameMutation<ChangeSeparatorsParams> {
+    readonly syncMode = MutationSyncMode.Merge
+    isIgnoredForCancel = true
+
+    protected get _versioningId(): VersioningId {
+        return VersioningTarget.Separator
+    }
+
+    protected updateGameState() {
+        if (this.params.verticalX) {
+            this.params.player.separators.verticalX = this.params.verticalX
+        }
+        if (this.params.horizontalY) {
+            this.params.player.separators.horizontalY = this.params.horizontalY
+        }
+    }
+}
+
+/**
  * UI : Timer
  */
 
@@ -1887,6 +1915,7 @@ export const gameMutations = {
     UI_removeTargetDeclaration: defineMutation(RemoveTargetDeclaration),
     UI_changeTargetDeclaration: defineMutation(ChangeTargetDeclaration),
     UI_changeScale: defineMutation(ChangeScale),
+    UI_changeSeparators: defineMutation(ChangeSeparators),
     UI_startTimer: defineMutation(StartTimer),
     UI_pauseTimer: defineMutation(PauseTimer),
     UI_pingCard: defineMutation(PingCard),

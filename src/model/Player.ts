@@ -6,6 +6,7 @@ import { Card, CryptCard, LibraryCard, Minion, Vampire } from '@/model/Card.ts'
 import Phaser from 'phaser'
 import { PermanentId } from '@/multiplayer/types.ts'
 import { BOT_PERM_ID } from '@/game/setup.ts'
+import { HORIZONTAL_SEPARATOR_DEFAULT_Y, VERTICAL_SEPARATOR_DEFAULT_X } from '@/game/const.ts'
 
 const PLAYER_NAME_LEGIBLE_LENGTH = 22
 
@@ -33,6 +34,11 @@ export type PlayerCardRegions = {
     ready: CardRegion<Card>
 }
 
+export type Separators = {
+    verticalX: number
+    horizontalY: number
+}
+
 export class Player extends BaseModel {
     shortName: string
 
@@ -46,6 +52,10 @@ export class Player extends BaseModel {
         public victoryPoints = 0,
         public isOusted = false,
         public scale = 1,
+        public separators: Separators = {
+            verticalX: VERTICAL_SEPARATOR_DEFAULT_X,
+            horizontalY: HORIZONTAL_SEPARATOR_DEFAULT_Y,
+        },
         // Not currently in use
         // public handSize = INITIAL_HAND_SIZE,
     ) {

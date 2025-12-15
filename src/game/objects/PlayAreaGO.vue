@@ -17,7 +17,7 @@
             :x="0"
             :y="PLAYER_BAR_HEIGHT"
             :width="PLAY_AREA_WIDTH"
-            :height="CONTROLLED_ZONE_HEIGHT"
+            :height="player.separators.horizontalY - PLAYER_BAR_HEIGHT"
             :color="player.color"
             :cardRegion="player.ready"
         />
@@ -25,21 +25,59 @@
         <RegionGO
             key="Torpor"
             :x="0"
-            :y="TORPOR_ZONE_Y"
-            :width="PLAY_AREA_WIDTH / 2"
-            :height="TORPOR_ZONE_HEIGHT"
+            :y="player.separators.horizontalY"
+            :width="player.separators.verticalX"
+            :height="CARD_STACKS_Y - player.separators.horizontalY"
             :color="player.color"
             :cardRegion="player.torpor"
         />
 
         <RegionGO
             key="Uncontrolled"
-            :x="PLAY_AREA_WIDTH / 2"
-            :y="TORPOR_ZONE_Y"
-            :width="PLAY_AREA_WIDTH / 2"
-            :height="TORPOR_ZONE_HEIGHT"
+            :x="player.separators.verticalX"
+            :y="player.separators.horizontalY"
+            :width="PLAY_AREA_WIDTH - player.separators.verticalX"
+            :height="CARD_STACKS_Y - player.separators.horizontalY"
             :color="player.color"
             :cardRegion="player.uncontrolled"
+        />
+
+        <!-- Vertical separator line -->
+        <Rectangle
+            v-if="player == gameState.selfPlayer"
+            :key="'verticalSeparatorKey' + verticalSeparatorKey"
+            :origin="0"
+            :x="separators.vertical.dragX ? separators.vertical.dragX : player.separators.verticalX"
+            :y="player.separators.horizontalY"
+            :width="1"
+            :height="CARD_STACKS_Y - player.separators.horizontalY"
+            :fillColor="separators.vertical.over ? WHITE.color : player.color.color"
+            @create="onVerticalSeparatorCreate"
+            @pointerover="separators.vertical.over = true"
+            @pointerout="separators.vertical.over = false"
+            @drag="onVerticalSeparatorDrag"
+            @dragend="onVerticalSeparatorDragEnd"
+        />
+
+        <!-- Horizontal separator line -->
+        <Rectangle
+            v-if="player == gameState.selfPlayer"
+            key="horizontalSeparator"
+            :origin="0"
+            :x="0"
+            :y="
+                separators.horizontal.dragY ?
+                    separators.horizontal.dragY
+                :   player.separators.horizontalY
+            "
+            :width="PLAY_AREA_WIDTH"
+            :height="1"
+            :fillColor="separators.horizontal.over ? WHITE.color : player.color.color"
+            @create="onHorizontalSeparatorCreate"
+            @pointerover="separators.horizontal.over = true"
+            @pointerout="separators.horizontal.over = false"
+            @drag="onHorizontalSeparatorDrag"
+            @dragend="onHorizontalSeparatorDragEnd"
         />
 
         <CardStackRegionGO
@@ -141,7 +179,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, reactive, watch } from 'vue'
 import Phaser, { GameObjects } from 'phaser'
 import { Container, Line, Text, Rectangle } from 'phavuer'
 import {
@@ -155,11 +193,15 @@ import {
     PLAY_AREA_HEIGHT,
     PLAY_AREA_WIDTH,
     PLAYER_BAR_HEIGHT,
-    TORPOR_ZONE_HEIGHT,
-    TORPOR_ZONE_Y,
     ALIGNMENT_GUIDE_OVERSHOOT,
     CARD_WIDTH,
     CARD_HEIGHT,
+    GRID_SIZE,
+    WHITE,
+    VERTICAL_SEPARATOR_MIN_X,
+    VERTICAL_SEPARATOR_MAX_X,
+    HORIZONTAL_SEPARATOR_MIN_Y,
+    HORIZONTAL_SEPARATOR_MAX_Y,
 } from '@/game/const.ts'
 import RegionGO from '@/game/objects/RegionGO.vue'
 import CardStackRegionGO from '@/game/objects/CardStackRegionGO.vue'
@@ -170,6 +212,7 @@ import { PhaserDataKey } from '@/game/types.ts'
 import { useGameBusStore } from '@/store/bus.ts'
 import { GUIDE_VERTICAL } from '@/state/types.ts'
 import CardGroupGO from '@/game/objects/CardGroupGO.vue'
+import { gameMutations } from '@/state/gameMutations.ts'
 
 const { player } = defineProps<{
     player: Player
@@ -201,6 +244,104 @@ onMounted(() => {
         card.bringToTop()
     }
 })
+
+/**
+ * Separators
+ */
+
+const SEPARATOR_HIT_AREA_SIZE = 10
+
+const separators = reactive({
+    vertical: {
+        over: false,
+        dragX: 0,
+    },
+    horizontal: {
+        over: false,
+        dragY: 0,
+    },
+})
+
+const verticalSeparatorKey = ref(0)
+function onVerticalSeparatorCreate(separator: GameObjects.Rectangle) {
+    separator.setInteractive({
+        // wider hit area for easier grabbing
+        hitArea: new Phaser.Geom.Rectangle(
+            -SEPARATOR_HIT_AREA_SIZE / 2,
+            0,
+            SEPARATOR_HIT_AREA_SIZE,
+            CARD_STACKS_Y - player.separators.horizontalY,
+        ),
+        hitAreaCallback: Phaser.Geom.Rectangle.Contains,
+        cursor: 'ew-resize',
+        draggable: true,
+    })
+    separator.setName('separator')
+
+    // For the f**k of me I can't find why Phaser refuse
+    // to update correctly the hitArea of this separator.
+    // I give up, and just re-construct the Rectangle object
+    // each time the y position change.
+    watch(
+        () => player.separators.horizontalY,
+        () => {
+            verticalSeparatorKey.value = verticalSeparatorKey.value + 1
+        },
+    )
+}
+
+function onVerticalSeparatorDrag({}, dragX: number) {
+    // Clamp the position within bounds
+    separators.vertical.dragX = Phaser.Math.Snap.To(
+        Phaser.Math.Clamp(dragX, VERTICAL_SEPARATOR_MIN_X, VERTICAL_SEPARATOR_MAX_X),
+        GRID_SIZE,
+    )
+}
+
+function onVerticalSeparatorDragEnd() {
+    if (!gameState.selfPlayer) {
+        return
+    }
+    gameMutations.UI_changeSeparators.actSelf({
+        player: gameState.selfPlayer,
+        verticalX: separators.vertical.dragX,
+    })
+    separators.vertical.dragX = 0
+}
+
+function onHorizontalSeparatorCreate(separator: GameObjects.Rectangle) {
+    separator.setInteractive({
+        // taller hit area for easier grabbing
+        hitArea: new Phaser.Geom.Rectangle(
+            0,
+            -SEPARATOR_HIT_AREA_SIZE / 2,
+            PLAY_AREA_WIDTH,
+            SEPARATOR_HIT_AREA_SIZE,
+        ),
+        hitAreaCallback: Phaser.Geom.Rectangle.Contains,
+        cursor: 'ns-resize',
+    })
+    separator.setName('separator')
+}
+
+function onHorizontalSeparatorDrag({}, {}, dragY: number) {
+    // Clamp the position within bounds
+    separators.horizontal.dragY = Phaser.Math.Snap.To(
+        Phaser.Math.Clamp(dragY, HORIZONTAL_SEPARATOR_MIN_Y, HORIZONTAL_SEPARATOR_MAX_Y),
+        GRID_SIZE / 2,
+    )
+}
+
+function onHorizontalSeparatorDragEnd() {
+    if (!gameState.selfPlayer) {
+        return
+    }
+    gameMutations.UI_changeSeparators.actSelf({
+        player: gameState.selfPlayer,
+        horizontalY: separators.horizontal.dragY,
+    })
+    separators.horizontal.dragY = 0
+}
 
 /**
  * Alignment guides

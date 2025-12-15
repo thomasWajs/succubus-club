@@ -52,17 +52,30 @@ function onPointerDown(pointer: Pointer, gameObjects: GameObjects.GameObject[]) 
         document.activeElement.blur()
     }
 
-    // CardGO handle clicks on themselves.
+    // Hide contextMenu when clicking outside of it
+    if (!pointer.rightButtonDown()) {
+        gameBus.hideContextMenu()
+    }
+
+    const gameObject: GameObjects.GameObject | undefined = gameObjects[0]
+    const type = gameObject?.type
+    const name = gameObject?.name
+
+    if (name == 'cardGroupIcon' || name == 'separator') {
+        // nothing more to do, but prevent the default behavior of the click event.
+        // This is more legible than a complex if condition
+        return
+    }
+
+    // Here we handle other clicks outside a CardGO
 
     // Handle declaring player as a target
     if (
         gameBus.declaringTargetOrigin &&
         gameObjects.length == 1 &&
-        gameObjects[0].type == 'Rectangle' &&
-        gameObjects[0].name != 'cardButton' &&
+        type == 'Rectangle' &&
         pointer.leftButtonDown()
     ) {
-        const gameObject = gameObjects[0]
         const player = gameObject?.parentContainer?.getData(PhaserDataKey.Player)
         if (player) {
             gameMutations.UI_addTargetDeclaration.actSelf({
@@ -71,12 +84,7 @@ function onPointerDown(pointer: Pointer, gameObjects: GameObjects.GameObject[]) 
             })
             gameBus.declaringTargetOrigin = null
         }
-    } else if (gameObjects[0]?.name == 'cardGroupIcon') {
-        // nothing to do, but prevent the default behavior of the click event.
-        // This is more legible than a complex if condition
-    }
-    // Here we handle other clicks outside a CardGO
-    else if (gameObjects.length == 0 || gameObjects[0].type != 'Image') {
+    } else if (gameObjects.length == 0 || type != 'Image') {
         // Here it's a click outside a card :
         // clear card selection, context menu, declaring target,
         gameBus.selectedCards = []
@@ -92,11 +100,6 @@ function onPointerDown(pointer: Pointer, gameObjects: GameObjects.GameObject[]) 
             // Expressed in world coordinates
             gameBus.selectionArea.origin = getWorldPoint(pointer.x, pointer.y)
         }
-    }
-
-    // Hide contextMenu when clicking outside of it
-    if (!pointer.rightButtonDown()) {
-        gameBus.hideContextMenu()
     }
 }
 
@@ -121,9 +124,14 @@ function onPointerMove(pointer: Pointer, {}) {
 }
 
 function onDragStart({}, cardImage: GameObjects.Image) {
+    const card = getCardDragged(cardImage)
+    if (!card) {
+        return
+    }
+
     const gameBus = useGameBusStore()
     gameBus.dragOver = {
-        card: getCardDragged(cardImage),
+        card,
         gameObjects: markRaw({
             cardImage,
         }),

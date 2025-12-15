@@ -98,7 +98,7 @@ function onBoundariesCreate(boundaries: GameObjects.Arc) {
         ({}, cardImage: GameObjects.Image, target: GameObjects.Arc) => {
             // Highlight target region if it's different from the source region
             const card = getCardDragged(cardImage)
-            if (target == boundaries && card.region.oid != hand.value?.oid) {
+            if (card && target == boundaries && card.region.oid != hand.value?.oid) {
                 isDraggedOver.value = true
             }
         },

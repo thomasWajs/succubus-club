@@ -91,21 +91,14 @@ export function positionContextMenu(
     }, 0)
 }
 
-export function getCardDragged(cardImage: GameObjects.Image) {
+export function getCardDragged(cardImage: GameObjects.Image): Card | undefined {
     const gameState = useGameStateStore()
 
     const cardOid = cardImage.getData(PhaserDataKey.CardOid) as CardOid
     if (!cardOid) {
-        throw new Error(`getDraggedCard: cardImage does not have a valid CardOid`)
+        return undefined
     }
-
-    const card = gameState.cards[cardOid]
-    // Dropped on a region that doesn't exist in the game state, that should never happen
-    if (!card) {
-        throw new Error(`onDrop: card not found for oid ${cardOid}`)
-    }
-
-    return card
+    return gameState.cards[cardOid]
 }
 
 export function getCardRegionDraggedOver(dragTarget: GameObjects.GameObject) {

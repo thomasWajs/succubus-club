@@ -65,6 +65,7 @@ export enum VersioningTarget {
     Shuffle = 'Shuffle',
     TargetDeclaration = 'TargetDeclaration',
     Scale = 'Scale',
+    Separator = 'Separator',
     Timer = 'Timer',
 }
 
