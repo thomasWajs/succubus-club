@@ -27,6 +27,12 @@ export function isRevealedToPlayer(target: CardRevelationTarget, player: Player)
 }
 
 export function anyoneCanSee(card: Card) {
+    // Flipping a card allow only to hide it while in play,
+    // to not mess with visibility in the other regions
+    if (card.isFlipped && card.isIn.play) {
+        return false
+    }
+
     return card.region.visibility == CardRegionVisibility.VisibleToAll
 }
 
