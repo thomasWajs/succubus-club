@@ -240,8 +240,8 @@ export abstract class Card extends BaseModel {
 
     // Does the cards have a "during X phase" that apply in the current state ?
     isDuringCurrentPhase() {
-        // Glow only card that are controlled
-        if (!this.isIn.controlled) {
+        // Glow only card that are controlled and visible
+        if (!this.isIn.controlled || !this.selfCanSee) {
             return false
         }
 
