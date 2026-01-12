@@ -136,7 +136,7 @@
     <template v-if="showOverlay">
         <!-- Ash Heap -->
         <ButtonGo
-            v-if="card.isIn.controlled"
+            v-if="card.isIn.controlled && !card.isMinion()"
             ref="ashHeapButton"
             name="cardButton"
             :x="overlays.ashHeap.x"
@@ -152,7 +152,7 @@
 
         <!-- Influence -->
         <ButtonGo
-            v-if="card.isIn.uncontrolled"
+            v-if="card.isIn.uncontrolled && card.isMinion()"
             ref="influenceButton"
             name="cardButton"
             :x="overlays.influence.x"
