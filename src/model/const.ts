@@ -64,7 +64,6 @@ export enum LibraryCardType {
     Event = 'Event',
     Conviction = 'Conviction',
     Power = 'Power',
-    Reflex = 'Reflex',
 }
 
 export const ACTION_TYPES = [
@@ -110,7 +109,7 @@ export enum Discipline {
     Abombwe = 'Abombwe',
     Animalism = 'Animalism',
     Auspex = 'Auspex',
-    BloodSorcery = 'Sorcery',
+    BloodSorcery = 'Blood Sorcery',
     Celerity = 'Celerity',
     Chimerstry = 'Chimerstry',
     Daimoinon = 'Daimoinon',

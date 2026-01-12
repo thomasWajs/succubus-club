@@ -11,7 +11,8 @@
                 <span class="current-deck-label">Currently&nbsp;:&nbsp;</span>
                 <span
                     class="current-deck-name"
-                    :class="{ loading: isLoading }"
+                    :class="{ loading: isLoading, clickable: core.selfDeck }"
+                    @click="viewDeck"
                 >
                     {{ isLoading ? 'Loading...' : (core.selfDeck?.name ?? 'None') }}
                 </span>
@@ -243,6 +244,17 @@
                     </div>
                 </div>
 
+                <!-- View Deck Tab -->
+                <div
+                    v-if="activeTab === 'view-deck'"
+                    class="tab-content"
+                >
+                    <DeckViewer
+                        v-if="core.selfDeck"
+                        :deck-list="core.selfDeck.cards"
+                    />
+                </div>
+
                 <!-- Success Tab -->
                 <div
                     v-if="activeTab === SUCCESS_TAB"
@@ -299,6 +311,13 @@
                         <div class="success-actions">
                             <button
                                 class="action-btn success-close-btn"
+                                @click="viewDeck()"
+                            >
+                                Look Deck Content
+                            </button>
+
+                            <button
+                                class="action-btn success-close-btn"
                                 @click="bus.isDeckPanelOpen = false"
                             >
                                 Close Panel
@@ -314,6 +333,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import TopPanel from './TopPanel.vue'
+import DeckViewer from './DeckViewer.vue'
 import { useBusStore } from '@/store/bus.ts'
 import {
     getOrImportAmaranth,
@@ -543,6 +563,15 @@ const allPreconSets = computed(() => {
 function loadFromPrecon(setId: string, preconId: string, name: string) {
     loadDeck(() => getOrImportPrecon(name, gameResources.preconDecks[setId][preconId]))
 }
+
+/** View Deck **/
+
+function viewDeck() {
+    if (!core.selfDeck) {
+        return
+    }
+    activeTab.value = 'view-deck'
+}
 </script>
 
 <style lang="scss" scoped>
@@ -579,6 +608,15 @@ $max-width: 1200px;
     &.loading {
         color: $rose-red;
         font-style: italic;
+    }
+
+    &.clickable {
+        cursor: pointer;
+        text-decoration: underline;
+
+        &:hover {
+            color: $ghost-white;
+        }
     }
 }
 
@@ -775,6 +813,7 @@ $max-width: 1200px;
     font-size: 1rem;
     font-weight: 500;
     min-width: 150px;
+    margin: 0 20px;
 }
 
 .alert-message {
