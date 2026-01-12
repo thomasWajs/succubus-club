@@ -161,7 +161,7 @@ export abstract class GameMutation<ParamsType extends GameMutationParams> {
         return null
     }
 
-    formatPlayerStateForLog(player: Player) {
+    formatPlayerHand(player: Player) {
         return `(hand: ${player.hand.length} | lib: ${player.library.length})`
     }
 }
@@ -282,7 +282,8 @@ class ChangeBlood extends ChangeCounterMutation {
     }
 
     formatForLog() {
-        return `${this.params.amount > 0 ? '+' : ''}${this.params.amount} blood on ${CARD_LOG_PLACEHOLDER}`
+        const stateLog = `(now: ${this.params.card.blood})`
+        return `${this.params.amount > 0 ? '+' : ''}${this.params.amount} blood on ${CARD_LOG_PLACEHOLDER} ${stateLog}`
     }
 
     getCancelMutation(): AnyGameMutation {
@@ -404,7 +405,8 @@ class ChangePool extends GameMutation<ChangePoolParams> {
     }
 
     formatForLog() {
-        return `${this.params.amount > 0 ? '+' : ''}${this.params.amount} pool on ${this.params.player.name}`
+        const stateLog = `(now: ${this.params.player.pool})`
+        return `${this.params.amount > 0 ? '+' : ''}${this.params.amount} pool on ${this.params.player.name} ${stateLog}`
     }
 
     getCancelMutation(): AnyGameMutation {
@@ -476,7 +478,7 @@ class Discard extends CardMutation {
     }
 
     formatForLog() {
-        return `Discard ${CARD_LOG_PLACEHOLDER} ${this.formatPlayerStateForLog(this.params.card.controller)}`
+        return `Discard ${CARD_LOG_PLACEHOLDER} ${this.formatPlayerHand(this.params.card.controller)}`
     }
 
     getCancelMutation(): AnyGameMutation {
@@ -514,7 +516,7 @@ class DiscardAtRandom extends CardMutation {
     }
 
     formatForLog() {
-        return `Discard at random ${CARD_LOG_PLACEHOLDER} ${this.formatPlayerStateForLog(this.params.card.controller)}`
+        return `Discard at random ${CARD_LOG_PLACEHOLDER} ${this.formatPlayerHand(this.params.card.controller)}`
     }
 
     getCancelMutation(): AnyGameMutation {
@@ -591,7 +593,7 @@ class DrawLibrary extends PlayerMutation {
     }
 
     formatForLog() {
-        return `Draw Library ${this.formatPlayerStateForLog(this.params.player)}`
+        return `Draw Library ${this.formatPlayerHand(this.params.player)}`
     }
 
     getCancelMutation(): AnyGameMutation {
@@ -701,7 +703,8 @@ class Influence extends ChangeCounterMutation {
     }
 
     formatForLog() {
-        return `Influence ${this.params.amount} on ${CARD_LOG_PLACEHOLDER}`
+        const stateLog = `(blood: ${this.params.card.blood} | pool: ${this.params.card.controller.pool})`
+        return `Influence ${this.params.amount} on ${CARD_LOG_PLACEHOLDER} ${stateLog}`
     }
 
     getCancelMutation(): AnyGameMutation {
@@ -822,7 +825,7 @@ class MoveCardToRegion extends GameMutation<MoveCardToRegionParams> {
                 return `Play ${CARD_LOG_PLACEHOLDER}`
             }
             if (this.params.toCardRegion.is.ashHeap) {
-                return `Discard ${CARD_LOG_PLACEHOLDER} ${this.formatPlayerStateForLog(this.params.card.controller)}`
+                return `Discard ${CARD_LOG_PLACEHOLDER} ${this.formatPlayerHand(this.params.card.controller)}`
             }
         }
 
