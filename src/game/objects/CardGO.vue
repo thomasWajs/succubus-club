@@ -152,7 +152,9 @@
 
         <!-- Influence -->
         <ButtonGo
-            v-if="card.isIn.uncontrolled && card.isMinion()"
+            v-if="
+                card.isIn.uncontrolled && card.isMinion() && card.controller == gameState.selfPlayer
+            "
             ref="influenceButton"
             name="cardButton"
             :x="overlays.influence.x"
