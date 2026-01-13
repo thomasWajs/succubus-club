@@ -133,8 +133,8 @@ export class GovernBot extends Bot {
                     card: vampire,
                     fromCardRegion: this.player.uncontrolled,
                     toCardRegion: this.player.ready,
-                    x: GRID_SIZE * 6 * this.player.ready.cards.length,
-                    y: GRID_SIZE * 6,
+                    x: 12 * GRID_SIZE * this.player.ready.cards.length,
+                    y: 12 * GRID_SIZE,
                 })
             }
         }

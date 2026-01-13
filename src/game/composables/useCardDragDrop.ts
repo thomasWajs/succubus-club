@@ -1,8 +1,6 @@
 import { Card } from '@/model/Card.ts'
-import { ComputedRef, reactive, Ref, computed } from 'vue'
+import { computed, ComputedRef, reactive, Ref } from 'vue'
 import Phaser from 'phaser'
-import Pointer = Phaser.Input.Pointer
-import Rectangle = Phaser.Geom.Rectangle
 import { CardMovement, gameMutations } from '@/state/gameMutations.ts'
 import { useGameBusStore } from '@/store/bus.ts'
 import {
@@ -14,11 +12,13 @@ import {
     getCardScale,
 } from '@/game/utils.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
-import { CardAttrs, RegionCategory, DragAttrs, CardGroup } from '@/game/types.ts'
+import { CardAttrs, CardGroup, DragAttrs, RegionCategory } from '@/game/types.ts'
 import { AlignmentGuide, GUIDE_HORIZONTAL, GUIDE_VERTICAL } from '@/state/types.ts'
 import { ALIGNMENT_GUIDE_THRESHOLD, GRID_SIZE } from '@/game/const.ts'
 import { AnyCardRegion } from '@/model/CardRegion.ts'
 import { useCoreStore } from '@/store/core.ts'
+import Pointer = Phaser.Input.Pointer
+import Rectangle = Phaser.Geom.Rectangle
 
 export function useCardDragDrop(
     cardRef: Ref<Card>,
@@ -273,7 +273,7 @@ export function useCardDragDrop(
             // it will already be snapped.
             if (isOverPlayArea) {
                 localX = Phaser.Math.Snap.To(localX, GRID_SIZE)
-                localY = Phaser.Math.Snap.Ceil(localY, GRID_SIZE) - GRID_SIZE / 2
+                localY = Phaser.Math.Snap.Ceil(localY, GRID_SIZE)
             }
 
             // Card group outline

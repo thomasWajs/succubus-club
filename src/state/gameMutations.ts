@@ -548,7 +548,7 @@ class DrawCrypt extends PlayerMutation {
     protected updateGameState(gameState: GameStateStore) {
         const card = this.params.player.crypt.firstCard
         gameState.moveCardToRegion(card, this.params.player.uncontrolled)
-        card.setCoordinates(PLAY_AREA_WIDTH / 2, TORPOR_ZONE_Y)
+        card.setCoordinates(this.params.player.separators.verticalX, TORPOR_ZONE_Y)
 
         this.previousState.card = card
     }

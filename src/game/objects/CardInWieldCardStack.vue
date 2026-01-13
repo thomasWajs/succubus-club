@@ -59,7 +59,7 @@ import {
     CARD_WIDTH,
 } from '@/game/const.ts'
 import { Card } from '@/model/Card.ts'
-import { CardAttrs, RegionCategory, PhaserDataKey } from '@/game/types.ts'
+import { CardAttrs, PhaserDataKey, RegionCategory } from '@/game/types.ts'
 import { useCardClick } from '@/game/composables/useCardClick.ts'
 import { useCardOutline } from '@/game/composables/useCardOutline.ts'
 import { useCardDragDrop } from '@/game/composables/useCardDragDrop.ts'

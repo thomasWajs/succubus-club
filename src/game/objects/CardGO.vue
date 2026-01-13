@@ -226,13 +226,15 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, toRef, watch } from 'vue'
 import Phaser, { GameObjects } from 'phaser'
-import { Circle, Image, Rectangle, refObj, Text, FxGlow } from 'phavuer'
+import { Circle, FxGlow, Image, Rectangle, refObj, Text } from 'phavuer'
 import {
     BLOOD_COUNTER_FILL_COLOR,
     CARD_DRAGGING_ALPHA,
     CARD_GLOW_COLOR,
     CARD_HEIGHT,
     CARD_IN_PLAY_BASE_SCALE,
+    CARD_IN_PLAY_GLOW_INNER_STRENGTH,
+    CARD_IN_PLAY_GLOW_OUTER_STRENGTH,
     CARD_OUTLINE_THICKNESS,
     CARD_WIDTH,
     COUNTER_HOVER_OFFSET_MULTIPLIER,
@@ -248,22 +250,20 @@ import {
     MARKERS_FILL_COLOR,
     MARKERS_TEXT_STYLE,
     OVERLAY_BUTTON_SIZE,
-    CARD_IN_PLAY_GLOW_INNER_STRENGTH,
-    CARD_IN_PLAY_GLOW_OUTER_STRENGTH,
 } from '@/game/const.ts'
 import { Card } from '@/model/Card.ts'
 import { useGameBusStore } from '@/store/bus.ts'
-import { CardAttrs, RegionCategory, PhaserDataKey, CardDragEvent } from '@/game/types.ts'
+import { CardAttrs, CardDragEvent, PhaserDataKey, RegionCategory } from '@/game/types.ts'
 import { useCardClick } from '@/game/composables/useCardClick.ts'
 import { useCardOutline } from '@/game/composables/useCardOutline.ts'
-import { getCardScale, getOverlappingCards } from '@/game/utils.ts'
+import { getCardScale, getOverlappingCards, getRegionScale } from '@/game/utils.ts'
 import ButtonGo from '@/game/objects/ButtonGo.vue'
 import { useCommands } from '@/game/composables/useCommands.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
-import Pointer = Phaser.Input.Pointer
 import { useCardDragDrop } from '@/game/composables/useCardDragDrop.ts'
 import { useCoreStore } from '@/store/core.ts'
 import PingCardFX from '@/game/objects/PingCardFX.vue'
+import Pointer = Phaser.Input.Pointer
 
 const { card, regionName } = defineProps<{
     card: Card
@@ -299,7 +299,7 @@ function registerMarkersTexts(index: number, text: typeof Text | null) {
     markersTexts[index] = text?.object ?? null
 }
 
-const scale = computed(() => card.region.owner.scale)
+const scale = computed(() => getRegionScale(card.region))
 const cardScale = computed(() => getCardScale(RegionCategory.Table, card.region))
 
 // This is available in image.value.displayWidth and image.value.displayHeight

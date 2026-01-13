@@ -1,4 +1,9 @@
-import { GRID_SIZE, ORDERED_PLAYER_COLORS, PLAY_AREA_WIDTH, TORPOR_ZONE_Y } from '@/game/const.ts'
+import {
+    GRID_SIZE,
+    ORDERED_PLAYER_COLORS,
+    TORPOR_ZONE_Y,
+    VERTICAL_SEPARATOR_DEFAULT_X,
+} from '@/game/const.ts'
 import { GovernBot } from '@/bot/governBot.ts'
 import { Conductor } from '@/bot/conductor.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
@@ -55,7 +60,7 @@ function setupPlayArea(player: Player, deckList: DeckList) {
     // Draw 4 crypt cards
     for (let i = 0; i < INITIAL_CRYPT_SIZE; i++) {
         const card = player.crypt.firstCard
-        card.x = PLAY_AREA_WIDTH / 2 + GRID_SIZE * 4 * i
+        card.x = VERTICAL_SEPARATOR_DEFAULT_X + 9 * GRID_SIZE * i
         card.y = TORPOR_ZONE_Y
         gameState.moveCardToRegion(card, player.uncontrolled)
     }

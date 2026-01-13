@@ -165,6 +165,8 @@ export default [
 
             // Allow empty object patterns for unused arguments
             'no-empty-pattern': 'off',
+
+            'import/group-exports': 'off',
         },
     },
     // Configuration for API files (Node.js/server-side)
@@ -206,6 +208,8 @@ export default [
             'no-undef': 'error',
             'prefer-const': 'error',
             'no-var': 'error',
+
+            'import/group-exports': 'off',
         },
     },
     // Configuration for Node.js config files (including TypeScript config files)

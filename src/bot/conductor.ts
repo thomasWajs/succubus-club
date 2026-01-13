@@ -10,8 +10,8 @@ import {
 import { ActionCardAction, ActionModifier, MinionAction } from '@/state/minionActions.ts'
 import { NO_ACTION_MODIFIER, NO_BLOCK, NO_COMBAT, NO_REACTION } from '@/state/actionState.ts'
 import { LibraryCard, Minion } from '@/model/Card.ts'
-import { GRID_SIZE } from '@/game/const.ts'
 import * as logging from '@/logging.ts'
+import { GRID_SIZE } from '@/game/const.ts'
 
 // small pause between bot decisions to let the human player look at what happens
 export const BOT_PAUSE_TIME = 125
@@ -30,7 +30,7 @@ export class Conductor {
             fromCardRegion: card.region,
             toCardRegion: this.bot.player.ready,
             x: actingMinion ? actingMinion.x : 0,
-            y: actingMinion ? actingMinion.y - 6 * GRID_SIZE : 0,
+            y: actingMinion ? actingMinion.y - 12 * GRID_SIZE : 0,
         })
 
         // Draw to replace the action card

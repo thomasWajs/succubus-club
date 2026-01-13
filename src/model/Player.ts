@@ -6,7 +6,11 @@ import { Card, CryptCard, LibraryCard, Minion, Vampire } from '@/model/Card.ts'
 import Phaser from 'phaser'
 import { PermanentId } from '@/multiplayer/types.ts'
 import { BOT_PERM_ID } from '@/game/setup.ts'
-import { HORIZONTAL_SEPARATOR_DEFAULT_Y, VERTICAL_SEPARATOR_DEFAULT_X } from '@/game/const.ts'
+import {
+    DEFAULT_PLAYER_SCALE,
+    HORIZONTAL_SEPARATOR_DEFAULT_Y,
+    VERTICAL_SEPARATOR_DEFAULT_X,
+} from '@/game/const.ts'
 
 const PLAYER_NAME_LEGIBLE_LENGTH = 22
 
@@ -51,7 +55,7 @@ export class Player extends BaseModel {
         public pool: number,
         public victoryPoints = 0,
         public isOusted = false,
-        public scale = 1,
+        public scale = DEFAULT_PLAYER_SCALE,
         public separators: Separators = {
             verticalX: VERTICAL_SEPARATOR_DEFAULT_X,
             horizontalY: HORIZONTAL_SEPARATOR_DEFAULT_Y,

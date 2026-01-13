@@ -3,13 +3,13 @@ import { BaseModel, ObjectId } from '@/model/BaseModel.ts'
 import { GRID_SIZE } from '@/game/const.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
 import {
-    KrcgId,
+    ATLAS_FREQUENT,
     CardResource,
     CryptCardResource,
     Disciplines,
     gameResources,
+    KrcgId,
     LibraryCardResource,
-    ATLAS_FREQUENT,
 } from '@/resources/cards.ts'
 import {
     ACTION_TYPES,
@@ -30,9 +30,9 @@ import { CryptCardImplementation } from '@/resources/cardImpl/base.ts'
 import { PlayerOid } from '@/model/Player.ts'
 import { useCoreStore } from '@/store/core.ts'
 import * as cardVisibility from '@/state/cardVisibility.ts'
+import { anyoneCanSee } from '@/state/cardVisibility.ts'
 import { GameType } from '@/state/types.ts'
 import { Texture } from '@/resources/textures.ts'
-import { anyoneCanSee } from '@/state/cardVisibility.ts'
 
 // Alias to specify the expected objects through the codebase
 export type CardOid = ObjectId
@@ -181,7 +181,7 @@ export abstract class Card extends BaseModel {
 
     setCoordinates(x: number, y: number) {
         x = Phaser.Math.Snap.To(x, GRID_SIZE)
-        y = Phaser.Math.Snap.To(y, GRID_SIZE / 2)
+        y = Phaser.Math.Snap.To(y, GRID_SIZE)
 
         // If we overlap another card
         for (let i = 0; i < this.region.cards.length; i++) {
@@ -189,12 +189,12 @@ export abstract class Card extends BaseModel {
             if (card.x == x && card.y == y && card.oid != this.oid) {
                 // In uncontrolled, only slide on the right
                 if (this.isIn.uncontrolled) {
-                    x += GRID_SIZE * 4
+                    x += 9 * GRID_SIZE
                 }
                 // In other regions, slide on the corner
                 else {
-                    x += GRID_SIZE
-                    y -= GRID_SIZE
+                    x += 2 * GRID_SIZE
+                    y -= 2 * GRID_SIZE
                 }
                 // Re-run the loop from the start
                 i = -1

@@ -1,9 +1,13 @@
 /*
 Interesting dimensions to keep in mind :
-CARD_HEIGHT * CARD_IN_PLAY_SCALE / GRID_SIZE = 5
-CARD_WIDTH * CARD_IN_PLAY_SCALE = 3.58
+CARD_HEIGHT * CARD_IN_PLAY_SCALE / GRID_SIZE = 10
+CARD_WIDTH * CARD_IN_PLAY_SCALE / GRID_SIZE = 7.16
 
-So a card in play take exactly 5 grid cells in height, and ~3.5 cells in width.
+But we set default player scale to 1.2, so :
+CARD_HEIGHT * CARD_IN_PLAY_SCALE * DEFAULT_PLAYER_SCALE / GRID_SIZE = 12
+CARD_WIDTH * CARD_IN_PLAY_SCALE DEFAULT_PLAYER_SCALE / GRID_SIZE = 7.16
+
+So a card in play take exactly 12 grid cells in height, and ~8.5 cells in width (9 with some spacing ).
 This allows to align nicely the cards side by side on the y axis,
 and have a gap between them in the x axis.
  */
@@ -36,6 +40,8 @@ export const CARD_WIDTH = 358
 export const CARD_IN_PLAY_BASE_SCALE = 0.2
 export const CARD_IN_STACK_SCALE = 0.15
 export const CARD_IN_HAND_SCALE = 0.4
+export const DEFAULT_PLAYER_SCALE = 1.2
+
 export const CARD_DRAGGING_ALPHA = 0.7
 
 export const CARD_OUTLINE_THICKNESS = 2
@@ -57,30 +63,31 @@ export const CARD_PING_COLOR = new Color(152, 32, 56)
  * Play Area Dimensions
  */
 
-export const GRID_SIZE = 20 // 20 px
+export const GRID_SIZE = 10 // 10 px
 
 export const RIGHT_COLUMN_WIDTH = 342 // column 338px + border 4px = 342px
 export const WORLD_WIDTH = HD_WIDTH - RIGHT_COLUMN_WIDTH // 1578 px
 export const WORLD_HEIGHT = HD_HEIGHT // 1080 px
 
-export const PLAY_AREA_WIDTH = 32 * GRID_SIZE //640px
+export const PLAY_AREA_WIDTH = 64 * GRID_SIZE //640px
 export const PLAY_AREA_X = (WORLD_WIDTH - PLAY_AREA_WIDTH) / 2 // 469 px
 export const PLAY_AREA_Y = WORLD_HEIGHT * 0.25 + 1 // 271px
 
-export const PLAYER_BAR_HEIGHT = GRID_SIZE * 1.5 // 30px
-export const CONTROLLED_ZONE_HEIGHT = GRID_SIZE * 20 // 400px
-export const TORPOR_ZONE_HEIGHT = GRID_SIZE * 5 // 100px
+export const PLAYER_BAR_HEIGHT = 3 * GRID_SIZE // 30px
+export const CONTROLLED_ZONE_HEIGHT = 38 * GRID_SIZE // 380px
+export const TORPOR_ZONE_HEIGHT = 12 * GRID_SIZE // 120px
 export const TORPOR_ZONE_Y = PLAYER_BAR_HEIGHT + CONTROLLED_ZONE_HEIGHT // 430px
 export const CARD_STACKS_Y = TORPOR_ZONE_Y + TORPOR_ZONE_HEIGHT // 530px
 export const CARD_STACKS_HEIGHT = CARD_IN_STACK_SCALE * CARD_WIDTH + 10 // 64px
 export const PLAY_AREA_HEIGHT = CARD_STACKS_Y + CARD_STACKS_HEIGHT // 594px
+export const UNCONTROLLED_WIDTH = GRID_SIZE * 9 * 4 // 360px
 
 export const HORIZONTAL_SEPARATOR_DEFAULT_Y = TORPOR_ZONE_Y
-export const HORIZONTAL_SEPARATOR_MIN_Y = PLAYER_BAR_HEIGHT + GRID_SIZE * 10
+export const HORIZONTAL_SEPARATOR_MIN_Y = PLAYER_BAR_HEIGHT + 20 * GRID_SIZE
 export const HORIZONTAL_SEPARATOR_MAX_Y = TORPOR_ZONE_Y
 
-export const VERTICAL_SEPARATOR_DEFAULT_X = PLAY_AREA_WIDTH / 2
-export const VERTICAL_SEPARATOR_MIN_X = GRID_SIZE * 4
+export const VERTICAL_SEPARATOR_DEFAULT_X = PLAY_AREA_WIDTH - UNCONTROLLED_WIDTH
+export const VERTICAL_SEPARATOR_MIN_X = 8 * GRID_SIZE
 export const VERTICAL_SEPARATOR_MAX_X = PLAY_AREA_WIDTH - VERTICAL_SEPARATOR_MIN_X
 
 export const HAND_HEIGHT = 205
@@ -219,7 +226,7 @@ export const ARROW_COLOR = new Color(135, 45, 60)
  * Alignment guides
  */
 
-export const ALIGNMENT_GUIDE_THRESHOLD = GRID_SIZE * 0.75 // Distance threshold for showing alignment guide
+export const ALIGNMENT_GUIDE_THRESHOLD = 1.5 * GRID_SIZE // Distance threshold for showing alignment guide
 export const ALIGNMENT_GUIDE_COLOR = new Color(50, 200, 50)
 export const ALIGNMENT_GUIDE_WIDTH = 1
 export const ALIGNMENT_GUIDE_OVERSHOOT = 20

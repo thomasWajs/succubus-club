@@ -3,17 +3,18 @@ import {
     CARD_IN_HAND_SCALE,
     CARD_IN_PLAY_BASE_SCALE,
     CARD_WIDTH,
+    DEFAULT_PLAYER_SCALE,
     GRID_SIZE,
     WIELD_CARD_SCALE,
 } from '@/game/const.ts'
 import Phaser, { GameObjects } from 'phaser'
-import Pointer = Phaser.Input.Pointer
-import Rectangle = Phaser.Geom.Rectangle
-import { RegionCategory, PhaserDataKey } from '@/game/types.ts'
+import { PhaserDataKey, RegionCategory } from '@/game/types.ts'
 import { AnyCardRegion, CardRegionOid } from '@/model/CardRegion.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
 import { Card, CardOid } from '@/model/Card.ts'
 import { getTabletopScene } from '@/game/camera.ts'
+import Pointer = Phaser.Input.Pointer
+import Rectangle = Phaser.Geom.Rectangle
 
 /**
  * Given x,y on screen, return the corresponding world coordinates.
@@ -41,12 +42,10 @@ export function dropCoordinatesSnapped(pointer: Pointer, toContainer: GameObject
             coord.x - (CARD_WIDTH / 2) * CARD_IN_PLAY_BASE_SCALE * toContainer.scaleX,
             GRID_SIZE,
         ),
-        y:
-            Phaser.Math.Snap.Ceil(
-                coord.y - (CARD_HEIGHT / 2) * CARD_IN_PLAY_BASE_SCALE * toContainer.scaleY,
-                GRID_SIZE,
-            ) -
-            GRID_SIZE / 2,
+        y: Phaser.Math.Snap.Ceil(
+            coord.y - (CARD_HEIGHT / 2) * CARD_IN_PLAY_BASE_SCALE * toContainer.scaleY,
+            GRID_SIZE,
+        ),
     }
 }
 
@@ -118,10 +117,19 @@ export function getCardRegionDraggedOver(dragTarget: GameObjects.GameObject) {
     return cardRegion
 }
 
+export function getRegionScale(cardRegion: AnyCardRegion) {
+    return cardRegion?.owner.scale ?? DEFAULT_PLAYER_SCALE
+    // return cardRegion?.is.ready ? cardRegion?.owner.scale : 1
+}
+
 export function getCardScale(category: RegionCategory, cardRegion?: AnyCardRegion): number {
     switch (category) {
-        case RegionCategory.Table:
-            return CARD_IN_PLAY_BASE_SCALE * (cardRegion?.owner.scale ?? 1)
+        case RegionCategory.Table: {
+            return (
+                CARD_IN_PLAY_BASE_SCALE *
+                (cardRegion ? getRegionScale(cardRegion) : DEFAULT_PLAYER_SCALE)
+            )
+        }
         case RegionCategory.Hand:
             return CARD_IN_HAND_SCALE
         case RegionCategory.Stack:

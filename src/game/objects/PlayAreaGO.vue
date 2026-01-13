@@ -179,29 +179,29 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, reactive, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import Phaser, { GameObjects } from 'phaser'
-import { Container, Line, Text, Rectangle } from 'phavuer'
+import { Container, Line, Rectangle, Text } from 'phavuer'
 import {
+    ALIGNMENT_GUIDE_COLOR,
+    ALIGNMENT_GUIDE_OVERSHOOT,
+    ALIGNMENT_GUIDE_WIDTH,
+    CARD_HEIGHT,
     CARD_OUTLINE_COLOR_HOVER,
     CARD_OUTLINE_THICKNESS,
     CARD_STACKS_HEIGHT,
     CARD_STACKS_Y,
+    CARD_WIDTH,
     CONTROLLED_ZONE_HEIGHT,
-    ALIGNMENT_GUIDE_COLOR,
-    ALIGNMENT_GUIDE_WIDTH,
+    GRID_SIZE,
+    HORIZONTAL_SEPARATOR_MAX_Y,
+    HORIZONTAL_SEPARATOR_MIN_Y,
     PLAY_AREA_HEIGHT,
     PLAY_AREA_WIDTH,
     PLAYER_BAR_HEIGHT,
-    ALIGNMENT_GUIDE_OVERSHOOT,
-    CARD_WIDTH,
-    CARD_HEIGHT,
-    GRID_SIZE,
-    WHITE,
-    VERTICAL_SEPARATOR_MIN_X,
     VERTICAL_SEPARATOR_MAX_X,
-    HORIZONTAL_SEPARATOR_MIN_Y,
-    HORIZONTAL_SEPARATOR_MAX_Y,
+    VERTICAL_SEPARATOR_MIN_X,
+    WHITE,
 } from '@/game/const.ts'
 import RegionGO from '@/game/objects/RegionGO.vue'
 import CardStackRegionGO from '@/game/objects/CardStackRegionGO.vue'
@@ -328,7 +328,7 @@ function onHorizontalSeparatorDrag({}, {}, dragY: number) {
     // Clamp the position within bounds
     separators.horizontal.dragY = Phaser.Math.Snap.To(
         Phaser.Math.Clamp(dragY, HORIZONTAL_SEPARATOR_MIN_Y, HORIZONTAL_SEPARATOR_MAX_Y),
-        GRID_SIZE / 2,
+        GRID_SIZE,
     )
 }
 

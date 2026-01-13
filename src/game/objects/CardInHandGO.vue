@@ -75,14 +75,14 @@
 <script setup lang="ts">
 import { computed, ref, toRef } from 'vue'
 import { GameObjects } from 'phaser'
-import { Image, Rectangle, FxGlow, refObj } from 'phavuer'
+import { FxGlow, Image, Rectangle, refObj } from 'phavuer'
 
 import {
     CARD_DRAGGING_ALPHA,
     CARD_GLOW_COLOR,
+    CARD_HEIGHT,
     CARD_IN_HAND_GLOW_INNER_STRENGTH,
     CARD_IN_HAND_GLOW_OUTER_STRENGTH,
-    CARD_HEIGHT,
     CARD_IN_HAND_SCALE,
     CARD_OUTLINE_THICKNESS,
     CARD_WIDTH,
@@ -96,7 +96,7 @@ import { Card, LibraryCard } from '@/model/Card.ts'
 import { useGameBusStore } from '@/store/bus.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
 import { useCommands } from '@/game/composables/useCommands.ts'
-import { CardAttrs, RegionCategory, PhaserDataKey } from '@/game/types.ts'
+import { CardAttrs, PhaserDataKey, RegionCategory } from '@/game/types.ts'
 import { useCardDragDrop } from '@/game/composables/useCardDragDrop.ts'
 import ButtonGo from '@/game/objects/ButtonGo.vue'
 import { gameMutations } from '@/state/gameMutations.ts'
@@ -220,8 +220,8 @@ function playCard(card: Card) {
         card,
         fromCardRegion: card.region,
         toCardRegion: card.owner.ready,
-        x: PLAY_AREA_WIDTH / 2 - GRID_SIZE * 2,
-        y: GRID_SIZE * 4,
+        x: PLAY_AREA_WIDTH / 2 - 4 * GRID_SIZE,
+        y: 8 * GRID_SIZE,
     })
 }
 
