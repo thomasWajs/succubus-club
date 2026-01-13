@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { useCoreStore } from '@/store/core.ts'
 import {
+    EMPTY_SEATING,
     GameRoom,
     PermanentId,
     RoomId,
@@ -93,8 +94,14 @@ export const useMultiplayerStore = defineStore('multiplayer', {
             return this.gameRoomUsers.toSorted((u1, u2) => u1.name.localeCompare(u2.name))
         },
         seatedGameRoomUsers(): User[] {
-            if (!this.currentGameRoom || !this.isSeatingReady || !this.currentGameRoom.seating)
+            if (
+                !this.currentGameRoom ||
+                !this.isSeatingReady ||
+                !this.currentGameRoom.seating ||
+                this.currentGameRoom.seating == EMPTY_SEATING
+            ) {
                 return []
+            }
             return this.currentGameRoom.seating.map(permId => this.users[permId]).filter(u => u)
         },
 
@@ -102,7 +109,13 @@ export const useMultiplayerStore = defineStore('multiplayer', {
             return this.gameRoomUsers.every(user => user.isReady && user.deckList)
         },
         isSeatingReady(): boolean {
-            if (!this.currentGameRoom || !this.currentGameRoom.seating) return false
+            if (
+                !this.currentGameRoom ||
+                !this.currentGameRoom.seating ||
+                this.currentGameRoom.seating == EMPTY_SEATING
+            ) {
+                return false
+            }
 
             const seatingPermIds = [...this.currentGameRoom.seating].sort()
             const gameRoomPermIds = this.gameRoomUsers.map(user => user.permId).sort()

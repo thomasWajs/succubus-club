@@ -3,6 +3,7 @@ import { serializeGame } from '@/gateway/serialization.ts'
 import { useCoreStore } from '@/store/core.ts'
 import { useMultiplayerStore } from '@/store/multiplayer.ts'
 import { useGameBusStore } from '@/store/bus.ts'
+import { EMPTY_SEATING } from '@/multiplayer/types.ts'
 
 const MAX_AUTO_SAVED_GAMES = 5
 const AUTO_SAVE_INTERVAL = 1000 * 60 * 2 // 1000 miliseconds * 60 seconds * 2 = 2 minutes
@@ -59,7 +60,7 @@ export async function saveGame(isAutoSave: boolean) {
             password: multiplayer.password,
             // We cannot index boolean in Dexie, so fallback on 0=false / 1=true
             allowSpectators: gameRoom?.allowSpectators ? 1 : 0,
-            seating: gameRoom?.seating?.slice() ?? [],
+            seating: gameRoom?.seating ?? EMPTY_SEATING,
             game: serializeGame(),
         })
     } catch (err) {

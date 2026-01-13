@@ -39,3 +39,4 @@ coverage
 # AI files
 /.aiassistant/
 /.junie/
+/server/

@@ -1,18 +1,18 @@
 import { watch, WatchHandle } from 'vue'
 import {
+    DataSnapshot,
+    detachChannel,
     getAbly,
     getRtdb,
-    DataSnapshot,
     rtdbOnValue,
     rtdbRef,
     rtdbRemove,
     rtdbSet,
-    detachChannel,
 } from '@/gateway/realtime.ts'
 import { useMultiplayerStore } from '@/store/multiplayer.ts'
 import * as logging from '@/logging.ts'
 import { useBusStore } from '@/store/bus.ts'
-import { GameRoom, PermanentId, RoomId } from '@/multiplayer/types.ts'
+import { GameRoom, RoomId, Seating } from '@/multiplayer/types.ts'
 import { joinGameRoom, leaveGameRoom } from '@/multiplayer/room.ts'
 import { hash } from '@/gateway/serialization.ts'
 import { computeKey } from '@/multiplayer/encryption.ts'
@@ -200,7 +200,7 @@ export async function createGameRoom(
     roomName: string,
     password: string = '',
     allowSpectators: boolean = true,
-    seating: PermanentId[] = [],
+    seating: Seating = [],
     isStarted: boolean = false,
 ) {
     const { multiplayer } = await useLobby()

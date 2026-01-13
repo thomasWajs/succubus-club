@@ -1,7 +1,8 @@
 import { watch, WatchHandle } from 'vue'
-import Ably, { PresenceMessage, ChannelOptions } from 'ably'
+import Ably, { ChannelOptions, PresenceMessage } from 'ably'
 import { ablyPublish, ablySubscribe, detachChannel, getAbly } from '@/gateway/realtime.ts'
 import {
+    EMPTY_SEATING,
     GameMutationMessage,
     GameRoom,
     GameStateSyncMessage,
@@ -133,6 +134,8 @@ export async function joinGameRoom(gameRoom: GameRoom, key?: Key) {
                 PubsubMessageType.RequestResync,
                 onReceiveRequestResyncGameState,
             ),
+            ablySubscribe(roomChannel, PubsubMessageType.PickSeat, onReceivePickSeat),
+            ablySubscribe(roomChannel, PubsubMessageType.LeaveSeat, onReceiveLeaveSeat),
         ])
     } catch (e) {
         logging.captureException(e)
@@ -261,6 +264,151 @@ export function rollSeating() {
         throw new Error(`You are not the host`)
     }
     gameRoom.seating = shuffleArray<string>(gameRoom.players)
+}
+
+export function startPickSeating() {
+    const multiplayer = useMultiplayerStore()
+    const gameRoom = ensureGameRoom()
+    // Cannot pick seating on a game that's already started
+    if (gameRoom.isStarted) {
+        throw new Error(`Game already started`)
+    }
+    if (!multiplayer.selfIsHost) {
+        throw new Error(`You are not the host`)
+    }
+    // Initialize seating with 'EMPTY' marker to start pick mode
+    // (RTDB wipes empty arrays, so we use a marker instead)
+    gameRoom.seating = EMPTY_SEATING
+}
+
+export async function pickSeat(position: number) {
+    const multiplayer = useMultiplayerStore()
+    const gameRoom = ensureGameRoom()
+    // Cannot pick seat on a game that's already started
+    if (gameRoom.isStarted) {
+        throw new Error(`Game already started`)
+    }
+    // Check if player is already seated
+    if (gameRoom.seating && gameRoom.seating.includes(multiplayer.selfUser.permId)) {
+        throw new Error(`You are already seated`)
+    }
+    // Initialize seating if needed
+    // Replace EMPTY marker with actual seating array if this is the first pick
+    if (!gameRoom.seating || gameRoom.seating == EMPTY_SEATING) {
+        gameRoom.seating = []
+    }
+    // Insert player at the specified position
+    gameRoom.seating.splice(position, 0, multiplayer.selfUser.permId)
+
+    // Broadcast the seat pick to all players
+    await broadcastPickSeat(multiplayer.selfUser.permId, position)
+}
+
+async function broadcastPickSeat(permId: PermanentId, position: number) {
+    const gameRoom = ensureGameRoom()
+    if (gameRoom.isStarted) {
+        throw new Error(`Game already started`)
+    }
+    const { roomChannel } = await useRoom()
+    await ablyPublish(roomChannel, PubsubMessageType.PickSeat, { permId, position })
+}
+
+async function onReceivePickSeat(message: { permId: PermanentId; position: number }) {
+    const multiplayer = useMultiplayerStore()
+    const gameRoom = ensureGameRoom()
+
+    // Cannot pick seat if the game is already started
+    // Don't apply our own seat picks (already applied locally)
+    // Validate that the player isn't already seated
+    if (
+        gameRoom.isStarted ||
+        message.permId === multiplayer.selfUser.permId ||
+        (gameRoom.seating && gameRoom.seating.includes(message.permId))
+    ) {
+        return
+    }
+
+    // Initialize seating if needed
+    // Replace EMPTY marker with actual seating array if this is the first pick
+    if (!gameRoom.seating || gameRoom.seating == EMPTY_SEATING) {
+        gameRoom.seating = []
+    }
+
+    // Validate position is within valid bounds
+    if (message.position < 0 || message.position > gameRoom.seating.length) {
+        return
+    }
+
+    // Insert player at the specified position
+    gameRoom.seating.splice(message.position, 0, message.permId)
+}
+
+export async function leaveSeat() {
+    const multiplayer = useMultiplayerStore()
+    const gameRoom = ensureGameRoom()
+    // Cannot leave seat on a game that's already started
+    if (gameRoom.isStarted) {
+        throw new Error(`Game already started`)
+    }
+    // Check if player is seated
+    if (
+        !gameRoom.seating ||
+        gameRoom.seating == EMPTY_SEATING ||
+        !gameRoom.seating.includes(multiplayer.selfUser.permId)
+    ) {
+        throw new Error(`You are not seated`)
+    }
+    // Remove player from the seating array
+    const index = gameRoom.seating.indexOf(multiplayer.selfUser.permId)
+    if (index > -1) {
+        gameRoom.seating.splice(index, 1)
+    }
+
+    // If seating is now empty, restore EMPTY marker (RTDB wipes empty arrays)
+    if (gameRoom.seating.length === 0) {
+        gameRoom.seating = EMPTY_SEATING
+    }
+
+    // Broadcast the seat leave to all players
+    await broadcastLeaveSeat(multiplayer.selfUser.permId)
+}
+
+async function broadcastLeaveSeat(permId: PermanentId) {
+    const gameRoom = ensureGameRoom()
+    if (gameRoom.isStarted) {
+        throw new Error(`Game already started`)
+    }
+    const { roomChannel } = await useRoom()
+    await ablyPublish(roomChannel, PubsubMessageType.LeaveSeat, { permId })
+}
+
+async function onReceiveLeaveSeat(message: { permId: PermanentId }) {
+    const multiplayer = useMultiplayerStore()
+    const gameRoom = ensureGameRoom()
+
+    // Cannot leave seat if the game is already started
+    // Don't apply our own seat leaves (already applied locally)
+    // Check if player is seated
+    if (
+        gameRoom.isStarted ||
+        message.permId === multiplayer.selfUser.permId ||
+        !gameRoom.seating ||
+        gameRoom.seating == EMPTY_SEATING ||
+        !gameRoom.seating.includes(message.permId)
+    ) {
+        return
+    }
+
+    // Remove player from the seating array
+    const index = gameRoom.seating.indexOf(message.permId)
+    if (index > -1) {
+        gameRoom.seating.splice(index, 1)
+    }
+
+    // If seating is now empty, restore EMPTY marker (RTDB wipes empty arrays)
+    if (gameRoom.seating.length === 0) {
+        gameRoom.seating = EMPTY_SEATING
+    }
 }
 
 export async function launchGame() {

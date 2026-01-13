@@ -4,7 +4,7 @@ import { SerializedGame } from '@/gateway/serialization.ts'
 import { GameType } from '@/state/types.ts'
 import { setUser } from '@sentry/vue'
 import { Deck, DeckList } from '@/gateway/deck.ts'
-import { PermanentId, RoomId } from '@/multiplayer/types.ts'
+import { RoomId, Seating } from '@/multiplayer/types.ts'
 import { AvatarId } from '@/gateway/user.ts'
 
 // If you know, you know ;-)
@@ -132,7 +132,7 @@ export class DbSavedGame extends Entity<SuccubusDb> {
     roomName: string
     password: string
     allowSpectators: number // We cannot index boolean with Dexie, so fallback on 0=false / 1=true
-    seating: PermanentId[]
+    seating: Seating
     game: SerializedGame
 }
 

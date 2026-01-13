@@ -1,11 +1,11 @@
-import { ORDERED_PLAYER_COLORS, PLAY_AREA_WIDTH, GRID_SIZE, TORPOR_ZONE_Y } from '@/game/const.ts'
+import { GRID_SIZE, ORDERED_PLAYER_COLORS, PLAY_AREA_WIDTH, TORPOR_ZONE_Y } from '@/game/const.ts'
 import { GovernBot } from '@/bot/governBot.ts'
 import { Conductor } from '@/bot/conductor.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
 import { useCoreStore } from '@/store/core.ts'
 import { Player } from '@/model/Player.ts'
 import { INITIAL_CRYPT_SIZE, INITIAL_HAND_SIZE } from '@/model/const.ts'
-import { GameRoom } from '@/multiplayer/types.ts'
+import { EMPTY_SEATING, GameRoom } from '@/multiplayer/types.ts'
 import { useMultiplayerStore } from '@/store/multiplayer.ts'
 import { GameType } from '@/state/types.ts'
 import { loadGame } from '@/gateway/serialization.ts'
@@ -116,7 +116,7 @@ export function setupMultiplayerGame(gameRoom: GameRoom) {
     const gameState = useGameStateStore()
     const multiplayer = useMultiplayerStore()
 
-    if (!gameRoom.seating) {
+    if (!gameRoom.seating || gameRoom.seating == EMPTY_SEATING) {
         throw new Error(`No seating in game room`)
     }
 

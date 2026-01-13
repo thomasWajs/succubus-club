@@ -18,6 +18,8 @@ export type User = {
     deckList: DeckList | null
 }
 
+export const EMPTY_SEATING = 'EMPTY_SEATING'
+export type Seating = PermanentId[] | typeof EMPTY_SEATING
 export type GameRoom = {
     id: RoomId
     name: string
@@ -27,7 +29,7 @@ export type GameRoom = {
     passwordHash: string
     allowSpectators: boolean
     players: PermanentId[] // permanentId in arbitrary order
-    seating?: PermanentId[] // permanentId in the order of the seating
+    seating?: Seating // permanentId in the order of the seating
     spectators: PermanentId[] // permanentId in arbitrary order
 }
 
@@ -92,4 +94,6 @@ export enum PubsubMessageType {
     Chat = 'Chat',
     RequestResync = 'RequestResync',
     Resync = 'Resync',
+    PickSeat = 'PickSeat',
+    LeaveSeat = 'LeaveSeat',
 }
