@@ -1,15 +1,16 @@
 import { Component, Raw } from 'vue'
 import { acceptHMRUpdate, defineStore } from 'pinia'
-import { Card, CardOid } from '@/model/Card.ts'
+import { Card, CardOid, Minion } from '@/model/Card.ts'
 import Phaser from 'phaser'
 import { Player, PlayerOid } from '@/model/Player.ts'
 import { AnyCardRegion } from '@/model/CardRegion.ts'
 import { SavingState } from '@/gateway/savedGames.ts'
-import { AlignmentGuide } from '@/state/types.ts'
+import { AlignmentGuide, MinionActionType } from '@/state/types.ts'
 import { CardGroup, CardInGame, DragAttrs, DragOver, PlayerInGame } from '@/game/types.ts'
+import { CARD_PING_DURATION } from '@/game/const.ts'
+import { LibraryCardUsage } from '@/resources/cardImpl/base.ts'
 import Rectangle = Phaser.Geom.Rectangle
 import Vector2Like = Phaser.Types.Math.Vector2Like
-import { CARD_PING_DURATION } from '@/game/const.ts'
 
 export enum AlertState {
     Error = 'error',
@@ -100,6 +101,18 @@ export const useGameBusStore = defineStore('gameBus', {
 
         /** Target declaration **/
         declaringTargetOrigin: null as Card | null,
+
+        /** Action declaration **/
+        actionDeclaration: {
+            type: null as MinionActionType | null,
+            actingMinion: null as Minion | null,
+            // Usage for action cards
+            usage: null as LibraryCardUsage | null,
+            // Allowed targets for target declaration
+            validTargets: null as Card[] | null,
+            // Allowed action cards for an action card declaration ( from hand or in play )
+            validActionCards: null as Card[] | null,
+        },
 
         /** Card ping **/
         pingedCards: [] as CardOid[],

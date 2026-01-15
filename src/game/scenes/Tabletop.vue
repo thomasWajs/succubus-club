@@ -72,18 +72,12 @@
         />
 
         <!-- Menus -->
-        <ChangePoolMenu
-            v-if="gameState.isPlayer"
-            v-show="sceneReady"
-        />
-        <ContextMenu
-            v-if="gameState.isPlayer"
-            v-show="sceneReady"
-        />
-        <ContextSubmenu
-            v-if="gameState.isPlayer"
-            v-show="sceneReady"
-        />
+        <template v-if="gameState.isPlayer">
+            <ChangePoolMenu v-show="sceneReady" />
+            <ContextMenu v-show="sceneReady" />
+            <ContextSubmenu v-show="sceneReady" />
+            <FloatingActionsCloud v-if="actionDeclarationEnabled" />
+        </template>
 
         <!-- Card Stack -->
         <WieldCardStack
@@ -108,13 +102,13 @@ import Phaser from 'phaser'
 import { Scene } from 'phavuer'
 import { useGameStateStore } from '@/store/gameState.ts'
 import {
-    OTHER_PLAYERS_SCALE,
     BOTTOM_PLAYERS_Y,
-    RIGHT_PLAYERS_X,
+    OTHER_PLAYERS_SCALE,
     PLAY_AREA_X,
     PLAY_AREA_Y,
-    WORLD_WIDTH,
+    RIGHT_PLAYERS_X,
     TWO_PLAYERS_HORIZONTAL_GUTTER,
+    WORLD_WIDTH,
 } from '@/game/const.ts'
 import { useGameBusStore } from '@/store/bus.ts'
 import PlayAreaGO from '@/game/objects/PlayAreaGO.vue'
@@ -129,10 +123,11 @@ import ArrowGo from '@/game/objects/ArrowGo.vue'
 import { CardOid } from '@/model/Card.ts'
 import { Arrow } from '@/state/types.ts'
 import { PlayerOid } from '@/model/Player.ts'
-import Vector2Like = Phaser.Types.Math.Vector2Like
 import ChangePoolMenu from '@/ui/ingame/ChangePoolMenu.vue'
 import HandGO from '@/game/objects/HandGO.vue'
 import SelectionArea from '@/game/objects/SelectionArea.vue'
+import FloatingActionsCloud from '@/ui/context/floating/FloatingActionsCloud.vue'
+import Vector2Like = Phaser.Types.Math.Vector2Like
 
 const core = useCoreStore()
 const gameState = useGameStateStore()
@@ -156,6 +151,10 @@ function update() {
         firstUpdate = false
     }
 }
+
+const actionDeclarationEnabled = computed(
+    () => core.userProfile.preferences.actionDeclaration ?? true,
+)
 
 /**
  * Player seating
@@ -205,7 +204,13 @@ function getWorldPosition(objectId?: CardOid | PlayerOid): Vector2Like | null {
     }
 
     if (objectId in gameBus.playersInGame) {
-        return gameBus.playersInGame[objectId].getWorldPosition()
+        const pos = gameBus.playersInGame[objectId].getWorldPosition()
+        // The arrow land at the bottom of the pool diamond,
+        // so as to not hide the pool count.
+        if (pos) {
+            pos.y += 10
+        }
+        return pos
     }
 
     return null

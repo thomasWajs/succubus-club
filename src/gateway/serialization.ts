@@ -20,7 +20,7 @@ import { useMultiplayerStore } from '@/store/multiplayer.ts'
 import { PlayerVision } from '@/state/types.ts'
 import { useTimer } from '@/game/composables/useTimer.ts'
 
-const GAME_STATE_VERSION = 5
+const GAME_STATE_VERSION = 6
 
 type JsonValue = null | string | number | boolean | JsonValue[] | { [key: string]: JsonValue }
 
@@ -124,12 +124,18 @@ function serializeValueRecursive(value: unknown): JsonValue {
 }
 
 export function serializeObject<T extends object>(object: T) {
-    return serializeValueRecursive(object) as Serialized<T>
+    return serializeValueRecursive(object) as Serialized<T> & object
 }
 
-export function deserializeValue(value: JsonValue) {
+export function deserializeValueRecursive(value: JsonValue): unknown {
     const gameState = useGameStateStore()
 
+    // Handle null
+    if (value === null) {
+        return null
+    }
+
+    // Handle string special cases (Dates and OIDs)
     if (typeof value === 'string') {
         if (value.startsWith(DATE_PREFIX)) {
             return new Date(value.substring(DATE_PREFIX.length))
@@ -143,15 +149,28 @@ export function deserializeValue(value: JsonValue) {
             }
             return stateObject
         }
+        return value
+    }
+
+    // Handle arrays
+    if (Array.isArray(value)) {
+        return value.map(item => deserializeValueRecursive(item))
+    }
+
+    // Handle objects
+    if (typeof value === 'object') {
+        const result: Record<string, unknown> = {}
+        for (const [k, v] of Object.entries(value)) {
+            result[k] = deserializeValueRecursive(v)
+        }
+        return result
     }
 
     return value
 }
 
 export function deserializeObject<T = unknown>(serializedObject: Serialized<T>): T {
-    return JSON.parse(JSON.stringify(serializedObject), (_, value) => {
-        return deserializeValue(value)
-    })
+    return deserializeValueRecursive(serializedObject) as T
 }
 
 export function serializeGameMutation(gameMutation: AnyGameMutation): SerializedGameMutation {
@@ -229,23 +248,31 @@ export function deserializeHistory(serializedHistory: SerializedHistory) {
     const stringPool = serializedHistory.stringPool
     history.logEntries = serializedHistory.logEntries.map(logEntry => ({
         text: stringPool[logEntry.t],
-        timestamp: deserializeValue(logEntry.i) as Date,
+        timestamp: deserializeValueRecursive(logEntry.i) as Date,
         authorName: stringPool[logEntry.a],
         authorColorRgba: stringPool[logEntry.r],
         cancelText: logEntry.n ? stringPool[logEntry.n] : undefined,
         playerVision: logEntry.p ? deserializeObject<PlayerVision>(logEntry.p) : undefined,
-        card: logEntry.c ? (deserializeValue(logEntry.c) as Card) : undefined,
+        card: logEntry.c ? (deserializeValueRecursive(logEntry.c) as Card) : undefined,
         mutationId: logEntry.m,
     }))
     history.gameMutations = serializedHistory.gameMutations.map(m => deserializeGameMutation(m))
 }
 
 export function serializeGame(): SerializedGame {
+    const rawState = useGameStateStore().$state
+
+    const serializedGameState = {
+        ...serializeObject(rawState),
+        // Override the serializeObject values here,
+        // because it has transformed Player, Card and CardRegion objects into and "OID_" string
+        cards: JSON.parse(JSON.stringify(rawState.cards)),
+        players: JSON.parse(JSON.stringify(rawState.players)),
+    } as SerializedGameState
+
     return {
         version: GAME_STATE_VERSION,
-        // Don't use serializeObject here, as that would transform Player, Card and CardRegion
-        // objects into and "OID_" string
-        gameState: JSON.parse(JSON.stringify(useGameStateStore().$state)),
+        gameState: serializedGameState,
         history: serializeHistory(),
     }
 }
@@ -325,7 +352,12 @@ export function loadGame(serializedGame: SerializedGame) {
 
     for (const [key, value] of Object.entries(gameStateData)) {
         if (key != 'cards' && key != 'players' && key in gameState.$state) {
-            Object.assign(gameState.$state, { [key]: value })
+            if (key == 'action') {
+                console.log('value', value)
+                console.log('deserializeValue(value)', deserializeValueRecursive(value))
+            }
+
+            Object.assign(gameState.$state, { [key]: deserializeValueRecursive(value) })
         }
     }
 

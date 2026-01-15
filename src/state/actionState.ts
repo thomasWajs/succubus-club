@@ -1,110 +1,98 @@
 import { Card, Minion } from '@/model/Card.ts'
 import { Player } from '@/model/Player.ts'
-import { MinionAction } from '@/state/minionActions.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
 import { gameMutations } from '@/state/gameMutations.ts'
+import { ActionState, MinionAction } from '@/state/types.ts'
+import * as actions from '@/state/minionActions.ts'
 
-/**
- * Flags for Conductor
- */
-export const NO_BLOCK = 'NO_BLOCK' as const // No block for this impulse
-export const NO_ACTION_MODIFIER = 'NO_ACTION_MODIFIER' as const // No action modifier for this impulse
-export const NO_COMBAT = 'NO_COMBAT' as const // No combat card for this impulse
-export const NO_REACTION = 'NO_REACTION' as const // No reaction for this impulse
-
-export enum ActionProperty {
-    stealth = 'stealth',
-    intercept = 'intercept',
-    bleed = 'bleed',
-    hunt = 'hunt',
+export function createActionState(minionAction: MinionAction): ActionState {
+    const actingMinion = minionAction.actingMinion
+    return {
+        minionAction,
+        blockingDecision: null,
+        stealth: actingMinion.minionAttrs.stealth + actions.getDefaultStealth(minionAction),
+        intercept: 0,
+        bleed: actingMinion.minionAttrs.bleed,
+        hunt: actingMinion.minionAttrs.hunt,
+        impulsePlayer: actingMinion.controller,
+    }
 }
 
-// TODO: make mutations for all the state modifier methods
-// TODO: handle multiple player who declines ( prey/predator )
-export class ActionState {
-    blockingDecision = null as Minion | typeof NO_BLOCK | null
+export function getBlockingMinion(): Minion | null {
+    const blockingDecision = useGameStateStore().action?.blockingDecision
+    return blockingDecision instanceof Card && blockingDecision.isMinion() ?
+            (blockingDecision as Minion)
+        :   null
+}
 
-    stealth = 0
-    intercept = 0
-    bleed = 0
-    hunt = 0
+export function selfHasImpulse(): boolean | null {
+    const gameState = useGameStateStore()
+    return gameState.action?.impulsePlayer == gameState.selfPlayer
+}
 
-    impulsePlayer: Player
+export function selfCanAttemptBlock(): boolean {
+    const action = useGameStateStore().action
+    return !!action && action.blockingDecision === null
+}
 
-    constructor(public minionAction: MinionAction) {
-        this.stealth = this.actingMinion.minionAttrs.stealth + minionAction.defaultStealth
-        this.bleed = this.actingMinion.minionAttrs.bleed
-        this.hunt = this.actingMinion.minionAttrs.hunt
-        this.impulsePlayer = this.actingMinion.controller
-    }
+// Acting player regain impulse after another player used it
+export function regainImpulse(): void {
+    const action = useGameStateStore().action
+    if (!action) return
+    action.impulsePlayer = action.minionAction.actingMinion.controller
+}
 
-    get actingMinion() {
-        return this.minionAction.actingMinion
-    }
+// We don't handle cards ignoring normal impulse rules, like eagle's sight
+export function passImpulse(): void {
+    const gameState = useGameStateStore()
+    if (!gameState.action) return
 
-    get blockingMinion(): Minion | null {
-        return this.blockingDecision instanceof Card ? (this.blockingDecision as Minion) : null
-    }
+    const action = gameState.action
+    const minionAction = action.minionAction
 
-    get selfHasImpulse() {
-        return this.impulsePlayer == useGameStateStore().selfPlayer
-    }
-
-    get canAttemptBlock() {
-        return this.blockingDecision == null
-    }
-
-    // Acting player regain impulse after another player used it
-    regainImpulse() {
-        this.impulsePlayer = this.actingMinion.controller
-    }
-
-    // We don't handle cards ignoring normal impulse rules, like eagle's sight
-    passImpulse() {
-        const gameState = useGameStateStore()
-        if (this.minionAction.isDirected) {
-            if (this.impulsePlayer == gameState.activePlayer) {
-                // On directed action, the impulse goes to the target
-                if (this.minionAction.target instanceof Player) {
-                    this.impulsePlayer = this.minionAction.target
-                } else if (this.minionAction.target instanceof Card) {
-                    this.impulsePlayer = this.minionAction.target.controller
-                }
-            }
-            // The target passed, we can resolve the action/block
-            else {
-                this.resolve()
+    if (actions.isDirected(minionAction)) {
+        if (action.impulsePlayer == gameState.activePlayer) {
+            // On directed action, the impulse goes to the target
+            if (minionAction.target instanceof Player) {
+                action.impulsePlayer = minionAction.target
+            } else if (minionAction.target instanceof Card) {
+                action.impulsePlayer = minionAction.target.controller
             }
         }
-        // On undirected actions, the impulse goes to the prey, then the predator
+        // The target passed, we can resolve the action/block
         else {
-            const prey = this.actingMinion.controller.prey
-            const predator = this.actingMinion.controller.predator
-            if (prey && this.impulsePlayer == this.actingMinion.controller) {
-                this.impulsePlayer = prey
-            } else if (predator && this.impulsePlayer == prey && prey != predator) {
-                this.impulsePlayer = predator
-            }
-            // The prey and predator both passed, we can resolve the action/block
-            else {
-                this.resolve()
-            }
+            resolveAction()
         }
     }
-
-    resolve() {
-        const gameState = useGameStateStore()
-        if (!gameState.activePlayer) {
-            throw new Error('gameState.activePlayer is null')
+    // On undirected actions, the impulse goes to the prey, then the predator
+    else {
+        const actingMinion = minionAction.actingMinion
+        const prey = actingMinion.controller.prey
+        const predator = actingMinion.controller.predator
+        if (prey && action.impulsePlayer == actingMinion.controller) {
+            action.impulsePlayer = prey
+        } else if (predator && action.impulsePlayer == prey && prey != predator) {
+            action.impulsePlayer = predator
         }
-
-        // Block attempt
-        if (this.blockingMinion) {
-            gameMutations.ACTION_resolveBlock.act(gameState.activePlayer, {})
-        }
-        // Successful action
+        // The prey and predator both passed, we can resolve the action/block
         else {
-            gameMutations.ACTION_resolveAction.act(gameState.activePlayer, {})
+            resolveAction()
         }
+    }
+}
+
+function resolveAction(): void {
+    const gameState = useGameStateStore()
+    if (!gameState.action || !gameState.activePlayer) {
+        return
+    }
+
+    // Block attempt
+    if (getBlockingMinion()) {
+        gameMutations.ACTION_resolveBlock.act(gameState.activePlayer, {})
+    }
+    // Successful action
+    else {
+        gameMutations.ACTION_resolveAction.act(gameState.activePlayer, {})
     }
 }

@@ -87,10 +87,8 @@ import {
     CARD_OUTLINE_THICKNESS,
     CARD_WIDTH,
     COUNTER_OUTLINE_THICKNESS,
-    GRID_SIZE,
     HAND_WIDTH,
     OVERLAY_BUTTON_SIZE,
-    PLAY_AREA_WIDTH,
 } from '@/game/const.ts'
 import { Card, LibraryCard } from '@/model/Card.ts'
 import { useGameBusStore } from '@/store/bus.ts'
@@ -99,11 +97,11 @@ import { useCommands } from '@/game/composables/useCommands.ts'
 import { CardAttrs, PhaserDataKey, RegionCategory } from '@/game/types.ts'
 import { useCardDragDrop } from '@/game/composables/useCardDragDrop.ts'
 import ButtonGo from '@/game/objects/ButtonGo.vue'
-import { gameMutations } from '@/state/gameMutations.ts'
 import { useCardClick } from '@/game/composables/useCardClick.ts'
 import { useCardOutline } from '@/game/composables/useCardOutline.ts'
 import { useCoreStore } from '@/store/core.ts'
 import { getCardScale } from '@/game/utils.ts'
+import { playCardFromHand } from '@/game/declaration.ts'
 
 const { card } = defineProps<{
     card: LibraryCard
@@ -216,13 +214,7 @@ function overlayClick(command: (card: Card) => void) {
 }
 
 function playCard(card: Card) {
-    gameMutations.moveCardToRegion.actSelf({
-        card,
-        fromCardRegion: card.region,
-        toCardRegion: card.owner.ready,
-        x: PLAY_AREA_WIDTH / 2 - 4 * GRID_SIZE,
-        y: 8 * GRID_SIZE,
-    })
+    playCardFromHand(card, gameState.action?.minionAction.actingMinion)
 }
 
 /**

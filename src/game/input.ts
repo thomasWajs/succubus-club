@@ -1,13 +1,13 @@
 import { markRaw } from 'vue'
 import { useGameBusStore } from '@/store/bus.ts'
-import Pointer = Phaser.Input.Pointer
 import Phaser, { GameObjects } from 'phaser'
 import { DRAG_DISTANCE_THRESHOLD } from '@/game/const.ts'
 import { useCommands } from '@/game/composables/useCommands.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
-import { gameMutations } from '@/state/gameMutations.ts'
 import { PhaserDataKey, RegionCategory } from '@/game/types.ts'
 import { getCardDragged, getCardRegionDraggedOver, getWorldPoint } from '@/game/utils.ts'
+import { resetDeclaration, validateTargetDeclaration } from '@/game/declaration.ts'
+import Pointer = Phaser.Input.Pointer
 
 /**
  * Pointer Inputs
@@ -77,22 +77,18 @@ function onPointerDown(pointer: Pointer, gameObjects: GameObjects.GameObject[]) 
         pointer.leftButtonDown()
     ) {
         const player = gameObject?.parentContainer?.getData(PhaserDataKey.Player)
-        if (player) {
-            gameMutations.UI_addTargetDeclaration.actSelf({
-                origin: gameBus.declaringTargetOrigin,
-                target: player,
-            })
-            gameBus.declaringTargetOrigin = null
+        if (player && player != gameState.selfPlayer) {
+            validateTargetDeclaration(player)
         }
     } else if (gameObjects.length == 0 || type != 'Image') {
         // Here it's a click outside a card :
         // clear card selection, context menu, declaring target,
         gameBus.selectedCards = []
-        gameBus.declaringTargetOrigin = null
         gameBus.contextMenu.cards = []
         gameBus.hideContextMenu()
         gameBus.cardGroupCandidate = null
         gameBus.cardPendingIntoGroup = null
+        resetDeclaration()
 
         // Start a selection area on left click
         if (pointer.leftButtonDown()) {

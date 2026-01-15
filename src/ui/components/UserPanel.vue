@@ -185,7 +185,7 @@
 import TopPanel from './TopPanel.vue'
 import { useBusStore } from '@/store/bus.ts'
 import { useCoreStore } from '@/store/core.ts'
-import { ref, computed } from 'vue'
+import { computed, ref } from 'vue'
 import UserAvatar from '@/ui/components/UserAvatar.vue'
 import { storeAvatar } from '@/gateway/user.ts'
 import { DbUserProfile, UserPreferences, WorldAlignment } from '@/gateway/db.ts'
@@ -374,8 +374,9 @@ const preferences: Preference[] = [
     ]),
     createCheckboxPreference('glowInHand', 'Highlight playable cards in hand'),
     createCheckboxPreference('glowInPlay', 'Highlight cards in play with a "during X do Y" effect'),
-    createCheckboxPreference('alignmentGuides', 'Use alignment guides'),
-    createCheckboxPreference('cardGrouping', 'Use card grouping'),
+    createCheckboxPreference('alignmentGuides', 'Show alignment guides'),
+    createCheckboxPreference('cardGrouping', 'Enable card grouping'),
+    createCheckboxPreference('actionDeclaration', 'Enable action declaration'),
 ]
 
 /** Keyboard shortcuts **/

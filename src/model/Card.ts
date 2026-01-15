@@ -8,6 +8,7 @@ import {
     CryptCardResource,
     Disciplines,
     gameResources,
+    isCryptId,
     KrcgId,
     LibraryCardResource,
 } from '@/resources/cards.ts'
@@ -21,12 +22,7 @@ import {
     TurnPhase,
 } from '@/model/const.ts'
 import { useGameBusStore } from '@/store/bus.ts'
-import {
-    AllImplementationsType,
-    CRYPT_CARD_IMPLEMENTATIONS,
-    LIB_CARD_IMPLEMENTATIONS,
-} from '@/resources/cardImpl'
-import { CryptCardImplementation } from '@/resources/cardImpl/base.ts'
+import { CRYPT_CARD_IMPLEMENTATIONS } from '@/resources/cardImpl'
 import { PlayerOid } from '@/model/Player.ts'
 import { useCoreStore } from '@/store/core.ts'
 import * as cardVisibility from '@/state/cardVisibility.ts'
@@ -89,6 +85,10 @@ export abstract class Card extends BaseModel {
     }
 
     abstract get resource(): CardResource
+
+    get isCrypt() {
+        return isCryptId(this.krcgId)
+    }
 
     get name() {
         return this.resource.name
@@ -313,7 +313,8 @@ export class CryptCard extends Card {
             this.vampireAttrs = {}
         }
 
-        this.implementation?.adapt(this)
+        const implementation = CRYPT_CARD_IMPLEMENTATIONS[this.krcgId]
+        implementation?.adapt(this)
     }
 
     get resource() {
@@ -328,10 +329,6 @@ export class CryptCard extends Card {
         return {
             textureName: Texture.CardbackCrypt,
         }
-    }
-
-    get implementation(): CryptCardImplementation | undefined {
-        return CRYPT_CARD_IMPLEMENTATIONS[this.krcgId]
     }
 }
 
@@ -389,10 +386,6 @@ export class LibraryCard extends Card {
         }
     }
 
-    get implementation(): AllImplementationsType | undefined {
-        return LIB_CARD_IMPLEMENTATIONS[this.krcgId]
-    }
-
     isPlayable() {
         const gameState = useGameStateStore()
         const resource = this.resource
@@ -401,14 +394,12 @@ export class LibraryCard extends Card {
         for (const type of types) {
             if (
                 (gameState.selfIsActive &&
-                    gameState.turnPhase == TurnPhase.Master &&
-                    type == LibraryCardType.Master) ||
-                (gameState.selfIsActive &&
-                    gameState.turnPhase == TurnPhase.Minion &&
-                    ACTION_TYPES.includes(type)) ||
-                (gameState.selfIsActive &&
-                    gameState.turnPhase == TurnPhase.Discard &&
-                    type == LibraryCardType.Event) ||
+                    ((gameState.turnPhase == TurnPhase.Master && type == LibraryCardType.Master) ||
+                        (gameState.turnPhase == TurnPhase.Minion &&
+                            (ACTION_TYPES.includes(type) ||
+                                type == LibraryCardType.ActionModifier)) ||
+                        (gameState.turnPhase == TurnPhase.Discard &&
+                            type == LibraryCardType.Event))) ||
                 (!gameState.selfIsActive &&
                     gameState.turnPhase == TurnPhase.Minion &&
                     type == LibraryCardType.Reaction) ||

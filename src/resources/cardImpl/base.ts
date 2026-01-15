@@ -4,21 +4,17 @@ import { DisciplineLevel } from '@/model/const.ts'
 import { Validity } from '@/state/types.ts'
 
 // Needs to be evolved to account for multi-discipline cards and multi-type cards
-export type ActionCardUsage = {
+export type LibraryCardUsage = {
     level?: DisciplineLevel
     target?: Card | Player
 }
 
-export type ActionModifierUsage = {
-    level?: DisciplineLevel
-}
-
-export abstract class CryptCardImplementation {
-    abstract adapt(card: CryptCard): void
+export type CryptCardImplementation = {
+    adapt: (card: CryptCard) => void
 }
 
 export abstract class ActionCardImplementation {
-    constructor(public usage: ActionCardUsage) {}
+    constructor(public usage: LibraryCardUsage) {}
 
     abstract canDeclare(actingMinion: Minion): Validity
 
@@ -38,7 +34,6 @@ export abstract class ActionCardImplementation {
 }
 
 export abstract class ActionModifierCardImplementation {
-    constructor(public usage: ActionModifierUsage) {}
-
+    constructor(public usage: LibraryCardUsage) {}
     abstract apply(): void
 }

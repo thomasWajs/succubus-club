@@ -53,7 +53,7 @@
         <ContextMenuButton
             v-if="firstCard.isIn.controlled && core.gameType == GameType.TrainBot"
             :closeOnClick="true"
-            :disabled="!singleMinion || !gameState.action?.canAttemptBlock"
+            :disabled="!singleMinion || !selfCanAttemptBlock()"
             :cardAction="
                 () =>
                     gameMutations.ACTION_declareBlock.actSelf({
@@ -113,12 +113,12 @@ import ContextMenuButton from '@/ui/context/menu/ContextMenuButton.vue'
 import CommandContextMenuButton from '@/ui/context/menu/CommandContextMenuButton.vue'
 import SubmenuContextMenuButton from '@/ui/context/menu/SubmenuContextMenuButton.vue'
 import MarkersSubmenu from '@/ui/context/menu/MarkersSubmenu.vue'
-import { NO_BLOCK } from '@/state/actionState.ts'
+import { selfCanAttemptBlock } from '@/state/actionState.ts'
+import { NO_BLOCK } from '@/state/types.ts'
 import InfrequentMenuButtons from '@/ui/context/menu/InfrequentMenuButtons.vue'
 import { useContextSelection } from '@/ui/context/menu/useContextSelection.ts'
 
-const { core, gameState, gameBus, commands, firstCard, singleCard, singleMinion } =
-    useContextSelection()
+const { core, gameBus, commands, firstCard, singleCard, singleMinion } = useContextSelection()
 </script>
 
 <style lang="scss" scoped>

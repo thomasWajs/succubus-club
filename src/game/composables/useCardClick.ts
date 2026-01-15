@@ -5,13 +5,18 @@
  */
 import { Ref } from 'vue'
 import Phaser from 'phaser'
-import Pointer = Phaser.Input.Pointer
 import { useScene } from 'phavuer'
 import { useGameBusStore } from '@/store/bus.ts'
 import { gameMutations } from '@/state/gameMutations.ts'
 import { positionContextMenu } from '@/game/utils.ts'
 import { Card } from '@/model/Card.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
+import {
+    resetDeclaration,
+    validateActionCardDeclaration,
+    validateTargetDeclaration,
+} from '@/game/declaration.ts'
+import Pointer = Phaser.Input.Pointer
 
 const DOUBLE_CLICK_DELAY = 300
 let lastClickTime = 0
@@ -78,17 +83,33 @@ export function useCardClick(cardRef: Ref<Card>, invertLockOnDoubleClick: boolea
             return
         }
 
-        // Special case for arrow tracing : both click will end the tracing
         const card = cardRef.value
+
+        // Special case for target declaration :
+        // left click will validate the target,
+        // right click will abort declaration
         if (gameBus.declaringTargetOrigin && card && card.isIn.play) {
-            gameMutations.UI_addTargetDeclaration.actSelf({
-                origin: gameBus.declaringTargetOrigin,
-                target: cardRef.value,
-            })
-            gameBus.declaringTargetOrigin = null
+            if (pointer.leftButtonDown()) {
+                validateTargetDeclaration(card)
+            } else {
+                resetDeclaration()
+            }
             return
         }
 
+        // Special case for action declaration :
+        // left click will validate the action card,
+        // right click will abort declaration
+        if (gameBus.actionDeclaration.type && card) {
+            if (pointer.leftButtonDown()) {
+                validateActionCardDeclaration(card)
+            } else {
+                resetDeclaration()
+            }
+            return
+        }
+
+        // Standard case
         if (pointer.leftButtonDown()) {
             onLeftClick(pointer)
         } else if (pointer.rightButtonDown()) {

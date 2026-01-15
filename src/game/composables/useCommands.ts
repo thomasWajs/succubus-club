@@ -1,7 +1,6 @@
 import { reactive } from 'vue'
 import { gameMutations } from '@/state/gameMutations.ts'
 import Phaser from 'phaser'
-import KeyCodes = Phaser.Input.Keyboard.KeyCodes
 import { useGameBusStore } from '@/store/bus.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
 import { TurnSequence } from '@/model/const.ts'
@@ -10,6 +9,8 @@ import { resetCamera } from '@/game/camera.ts'
 import { useHistoryStore } from '@/store/history.ts'
 import { useCoreStore } from '@/store/core.ts'
 import { ALL_PLAYERS } from '@/state/types.ts'
+import { startTargetDeclaration } from '@/game/declaration.ts'
+import KeyCodes = Phaser.Input.Keyboard.KeyCodes
 
 const KEYCODE_EQUALS_PLUS_FIREFOX = 61
 const KEYCODE_PLUS = 171
@@ -102,7 +103,7 @@ function createCommands(): Commands {
             repr: '↵',
             keyCodes: [KeyCodes.ENTER],
             isDisabled: () => {
-                return !!gameState.activePlayer?.isBot
+                return !!gameState.action || !!gameState.combat
             },
             trigger: () => {
                 gameMutations.goToTurn.actSelf({ index: gameState.turnNumber + 1 })
@@ -110,7 +111,7 @@ function createCommands(): Commands {
         }),
         BackTurn: createCommand({
             isDisabled: () => {
-                return gameState.turnNumber == 1 || !!gameState.activePlayer?.isBot
+                return gameState.turnNumber == 1 || !!gameState.action || !!gameState.combat
             },
             trigger: () => {
                 gameMutations.goToTurn.actSelf({ index: gameState.turnNumber - 1 })
@@ -125,7 +126,8 @@ function createCommands(): Commands {
             isDisabled: () => {
                 return (
                     gameState.turnPhaseIndex >= TurnSequence.length - 1 ||
-                    !!gameState.activePlayer?.isBot
+                    !!gameState.action ||
+                    !!gameState.combat
                 )
             },
             trigger: () => {
@@ -138,7 +140,7 @@ function createCommands(): Commands {
             repr: '←',
             keyCodes: [KeyCodes.LEFT],
             isDisabled: () => {
-                return gameState.turnPhaseIndex == 0 || !!gameState.activePlayer?.isBot
+                return gameState.turnPhaseIndex == 0 || !!gameState.action || !!gameState.combat
             },
             trigger: () => {
                 gameMutations.goToTurnPhase.actSelf({ index: gameState.turnPhaseIndex - 1 })
@@ -401,9 +403,7 @@ function createCommands(): Commands {
             isDisabled: () => {
                 return gameBus.selectedCards.length > 1
             },
-            cardAction: (card: Card) => {
-                gameBus.declaringTargetOrigin = card
-            },
+            cardAction: startTargetDeclaration,
         }),
 
         ClearDeclaredTargets: createCommand({

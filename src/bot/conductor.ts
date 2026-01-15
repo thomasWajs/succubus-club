@@ -7,11 +7,19 @@ import {
     GameMutation,
     gameMutations,
 } from '@/state/gameMutations.ts'
-import { ActionCardAction, ActionModifier, MinionAction } from '@/state/minionActions.ts'
-import { NO_ACTION_MODIFIER, NO_BLOCK, NO_COMBAT, NO_REACTION } from '@/state/actionState.ts'
+import {
+    ActionModifier,
+    MinionAction,
+    MinionActionType,
+    NO_ACTION_MODIFIER,
+    NO_BLOCK,
+    NO_COMBAT,
+    NO_REACTION,
+} from '@/state/types.ts'
+import * as actions from '@/state/minionActions.ts'
 import { LibraryCard, Minion } from '@/model/Card.ts'
 import * as logging from '@/logging.ts'
-import { GRID_SIZE } from '@/game/const.ts'
+import { declareAction, playCardFromHand } from '@/game/declaration.ts'
 
 // small pause between bot decisions to let the human player look at what happens
 export const BOT_PAUSE_TIME = 125
@@ -25,13 +33,7 @@ export class Conductor {
     constructor(public bot: Bot) {}
 
     playCard(card: LibraryCard, actingMinion?: Minion) {
-        gameMutations.moveCardToRegion.act(this.bot.player, {
-            card,
-            fromCardRegion: card.region,
-            toCardRegion: this.bot.player.ready,
-            x: actingMinion ? actingMinion.x : 0,
-            y: actingMinion ? actingMinion.y - 12 * GRID_SIZE : 0,
-        })
+        playCardFromHand(card, actingMinion)
 
         // Draw to replace the action card
         // This won't handle the "do not replace until..." card text
@@ -93,28 +95,16 @@ export class Conductor {
 
     applyMinionAction(action: MinionAction) {
         this._applyBotDecision(() => {
-            const validity = action.canDeclare()
+            const validity = actions.canDeclare(action)
             if (!validity.isValid) {
                 this.invalidDecision(validity.reason, action)
                 return validity
             }
 
-            gameMutations.ACTION_declareAction.act(this.bot.player, {
-                minionAction: action,
-            })
+            declareAction(action, this.bot.player)
 
-            if (action.target) {
-                gameMutations.UI_addTargetDeclaration.act(this.bot.player, {
-                    origin:
-                        action instanceof ActionCardAction ?
-                            action.actionCard
-                        :   action.actingMinion,
-                    target: action.target,
-                })
-            }
-
-            if (action instanceof ActionCardAction) {
-                this.playCard(action.actionCard, action.actingMinion)
+            if (action.type == MinionActionType.ActionCardFromHand) {
+                this.playCard(action.card, action.actingMinion)
             }
         })
     }
@@ -122,8 +112,8 @@ export class Conductor {
     applyActionModifier(actionModifier: ActionModifier) {
         this._applyBotDecision(() => {
             const gameState = useGameStateStore()
-            this.playCard(actionModifier.actionModifierCard, gameState.action?.actingMinion)
-            actionModifier.apply()
+            this.playCard(actionModifier.card, gameState.action?.minionAction.actingMinion)
+            actions.applyActionModifier(actionModifier)
         })
     }
 
@@ -249,12 +239,16 @@ export class Conductor {
             }
         }
 
+        if (!decision) {
+            return
+        }
+
         // Now, apply the decision
         if (decision instanceof GameMutation) {
             this.applyGameMutation(decision)
-        } else if (decision instanceof MinionAction) {
+        } else if (actions.isMinionAction(decision)) {
             this.applyMinionAction(decision)
-        } else if (decision instanceof ActionModifier) {
+        } else if (actions.isActionModifier(decision)) {
             this.applyActionModifier(decision)
         } else if (decision == NO_ACTION_MODIFIER) {
             this.applyGameMutation(

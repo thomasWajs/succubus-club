@@ -11,8 +11,7 @@ import {
     INITIAL_POOL,
     TurnSequence,
 } from '@/model/const.ts'
-import { ActionState } from '@/state/actionState.ts'
-import { CombatState } from '@/state/combatState.ts'
+import { ActionState, CombatState } from '@/state/types.ts'
 import { useCoreStore } from '@/store/core.ts'
 import { hashObject } from '@/gateway/serialization.ts'
 import Phaser from 'phaser'
@@ -51,6 +50,13 @@ export const useGameStateStore = defineStore('gameState', {
         /** The edge **/
         theEdgeControllerOid: undefined as PlayerOid | undefined,
 
+        /** Target Declaration **/
+        targetDeclarations: [] as TargetDeclaration[],
+
+        /** Timer **/
+        timerRemainingTime: null as number | null, // If null, no timer is running
+        timerIsPaused: true,
+
         /** Resources for the bot **/
         turnResources: {
             mpa: DEFAULT_MPA, // masterPhaseActions
@@ -61,13 +67,6 @@ export const useGameStateStore = defineStore('gameState', {
         /** Action and combat state for the bot **/
         action: null as ActionState | null,
         combat: null as CombatState | null,
-
-        /** Target Declaration **/
-        targetDeclarations: [] as TargetDeclaration[],
-
-        /** Timer **/
-        timerRemainingTime: null as number | null, // If null, no timer is running
-        timerIsPaused: true,
     }),
     getters: {
         /**

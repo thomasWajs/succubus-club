@@ -1,7 +1,7 @@
 import { ActionModifierCardImplementation } from '@/resources/cardImpl/base.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
 import { gameMutations } from '@/state/gameMutations.ts'
-import { ActionProperty } from '@/state/actionState.ts'
+import { ActionProperty } from '@/state/types.ts'
 import { DisciplineLevel } from '@/model/const.ts'
 
 export class LostInCrowds extends ActionModifierCardImplementation {

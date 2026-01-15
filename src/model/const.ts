@@ -72,8 +72,15 @@ export const ACTION_TYPES = [
     LibraryCardType.Ally,
     LibraryCardType.Equipment,
     LibraryCardType.Retainer,
-    LibraryCardType.ActionModifier,
 ]
+
+export const ActionVerb = {
+    [LibraryCardType.Action]: 'Performs',
+    [LibraryCardType.PoliticalAction]: 'Takes political action',
+    [LibraryCardType.Ally]: 'Recruits',
+    [LibraryCardType.Equipment]: 'Equips',
+    [LibraryCardType.Retainer]: 'Employs',
+}
 
 export enum Sect {
     Camarilla = 'Camarilla',

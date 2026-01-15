@@ -4,8 +4,7 @@ import { gameMutations } from '@/state/gameMutations.ts'
 import { Card, CryptCard, Minion } from '@/model/Card.ts'
 import { Player } from '@/model/Player.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
-import { ActionProperty } from '@/state/actionState.ts'
-import { Invalid, VALID } from '@/state/types.ts'
+import { ActionProperty, Invalid, VALID } from '@/state/types.ts'
 
 export class GovernTheUnaligned extends ActionCardImplementation {
     getStealth() {

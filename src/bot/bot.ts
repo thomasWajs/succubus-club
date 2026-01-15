@@ -1,7 +1,7 @@
 import { Player } from '@/model/Player.ts'
-import { ActionModifier, MinionAction } from '@/state/minionActions.ts'
 import { AnyGameMutation } from '@/state/gameMutations.ts'
-import { NO_ACTION_MODIFIER, NO_BLOCK, NO_COMBAT, NO_REACTION } from '@/state/actionState.ts'
+import { NO_ACTION_MODIFIER, NO_BLOCK, NO_COMBAT, NO_REACTION } from '@/state/types.ts'
+import { ActionModifier, MinionAction } from '@/state/types.ts'
 import { KrcgId } from '@/resources/cards.ts'
 import { LibraryCard } from '@/model/Card.ts'
 

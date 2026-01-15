@@ -1,8 +1,9 @@
 /** Game types **/
 import { Player, PlayerOid } from '@/model/Player.ts'
-import { Card, CardOid } from '@/model/Card.ts'
+import { Card, CardOid, LibraryCard, Minion } from '@/model/Card.ts'
 import { AnyCardRegion, CardRegionOid } from '@/model/CardRegion.ts'
 import Phaser from 'phaser'
+import { LibraryCardUsage } from '@/resources/cardImpl/base.ts'
 import Vector2Like = Phaser.Types.Math.Vector2Like
 
 export enum GameType {
@@ -22,6 +23,147 @@ export class Validity {
 
 export const VALID = new Validity(true, '')
 export const Invalid = (reason: string) => new Validity(false, reason)
+
+/**
+ * Flags for Conductor
+ */
+export const NO_BLOCK = 'NO_BLOCK' as const // No block for this impulse
+export const NO_ACTION_MODIFIER = 'NO_ACTION_MODIFIER' as const // No action modifier for this impulse
+export const NO_COMBAT = 'NO_COMBAT' as const // No combat card for this impulse
+export const NO_REACTION = 'NO_REACTION' as const // No reaction for this impulse
+
+/** Action state **/
+
+export enum ActionProperty {
+    stealth = 'stealth',
+    intercept = 'intercept',
+    bleed = 'bleed',
+    hunt = 'hunt',
+}
+
+export type ActionState = {
+    minionAction: MinionAction
+    blockingDecision: Minion | typeof NO_BLOCK | null
+    stealth: number
+    intercept: number
+    bleed: number
+    hunt: number
+    impulsePlayer: Player
+}
+
+/** Combat state **/
+export type CombatantMinion = {
+    minion: Minion
+    strength: number
+    strike: null
+}
+
+export type CombatState = {
+    acting: CombatantMinion
+    defending: CombatantMinion
+    impulsePlayer: Player
+    range: null
+    pressed: null
+}
+
+/** Minion Actions **/
+
+export enum MinionActionType {
+    Bleed = 'Bleed',
+    Hunt = 'Hunt',
+    LeaveTorpor = 'LeaveTorpor',
+    RescueFromTorpor = 'RescueFromTorpor',
+    Diablerize = 'Diablerize',
+    BecomeAnarch = 'BecomeAnarch',
+    ActionCardFromHand = 'ActionCardFromHand',
+    ActionInPlay = 'ActionInPlay',
+}
+export const ActionModifierType = 'ActionModifier'
+export const ReactionType = 'Reaction'
+export type DeclarationType = MinionActionType | typeof ActionModifierType | typeof ReactionType
+
+export const MinionActionNames = {
+    Bleed: 'Bleed',
+    Hunt: 'Hunt',
+    LeaveTorpor: 'Leave torpor',
+    RescueFromTorpor: 'Rescue from torpor',
+    Diablerize: 'Diablerize',
+    BecomeAnarch: 'Become anarch',
+    ActionCardFromHand: 'Action Card From Hand',
+    ActionInPlay: 'Action In Play',
+}
+
+export type Declaration = {
+    type: DeclarationType
+}
+
+export type BaseMinionAction = Declaration & {
+    type: MinionActionType
+    actingMinion: Minion
+    target?: Card | Player
+}
+
+export type BleedAction = BaseMinionAction & {
+    type: MinionActionType.Bleed
+    target: Player
+}
+
+export type HuntAction = BaseMinionAction & {
+    type: MinionActionType.Hunt
+}
+
+export type BecomeAnarchAction = BaseMinionAction & {
+    type: MinionActionType.BecomeAnarch
+}
+
+export type LeaveTorporAction = BaseMinionAction & {
+    type: MinionActionType.LeaveTorpor
+}
+
+export type RescueFromTorporAction = BaseMinionAction & {
+    type: MinionActionType.RescueFromTorpor
+    target: Minion
+    bloodPaidByActingMinion?: number
+    bloodPaidByRescuedMinion?: number
+}
+
+export type DiablerizeAction = BaseMinionAction & {
+    type: MinionActionType.Diablerize
+    target: Minion
+}
+
+export type ActionCardFromHandAction = BaseMinionAction & {
+    type: MinionActionType.ActionCardFromHand
+    card: LibraryCard
+    usage: LibraryCardUsage
+}
+
+export type ActionInPlayAction = BaseMinionAction & {
+    type: MinionActionType.ActionInPlay
+    card: Card
+}
+
+export type MinionAction =
+    | BleedAction
+    | HuntAction
+    | LeaveTorporAction
+    | RescueFromTorporAction
+    | DiablerizeAction
+    | BecomeAnarchAction
+    | ActionCardFromHandAction
+    | ActionInPlayAction
+
+export type ActionModifier = Declaration & {
+    type: typeof ActionModifierType
+    card: LibraryCard
+    usage: LibraryCardUsage
+}
+
+export type Reaction = Declaration & {
+    type: typeof ReactionType
+    card: LibraryCard
+    usage: LibraryCardUsage
+}
 
 /** Card Visibility **/
 

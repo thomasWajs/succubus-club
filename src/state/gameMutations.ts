@@ -2,8 +2,8 @@ import { Player } from '@/model/Player.ts'
 import { useHistoryStore } from '@/store/history.ts'
 import { GameStateStore, useGameStateStore } from '@/store/gameState.ts'
 import { AnyCardRegion, CardRegion } from '@/model/CardRegion.ts'
-import { Card, CardOid, CryptCard, LibraryCard, Minion } from '@/model/Card.ts'
-import { Marker, TurnSequence } from '@/model/const.ts'
+import { Card, CardOid, Minion } from '@/model/Card.ts'
+import { ActionVerb, Marker, TurnSequence } from '@/model/const.ts'
 import {
     CARD_LOG_PLACEHOLDER,
     CONTROLLED_ZONE_HEIGHT,
@@ -11,26 +11,32 @@ import {
     TORPOR_ZONE_Y,
 } from '@/game/const.ts'
 import {
-    ActionProperty,
-    ActionState,
-    NO_ACTION_MODIFIER,
-    NO_BLOCK,
-    NO_REACTION,
+    createActionState,
+    getBlockingMinion,
+    passImpulse,
+    regainImpulse,
 } from '@/state/actionState.ts'
-import { MinionAction } from '@/state/minionActions.ts'
 import {
+    ActionModifier,
+    ActionProperty,
     ALL_PLAYERS,
     CardRevelationTarget,
     CardRevelationViewer,
     GameType,
     getViewerKey,
     Invalid,
+    MinionAction,
+    MinionActionType,
+    NO_ACTION_MODIFIER,
+    NO_BLOCK,
+    NO_REACTION,
     PlayerVision,
     TargetDeclaration,
     VALID,
     Validity,
 } from '@/state/types.ts'
-import { CombatantMinion, CombatState } from '@/state/combatState.ts'
+import { createCombatState, inflictDamage } from '@/state/combatState.ts'
+import * as actions from '@/state/minionActions.ts'
 import { useCoreStore } from '@/store/core.ts'
 import { broadcastGameMutation } from '@/multiplayer/room.ts'
 import { useBusStore, useGameBusStore } from '@/store/bus.ts'
@@ -791,13 +797,13 @@ class MoveCardToRegion extends GameMutation<MoveCardToRegionParams> {
         // Can move only library cards to the hand and the library
         if (
             (this.params.toCardRegion.is.hand || this.params.toCardRegion.is.library) &&
-            !(this.params.card instanceof LibraryCard)
+            this.params.card.isCrypt
         ) {
             return Invalid(`Can move only library cards to ${this.params.toCardRegion.name}`)
         }
 
         // Can move only crypt cards to the crypt
-        if (this.params.toCardRegion.is.crypt && !(this.params.card instanceof CryptCard)) {
+        if (this.params.toCardRegion.is.crypt && !this.params.card.isCrypt) {
             return Invalid(`Can move only crypt cards to ${this.params.toCardRegion.name}`)
         }
 
@@ -870,12 +876,12 @@ class MoveToBottom extends GameMutation<MoveToBottomParams> {
         }
 
         // Can move only library cards to the the library
-        if (this.params.toCardRegion.is.library && !(this.params.card instanceof LibraryCard)) {
+        if (this.params.toCardRegion.is.library && this.params.card.isCrypt) {
             return Invalid(`Can move only library cards to ${this.params.toCardRegion.name}`)
         }
 
         // Can move only crypt cards to the crypt
-        if (this.params.toCardRegion.is.crypt && !(this.params.card instanceof CryptCard)) {
+        if (this.params.toCardRegion.is.crypt && !this.params.card.isCrypt) {
             return Invalid(`Can move only crypt cards to ${this.params.toCardRegion.name}`)
         }
 
@@ -1249,11 +1255,14 @@ interface DeclareActionParams extends GameMutationParams {
 }
 
 class DeclareAction extends GameMutation<DeclareActionParams> {
-    isUserCancellable = false
     readonly syncMode = MutationSyncMode.Exclusive
 
     get allowedPlayer() {
         return useGameStateStore().activePlayer
+    }
+
+    get card(): Card | null {
+        return this.params.minionAction.actingMinion
     }
 
     getValidity(gameState: GameStateStore) {
@@ -1262,16 +1271,46 @@ class DeclareAction extends GameMutation<DeclareActionParams> {
 
     protected updateGameState(gameState: GameStateStore) {
         this.params.minionAction.actingMinion.lock()
-        gameState.action = new ActionState(this.params.minionAction)
-        this.params.minionAction.declare()
+        gameState.action = createActionState(this.params.minionAction)
+        actions.declare(this.params.minionAction)
     }
 
     formatForLog() {
-        return `Declare ${this.params.minionAction.name} with ${CARD_LOG_PLACEHOLDER}`
+        let actionVerb = ''
+        let actionCard = ''
+        if (
+            this.params.minionAction.type == MinionActionType.ActionCardFromHand &&
+            this.params.minionAction.card.type
+        ) {
+            actionVerb = `${ActionVerb[this.params.minionAction.card.type as keyof typeof ActionVerb]} `
+        }
+        if (this.params.minionAction.type == MinionActionType.ActionInPlay) {
+            actionCard = ` ( ${this.params.minionAction.card.name} )`
+        }
+        return `Declare ${actionVerb}${actions.getName(this.params.minionAction)}${actionCard} with ${CARD_LOG_PLACEHOLDER}`
     }
 
-    get card(): Card | null {
-        return this.params.minionAction.actingMinion
+    getCancelMutation(): AnyGameMutation {
+        return gameMutations.ACTION_declareActionInverse.createCancelMutation(this, {
+            minionAction: this.params.minionAction,
+        })
+    }
+}
+
+class DeclareActionInverse extends GameMutation<DeclareActionParams> {
+    readonly syncMode = MutationSyncMode.Exclusive
+
+    get allowedPlayer() {
+        return this.params.minionAction.actingMinion.controller
+    }
+
+    protected updateGameState(gameState: GameStateStore) {
+        this.params.minionAction.actingMinion.unlock()
+        gameState.action = null
+    }
+
+    formatForLog() {
+        return `Cancel ${actions.getName(this.params.minionAction)}`
     }
 }
 
@@ -1280,7 +1319,7 @@ class DeclareAction extends GameMutation<DeclareActionParams> {
  */
 
 interface DeclareActionModifierParams extends GameMutationParams {
-    actionModifier: Card | typeof NO_ACTION_MODIFIER
+    actionModifier: ActionModifier | typeof NO_ACTION_MODIFIER
 }
 
 class DeclareActionModifier extends GameMutation<DeclareActionModifierParams> {
@@ -1299,19 +1338,22 @@ class DeclareActionModifier extends GameMutation<DeclareActionModifierParams> {
         if (!gameState.action) {
             throw new Error('gameState.action is null')
         }
-        gameState.action.passImpulse()
+        passImpulse()
     }
 
     formatForLog() {
         if (this.params.actionModifier === NO_ACTION_MODIFIER) {
             return `No Action Modifier`
         } else {
-            return `Action modifier : ${CARD_LOG_PLACEHOLDER}`
+            const am = this.params.actionModifier
+            return `Action modifier : ${actions.getCardUsageDisplay(am.card, am.usage)}`
         }
     }
 
     get card() {
-        return this.params.actionModifier == NO_ACTION_MODIFIER ? null : this.params.actionModifier
+        return this.params.actionModifier == NO_ACTION_MODIFIER ?
+                null
+            :   this.params.actionModifier.card
     }
 }
 
@@ -1319,7 +1361,6 @@ class DeclareActionModifier extends GameMutation<DeclareActionModifierParams> {
  * Action: Declare block
  */
 
-// TODO: handle multiple player who declines ( prey/predator)
 interface DeclareBlockParams extends GameMutationParams {
     blockingMinion: Minion | typeof NO_BLOCK
 }
@@ -1341,7 +1382,7 @@ class DeclareBlock extends GameMutation<DeclareBlockParams> {
             throw new Error('gameState.action is null')
         }
         gameState.action.blockingDecision = this.params.blockingMinion
-        gameState.action.regainImpulse()
+        regainImpulse()
     }
 
     formatForLog() {
@@ -1381,7 +1422,7 @@ class DeclareReaction extends GameMutation<DeclareReactionParams> {
         if (!gameState.action) {
             throw new Error('gameState.action is null')
         }
-        gameState.action.passImpulse()
+        passImpulse()
     }
 
     formatForLog() {
@@ -1398,13 +1439,41 @@ class DeclareReaction extends GameMutation<DeclareReactionParams> {
 }
 
 /**
+ * Action: End action
+ */
+
+class EndAction extends GameMutation<EmptyParams> {
+    isUserCancellable = false
+    readonly syncMode = MutationSyncMode.Merge
+    declare public previousState: { actionName: string }
+
+    getValidity(gameState: GameStateStore) {
+        return gameState.action ? VALID : Invalid('Must be applied during an action')
+    }
+
+    protected updateGameState(gameState: GameStateStore) {
+        // Store for use formatForLog()
+        if (gameState.action) {
+            this.previousState.actionName = actions.getName(gameState.action.minionAction)
+        }
+
+        gameState.action = null
+        gameState.targetDeclarations = []
+    }
+
+    formatForLog() {
+        return `End ${this.previousState.actionName}`
+    }
+}
+
+/**
  * Action: Resolve action
  */
 
 class ResolveAction extends GameMutation<EmptyParams> {
     isUserCancellable = false
     readonly syncMode = MutationSyncMode.Exclusive
-    minionActionName = ''
+    declare public previousState: { actionName: string }
 
     get allowedPlayer() {
         return useGameStateStore().activePlayer
@@ -1419,14 +1488,14 @@ class ResolveAction extends GameMutation<EmptyParams> {
             throw new Error('gameState.action is null')
         }
         // Store for use formatForLog()
-        this.minionActionName = gameState.action.minionAction.name
-        gameState.action.minionAction.resolve()
+        this.previousState.actionName = actions.getName(gameState.action.minionAction)
+        actions.resolve(gameState.action.minionAction)
         gameState.action = null
         useCoreStore().conductor?.onActionResolve()
     }
 
     formatForLog() {
-        return `Resolve ${this.minionActionName}`
+        return `Resolve ${this.previousState.actionName}`
     }
 }
 
@@ -1446,30 +1515,26 @@ class ResolveBlock extends GameMutation<EmptyParams> {
         if (!gameState.action) {
             return Invalid('Must be applied during an action')
         }
-        if (
-            !(
-                gameState.action.blockingMinion instanceof Card &&
-                gameState.action.blockingMinion.isMinion()
-            )
-        ) {
+
+        if (!getBlockingMinion()) {
             return Invalid('Need a blocking minion to resolve a block')
         }
         return VALID
     }
 
     protected updateGameState(gameState: GameStateStore) {
-        if (!gameState.action) {
+        const action = gameState.action
+        const blockingMinion = getBlockingMinion()
+
+        if (!action) {
             throw new Error('gameState.action is null')
-        }
-        if (!gameState.action.blockingMinion) {
-            throw new Error('gameState.action.blockingDecision is null')
         }
         if (!gameState.activePlayer) {
             throw new Error('gameState.activePlayer is null')
         }
-
-        const action = gameState.action
-        const blockingMinion = action.blockingMinion as Minion
+        if (!blockingMinion) {
+            throw new Error('blockingMinion is null')
+        }
 
         // Successful block
         if (action.intercept >= action.stealth) {
@@ -1477,17 +1542,14 @@ class ResolveBlock extends GameMutation<EmptyParams> {
             blockingMinion.lock()
 
             // start combat
-            gameState.combat = new CombatState(
-                new CombatantMinion(gameState.action.actingMinion),
-                new CombatantMinion(blockingMinion),
-            )
+            gameState.combat = createCombatState(action.minionAction.actingMinion, blockingMinion)
 
             /**
              * VERY TEMPORARY, handle combat as two hand strike for 1
              * TODO: remove this
              */
-            gameState.combat.acting.inflictDamage(1)
-            gameState.combat.defending.inflictDamage(1)
+            inflictDamage(gameState.combat.acting, 1)
+            inflictDamage(gameState.combat.defending, 1)
             gameState.combat = null
             /**
              * END OF TEMPORARY
@@ -1905,9 +1967,11 @@ export const gameMutations = {
      */
     ACTION_changeProperty: defineMutation(ChangeActionProperty),
     ACTION_declareAction: defineMutation(DeclareAction),
+    ACTION_declareActionInverse: defineMutation(DeclareActionInverse),
     ACTION_declareActionModifier: defineMutation(DeclareActionModifier),
     ACTION_declareBlock: defineMutation(DeclareBlock),
     ACTION_declareReaction: defineMutation(DeclareReaction),
+    ACTION_endAction: defineMutation(EndAction),
     ACTION_resolveAction: defineMutation(ResolveAction),
     ACTION_resolveBlock: defineMutation(ResolveBlock),
 

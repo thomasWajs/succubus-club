@@ -57,7 +57,6 @@ import { LogEntry, useHistoryStore } from '@/store/history.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
 import { useGameBusStore } from '@/store/bus.ts'
 import { CARD_LOG_PLACEHOLDER } from '@/game/const.ts'
-import { isCryptId } from '@/resources/cards.ts'
 
 const gameState = useGameStateStore()
 const gameBus = useGameBusStore()
@@ -79,7 +78,7 @@ const selfHasVision = computed(() => {
 const mutationLogHtml = computed(() => {
     let cardText
     if (selfHasVision.value && logEntry.card) {
-        const cssClass = isCryptId(logEntry.card.krcgId) ? 'cryptCard' : 'libCard'
+        const cssClass = logEntry.card.isCrypt ? 'cryptCard' : 'libCard'
         cardText = `<span class="${cssClass}">${logEntry.card.name}</span>`
     } else {
         cardText = `<span class="hidden">hidden card</span>`

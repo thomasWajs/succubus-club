@@ -1,350 +1,389 @@
 import { Card, LibraryCard, Minion } from '@/model/Card.ts'
 import { Player } from '@/model/Player.ts'
 import { gameMutations } from '@/state/gameMutations.ts'
-import { Discipline, DisciplineLevel, LEAVE_TORPOR_COST, LibraryCardType } from '@/model/const.ts'
-import {
-    ActionCardImplementation,
-    ActionCardUsage,
-    ActionModifierCardImplementation,
-    ActionModifierUsage,
-} from '@/resources/cardImpl/base.ts'
+import { Discipline, LEAVE_TORPOR_COST, LibraryCardType } from '@/model/const.ts'
+import { LibraryCardUsage } from '@/resources/cardImpl/base.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
-import { Invalid, VALID, Validity } from '@/state/types.ts'
 import {
-    ActionCardImplementationConstructor,
-    ActionModifierCardImplementationConstructor,
+    ActionCardFromHandAction,
+    ActionModifier,
+    ActionModifierType,
+    BecomeAnarchAction,
+    BleedAction,
+    DeclarationType,
+    HuntAction,
+    Invalid,
+    LeaveTorporAction,
+    MinionAction,
+    MinionActionNames,
+    MinionActionType,
+    Reaction,
+    ReactionType,
+    RescueFromTorporAction,
+    VALID,
+    Validity,
+} from '@/state/types.ts'
+import {
+    ACTION_CARD_IMPLEMENTATIONS,
+    ACTION_MODIFIER_CARD_IMPLEMENTATIONS,
 } from '@/resources/cardImpl'
 
-export abstract class MinionAction {
-    abstract name: string
+function getImplementationACA(action: ActionCardFromHandAction) {
+    const ImplementationClass = ACTION_CARD_IMPLEMENTATIONS[action.card.krcgId]
 
-    protected constructor(
-        public actingMinion: Minion,
-        public target?: Card | Player,
-    ) {}
-
-    get isUndirected() {
-        const gameState = useGameStateStore()
-        return (
-            !this.target ||
-            this.target == gameState.activePlayer ||
-            (this.target instanceof Card && this.target.controller == gameState.activePlayer)
-        )
+    if (!ImplementationClass) {
+        throw new Error('ActionCardAction has no implementation')
     }
 
-    get isDirected() {
-        return !this.isUndirected
+    return new ImplementationClass(action.usage)
+}
+
+function getImplementationAM(actionModifier: ActionModifier) {
+    const ImplementationClass = ACTION_MODIFIER_CARD_IMPLEMENTATIONS[actionModifier.card.krcgId]
+
+    if (!ImplementationClass) {
+        throw new Error('ActionModifier has no implementation')
     }
+    return new ImplementationClass(actionModifier.usage)
+}
 
-    abstract get defaultStealth(): number
+/**
+ * Factory functions
+ */
 
-    get isBleed() {
-        return false
-    }
-
-    get isHunt() {
-        return false
-    }
-
-    canDeclare(): Validity {
-        return VALID
-    }
-
-    declare() {}
-
-    resolve() {
-        if (this.isBleed) {
-            this.resolveBleed()
-        }
-        if (this.isHunt) {
-            this.resolveHunt()
-        }
-    }
-
-    resolveBleed() {
-        const gameState = useGameStateStore()
-
-        if (!(this.target instanceof Player)) {
-            throw new Error('Bleed target must be a player')
-        }
-        if (!gameState.action) {
-            throw new Error('Resolve bleed without gameState.action')
-        }
-
-        gameMutations.changePool.act(this.actingMinion.controller, {
-            player: this.target,
-            amount: -gameState.action.bleed,
-        })
-
-        if (this.actingMinion.controller.oid != useGameStateStore().theEdgeControllerOid) {
-            gameMutations.changeTheEdgeControl.act(this.actingMinion.controller, {
-                theEdgeController: this.actingMinion.controller,
-            })
-        }
-    }
-
-    resolveHunt() {
-        const gameState = useGameStateStore()
-        if (!gameState.action) {
-            throw new Error('Resolve hunt without gameState.action')
-        }
-
-        gameMutations.changeBlood.act(this.actingMinion.controller, {
-            card: this.actingMinion,
-            amount: gameState.action.hunt,
-        })
+export function createBleedAction(actingMinion: Minion, targetPlayer: Player): BleedAction {
+    return {
+        type: MinionActionType.Bleed,
+        actingMinion,
+        target: targetPlayer,
     }
 }
 
-export class BleedAction extends MinionAction {
-    name = 'Bleed'
+export function createHuntAction(actingMinion: Minion): HuntAction {
+    return {
+        type: MinionActionType.Hunt,
+        actingMinion,
+    }
+}
 
-    constructor(
-        public actingMinion: Minion,
-        public targetPlayer: Player,
+export function createLeaveTorporAction(actingMinion: Minion): LeaveTorporAction {
+    return {
+        type: MinionActionType.LeaveTorpor,
+        actingMinion,
+    }
+}
+
+export function createRescueFromTorporAction(
+    actingMinion: Minion,
+    rescuedMinion: Minion,
+    bloodPaidByActingMinion: number,
+    bloodPaidByRescuedMinion: number,
+): RescueFromTorporAction {
+    return {
+        type: MinionActionType.RescueFromTorpor,
+        actingMinion,
+        bloodPaidByActingMinion,
+        bloodPaidByRescuedMinion,
+        target: rescuedMinion,
+    }
+}
+
+export function createBecomeAnarchAction(actingMinion: Minion): BecomeAnarchAction {
+    return {
+        type: MinionActionType.BecomeAnarch,
+        actingMinion,
+    }
+}
+
+export function createActionCardAction(
+    actingMinion: Minion,
+    actionCard: LibraryCard,
+    usage: LibraryCardUsage,
+): ActionCardFromHandAction {
+    if (actionCard.type != LibraryCardType.Action) {
+        throw new Error("ActionCardAction needs a LibraryCard with type 'Action'")
+    }
+
+    return {
+        type: MinionActionType.ActionCardFromHand,
+        actingMinion,
+        card: actionCard,
+        usage,
+        target: usage.target,
+    }
+}
+
+export function createActionModifier(
+    actionModifierCard: LibraryCard,
+    usage: LibraryCardUsage,
+): ActionModifier {
+    if (actionModifierCard.type != LibraryCardType.ActionModifier) {
+        throw new Error("ActionModifier needs a LibraryCard with type 'ActionModifier'")
+    }
+
+    return {
+        type: ActionModifierType,
+        card: actionModifierCard,
+        usage,
+    }
+}
+
+export function applyActionModifier(actionModifier: ActionModifier): void {
+    getImplementationAM(actionModifier).apply()
+}
+
+/**
+ * Utility functions
+ */
+
+function hasType(value: unknown, types: DeclarationType[]): boolean {
+    return (
+        value !== null &&
+        typeof value === 'object' &&
+        'type' in value &&
+        types.includes(value.type as DeclarationType)
+    )
+}
+
+export function isMinionAction(value: unknown): value is MinionAction {
+    return hasType(value, Object.values(MinionActionType))
+}
+
+export function isActionModifier(value: unknown): value is ActionModifier {
+    return hasType(value, [ActionModifierType])
+}
+
+export function isReaction(value: unknown): value is Reaction {
+    return hasType(value, [ReactionType])
+}
+
+export function getCardUsageDisplay(card: LibraryCard, usage: LibraryCardUsage) {
+    const level = ['', ' inf', ' SUP'][usage.level ?? 0]
+    return `${card.name}${level}`
+}
+
+export function getName(action: MinionAction) {
+    if (action.type == MinionActionType.ActionCardFromHand) {
+        return getCardUsageDisplay(action.card, action.usage)
+    }
+    return MinionActionNames[action.type]
+}
+
+export function isUndirected(action: MinionAction): boolean {
+    const gameState = useGameStateStore()
+    return (
+        !action.target ||
+        action.target == gameState.activePlayer ||
+        (action.target instanceof Card && action.target.controller == gameState.activePlayer)
+    )
+}
+
+export function isDirected(action: MinionAction): boolean {
+    return !isUndirected(action)
+}
+
+export function getDefaultStealth(action: MinionAction): number {
+    if (
+        action.actingMinion.controller.isBot &&
+        action.type == MinionActionType.ActionCardFromHand
     ) {
-        super(actingMinion, targetPlayer)
+        return getImplementationACA(action).getStealth()
     }
-
-    get defaultStealth() {
-        return 0
-    }
-
-    get isBleed() {
-        return true
-    }
+    return isUndirected(action) ? 1 : 0
 }
 
-export class HuntAction extends MinionAction {
-    name = 'Hunt'
-
-    constructor(public actingMinion: Minion) {
-        super(actingMinion)
-    }
-
-    get defaultStealth() {
-        return 1
-    }
-
-    get isHunt() {
-        return true
-    }
+export function isBleed(action: MinionAction): boolean {
+    return (
+        action.type == MinionActionType.Bleed ||
+        (action.type == MinionActionType.ActionCardFromHand && getImplementationACA(action).isBleed)
+    )
 }
 
-export class LeaveTorporAction extends MinionAction {
-    name = 'Leave torpor'
-
-    constructor(public actingMinion: Minion) {
-        super(actingMinion)
-    }
-
-    get defaultStealth() {
-        return 1
-    }
-
-    canDeclare() {
-        if (!this.actingMinion.isIn.torpor) {
-            return Invalid('Acting vampire must be in torpor')
-        }
-        if (this.actingMinion.blood < LEAVE_TORPOR_COST) {
-            return Invalid("Acting vampire doesn't have enough blood")
-        }
-        return VALID
-    }
-
-    resolve() {
-        gameMutations.changeBlood.act(this.actingMinion.controller, {
-            card: this.actingMinion,
-            amount: -LEAVE_TORPOR_COST,
-        })
-        gameMutations.moveCardToRegion.act(this.actingMinion.controller, {
-            card: this.actingMinion,
-            fromCardRegion: this.actingMinion.region,
-            toCardRegion: this.actingMinion.controller.ready,
-            x: 0,
-            y: 0,
-        })
-    }
+export function isHunt(action: MinionAction): boolean {
+    return (
+        action.type == MinionActionType.Hunt ||
+        (action.type == MinionActionType.ActionCardFromHand && getImplementationACA(action).isHunt)
+    )
 }
 
-export class RescueFromTorporAction extends MinionAction {
-    name = 'Rescue from torpor'
+/**
+ * Behaviours
+ */
 
-    constructor(
-        public actingMinion: Minion,
-        public rescuedMinion: Minion,
-        public bloodPaidByActingMinion: number,
-        public bloodPaidByRescuedMinion: number,
-    ) {
-        super(actingMinion, rescuedMinion)
-    }
-
-    get defaultStealth() {
-        return this.actingMinion.controllerOid == this.rescuedMinion.controllerOid ? 1 : 0
-    }
-
-    canDeclare() {
-        if (!this.actingMinion.isIn.ready) {
-            return Invalid('Acting vampire must be ready')
-        }
-        if (!this.rescuedMinion.isIn.torpor) {
-            return Invalid('Rescued vampire must be in torpor')
-        }
-        if (this.actingMinion.blood + this.rescuedMinion.blood < LEAVE_TORPOR_COST) {
-            return Invalid('Not enough blood')
-        }
-        return VALID
-    }
-
-    resolve() {
-        gameMutations.changeBlood.act(this.actingMinion.controller, {
-            card: this.actingMinion,
-            amount: -this.bloodPaidByActingMinion,
-        })
-        gameMutations.changeBlood.act(this.actingMinion.controller, {
-            card: this.rescuedMinion,
-            amount: -this.bloodPaidByRescuedMinion,
-        })
-        gameMutations.moveCardToRegion.act(this.actingMinion.controller, {
-            card: this.rescuedMinion,
-            fromCardRegion: this.rescuedMinion.region,
-            toCardRegion: this.rescuedMinion.controller.ready,
-            x: 0,
-            y: 0,
-        })
-    }
+type MinionActionBehaviour<MA extends MinionAction = MinionAction> = {
+    canDeclare: (action: MA) => Validity
+    declare: (action: MA) => void
+    resolve: (action: MA) => void
+}
+type Behaviors = {
+    [key in MinionActionType]: MinionActionBehaviour<Extract<MinionAction, { type: key }>>
 }
 
-export class BecomeAnarchAction extends MinionAction {
-    name = 'BecomeAnarch'
-
-    constructor(public actingMinion: Minion) {
-        super(actingMinion)
-    }
-
-    get defaultStealth() {
-        return 1
-    }
-
-    resolve() {}
-}
-
-export class ActionCardAction extends MinionAction {
-    name = 'Generic ActionCard'
-    implementation: ActionCardImplementation
-
-    constructor(
-        public actingMinion: Minion,
-        public actionCard: LibraryCard,
-        public usage: ActionCardUsage,
-    ) {
-        if (actionCard.type != LibraryCardType.Action) {
-            throw new Error("ActionCardAction needs a LibraryCard with type 'Action'")
-        }
-        if (!actionCard.implementation) {
-            throw new Error(`No implementation for card ${actionCard.name}`)
-        }
-        super(actingMinion, usage.target)
-
-        const ImplementationClass = actionCard.implementation as ActionCardImplementationConstructor
-        if (!ImplementationClass) {
-            throw new Error('Cannot create an ActionCardAction without its implementation')
-        }
-        this.implementation = new ImplementationClass(usage)
-        const level =
-            usage.level ?
-                usage.level == DisciplineLevel.SUPERIOR ?
-                    ' SUP'
-                :   ' inf'
-            :   ''
-        this.name = `${actionCard.name}${level}`
-    }
-
-    get defaultStealth() {
-        return this.implementation.getStealth()
-    }
-
-    get isBleed() {
-        return this.implementation.isBleed
-    }
-
-    get isHunt() {
-        return this.implementation.isHunt
-    }
-
-    canDeclare() {
-        // Check for discipline compatibility if needed
-        // For now, don't take into account multi-discipline cards
-        const cardDiscipline = this.actionCard.resource.discipline as Discipline
-        if (cardDiscipline) {
-            if (!this.usage.level) {
-                return Invalid('Usage has no level')
+const behaviors: Partial<Behaviors> = {
+    [MinionActionType.LeaveTorpor]: {
+        declare() {},
+        canDeclare(action: LeaveTorporAction) {
+            if (!action.actingMinion.isIn.torpor) {
+                return Invalid('Acting vampire must be in torpor')
             }
-            if (!this.actingMinion.hasDiscipline(cardDiscipline, this.usage.level)) {
-                return Invalid("Acting vampire doesn't have corresponding discipline level")
+            if (action.actingMinion.blood < LEAVE_TORPOR_COST) {
+                return Invalid("Acting vampire doesn't have enough blood")
             }
-        }
-        return this.implementation.canDeclare(this.actingMinion)
-    }
-
-    declare() {
-        this.implementation.declare()
-    }
-
-    resolve() {
-        // TODO: fizzle if cannot pay cost
-
-        // Pay blood cost
-        if (this.actionCard.bloodCost) {
-            gameMutations.changeBlood.act(this.actingMinion.controller, {
-                card: this.actingMinion,
-                amount: -this.actionCard.bloodCost,
+            return VALID
+        },
+        resolve(action: LeaveTorporAction) {
+            gameMutations.changeBlood.act(action.actingMinion.controller, {
+                card: action.actingMinion,
+                amount: -LEAVE_TORPOR_COST,
             })
-        }
-        // Pay pool cost
-        if (this.actionCard.poolCost) {
-            gameMutations.changePool.act(this.actingMinion.controller, {
-                player: this.actingMinion.controller,
-                amount: -this.actionCard.poolCost,
+            gameMutations.moveCardToRegion.act(action.actingMinion.controller, {
+                card: action.actingMinion,
+                fromCardRegion: action.actingMinion.region,
+                toCardRegion: action.actingMinion.controller.ready,
+                x: 0,
+                y: 0,
             })
-        }
+        },
+    },
 
-        super.resolve()
-        this.implementation.resolve()
+    [MinionActionType.RescueFromTorpor]: {
+        declare() {},
+        canDeclare(action: RescueFromTorporAction) {
+            if (!action.actingMinion.isIn.ready) {
+                return Invalid('Acting vampire must be ready')
+            }
+            if (!action.target.isIn.torpor) {
+                return Invalid('Rescued vampire must be in torpor')
+            }
+            if (action.actingMinion.blood + action.target.blood < LEAVE_TORPOR_COST) {
+                return Invalid('Not enough blood')
+            }
+            return VALID
+        },
+        resolve(action: RescueFromTorporAction) {
+            if (action.bloodPaidByActingMinion) {
+                gameMutations.changeBlood.act(action.actingMinion.controller, {
+                    card: action.actingMinion,
+                    amount: -action.bloodPaidByActingMinion,
+                })
+            }
+            if (action.bloodPaidByRescuedMinion) {
+                gameMutations.changeBlood.act(action.actingMinion.controller, {
+                    card: action.target,
+                    amount: -action.bloodPaidByRescuedMinion,
+                })
+            }
+            gameMutations.moveCardToRegion.act(action.actingMinion.controller, {
+                card: action.target,
+                fromCardRegion: action.target.region,
+                toCardRegion: action.target.controller.ready,
+                x: 0,
+                y: 0,
+            })
+        },
+    },
+
+    [MinionActionType.ActionCardFromHand]: {
+        declare(action: ActionCardFromHandAction) {
+            if (action.actingMinion.controller.isBot) {
+                getImplementationACA(action).declare()
+            }
+        },
+        canDeclare(action: ActionCardFromHandAction) {
+            // Check for discipline compatibility if needed
+            // For now, don't take into account multi-discipline cards
+            const cardDiscipline = action.card.resource.discipline as Discipline
+            if (cardDiscipline) {
+                if (!action.usage.level) {
+                    return Invalid('Usage has no level')
+                }
+                if (!action.actingMinion.hasDiscipline(cardDiscipline, action.usage.level)) {
+                    return Invalid("Acting vampire doesn't have corresponding discipline level")
+                }
+            }
+            return getImplementationACA(action).canDeclare(action.actingMinion)
+        },
+        resolve(action: ActionCardFromHandAction) {
+            // Pay blood cost
+            if (action.card.bloodCost) {
+                gameMutations.changeBlood.act(action.actingMinion.controller, {
+                    card: action.actingMinion,
+                    amount: -action.card.bloodCost,
+                })
+            }
+            // Pay pool cost
+            if (action.card.poolCost) {
+                gameMutations.changePool.act(action.actingMinion.controller, {
+                    player: action.actingMinion.controller,
+                    amount: -action.card.poolCost,
+                })
+            }
+            getImplementationACA(action).resolve()
+        },
+    },
+}
+
+function getBehaviour(action: MinionAction) {
+    return behaviors[action.type] as MinionActionBehaviour | undefined
+}
+
+export function canDeclare(action: MinionAction): Validity {
+    const behavior = getBehaviour(action)
+    return behavior ? behavior.canDeclare(action) : VALID
+}
+
+export function declare(action: MinionAction): void {
+    const behavior = getBehaviour(action)
+    if (behavior) {
+        behavior.declare(action)
     }
 }
 
-export class ActionModifier {
-    name: string
-    implementation: ActionModifierCardImplementation
-
-    constructor(
-        public actionModifierCard: LibraryCard,
-        public usage: ActionModifierUsage,
-    ) {
-        if (actionModifierCard.type != LibraryCardType.ActionModifier) {
-            throw new Error("ActionModifier needs a LibraryCard with type 'ActionModifier'")
-        }
-        if (!actionModifierCard.implementation) {
-            throw new Error(`No implementation for card ${actionModifierCard.name}`)
-        }
-
-        const ImplementationClass =
-            actionModifierCard.implementation as ActionModifierCardImplementationConstructor
-        if (!ImplementationClass) {
-            throw new Error('Cannot create an ActionModifier without its implementation')
-        }
-        this.implementation = new ImplementationClass(usage)
-        const level =
-            usage.level ?
-                usage.level == DisciplineLevel.SUPERIOR ?
-                    ' SUP'
-                :   ' inf'
-            :   ''
-        this.name = `${actionModifierCard.name}${level}`
+export function resolve(action: MinionAction): void {
+    if (isBleed(action)) {
+        return resolveBleed(action)
+    }
+    if (isHunt(action)) {
+        return resolveHunt(action)
     }
 
-    apply() {
-        this.implementation.apply()
+    // TODO: fizzle if cannot pay cost ( for action cards, rescue, become anarch )
+    const behavior = getBehaviour(action)
+    if (behavior) {
+        behavior.resolve(action)
     }
+}
+
+function resolveBleed(action: MinionAction): void {
+    const gameState = useGameStateStore()
+
+    if (!(action.target instanceof Player)) {
+        throw new Error('Bleed target must be a player')
+    }
+    if (!gameState.action) {
+        throw new Error('Resolve bleed without gameState.action')
+    }
+
+    gameMutations.changePool.act(action.actingMinion.controller, {
+        player: action.target,
+        amount: -gameState.action.bleed,
+    })
+
+    if (action.actingMinion.controller.oid != useGameStateStore().theEdgeControllerOid) {
+        gameMutations.changeTheEdgeControl.act(action.actingMinion.controller, {
+            theEdgeController: action.actingMinion.controller,
+        })
+    }
+}
+
+function resolveHunt(action: MinionAction): void {
+    const gameState = useGameStateStore()
+    if (!gameState.action) {
+        throw new Error('Resolve hunt without gameState.action')
+    }
+
+    gameMutations.changeBlood.act(action.actingMinion.controller, {
+        card: action.actingMinion,
+        amount: gameState.action.hunt,
+    })
 }

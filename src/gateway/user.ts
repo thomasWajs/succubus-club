@@ -66,6 +66,4 @@ export async function fetchAvatar(user: User) {
     if (user.avatarId && avatar) {
         multiplayer.avatars[user.avatarId] = avatar
     }
-
-    // TODO? : store in local storage/indexed DB as well, to avoid fetching each time ?
 }

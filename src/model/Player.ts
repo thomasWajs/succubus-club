@@ -71,6 +71,10 @@ export class Player extends BaseModel {
         }
     }
 
+    get secureName() {
+        return this.name
+    }
+
     static createCardRegions(): PlayerCardRegions {
         const gameState = useGameStateStore()
         return {

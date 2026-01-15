@@ -1,12 +1,17 @@
 import { GOVERN_ID, LOST_IN_CROWDS_ID } from '@/resources/cardImpl/cardIds.ts'
-import { ActionCardAction, ActionModifier, HuntAction } from '@/state/minionActions.ts'
 import { Bot, NEXT_PHASE, NEXT_TURN } from '@/bot/bot.ts'
 import { gameMutations } from '@/state/gameMutations.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
 import { Discipline, DisciplineLevel } from '@/model/const.ts'
-import { NO_ACTION_MODIFIER, NO_BLOCK, NO_COMBAT } from '@/state/actionState.ts'
+import { NO_ACTION_MODIFIER, NO_BLOCK, NO_COMBAT } from '@/state/types.ts'
 import { DeckList } from '@/gateway/deck.ts'
 import { GRID_SIZE } from '@/game/const.ts'
+import { getBlockingMinion } from '@/state/actionState.ts'
+import {
+    createActionCardAction,
+    createActionModifier,
+    createHuntAction,
+} from '@/state/minionActions.ts'
 
 export const GovernDeck = <DeckList>{
     [GOVERN_ID]: 48,
@@ -49,7 +54,7 @@ export class GovernBot extends Bot {
         // Mandatory actions first : Hunts
         for (const minion of this.player.minionsReadyUnlocked) {
             if (minion.blood == 0) {
-                return new HuntAction(minion)
+                return createHuntAction(minion)
             }
         }
 
@@ -76,7 +81,7 @@ export class GovernBot extends Bot {
                         vampire.minionAttrs.capacity - vampire.blood > 3
                     ) {
                         // govern sup
-                        return new ActionCardAction(actingVampire, govern, {
+                        return createActionCardAction(actingVampire, govern, {
                             level: DisciplineLevel.SUPERIOR,
                             target: vampire,
                         })
@@ -90,7 +95,7 @@ export class GovernBot extends Bot {
                 DisciplineLevel.INFERIOR
             ) {
                 // govern inf
-                return new ActionCardAction(actingVampire, govern, {
+                return createActionCardAction(actingVampire, govern, {
                     level: DisciplineLevel.INFERIOR,
                     target: this.player.prey,
                 })
@@ -163,17 +168,18 @@ export class GovernBot extends Bot {
             return NO_ACTION_MODIFIER
         }
 
-        const actingVampire = gameState.action.actingMinion
+        const actingVampire = gameState.action.minionAction.actingMinion
+        const blockingMinion = getBlockingMinion()
         const lostInCrowds = this.getCardInHand(LOST_IN_CROWDS_ID)
 
         // TODO : remember the action modifier played this action to prevent double lost in crowd
         if (
             lostInCrowds &&
-            gameState.action.blockingMinion &&
+            blockingMinion &&
             gameState.action.intercept >= gameState.action.stealth &&
             gameState.action.stealth <= 1
         ) {
-            return new ActionModifier(lostInCrowds, {
+            return createActionModifier(lostInCrowds, {
                 level: actingVampire.minionAttrs.disciplines[Discipline.Obfuscate],
             })
         }

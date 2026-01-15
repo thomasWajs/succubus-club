@@ -25,6 +25,48 @@ export function getWorldPoint(x: number, y: number) {
     return getTabletopScene().cameras.main.getWorldPoint(x, y)
 }
 
+/**
+ * Given x,y into the world, return the corresponding screen coordinates.
+ * Will take into account camera zoom ( display.scale ) + camera scroll.
+ * Useful to convert game coordinates into screen position.
+ *
+ * This is the inverse operation of camera.getWorldPoint(),
+ * which surprinsignly does not exist in Phaser,
+ * so let's do some math !
+ */
+export function getScreenPoint(x: number, y: number) {
+    const camera = getTabletopScene().cameras.main
+
+    // @ts-expect-error - rotation is private but needed for coordinate transformation
+    const { rotation, zoom, scrollX, scrollY } = camera
+    // @ts-expect-error - matrix is private but needed for coordinate transformation
+    const matrix = camera.matrix.matrix
+
+    const mva = matrix[0]
+    const mvb = matrix[1]
+    const mvc = matrix[2]
+    const mvd = matrix[3]
+    const mve = matrix[4]
+    const mvf = matrix[5]
+
+    const determinant = mva * mvd - mvb * mvc
+
+    if (!determinant) {
+        return { x, y }
+    }
+
+    const sx = mva * x + mvc * y + mve
+    const sy = mvb * x + mvd * y + mvf
+
+    const cos = Math.cos(rotation)
+    const sin = Math.sin(rotation)
+
+    return {
+        x: sx - (scrollX * cos - scrollY * sin) * zoom,
+        y: sy - (scrollX * sin + scrollY * cos) * zoom,
+    }
+}
+
 export function dropCoordinates(pointer: Pointer, toContainer: GameObjects.Container) {
     if (!pointer || !toContainer) {
         return { x: 0, y: 0 }
@@ -147,12 +189,14 @@ export function dilateRectangle(rect: Rectangle, dilatation: number) {
 }
 
 // Returns the rectangle occupied by a card on the play Area
+// In local coordinates
 export function getCardRectangleAt(cardRegion: AnyCardRegion, x: number, y: number) {
     const scale = getCardScale(RegionCategory.Table, cardRegion)
     return new Rectangle(x, y, CARD_WIDTH * scale, CARD_HEIGHT * scale)
 }
 
 // Transform a card in play into the rectangle that it occupies on the Play Area
+// In local coordinates
 export function getCardRectangle(card: Card) {
     return getCardRectangleAt(card.region, card.x, card.y)
 }

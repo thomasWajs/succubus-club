@@ -1,31 +1,30 @@
 import { Minion } from '@/model/Card.ts'
-import { Player } from '@/model/Player.ts'
+import { CombatantMinion, CombatState } from '@/state/types.ts'
 
-export class CombatantMinion {
-    strength: number
-    strike: null
-
-    constructor(public minion: Minion) {
-        this.strength = minion.minionAttrs.strength
-    }
-
-    // TODO : handle aggravated, handle wounded, handle going to torpor for vampire or burn for allies
-    inflictDamage(amountRegular: number, amountAggravated: number = 0) {
-        this.minion.blood -= amountRegular
-        this.minion.blood -= amountAggravated
+export function createCombatantMinion(minion: Minion): CombatantMinion {
+    return {
+        minion,
+        strength: minion.minionAttrs.strength,
+        strike: null,
     }
 }
 
-export class CombatState {
-    impulsePlayer: Player
+// Aggravated & wounds & torpor are not handled for now
+export function inflictDamage(
+    combatant: CombatantMinion,
+    amountRegular: number,
+    amountAggravated: number = 0,
+): void {
+    combatant.minion.blood -= amountRegular
+    combatant.minion.blood -= amountAggravated
+}
 
-    range: null
-    pressed: null
-
-    constructor(
-        public acting: CombatantMinion,
-        public defending: CombatantMinion,
-    ) {
-        this.impulsePlayer = this.acting.minion.controller
+export function createCombatState(acting: Minion, defending: Minion): CombatState {
+    return {
+        acting: createCombatantMinion(acting),
+        defending: createCombatantMinion(defending),
+        impulsePlayer: acting.controller,
+        range: null,
+        pressed: null,
     }
 }
