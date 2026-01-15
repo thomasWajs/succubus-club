@@ -1,3 +1,18 @@
+## [0.6.0] - 2026-01-15
+
+Features:
+- Declare an action with a minion
+- Seating control in the lobby
+- Browse the content of a decklist
+- Increase initial player scale
+- Track blood / pool in the logs
+
+Bugfix:
+- Prevent flipped card names to leak into logs
+- Don't glow flipped cards
+- Prevent influence on vampires from other players
+- Remove the burn button on minions in controlled area
+
 ## [0.5.3] - 2025-12-15
 
 Features:

@@ -1,17 +1,17 @@
 export const latestChangelog = {
-    version: '0.5.3',
-    date: '2025-12-15',
+    version: '0.6.0',
+    date: '2026-01-15',
     features: [
-        'Change sizing of Ready/Torpor/Uncontrolled areas',
-        'Reorganize context menu with infrequent commands',
-        'Lock/Unlock command',
-        'Invalid decklists is now a warning instead of error',
+        'Declare an action with a minion',
+        'Seating control in the lobby',
+        'Browse the content of a decklist',
+        'Increase initial player scale',
+        'Track blood / pool in the logs',
     ],
     bugfixes: [
-        'Minion are always displayed on top of other cards',
-        'Fix drag over hand and play areas',
-        'Handle timer during reconnection',
-        'Fix Turn counter on oust',
-        'Remove counters when a card leav the play area',
+        'Prevent flipped card names to leak into logs',
+        "Don't glow flipped cards",
+        'Prevent influence on vampires from other players',
+        'Remove the burn button on minions in controlled area',
     ],
 }
