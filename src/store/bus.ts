@@ -74,6 +74,11 @@ export const useGameBusStore = defineStore('gameBus', {
             canView: false,
         },
 
+        pinnedCloseUpCard: {
+            card: null as Card | null,
+            canView: false,
+        },
+
         /** Pointer **/
         pointerPosition: null as Vector2Like | null, // Expressed in world coordinates
         hoveredCard: null as Card | null,
@@ -215,11 +220,27 @@ export const useGameBusStore = defineStore('gameBus', {
     },
 
     actions: {
-        setCloseUpCard(card: Card | null, canView?: boolean | undefined) {
+        setCloseUpCard(
+            card: Card | null,
+            {
+                canView,
+                pinned,
+            }: {
+                canView?: boolean
+                pinned?: boolean
+            } = {},
+        ) {
             if (canView === undefined) {
                 canView = card ? card.selfCanSeeOrPeek : false
             }
             this.closeUpCard = { card, canView }
+            if (pinned) {
+                this.pinnedCloseUpCard = { card, canView }
+            }
+        },
+
+        assignPinnedCloseUpCard() {
+            this.closeUpCard = this.pinnedCloseUpCard
         },
 
         hideContextSubmenu() {

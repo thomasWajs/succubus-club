@@ -29,6 +29,8 @@ export function useCardClick(cardRef: Ref<Card>, invertLockOnDoubleClick: boolea
     function onLeftClick(pointer: Pointer) {
         const card = cardRef.value
 
+        gameBus.setCloseUpCard(card, { pinned: true })
+
         // if the card is not already selected...
         if (!card.isSelected()) {
             // ctrl + click or shift + click ==> multiple selection

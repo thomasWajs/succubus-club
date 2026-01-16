@@ -102,7 +102,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref, computed } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import Phaser, { GameObjects } from 'phaser'
 import { Image, Rectangle, refObj, Text } from 'phavuer'
 import {
@@ -116,11 +116,11 @@ import { AnyCardRegion } from '@/model/CardRegion.ts'
 import { gameMutations } from '@/state/gameMutations.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
 import { useGameBusStore } from '@/store/bus.ts'
-import Color = Phaser.Display.Color
-import Pointer = Phaser.Input.Pointer
 import { PhaserDataKey, RegionCategory } from '@/game/types.ts'
 import { positionContextMenu } from '@/game/utils.ts'
 import { Texture } from '@/resources/textures.ts'
+import Color = Phaser.Display.Color
+import Pointer = Phaser.Input.Pointer
 
 const { cardRegion, draw } = defineProps<{
     x: number
@@ -168,11 +168,17 @@ const highlightDropZone = computed(() => {
 
 function onBoundariesPointerOver() {
     isRegionHovered.value = true
-    closeUpAshHeap()
+
+    // Close up top card of the ash heap
+    if (cardRegion.is.ashHeap && cardRegion.length > 0 && !gameBus.dragOver) {
+        gameBus.setCloseUpCard(cardRegion.firstCard)
+    }
 }
 
 function onBoundariesPointerOut() {
     isRegionHovered.value = false
+
+    gameBus.assignPinnedCloseUpCard()
 }
 
 /**
@@ -243,17 +249,6 @@ function onImagePointerDown(pointer: Pointer) {
             gameBus.contextMenu.y = y
         }
         positionContextMenu(pointer.x, pointer.y, pointer.y, '.context-menu', setXY)
-    }
-}
-
-/**
- * Closeup for ash heap
- */
-
-function closeUpAshHeap() {
-    // Close up top card of the ash heap
-    if (cardRegion.is.ashHeap && cardRegion.length > 0 && !gameBus.dragOver) {
-        gameBus.setCloseUpCard(cardRegion.firstCard)
     }
 }
 </script>

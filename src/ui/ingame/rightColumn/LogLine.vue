@@ -2,7 +2,9 @@
     <div
         class="log-line"
         :class="{ 'most-recent': index === history.logEntries.length - 1 }"
-        @mouseover="onLogLineHover(logEntry)"
+        @mouseover="onLogLineMouseOver(logEntry)"
+        @mouseout="onLogLineMouseOut(logEntry)"
+        @click="onLogLineClick(logEntry)"
     >
         <span
             v-if="logEntry.mutationId && logEntry.mutationId == history.nextCancellableMutation?.id"
@@ -86,11 +88,23 @@ const mutationLogHtml = computed(() => {
     return logEntry.text.replace(CARD_LOG_PLACEHOLDER, cardText)
 })
 
-function onLogLineHover(logEntry: LogEntry) {
+function onLogLineMouseOver(logEntry: LogEntry) {
     if (selfHasVision.value && logEntry.card) {
         // If there was a player vision at the time of the view,
         // we force canView = true, even if it's not visible anymore
-        gameBus.setCloseUpCard(logEntry.card, true)
+        gameBus.setCloseUpCard(logEntry.card, { canView: true })
+    }
+}
+
+function onLogLineMouseOut() {
+    gameBus.assignPinnedCloseUpCard()
+}
+
+function onLogLineClick(logEntry: LogEntry) {
+    if (selfHasVision.value && logEntry.card) {
+        // If there was a player vision at the time of the view,
+        // we force canView = true, even if it's not visible anymore
+        gameBus.setCloseUpCard(logEntry.card, { canView: true, pinned: true })
     }
 }
 </script>

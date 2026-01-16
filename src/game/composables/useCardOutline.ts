@@ -1,6 +1,5 @@
 import { computed, Ref, ref } from 'vue'
 import Phaser, { GameObjects } from 'phaser'
-import RectangleToRectangle = Phaser.Geom.Intersects.RectangleToRectangle
 import { useGameBusStore } from '@/store/bus.ts'
 import {
     CARD_GROUP_OUTLINE_COLOR,
@@ -10,6 +9,7 @@ import {
 } from '@/game/const.ts'
 import { Card } from '@/model/Card.ts'
 import { useScene } from 'phavuer'
+import RectangleToRectangle = Phaser.Geom.Intersects.RectangleToRectangle
 
 export function useCardOutline(
     cardRef: Ref<Card>,
@@ -38,6 +38,7 @@ export function useCardOutline(
     function onPointerOut() {
         isHovered.value = false
         gameBus.hoveredCard = null
+        gameBus.assignPinnedCloseUpCard()
     }
 
     // Remove outline when the pointer is on an HTML overlay
