@@ -168,16 +168,11 @@ const highlightDropZone = computed(() => {
 
 function onBoundariesPointerOver() {
     isRegionHovered.value = true
-
-    // Close up top card of the ash heap
-    if (cardRegion.is.ashHeap && cardRegion.length > 0 && !gameBus.dragOver) {
-        gameBus.setCloseUpCard(cardRegion.firstCard)
-    }
+    closeUpStack()
 }
 
 function onBoundariesPointerOut() {
     isRegionHovered.value = false
-
     gameBus.assignPinnedCloseUpCard()
 }
 
@@ -209,7 +204,8 @@ function onImagePointerMove(pointer: Pointer) {
 }
 
 function onImagePointerOver() {
-    closeUpAshHeap()
+    closeUpStack()
+    gameBus.assignPinnedCloseUpCard()
 }
 
 function onImagePointerOut() {
@@ -249,6 +245,17 @@ function onImagePointerDown(pointer: Pointer) {
             gameBus.contextMenu.y = y
         }
         positionContextMenu(pointer.x, pointer.y, pointer.y, '.context-menu', setXY)
+    }
+}
+
+/**
+ * Closeup for stacks
+ */
+
+function closeUpStack() {
+    // Close up top card of the ash heap
+    if (cardRegion.is.ashHeap && cardRegion.length > 0 && !gameBus.dragOver) {
+        gameBus.setCloseUpCard(cardRegion.firstCard)
     }
 }
 </script>
