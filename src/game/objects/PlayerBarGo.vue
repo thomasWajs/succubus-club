@@ -55,8 +55,7 @@
         :x="x + width / 2"
         :y="y + height / 2"
         @create="onPoolDiamondCreate"
-        @pointerdown.stop
-        @pointerup.stop="onPoolDiamondPointerUp"
+        @pointerdown.stop="onPoolDiamondPointerDown"
     />
     <Text
         :text="player.pool.toString()"
@@ -64,6 +63,8 @@
         :origin="0.5"
         :x="x + width / 2"
         :y="y + height / 2"
+        @create="onPoolTextCreate"
+        @pointerdown.stop="onPoolDiamondPointerDown"
     />
 
     <!-- Plus Pool -->
@@ -114,15 +115,15 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted } from 'vue'
 import Phaser, { GameObjects } from 'phaser'
-import { Polygon, Rectangle, Text, Image, refObj } from 'phavuer'
+import { Image, Polygon, Rectangle, refObj, Text } from 'phavuer'
 import { BLACK, COUNTER_OUTLINE_THICKNESS, COUNTER_TEXT_STYLE, WHITE } from '@/game/const.ts'
 import { useGameStateStore } from '@/store/gameState.ts'
 import { Player } from '@/model/Player.ts'
-import Color = Phaser.Display.Color
 import { useGameBusStore } from '@/store/bus.ts'
 import ButtonGo from '@/game/objects/ButtonGo.vue'
 import { gameMutations } from '@/state/gameMutations.ts'
 import { Texture } from '@/resources/textures.ts'
+import Color = Phaser.Display.Color
 
 const { x, y, width, height, color, player } = defineProps<{
     x: number
@@ -159,14 +160,20 @@ function onPoolDiamondCreate(poolDiamond: GameObjects.Polygon) {
     })
 }
 
+function onPoolTextCreate(poolText: GameObjects.Text) {
+    poolText.setInteractive({
+        cursor: 'pointer',
+    })
+}
+
 function onTheEdgeCreate(theEdge: GameObjects.Image) {
     theEdge.setInteractive({
         cursor: 'pointer',
     })
 }
 
-function onPoolDiamondPointerUp() {
-    if (gameState.isPlayer) {
+function onPoolDiamondPointerDown() {
+    if (gameState.isPlayer && !gameBus.declaringTargetOrigin) {
         gameBus.changePool = { show: true, player }
     }
 }

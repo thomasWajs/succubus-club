@@ -1,6 +1,7 @@
 <template>
     <div
         v-if="gameBus.changePool.show"
+        ref="changePoolRef"
         class="floating-menu pool-menu"
         :style="style"
     >
@@ -49,7 +50,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { gameMutations } from '@/state/gameMutations.ts'
 import { useGameBusStore } from '@/store/bus.ts'
 import {
@@ -62,6 +63,7 @@ import {
 import { display } from '@/game/display.ts'
 
 const gameBus = useGameBusStore()
+const changePoolRef = ref<HTMLElement | null>(null)
 
 const style = computed(() => {
     const top = (PLAY_AREA_Y + PLAYER_BAR_HEIGHT + CONTROLLED_ZONE_HEIGHT / 2 - 50) * display.scale
@@ -73,18 +75,20 @@ const style = computed(() => {
     }
 })
 
-// Close menu on the next click
+// Close menu on the next click outside
 watch(
     () => gameBus.changePool.show,
     isVisible => {
         if (isVisible) {
-            const handleClickOutside = () => {
-                gameBus.changePool.show = false
-                document.removeEventListener('click', handleClickOutside)
+            const handleClickOutside = (event: MouseEvent) => {
+                if (changePoolRef.value && !changePoolRef.value.contains(event.target as Node)) {
+                    gameBus.changePool.show = false
+                    document.removeEventListener('pointerdown', handleClickOutside)
+                }
             }
 
             setTimeout(() => {
-                document.addEventListener('click', handleClickOutside)
+                document.addEventListener('pointerdown', handleClickOutside)
             }, 0)
         }
     },
