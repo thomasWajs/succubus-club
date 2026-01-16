@@ -14,7 +14,7 @@ import { stringify as stableStringify } from 'safe-stable-stringify'
 import { ChatMessage, useHistoryStore } from '@/store/history.ts'
 import { useCoreStore } from '@/store/core.ts'
 import { isCryptId } from '@/resources/cards.ts'
-import { CborEncoder, CborDecoderBase } from '@jsonjoy.com/json-pack/lib/cbor'
+import { CborDecoderBase, CborEncoder } from '@jsonjoy.com/json-pack/lib/cbor'
 import { VectorClockVersion, VersioningId } from '@/multiplayer/types.ts'
 import { useMultiplayerStore } from '@/store/multiplayer.ts'
 import { PlayerVision } from '@/state/types.ts'
@@ -352,11 +352,6 @@ export function loadGame(serializedGame: SerializedGame) {
 
     for (const [key, value] of Object.entries(gameStateData)) {
         if (key != 'cards' && key != 'players' && key in gameState.$state) {
-            if (key == 'action') {
-                console.log('value', value)
-                console.log('deserializeValue(value)', deserializeValueRecursive(value))
-            }
-
             Object.assign(gameState.$state, { [key]: deserializeValueRecursive(value) })
         }
     }

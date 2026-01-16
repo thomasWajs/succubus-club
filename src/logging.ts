@@ -56,7 +56,7 @@ export function initSentryPiniaPlugin(pinia: Pinia) {
                 }
 
                 // Serialized history is a much more compact representation
-                transformedState.history = serializeHistory()
+                transformedState.gameHistory = serializeHistory()
 
                 return transformedState
             },
