@@ -168,7 +168,7 @@ const highlightDropZone = computed(() => {
 
 function onBoundariesPointerOver() {
     isRegionHovered.value = true
-    closeUpStack()
+    closeUpAshHeap()
 }
 
 function onBoundariesPointerOut() {
@@ -204,12 +204,12 @@ function onImagePointerMove(pointer: Pointer) {
 }
 
 function onImagePointerOver() {
-    closeUpStack()
-    gameBus.assignPinnedCloseUpCard()
+    closeUpAshHeap()
 }
 
 function onImagePointerOut() {
     drawHoverAttrs.isHovered = false
+    gameBus.assignPinnedCloseUpCard()
 }
 
 function onImageCreate(image: GameObjects.Image) {
@@ -252,7 +252,7 @@ function onImagePointerDown(pointer: Pointer) {
  * Closeup for stacks
  */
 
-function closeUpStack() {
+function closeUpAshHeap() {
     // Close up top card of the ash heap
     if (cardRegion.is.ashHeap && cardRegion.length > 0 && !gameBus.dragOver) {
         gameBus.setCloseUpCard(cardRegion.firstCard)
