@@ -1,0 +1,156 @@
+import Dexie, { Entity, type EntityTable } from 'dexie'
+import { toRaw } from 'vue'
+import { GameType } from '@/shared/types/state.ts'
+import { setUser } from '@sentry/vue'
+import { PermanentId, RoomId, Seating, SerializedGame } from '@/shared/types/multiplayer.ts'
+import { AvatarId, Deck, DeckList } from '@/shared/types/gateway.ts' // If you know, you know ;-)
+
+// If you know, you know ;-)
+const DEFAULT_PLAYER_NAME = 'The Unnamed'
+
+export enum DeckSource {
+    Precon = 'Precon',
+    Vdb = 'VDB',
+    Amaranth = 'Amaranth',
+    Text = 'Text',
+}
+
+export enum WorldAlignment {
+    TopRight = 'TopRight',
+    Center = 'Center',
+}
+
+export type UserPreferences = {
+    worldAlignment?: WorldAlignment
+    glowInHand?: number // We cannot index boolean with Dexie, so fallback on 0=false / 1=true
+    glowInPlay?: number // We cannot index boolean with Dexie, so fallback on 0=false / 1=true
+    alignmentGuides?: number // We cannot index boolean with Dexie, so fallback on 0=false / 1=true
+    cardGrouping?: number // We cannot index boolean with Dexie, so fallback on 0=false / 1=true
+    actionDeclaration?: number // We cannot index boolean with Dexie, so fallback on 0=false / 1=true
+    // CommandName ==> character
+    keyBindings?: Record<string, { repr: string; keyCode: number }>
+}
+
+export class DbUserProfile extends Entity<SuccubusDb> {
+    id: number
+    permanentId: PermanentId
+    playerName: string
+    avatar: string | null
+    avatarFirebaseId: AvatarId | null
+    preferences: UserPreferences
+    lastDeckId: number | null
+    lastMultiGameId: RoomId
+    lastMultiGameDate: Date | null
+
+    static async get() {
+        let userProfile = await db.userProfile.limit(1).first()
+        if (!userProfile) {
+            db.userProfile.add({
+                permanentId: crypto.randomUUID(),
+                playerName: DEFAULT_PLAYER_NAME,
+                avatar: null,
+                avatarFirebaseId: null,
+                preferences: {},
+                lastDeckId: null,
+                lastMultiGameId: '',
+                lastMultiGameDate: new Date(),
+            })
+            userProfile = await db.userProfile.limit(1).first()
+
+            // If still undefined after adding, something went wrong
+            if (!userProfile) {
+                throw new Error('Failed to create or retrieve user profile')
+            }
+        }
+
+        // Set the Sentry User
+        setUser({
+            id: userProfile.permanentId,
+            username: userProfile.playerName,
+        })
+
+        return userProfile
+    }
+
+    async save() {
+        // toRaw is needed to save as a plain object, without reactivity wrappers
+        await db.userProfile.put(toRaw(this))
+
+        // Update the Sentry User
+        setUser({
+            id: this.permanentId,
+            username: this.playerName,
+        })
+    }
+
+    async setLastMultiGame(roomId: RoomId) {
+        this.lastMultiGameId = roomId
+        this.lastMultiGameDate = new Date()
+        await this.save()
+    }
+}
+
+export class DbDeck extends Entity<SuccubusDb> implements Deck {
+    id: number
+    name: string
+    source: DeckSource
+    sourceValue: string
+    cards: DeckList
+    lastUsed: Date
+
+    static async create(name: string, cards: DeckList, source: DeckSource, sourceValue: string) {
+        const deckId = await db.decks.add({
+            name,
+            source,
+            sourceValue,
+            cards,
+            lastUsed: new Date(),
+        })
+        const deck = await DbDeck.get(deckId)
+        if (!deck) {
+            throw new Error('Error while creating the deck')
+        }
+        return deck as DbDeck
+    }
+
+    static async get(deckId: number) {
+        return (await db.decks.get(deckId)) ?? null
+    }
+
+    async delete() {
+        await db.decks.delete(this.id)
+    }
+}
+
+export class DbSavedGame extends Entity<SuccubusDb> {
+    id: number
+    date: Date
+    name: string
+    isAutoSave: number // We cannot index boolean with Dexie, so fallback on 0=false / 1=true
+    gameType: GameType
+    roomName: string
+    password: string
+    allowSpectators: number // We cannot index boolean with Dexie, so fallback on 0=false / 1=true
+    seating: Seating
+    game: SerializedGame
+}
+
+export class SuccubusDb extends Dexie {
+    userProfile: EntityTable<DbUserProfile, 'id'>
+    decks: EntityTable<DbDeck, 'id'>
+    savedGames: EntityTable<DbSavedGame, 'id'>
+
+    constructor() {
+        super('SuccubusDb')
+        this.version(1).stores({
+            userProfile: '++id',
+            decks: '++id, lastUsed',
+            savedGames: '++id, isAutoSave, date',
+        })
+        this.userProfile.mapToClass(DbUserProfile)
+        this.decks.mapToClass(DbDeck)
+        this.savedGames.mapToClass(DbSavedGame)
+    }
+}
+
+export const db = new SuccubusDb()

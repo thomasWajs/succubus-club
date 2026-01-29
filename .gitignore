@@ -39,4 +39,6 @@ coverage
 # AI files
 /.aiassistant/
 /.junie/
-/server/
+
+# temporary exclusion of the server code
+src/server

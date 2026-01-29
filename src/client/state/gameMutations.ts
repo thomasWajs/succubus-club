@@ -1,0 +1,116 @@
+import { useCoreStore } from '@/client/store/core.ts'
+import { useBusStore, useGameBusStore } from '@/client/store/bus.ts'
+import { GameType, Invalid, VALID, Validity } from '@/shared/types/state.ts'
+import { broadcastGameMutation } from '@/client/multiplayer/room.ts'
+import { enqueueBotMutation } from '@/client/bot/mutationQueue.ts'
+import {
+    AnyGameMutation,
+    createMutation,
+    GameMutation,
+    GameMutationClassType,
+    GameMutationParams,
+    PingCard,
+    ResolveAction,
+    ResolveBlock,
+} from '@/shared/state/gameMutations.ts'
+import { useHistoryStore } from '@/client/store/history.ts'
+import { useGameStateStore } from '@/client/store/gameState.ts'
+import { Player } from '@/shared/model/Player.ts'
+
+/**
+ * Apply the mutation locally, if it's valid.
+ */
+export function applyMutationIfValid(gameMutation: AnyGameMutation) {
+    const validity = gameMutation.canApply()
+    if (validity.isValid) {
+        gameMutation.apply()
+        useHistoryStore().addGameMutation(gameMutation)
+
+        // Special handlings
+        if (gameMutation instanceof ResolveAction || gameMutation instanceof ResolveBlock) {
+            useCoreStore().conductor?.onActionResolve()
+        }
+
+        if (gameMutation instanceof PingCard) {
+            // This one is kinda special : we update the game bus instead of the game state
+            useGameBusStore().pingCard(gameMutation.params.card.oid)
+        }
+    }
+}
+
+/**
+ * In multiplayer, apply immediately.
+ * With TrainBot, enqueue the mutation to maintain correct ordering.
+ */
+export function applyMutationLocally(gameMutation: AnyGameMutation) {
+    if (useCoreStore().gameType == GameType.TrainBot) {
+        enqueueBotMutation(gameMutation)
+    } else {
+        applyMutationIfValid(gameMutation)
+    }
+}
+
+/**
+ * If the mutation is valid, apply it locally AND broadcast it to other players.
+ * Alert the user if the mutation is invalid.
+ */
+export function dispatchMutation(gameMutation: AnyGameMutation) {
+    const core = useCoreStore()
+
+    const validity = gameMutation.canApply()
+    if (!validity.isValid) {
+        useBusStore().alertWarning(validity.reason)
+        return validity
+    }
+
+    applyMutationLocally(gameMutation)
+    if (core.gameType == GameType.Multiplayer) {
+        broadcastGameMutation(gameMutation)
+    }
+
+    return VALID
+}
+
+/**
+ * A player act on the game : create the mutation and dispatch it.
+ */
+export function act<
+    ParamsType extends GameMutationParams,
+    GMClass extends GameMutation<ParamsType>,
+>(
+    gameMutationClass: GameMutationClassType<ParamsType, GMClass>,
+    author: Player,
+    params: ParamsType,
+): Validity {
+    const gameMutation = createMutation(gameMutationClass, author, params)
+    return dispatchMutation(gameMutation)
+}
+
+/**
+ * Shorthand when self player act on the game.
+ */
+export function actSelf<
+    ParamsType extends GameMutationParams,
+    GMClass extends GameMutation<ParamsType>,
+>(gameMutationClass: GameMutationClassType<ParamsType, GMClass>, params: ParamsType): Validity {
+    const gameState = useGameStateStore()
+    // spectators can't act on the game
+    if (gameState.isSpectator) {
+        return Invalid("Spectators can't act on the game")
+    }
+    if (!gameState.selfPlayer) {
+        throw new Error('Cannot act without a self player defined')
+    }
+    return act(gameMutationClass, gameState.selfPlayer, params)
+}
+
+/**
+ * Cancel
+ */
+
+export function cancelMutation(mutation: AnyGameMutation) {
+    if (!mutation.isUserCancellable) {
+        throw new Error('Cannot cancel this type of mutation')
+    }
+    dispatchMutation(mutation.getCancelMutation())
+}

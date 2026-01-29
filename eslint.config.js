@@ -38,7 +38,13 @@ export default [
     prettierConfig,
     {
         files: ['**/*.{ts,tsx,vue}'],
-        ignores: ['vite/**/*.ts'], // Exclude vite config files from type-aware linting
+
+        ignores: [
+            // Exclude vite config files from type-aware linting
+            'vite/**/*.ts',
+            // Temporarily exclude server from linting
+            'src/server/**/*.ts',
+        ],
         languageOptions: {
             parser: vueParser,
             parserOptions: {
@@ -121,7 +127,12 @@ export default [
     // Separate configuration for TypeScript files (non-Vue)
     {
         files: ['**/*.{ts,tsx}'],
-        ignores: ['vite/**/*.ts', '**/*.vue'],
+        ignores: [
+            'vite/**/*.ts',
+            '**/*.vue',
+            // Temporarily exclude server from linting
+            'src/server/**/*.ts',
+        ],
         languageOptions: {
             parser: typescriptParser,
             parserOptions: {

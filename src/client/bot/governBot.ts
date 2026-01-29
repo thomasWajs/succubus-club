@@ -1,0 +1,199 @@
+import { GOVERN_ID, LOST_IN_CROWDS_ID } from '@/shared/cardImpl/cardIds.ts'
+import { Bot } from '@/client/bot/bot.ts'
+import { gameMutations } from '@/shared/state/gameMutations.ts'
+import { useGameStateStore } from '@/client/store/gameState.ts'
+import { Discipline, DisciplineLevel } from '@/shared/const/model.ts'
+import { NO_ACTION_MODIFIER, NO_BLOCK, NO_COMBAT } from '@/shared/types/state.ts'
+import { GRID_SIZE } from '@/shared/const/game.ts'
+import { getBlockingMinion } from '@/shared/state/actionState.ts'
+import {
+    createActionCardAction,
+    createActionModifier,
+    createHuntAction,
+} from '@/shared/state/minionActions.ts'
+import { NEXT_PHASE, NEXT_TURN } from '@/shared/const/bot.ts'
+import { DeckList } from '@/shared/types/gateway.ts'
+
+export const GovernDeck = <DeckList>{
+    [GOVERN_ID]: 48,
+    [LOST_IN_CROWDS_ID]: 12,
+
+    '201634': 1,
+    '201626': 1,
+    '201617': 1,
+    '201628': 1,
+    '201632': 1,
+    '201532': 1,
+    '201640': 1,
+    '201548': 1,
+    '201543': 1,
+    '201627': 1,
+    '201569': 1,
+    '201533': 1,
+}
+
+export class GovernBot extends Bot {
+    static deckList = GovernDeck
+
+    getUncontrolledSortedCapaDescending() {
+        return this.player.vampiresInUncontrolled.toSorted(
+            (v1, v2) => v2.minionAttrs.capacity - v1.minionAttrs.capacity,
+        )
+    }
+
+    unlockPhase() {
+        // Do nothing
+        return NEXT_PHASE
+    }
+
+    masterPhase() {
+        // Do nothing
+        return NEXT_PHASE
+    }
+
+    minionPhase() {
+        // Mandatory actions first : Hunts
+        for (const minion of this.player.minionsReadyUnlocked) {
+            if (minion.blood == 0) {
+                return createHuntAction(minion)
+            }
+        }
+
+        // If there's vampires in torpor
+        // From youngest to oldest unlocked ready vampire
+        // Rescue from torpor
+
+        // Now let's do some governing !
+        const govern = this.getCardInHand(GOVERN_ID)
+        if (govern && this.player.minionsReadyUnlocked.length > 0) {
+            // From oldest to youngest unlocked ready vampire
+            const actingVampire = this.player.vampiresReadyUnlocked.toSorted(
+                (v1, v2) => v2.minionAttrs.capacity - v1.minionAttrs.capacity,
+            )[0]
+            // If it has dominate sup and there's a younger vampire in uncontrolled with more than 3 blood remaining
+            if (
+                actingVampire.minionAttrs.disciplines[Discipline.Dominate] ==
+                DisciplineLevel.SUPERIOR
+            ) {
+                const uncontrolledVampires = this.getUncontrolledSortedCapaDescending()
+                for (const vampire of uncontrolledVampires) {
+                    if (
+                        vampire.minionAttrs.capacity < actingVampire.minionAttrs.capacity &&
+                        vampire.minionAttrs.capacity - vampire.blood > 3
+                    ) {
+                        // govern sup
+                        return createActionCardAction(actingVampire, govern, {
+                            level: DisciplineLevel.SUPERIOR,
+                            target: vampire,
+                        })
+                    }
+                }
+            }
+
+            // If we're here, either the vampire lack DOM, either there's no target for Govern Sup.
+            if (
+                actingVampire.minionAttrs.disciplines[Discipline.Dominate] >=
+                DisciplineLevel.INFERIOR
+            ) {
+                // govern inf
+                return createActionCardAction(actingVampire, govern, {
+                    level: DisciplineLevel.INFERIOR,
+                    target: this.player.prey,
+                })
+            }
+        }
+
+        // No more ready vampire : advance to influence phase
+        return NEXT_PHASE
+    }
+
+    influencePhase() {
+        const gameState = useGameStateStore()
+
+        // If less than 8 pool, do nothing
+        if (this.player.pool < 8) {
+            return NEXT_PHASE
+        }
+
+        const transfers = gameState.turnResources.transfers
+
+        // If we have transfer left and any vampire in uncontrolled
+        if (transfers > 0 && this.player.vampiresInUncontrolled.length > 0) {
+            // Find highest-capa vampire in crypt, not already maxed-out
+            const uncontrolledVampires = this.getUncontrolledSortedCapaDescending()
+
+            for (const vampire of uncontrolledVampires) {
+                if (vampire.minionAttrs.capacity > vampire.blood) {
+                    return gameMutations.influence.createMutation(this.player, {
+                        card: vampire,
+                        amount: Math.min(transfers, vampire.minionAttrs.capacity - vampire.blood),
+                    })
+                }
+            }
+        }
+
+        // Move full vampires to the ready region
+        for (const vampire of this.player.vampiresInUncontrolled) {
+            if (vampire.blood == vampire.minionAttrs.capacity) {
+                return gameMutations.moveCardToRegion.createMutation(this.player, {
+                    card: vampire,
+                    fromCardRegion: this.player.uncontrolled,
+                    toCardRegion: this.player.ready,
+                    x: 12 * GRID_SIZE * this.player.ready.cards.length,
+                    y: 12 * GRID_SIZE,
+                })
+            }
+        }
+
+        // If we end up here, we got nothing more to do, advance the phase
+        return NEXT_PHASE
+    }
+
+    discardPhase() {
+        const gameState = useGameStateStore()
+        // Sadness, no more govern, discard the first card in our hand to try to get one
+        if (gameState.turnResources.dpa > 0 && !this.getCardInHand(GOVERN_ID)) {
+            return gameMutations.discard.createMutation(this.player, {
+                card: this.player.hand.cards[0],
+            })
+        }
+
+        // Do Nothing
+        return NEXT_TURN
+    }
+
+    actionModifier() {
+        const gameState = useGameStateStore()
+
+        if (!gameState.action) {
+            return NO_ACTION_MODIFIER
+        }
+
+        const actingVampire = gameState.action.minionAction.actingMinion
+        const blockingMinion = getBlockingMinion(gameState)
+        const lostInCrowds = this.getCardInHand(LOST_IN_CROWDS_ID)
+
+        // TODO : remember the action modifier played this action to prevent double lost in crowd
+        if (
+            lostInCrowds &&
+            blockingMinion &&
+            gameState.action.intercept >= gameState.action.stealth &&
+            gameState.action.stealth <= 1
+        ) {
+            return createActionModifier(lostInCrowds, {
+                level: actingVampire.minionAttrs.disciplines[Discipline.Obfuscate],
+            })
+        }
+
+        return NO_ACTION_MODIFIER
+    }
+
+    reaction() {
+        // No reaction, no block
+        return NO_BLOCK
+    }
+
+    combat() {
+        return NO_COMBAT
+    }
+}

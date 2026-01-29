@@ -70,7 +70,7 @@ def update_changelog_ts(changelog_data, ts_path):
 
 def main():
     changelog_path = '../CHANGELOG.md'
-    ts_path = '../src/changelog.ts'
+    ts_path = '../src/client/changelog.ts'
 
     # Parse the latest version from CHANGELOG.md
     changelog_data = parse_latest_version_from_changelog(changelog_path)

@@ -30,7 +30,11 @@
         "lint:check": "eslint .",
         "lint:fix": "eslint . --fix",
         "format:check": "prettier --check .",
-        "format:fix": "prettier --write ."
+        "format:fix": "prettier --write .",
+        "server:install": "cd src/server && npm install",
+        "server:dev": "cd src/server && npm run dev",
+        "server:build": "cd src/server && npm run build",
+        "server:start": "cd src/server && npm run start"
     },
     "dependencies": {
         "@jsonjoy.com/json-pack": "^1.21.0",
@@ -42,6 +46,7 @@
         "phaser": "^3.90.0",
         "phavuer": "^0.19.6",
         "pinia": "^3.0.3",
+        "pinia-class-transformer": "^3.2.3",
         "safe-stable-stringify": "^2.5.0",
         "vue": "^3.5.17",
         "vue-router": "^4.5.1",

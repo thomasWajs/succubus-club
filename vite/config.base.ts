@@ -1,7 +1,6 @@
-import { defineConfig } from 'vite'
+import { defineConfig, ViteDevServer } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { fileURLToPath, URL } from 'node:url'
-import { ViteDevServer } from 'vite'
 import { IncomingMessage, ServerResponse } from 'http'
 import { createHash } from 'crypto'
 import { readFileSync } from 'fs'
@@ -50,8 +49,8 @@ export default defineConfig({
             scss: {
                 // Import variables and mixins globally
                 additionalData: `
-                    @use "@/styles/variables" as *;
-                    @use "@/styles/mixins" as *;
+                    @use "@/client/styles/variables" as *;
+                    @use "@/client/styles/mixins" as *;
                 `,
             },
         },
