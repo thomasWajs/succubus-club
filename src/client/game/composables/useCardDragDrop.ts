@@ -1,5 +1,5 @@
 import { Card } from '@/shared/model/Card.ts'
-import { computed, ComputedRef, reactive, Ref } from 'vue'
+import { ComputedRef, reactive, Ref } from 'vue'
 import Phaser from 'phaser'
 import { CardMovement, gameMutations } from '@/shared/state/gameMutations.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
@@ -15,9 +15,9 @@ import { useGameStateStore } from '@/client/store/gameState.ts'
 import { CardAttrs, CardGroup, DragAttrs, RegionCategory } from '@/client/game/types.ts'
 import { AlignmentGuide, GUIDE_HORIZONTAL, GUIDE_VERTICAL } from '@/shared/types/state.ts'
 import { ALIGNMENT_GUIDE_THRESHOLD, GRID_SIZE } from '@/shared/const/game.ts'
-import { useCoreStore } from '@/client/store/core.ts'
 import { AnyCardRegion } from '@/shared/types/model.ts'
 import { Snap } from '@/shared/utils.ts'
+import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
 import Pointer = Phaser.Input.Pointer
 import Rectangle = Phaser.Geom.Rectangle
 
@@ -26,7 +26,6 @@ export function useCardDragDrop(
     cardAttrsRef: ComputedRef<CardAttrs>,
     bringToTop: () => void,
 ) {
-    const core = useCoreStore()
     const gameState = useGameStateStore()
     const gameBus = useGameBusStore()
 
@@ -34,7 +33,7 @@ export function useCardDragDrop(
      * Alignment guides
      */
 
-    const alignmentEnabled = computed(() => core.userProfile.preferences.alignmentGuides ?? true)
+    const { alignmentGuidesEnabled } = useUIFeatures()
 
     function findAlignmentGuides(
         cardRegion: AnyCardRegion,
@@ -93,7 +92,7 @@ export function useCardDragDrop(
      * Card Groups
      */
 
-    const groupingEnabled = computed(() => core.userProfile.preferences.cardGrouping ?? true)
+    const { cardGroupingEnabled } = useUIFeatures()
 
     function findCardGroupCandidate(
         cardRegion: AnyCardRegion,
@@ -107,7 +106,7 @@ export function useCardDragDrop(
         // No card grouping possible for multi-drag.
         // No card grouping possible if the card is already in a group
         if (
-            !groupingEnabled.value ||
+            !cardGroupingEnabled.value ||
             cardRegion.owner.oid != gameState.selfPlayer?.oid ||
             !cardRegion.is.ready ||
             gameBus.selectedCards.length > 1 ||
@@ -256,7 +255,7 @@ export function useCardDragDrop(
             }
 
             // If we're dragging over a ready region, trigger the alignment guides
-            if (alignmentEnabled.value && cardRegion && cardRegion.is.ready) {
+            if (alignmentGuidesEnabled.value && cardRegion && cardRegion.is.ready) {
                 // Find alignment guides and apply snapping
                 gameBus.alignmentGuides = findAlignmentGuides(cardRegion, localX, localY)
 

@@ -126,6 +126,7 @@ import HandGO from '@/client/game/objects/HandGO.vue'
 import SelectionArea from '@/client/game/objects/SelectionArea.vue'
 import FloatingActionsCloud from '@/client/ui/context/floating/FloatingActionsCloud.vue'
 import { CardOid, PlayerOid, Point2D } from '@/shared/types/model.ts'
+import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
 
 const core = useCoreStore()
 const gameState = useGameStateStore()
@@ -150,9 +151,7 @@ function update() {
     }
 }
 
-const actionDeclarationEnabled = computed(
-    () => core.userProfile.preferences.actionDeclaration ?? true,
-)
+const { actionDeclarationEnabled } = useUIFeatures()
 
 /**
  * Player seating

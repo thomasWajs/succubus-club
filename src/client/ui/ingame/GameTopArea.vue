@@ -403,7 +403,7 @@
 
             <!-- The Edge Hint -->
             <div
-                v-if="centralContent.theEdge"
+                v-if="aidsEnabled && centralContent.theEdge"
                 id="TheEdgeHint"
             >
                 <span
@@ -472,6 +472,7 @@ import { useTimer } from '@/shared/state/useTimer.ts'
 import { WorldAlignment } from '@/client/gateway/db.ts'
 import * as actions from '@/shared/state/minionActions.ts'
 import { selfSecureName } from '@/client/state/self.ts'
+import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
 
 const core = useCoreStore()
 const gameState = useGameStateStore()
@@ -482,10 +483,7 @@ const multiplayer = useMultiplayerStore()
 const commands = useCommands()
 const timer = useTimer(gameState.gameId)
 
-const glowInPlayEnabled = computed(() => core.userProfile.preferences.glowInPlay ?? true)
-const worldAlignment = computed(
-    () => core.userProfile.preferences.worldAlignment ?? WorldAlignment.Center,
-)
+const { aidsEnabled, worldAlignment, glowInPlayEnabled } = useUIFeatures()
 const blockingMinion = computed(() => getBlockingMinion(gameState))
 const fullDisplay = computed(
     () => gameState.action && gameState.action.minionAction.actingMinion.controller.isBot,

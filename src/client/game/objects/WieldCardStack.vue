@@ -137,18 +137,18 @@ import Phaser, { GameObjects } from 'phaser'
 import WieldCardStackActions from '@/client/ui/ingame/WieldCardStackActions.vue'
 import { display } from '@/client/game/display.ts'
 import { WorldAlignment } from '@/client/gateway/db.ts'
-import { useCoreStore } from '@/client/store/core.ts'
 import { AnyCardRegion } from '@/shared/types/model.ts'
 import { selfSecureName } from '@/client/state/self.ts'
+import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
 import EventData = Phaser.Types.Input.EventData
 
 const { cardRegion } = defineProps<{
     cardRegion: AnyCardRegion
 }>()
 
-const core = useCoreStore()
 const gameBus = useGameBusStore()
 const scene = useScene()
+const { worldAlignment } = useUIFeatures()
 
 const width = WORLD_WIDTH - WIELD_X * 2
 const height = WIELD_CARD_STACK_HEIGHT
@@ -171,10 +171,6 @@ const INDICATOR_TEXT_STYLE = {
 }
 
 /** Wield Actions positioning */
-
-const worldAlignment = computed(
-    () => core.userProfile.preferences.worldAlignment ?? WorldAlignment.Center,
-)
 
 const actionsStyle = computed(() => {
     let right, top

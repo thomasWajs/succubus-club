@@ -199,6 +199,7 @@ async function syncGameRooms(snapshot: DataSnapshot) {
 export async function createGameRoom(
     roomName: string,
     password: string = '',
+    enableAids: boolean = true,
     allowSpectators: boolean = true,
     seating: Seating = [],
     isStarted: boolean = false,
@@ -224,6 +225,7 @@ export async function createGameRoom(
         isStarted,
         hasPassword: password != '',
         passwordHash: key?.hash ?? '',
+        enableAids,
         allowSpectators,
         players: [multiplayer.selfUser.permId],
         seating,

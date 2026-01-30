@@ -160,6 +160,17 @@
                         :disabled="multiplayer.currentGameRoomId !== null"
                         placeholder="Password (optional)..."
                     />
+                    <label
+                        class="checkbox-label"
+                        title='Show hints to players, like "take pool for the edge" or "during X do Y". Disable for stricter sanctionned play.'
+                    >
+                        <input
+                            v-model="enableAids"
+                            type="checkbox"
+                            :disabled="multiplayer.currentGameRoomId !== null"
+                        />
+                        <span>Enable aids</span>
+                    </label>
                     <label class="checkbox-label">
                         <input
                             v-model="allowSpectators"
@@ -234,6 +245,7 @@ const roomName = ref('')
 const roomPassword = ref('')
 const roomPasswords = ref<{ [gameRoomId: string]: string }>({})
 const roomPasswordErrors = ref<{ [gameRoomId: string]: boolean }>({})
+const enableAids = ref(true)
 const allowSpectators = ref(true)
 
 function onCreateGameRoom() {
@@ -242,10 +254,9 @@ function onCreateGameRoom() {
         return
     }
 
-    createGameRoom(cleanedRoomName, roomPassword.value, allowSpectators.value)
+    createGameRoom(cleanedRoomName, roomPassword.value, enableAids.value, allowSpectators.value)
     roomName.value = ''
     roomPassword.value = ''
-    allowSpectators.value = true
 }
 
 async function onJoinGameRoom(gameRoom: GameRoom) {

@@ -60,6 +60,7 @@ export async function saveGame(isAutoSave: boolean) {
             roomName: multiplayer.currentGameRoom?.name ?? '',
             password: multiplayer.password,
             // We cannot index boolean in Dexie, so fallback on 0=false / 1=true
+            enableAids: gameRoom?.enableAids ? 1 : 0,
             allowSpectators: gameRoom?.allowSpectators ? 1 : 0,
             seating: gameRoom?.seating ?? EMPTY_SEATING,
             game: serializeGame(),

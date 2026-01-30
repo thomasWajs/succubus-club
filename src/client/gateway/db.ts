@@ -130,6 +130,7 @@ export class DbSavedGame extends Entity<SuccubusDb> {
     gameType: GameType
     roomName: string
     password: string
+    enableAids: number // We cannot index boolean with Dexie, so fallback on 0=false / 1=true
     allowSpectators: number // We cannot index boolean with Dexie, so fallback on 0=false / 1=true
     seating: Seating
     game: SerializedGame

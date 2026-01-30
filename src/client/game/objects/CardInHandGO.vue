@@ -99,17 +99,16 @@ import { useCardDragDrop } from '@/client/game/composables/useCardDragDrop.ts'
 import ButtonGo from '@/client/game/objects/ButtonGo.vue'
 import { useCardClick } from '@/client/game/composables/useCardClick.ts'
 import { useCardOutline } from '@/client/game/composables/useCardOutline.ts'
-import { useCoreStore } from '@/client/store/core.ts'
 import { getCardScale } from '@/client/game/utils.ts'
 import { playCardFromHand } from '@/client/game/declaration.ts'
 import { selfCanPlay } from '@/client/state/self.ts'
 import { useCardTexture } from '@/client/game/composables/useCardTexture.ts'
+import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
 
 const { card } = defineProps<{
     card: LibraryCard
 }>()
 
-const core = useCoreStore()
 const gameState = useGameStateStore()
 const gameBus = useGameBusStore()
 const commands = useCommands()
@@ -276,7 +275,7 @@ function onDragEndFromHand() {
  * Glow effect on usable card, depending on the phase of the turn.
  */
 
-const glowInHandEnabled = computed(() => core.userProfile.preferences.glowInHand ?? true)
+const { glowInHandEnabled } = useUIFeatures()
 const showGlowEffect = computed(
     () => glowInHandEnabled.value && selfCanPlay(card) && !dragAttrs.isDragging,
 )

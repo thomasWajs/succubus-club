@@ -1,20 +1,17 @@
-import { computed, watch } from 'vue'
+import { watch } from 'vue'
 import Phaser from 'phaser'
 import { display } from '@/client/game/display.ts'
 import { WorldAlignment } from '@/client/gateway/db.ts'
-import { useCoreStore } from '@/client/store/core.ts'
+import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
 import Pointer = Phaser.Input.Pointer
 
 const ZOOM_SPEED = 0.001
 let tabletopScene: Phaser.Scene | undefined
 
-const worldAlignment = computed(
-    () => useCoreStore().userProfile.preferences.worldAlignment ?? WorldAlignment.Center,
-)
-
 export function setupCamera(_tabletopScene: Phaser.Scene) {
     tabletopScene = _tabletopScene
 
+    const { worldAlignment } = useUIFeatures()
     resetCamera()
     // Keep Camera scaled on resize
     tabletopScene.scale.on('resize', resetCamera)
@@ -38,6 +35,7 @@ export function resetCamera() {
         return
     }
 
+    const { worldAlignment } = useUIFeatures()
     const camera = tabletopScene.cameras.main
     camera.setZoom(display.scale)
 
