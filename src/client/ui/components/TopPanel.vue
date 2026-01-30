@@ -11,6 +11,8 @@
             <div
                 class="top-panel"
                 @click.stop
+                @keydown.stop
+                @keyup.stop
             >
                 <div class="top-panel-header">
                     <div class="top-panel-title">
