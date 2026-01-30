@@ -12,7 +12,7 @@
                 <span
                     class="current-deck-name"
                     :class="{ loading: isLoading, clickable: core.selfDeck }"
-                    @click="viewDeck"
+                    @click="viewDeck(core.selfDeck as DbDeck)"
                 >
                     {{ isLoading ? 'Loading...' : (core.selfDeck?.name ?? 'None') }}
                 </span>
@@ -73,11 +73,14 @@
                                     @keyup.enter="saveEdit(deck as DbDeck)"
                                     @keyup.escape="cancelEdit"
                                 />
+
                                 <span
                                     v-else
-                                    class="deck-name"
-                                    >{{ deck.name }}</span
+                                    class="deck-name clickable"
+                                    @click="viewDeck(deck as DbDeck)"
                                 >
+                                    {{ deck.name }}
+                                </span>
                             </div>
                             <div class="deck-actions">
                                 <button
@@ -250,8 +253,8 @@
                     class="tab-content"
                 >
                     <DeckViewer
-                        v-if="core.selfDeck"
-                        :deck-list="core.selfDeck.cards"
+                        v-if="viewingDeckCards"
+                        :deck-list="viewingDeckCards"
                     />
                 </div>
 
@@ -345,8 +348,8 @@ import {
 } from '@/client/gateway/deck.ts'
 import { useCoreStore } from '@/client/store/core.ts'
 import { db, DbDeck } from '@/client/gateway/db.ts'
-
 import { gameResources } from '@/shared/registries.ts'
+import { DeckList } from '@/shared/types/gateway.ts'
 
 const core = useCoreStore()
 const bus = useBusStore()
@@ -567,10 +570,14 @@ function loadFromPrecon(setId: string, preconId: string, name: string) {
 
 /** View Deck **/
 
-function viewDeck() {
-    if (!core.selfDeck) {
+const viewingDeckCards = ref<DeckList | null>(null)
+
+function viewDeck(deck?: DbDeck) {
+    if (!deck) {
         return
     }
+
+    viewingDeckCards.value = deck.cards
     activeTab.value = 'view-deck'
 }
 </script>
@@ -688,6 +695,15 @@ $max-width: 1200px;
     color: $pearl-grey;
     font-size: 1rem;
     font-weight: 500;
+
+    &.clickable {
+        cursor: pointer;
+        text-decoration: underline;
+
+        &:hover {
+            color: $ghost-white;
+        }
+    }
 }
 
 .deck-actions {
