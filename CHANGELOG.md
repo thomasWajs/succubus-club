@@ -1,3 +1,16 @@
+## [0.6.1] - 2026-01-30
+
+Features:
+- Add an option at multiplayer game creation to disable aids
+- Pin a close up card by clicking it ( helps with looking at rulings )
+- Add deck explore to deck history
+
+Bugfix:
+- Prevent log scrolling when not viewing the bottom
+- Fix Deck content counting
+- Prevent keyboard shortcuts to trigger when updating user preferences
+- Don't open pool panel when selecting a target
+
 ## [0.6.0] - 2026-01-15
 
 Features:

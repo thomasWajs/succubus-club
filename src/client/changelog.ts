@@ -1,17 +1,15 @@
 export const latestChangelog = {
-    version: '0.6.0',
-    date: '2026-01-15',
+    version: '0.6.1',
+    date: '2026-01-30',
     features: [
-        'Declare an action with a minion',
-        'Seating control in the lobby',
-        'Browse the content of a decklist',
-        'Increase initial player scale',
-        'Track blood / pool in the logs',
+        'Add an option at multiplayer game creation to disable aids',
+        'Pin a close up card by clicking it ( helps with looking at rulings )',
+        'Add deck explore to deck history',
     ],
     bugfixes: [
-        'Prevent flipped card names to leak into logs',
-        "Don't glow flipped cards",
-        'Prevent influence on vampires from other players',
-        'Remove the burn button on minions in controlled area',
+        'Prevent log scrolling when not viewing the bottom',
+        'Fix Deck content counting',
+        'Prevent keyboard shortcuts to trigger when updating user preferences',
+        "Don't open pool panel when selecting a target",
     ],
 }
