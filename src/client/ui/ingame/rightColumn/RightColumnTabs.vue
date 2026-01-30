@@ -210,7 +210,16 @@ const logLines = ref<HTMLDivElement>()
 function scrollLog() {
     nextTick(() => {
         if (logLines.value) {
-            logLines.value.scrollTop = logLines.value.scrollHeight
+            const scrollContainer = logLines.value
+            const isAtBottom =
+                scrollContainer.scrollHeight -
+                    scrollContainer.scrollTop -
+                    scrollContainer.clientHeight <
+                60
+
+            if (isAtBottom) {
+                scrollContainer.scrollTop = scrollContainer.scrollHeight
+            }
         }
     })
 }
