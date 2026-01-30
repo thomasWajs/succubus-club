@@ -37,11 +37,11 @@
                 :key="type"
                 class="card-type-group"
             >
-                <h4 class="type-title">{{ type }} ({{ libraryByType[type].length }})</h4>
+                <h4 class="type-title">{{ type }} ({{ libraryByType[type].total }})</h4>
                 <div class="type-divider" />
                 <div class="card-list">
                     <div
-                        v-for="card in libraryByType[type]"
+                        v-for="card in libraryByType[type].cards"
                         :key="card.id"
                         class="card-entry library-card"
                     >
@@ -187,13 +187,14 @@ const libraryCards = computed(() => {
 })
 
 const libraryByType = computed(() => {
-    const byType: Record<string, FormattedLibraryCard[]> = {}
+    const byType: Record<string, { cards: FormattedLibraryCard[]; total: number }> = {}
 
     for (const card of libraryCards.value) {
         if (!byType[card.type]) {
-            byType[card.type] = []
+            byType[card.type] = { cards: [], total: 0 }
         }
-        byType[card.type].push(card)
+        byType[card.type].cards.push(card)
+        byType[card.type].total += card.quantity
     }
 
     return byType
