@@ -1,10 +1,10 @@
+import { toRaw } from 'vue'
 import { db } from '@/client/gateway/db.ts'
 import { serializeGame } from '@/client/gateway/serialization.ts'
 import { useCoreStore } from '@/client/store/core.ts'
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { EMPTY_SEATING } from '@/shared/types/multiplayer.ts'
-import * as logging from '@/client/logging.ts'
 
 const MAX_AUTO_SAVED_GAMES = 5
 const AUTO_SAVE_INTERVAL = 1000 * 60 * 2 // 1000 miliseconds * 60 seconds * 2 = 2 minutes
@@ -62,19 +62,11 @@ export async function saveGame(isAutoSave: boolean) {
             // We cannot index boolean in Dexie, so fallback on 0=false / 1=true
             enableAids: gameRoom?.enableAids ? 1 : 0,
             allowSpectators: gameRoom?.allowSpectators ? 1 : 0,
-            seating: gameRoom?.seating ?? EMPTY_SEATING,
+            seating: toRaw(gameRoom?.seating) ?? EMPTY_SEATING,
             game: serializeGame(),
         }
 
-        try {
-            await db.savedGames.add(savedGame)
-        } catch (err) {
-            logging.captureMessage(
-                `Debugging data for saveGame saving error : ${JSON.stringify(savedGame)}`,
-                'warning',
-            )
-            throw err
-        }
+        await db.savedGames.add(savedGame)
     } catch (err) {
         gameBus.savingState = SavingState.Error
         throw err

@@ -25,7 +25,7 @@ import { PlayerVision } from '@/shared/types/state.ts'
 import { useTimer } from '@/shared/state/useTimer.ts'
 import { DATE_PREFIX, GAME_STATE_VERSION, OID_PREFIX } from '@/shared/const/multiplayer.ts'
 import { CardOid, PlayerCardRegions, PlayerOid } from '@/shared/types/model.ts'
-import { isCryptId, registerHasher } from '@/shared/registries.ts'
+import { isCryptId, registerGameState, registerHasher } from '@/shared/registries.ts'
 
 function serializeValueRecursive(value: unknown): JsonValue {
     // Handle null and undefined
@@ -85,7 +85,7 @@ export function deserializeValueRecursive(value: JsonValue): unknown {
         }
 
         if (value.startsWith(OID_PREFIX)) {
-            const oid = parseInt(value.substring(OID_PREFIX.length))
+            const oid = value.substring(OID_PREFIX.length)
             const stateObject = gameState.allStateObjects[oid]
             if (!stateObject) {
                 throw new Error(`Unknown state object : ${oid}`)
@@ -247,7 +247,7 @@ export function loadGame(serializedGame: SerializedGame) {
 
     const gameStateData = serializedGame.gameState
     const gameId = gameStateData.gameId as string
-    type PlayerCardRegionsKey = keyof PlayerCardRegions
+    registerGameState(gameId, gameState)
 
     /** Deserialize Cards **/
     const jsonCards = gameStateData.cards
@@ -262,6 +262,7 @@ export function loadGame(serializedGame: SerializedGame) {
     gameState.cards = cards
 
     /** Deserialize Players **/
+    type PlayerCardRegionsKey = keyof PlayerCardRegions
     const jsonPlayers = gameStateData.players
     const players = {} as Record<PlayerOid, Player>
 

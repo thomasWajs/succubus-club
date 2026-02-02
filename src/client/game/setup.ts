@@ -154,9 +154,6 @@ export function setupSavedGame(savedGame: DbSavedGame) {
     resetState()
     loadGame(savedGame.game)
 
-    const gameState = useGameStateStore()
-    registerGameState(gameState.gameId, gameState)
-
     if (savedGame.gameType == GameType.TrainBot) {
         const core = useCoreStore()
         const gameState = useGameStateStore()

@@ -28,7 +28,7 @@ import { fetchGameState, storeGameState } from '@/client/gateway/gameState.ts'
 import { resetState } from '@/client/game/setup.ts'
 import { ChatMessage } from '@/shared/types/history.ts'
 import { applyMutationLocally } from '@/client/state/gameMutations.ts'
-import { hashObject, registerGameState } from '@/shared/registries.ts'
+import { hashObject } from '@/shared/registries.ts'
 
 const DESYNC_MESSAGE_MINIMUM_TIME_VISIBLE = 2000 // 2 seconds in milliseconds
 
@@ -376,10 +376,6 @@ export async function applyInitialGameState(serializedGame: SerializedGame) {
     return stateMutex.withLock(async () => {
         resetState()
         loadGame(serializedGame)
-
-        const gameState = useGameStateStore()
-        registerGameState(gameState.gameId, gameState)
-
         flushPendingMessages()
     })
 }
