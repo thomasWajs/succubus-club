@@ -45,6 +45,8 @@ export function declareAction(action: MinionAction, player?: Player) {
         player = gameState.selfPlayer
     }
 
+    resetDeclaration()
+
     gameMutations.ACTION_declareAction.act(player, { minionAction: action })
 
     if (action.target) {
