@@ -314,7 +314,7 @@
                         <div class="success-actions">
                             <button
                                 class="action-btn success-close-btn"
-                                @click="viewDeck()"
+                                @click="viewDeck(core.selfDeck as DbDeck)"
                             >
                                 Look Deck Content
                             </button>

@@ -2,7 +2,7 @@
     <div class="deck-viewer">
         <!-- Crypt Section -->
         <div class="deck-section">
-            <h3 class="section-title">Crypt ({{ cryptCards.length }} cards)</h3>
+            <h3 class="section-title">Crypt ({{ cryptCardCount }} cards)</h3>
             <div class="section-divider" />
             <div class="card-list">
                 <div
@@ -161,6 +161,10 @@ const cryptCards = computed(() => {
     })
 
     return cards
+})
+
+const cryptCardCount = computed(() => {
+    return cryptCards.value.reduce((sum, card) => sum + card.quantity, 0)
 })
 
 const libraryCards = computed(() => {
