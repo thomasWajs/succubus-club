@@ -56,8 +56,10 @@ export class GameState {
     targetDeclarations: TargetDeclaration[] = []
 
     /** Timer **/
-    timerRemainingTime: number | null = null // If null, no timer is running
+    timerStartTime: number | null = null // Date.now() when timer started (null = no timer)
     timerIsPaused: boolean = true
+    timerPausedAt: number | null = null // Date.now() when last paused
+    timerTotalPausedMs: number = 0 // Accumulated pause duration in ms
 
     /** Resources for the bot **/
     turnResources = {

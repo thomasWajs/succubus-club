@@ -7,75 +7,102 @@ const TIMER_DURATION = 2 * 60 * 60 * 1000 // 2 hours in milliseconds
 const timerChosen = ref(false)
 let intervalId: number | null = null
 
+// Reactive "now" tick — drives display updates without affecting timer accuracy
+const now = ref(Date.now())
+
 export function useTimer(gameId: GameId) {
     const gameState = getGameState(gameId)
 
-    const remainingTime = computed(() => gameState.timerRemainingTime ?? 0)
-    const timerEnabled = computed(() => gameState.timerRemainingTime !== null)
+    const timerEnabled = computed(() => gameState.timerStartTime !== null)
+
+    function getRemainingTimeAt(time: number) {
+        if (gameState.timerStartTime === null) return 0
+
+        const elapsed =
+            (gameState.timerIsPaused && gameState.timerPausedAt ? gameState.timerPausedAt : time) -
+            gameState.timerStartTime -
+            gameState.timerTotalPausedMs
+
+        return Math.max(0, TIMER_DURATION - elapsed)
+    }
+
+    const remainingTime = computed(() => {
+        return getRemainingTimeAt(now.value)
+    })
+
     const isExpired = computed(() => remainingTime.value <= 0)
 
     const declineTimer = () => {
         timerChosen.value = true
-        gameState.timerRemainingTime = null
+        gameState.timerStartTime = null
     }
 
     const acceptTimer = () => {
         timerChosen.value = true
-        dispatchStartTimer(TIMER_DURATION)
+        dispatchStartTimer()
     }
 
     /**
      * We use a dispatch/apply architecture to propagate the timer state changes between players.
      */
 
-    const dispatchStartTimer = (time: number) => {
+    const dispatchStartTimer = () => {
         gameMutations.UI_startTimer.actSelf({
-            remainingTime: time,
             date: new Date(),
         })
     }
 
-    const dispatchPauseTimer = (time: number) => {
+    const dispatchPauseTimer = () => {
         gameMutations.UI_pauseTimer.actSelf({
-            remainingTime: time,
             date: new Date(),
         })
     }
 
-    const applyStartTimer = (time: number) => {
-        gameState.timerRemainingTime = time
+    const applyStartTimer = (date: Date) => {
+        const timestamp = date.getTime()
+        now.value = Date.now()
+
+        if (gameState.timerStartTime === null) {
+            // Fresh start
+            gameState.timerStartTime = timestamp
+            gameState.timerTotalPausedMs = 0
+        } else {
+            // Resume: accumulate the pause duration
+            gameState.timerTotalPausedMs += timestamp - (gameState.timerPausedAt ?? timestamp)
+        }
+
         gameState.timerIsPaused = false
+        gameState.timerPausedAt = null
 
         if (intervalId === null) {
             intervalId = window.setInterval(() => {
-                if (!gameState.timerIsPaused && remainingTime.value > 0) {
-                    gameState.timerRemainingTime = Math.max(0, remainingTime.value - 1000)
-                }
-            }, 1000)
+                now.value = Date.now()
+            }, 500) // 500 is plenty for a seconds-precision display
         }
     }
 
-    const applyPauseTimer = (time: number) => {
-        gameState.timerRemainingTime = time
+    const applyPauseTimer = (date: Date) => {
+        gameState.timerPausedAt = date.getTime()
         gameState.timerIsPaused = true
 
-        if (intervalId) {
+        if (intervalId !== null) {
             clearInterval(intervalId)
             intervalId = null
         }
     }
 
     const resetTimer = () => {
-        gameState.timerRemainingTime = null
+        gameState.timerStartTime = null
         gameState.timerIsPaused = true
+        gameState.timerPausedAt = null
+        gameState.timerTotalPausedMs = 0
         timerChosen.value = false
 
-        if (intervalId) {
+        if (intervalId !== null) {
             clearInterval(intervalId)
+            intervalId = null
         }
     }
-
-    const formattedTime = computed(() => formatTime(remainingTime.value))
 
     const formatTime = (time: number) => {
         const totalSeconds = Math.floor(time / 1000)
@@ -86,10 +113,14 @@ export function useTimer(gameId: GameId) {
         return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
     }
 
+    const formattedTime = computed(() => formatTime(remainingTime.value))
+
     return {
         timerChosen,
         timerEnabled,
+        remainingTime,
         isExpired,
+        getRemainingTimeAt,
         acceptTimer,
         declineTimer,
         dispatchStartTimer,

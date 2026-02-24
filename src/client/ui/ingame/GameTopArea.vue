@@ -519,8 +519,7 @@ const style = computed(() => {
 const centralContent = computed(() => ({
     action: !!gameState.action,
     declarationHint: !!gameBus.actionDeclaration.type,
-    timer:
-        multiplayer.selfIsHost && !timer.timerChosen.value && gameState.timerRemainingTime === null,
+    timer: multiplayer.selfIsHost && !timer.timerChosen.value && gameState.timerStartTime === null,
     nextTurn: gameState.turnPhase == TurnPhase.Discard && gameState.selfIsActive,
     theEdge:
         gameState.turnPhase == TurnPhase.Unlock &&
@@ -539,13 +538,13 @@ const selfHasImpulse = computed(() => gameState.action?.impulsePlayer == gameSta
  */
 
 function togglePause() {
-    if (gameState.timerRemainingTime === null) {
+    if (gameState.timerStartTime === null) {
         throw new Error('Timer is not started')
     }
     if (gameState.timerIsPaused) {
-        timer.dispatchStartTimer(gameState.timerRemainingTime)
+        timer.dispatchStartTimer()
     } else {
-        timer.dispatchPauseTimer(gameState.timerRemainingTime)
+        timer.dispatchPauseTimer()
     }
 }
 

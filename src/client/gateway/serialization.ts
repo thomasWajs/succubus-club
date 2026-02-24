@@ -186,9 +186,8 @@ export function loadGame(serializedGame: SerializedGame) {
     deserializeHistory(serializedGame.history)
 
     // Start timer if needed.
-    // TODO : account for time drift !
-    if (gameState.timerRemainingTime !== null) {
-        useTimer(gameState.gameId).applyStartTimer(gameState.timerRemainingTime)
+    if (gameState.timerStartTime !== null) {
+        useTimer(gameState.gameId).applyStartTimer(new Date())
     }
 
     useCoreStore().gameStateIsReady = true

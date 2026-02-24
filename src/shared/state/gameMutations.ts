@@ -1724,7 +1724,6 @@ class ChangeSeparators extends GameMutation<ChangeSeparatorsParams> {
  */
 
 interface TimerParams extends GameMutationParams {
-    remainingTime: number
     date: Date
 }
 
@@ -1737,12 +1736,12 @@ class StartTimer extends GameMutation<TimerParams> {
     }
 
     protected updateGameState() {
-        const timeDrift = Date.now() - this.params.date.getTime()
-        useTimer(this.gameId).applyStartTimer(this.params.remainingTime - timeDrift)
+        useTimer(this.gameId).applyStartTimer(this.params.date)
     }
 
     formatForLog() {
-        return `Start timer ( ${useTimer(this.gameId).formatTime(this.params.remainingTime)} )`
+        const timer = useTimer(this.gameId)
+        return `Start timer ( ${timer.formatTime(timer.getRemainingTimeAt(this.params.date.getTime()))} )`
     }
 
     getCancelMutation(): AnyGameMutation {
@@ -1762,11 +1761,12 @@ class PauseTimer extends GameMutation<TimerParams> {
     }
 
     protected updateGameState() {
-        useTimer(this.gameId).applyPauseTimer(this.params.remainingTime)
+        useTimer(this.gameId).applyPauseTimer(this.params.date)
     }
 
     formatForLog() {
-        return `Pause timer ( ${useTimer(this.gameId).formatTime(this.params.remainingTime)} )`
+        const timer = useTimer(this.gameId)
+        return `Pause timer ( ${timer.formatTime(timer.getRemainingTimeAt(this.params.date.getTime()))} )`
     }
 
     getCancelMutation(): AnyGameMutation {
