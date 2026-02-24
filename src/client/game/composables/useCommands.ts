@@ -345,7 +345,7 @@ function createCommands(): Commands {
             repr: 'A',
             keyCodes: [KeyCodes.A],
             cardAction: (card: Card) => {
-                if (card.isIn.controlled || card.isIn.hand) {
+                if (!card.isIn.ashHeap && !card.isIn.removed) {
                     gameMutations.moveCardToRegion.actSelf({
                         card,
                         fromCardRegion: card.region,

@@ -19,10 +19,23 @@
     </ContextMenuButton>
 
     <CommandContextMenuButton
-        v-if="firstCard.isIn.controlled || firstCard.isIn.hand"
+        v-if="!firstCard.isIn.ashHeap && !firstCard.isIn.removed"
         :command="commands.MoveToAshHeap"
         :closeOnClick="true"
-    />
+    >
+        <template
+            v-if="
+                (firstCard.isIn.library || firstCard.isIn.crypt) &&
+                firstCard == firstCard.region.firstCard
+            "
+        >
+            Burn Top Card
+        </template>
+        <template v-else-if="firstCard.isIn.hand"> Discard </template>
+        <template v-else>
+            {{ commands.MoveToAshHeap.label }}
+        </template>
+    </CommandContextMenuButton>
 
     <CommandContextMenuButton
         v-if="!firstCard.isIn.removed"
