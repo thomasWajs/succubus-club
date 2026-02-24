@@ -40,6 +40,7 @@ import * as actions from '@/shared/state/minionActions.ts'
 import { GameState } from '@/shared/state/gameState.ts'
 import { AnyCardRegion, CardOid, GameId } from '@/shared/types/model.ts'
 import { getGameState, getMutationTrigger, hashObject } from '@/shared/registries.ts'
+import { serializeObject } from '@/shared/serialization.ts'
 
 export type GameMutationId = number
 export interface GameMutationParams {
@@ -70,7 +71,7 @@ export abstract class GameMutation<ParamsType extends GameMutationParams> {
         this.id = hashObject({
             t: this.timestamp.getTime(),
             a: this.author.oid,
-            ...this.params,
+            ...serializeObject(this.params),
         })
     }
 

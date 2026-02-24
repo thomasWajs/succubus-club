@@ -1,9 +1,11 @@
+import { markRaw } from 'vue'
 import { acceptHMRUpdate, defineStore } from 'pinia'
 import { AnyGameMutation, GameMutationId } from '@/shared/state/gameMutations.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { Player } from '@/shared/model/Player.ts'
-import { ChatMessage, LogEntry } from '@/shared/types/history.ts'
+import { ChatMessage, LogEntry, MutationHistoryEntry } from '@/shared/types/history.ts'
 import { getPlayerColor } from '@/client/game/utils.ts'
+import { serializeGameMutation } from '@/shared/serialization.ts'
 
 const authorFromPlayer = (player: Player) => ({
     authorName: player.name,
@@ -13,23 +15,27 @@ const authorFromPlayer = (player: Player) => ({
 export const useHistoryStore = defineStore('gameHistory', {
     state: () => ({
         logEntries: [] as LogEntry[],
-        gameMutations: [] as AnyGameMutation[],
+        // Don't store GameMutations directly, there's too much overhead and leads to memory ballooning
+        gameMutations: [] as MutationHistoryEntry[],
     }),
     getters: {
+        // @ts-expect-error typescript can't infer the type because of Serialized<GameMutationParams>
         gameMutationsMap: state => Object.fromEntries(state.gameMutations.map(m => [m.id, m])),
 
         cancelledMutations(state): Set<GameMutationId> {
             return new Set(
-                state.gameMutations.filter(m => m.cancelsMutationId).map(m => m.cancelsMutationId),
+                state.gameMutations
+                    .filter(m => m.serializedMutation.cancelsMutationId)
+                    .map(m => m.serializedMutation.cancelsMutationId),
             ) as Set<GameMutationId>
         },
 
-        nextCancellableMutation(state): AnyGameMutation | null {
+        nextCancellableMutation(state): MutationHistoryEntry | null {
             const gameState = useGameStateStore()
 
             // Search for the latest mutation that can be cancelled
             for (let i = state.gameMutations.length - 1; i >= 0; i--) {
-                const mutation = state.gameMutations[i] as AnyGameMutation
+                const mutation = state.gameMutations[i]
 
                 // Some mutations are totally ignored for cancels
                 if (mutation.isIgnoredForCancel) {
@@ -42,11 +48,14 @@ export const useHistoryStore = defineStore('gameHistory', {
                 }
 
                 // Continue if already cancelled, or already a cancelling mutation
-                if (mutation.cancelsMutationId || this.cancelledMutations.has(mutation.id)) {
+                if (
+                    mutation.serializedMutation.cancelsMutationId ||
+                    this.cancelledMutations.has(mutation.id)
+                ) {
                     continue
                 }
 
-                if (mutation.author != gameState.selfPlayer) {
+                if (mutation.serializedMutation.authorOid != gameState.selfPlayer?.oid) {
                     continue
                 }
 
@@ -58,7 +67,17 @@ export const useHistoryStore = defineStore('gameHistory', {
     },
     actions: {
         addGameMutation(gameMutation: AnyGameMutation) {
-            this.gameMutations.push(gameMutation)
+            // gameMutations and logEntries are both append-only & read-only,
+            // so use markRaw to enhance performances
+
+            this.gameMutations.push(
+                markRaw({
+                    id: gameMutation.id,
+                    isUserCancellable: gameMutation.isUserCancellable,
+                    isIgnoredForCancel: gameMutation.isIgnoredForCancel,
+                    serializedMutation: serializeGameMutation(gameMutation),
+                }),
+            )
 
             const text = gameMutation.formatForLog()
             if (!text) {
@@ -85,16 +104,18 @@ export const useHistoryStore = defineStore('gameHistory', {
                 }
             }
 
-            this.logEntries.push({
-                text,
-                timestamp: gameMutation.timestamp,
-                authorName,
-                authorColorRgba,
-                cancelText,
-                playerVision: gameMutation.playerVision,
-                card: gameMutation.card ?? undefined,
-                mutationId: gameMutation.id,
-            })
+            this.logEntries.push(
+                markRaw({
+                    text,
+                    timestamp: gameMutation.timestamp,
+                    authorName,
+                    authorColorRgba,
+                    cancelText,
+                    playerVision: gameMutation.playerVision,
+                    card: gameMutation.card ?? undefined,
+                    mutationId: gameMutation.id,
+                }),
+            )
         },
         addChatMessage(chatMessage: ChatMessage) {
             this.logEntries.push({

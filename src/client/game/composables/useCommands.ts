@@ -332,9 +332,9 @@ function createCommands(): Commands {
                 return !useHistoryStore().nextCancellableMutation
             },
             trigger: () => {
-                const mutation = useHistoryStore().nextCancellableMutation
-                if (mutation) {
-                    cancelMutation(mutation)
+                const mutationEntry = useHistoryStore().nextCancellableMutation
+                if (mutationEntry) {
+                    cancelMutation(mutationEntry)
                 }
             },
         }),

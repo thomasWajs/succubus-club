@@ -13,6 +13,7 @@ import { LamportClock, VectorClock } from '@/shared/multiplayer/clock.ts'
 import { GameMutationId } from '@/shared/state/gameMutations.ts'
 import { fetchAvatar } from '@/client/gateway/user.ts'
 import { AvatarId } from '@/shared/types/gateway.ts'
+import { MutationHistoryEntry } from '@/shared/types/history.ts'
 
 export const useMultiplayerStore = defineStore('multiplayer', {
     state: () => ({
@@ -48,6 +49,10 @@ export const useMultiplayerStore = defineStore('multiplayer', {
 
         // Per-mutation Vector Clock Versions, GameMutationId -> Version
         mutationVersions: {} as Record<GameMutationId, VectorClockVersion>,
+
+        // Maintains a map of recent ordered mutations per versioningId that could potentially
+        // conflict with incoming mutations. This avoids scanning the entire history.
+        conflictWindows: {} as Record<VersioningId, MutationHistoryEntry[]>,
 
         /** Simple stats to get insights on crashes */
 

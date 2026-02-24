@@ -16,6 +16,8 @@ import {
 import { useHistoryStore } from '@/client/store/history.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { Player } from '@/shared/model/Player.ts'
+import { MutationHistoryEntry } from '@/shared/types/history.ts'
+import { deserializeGameMutation } from '@/shared/serialization.ts'
 
 /**
  * Apply the mutation locally, if it's valid.
@@ -108,9 +110,10 @@ export function actSelf<
  * Cancel
  */
 
-export function cancelMutation(mutation: AnyGameMutation) {
-    if (!mutation.isUserCancellable) {
+export function cancelMutation(mutationEntry: MutationHistoryEntry) {
+    if (!mutationEntry.isUserCancellable) {
         throw new Error('Cannot cancel this type of mutation')
     }
+    const mutation = deserializeGameMutation(mutationEntry.serializedMutation)
     dispatchMutation(mutation.getCancelMutation())
 }

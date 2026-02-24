@@ -15,7 +15,7 @@ import {
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import { useBusStore } from '@/client/store/bus.ts'
 import * as logging from '@/client/logging.ts'
-import { serializeMultiplayerGame, serializeObject } from '@/client/gateway/serialization.ts'
+import { serializeMultiplayerGame } from '@/client/gateway/serialization.ts'
 import { shuffleArray } from '@/shared/utils.ts'
 import { useCoreStore } from '@/client/store/core.ts'
 import { resetState, setupMultiplayerGame, startGame } from '@/client/game/setup.ts'
@@ -35,6 +35,7 @@ import { broadcastGameRoom, deleteGameRoom } from '@/client/multiplayer/lobby.ts
 import { fetchGameState, storeGameState } from '@/client/gateway/gameState.ts'
 import { Key } from '@/client/multiplayer/encryption.ts'
 import { ChatMessage } from '@/shared/types/history.ts'
+import { serializeObject } from '@/shared/serialization.ts'
 
 let _room: ReturnType<typeof connectRoom> | null = null
 

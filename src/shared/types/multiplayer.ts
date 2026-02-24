@@ -8,8 +8,9 @@ import { Player } from '@/shared/model/Player.ts'
 import { CardRegion } from '@/shared/model/CardRegion.ts'
 import { PlayerVision } from '@/shared/types/state.ts'
 import { Card } from '@/shared/model/Card.ts'
-import { ChatMessage } from '@/shared/types/history.ts'
+import { ChatMessage, MutationHistoryEntry } from '@/shared/types/history.ts'
 import { GameState } from '@/shared/state/gameState.ts'
+import { GameId } from '@/shared/types/model.ts'
 
 /**
  * Types for user matching
@@ -110,9 +111,20 @@ export type SerializedGameState = {
     players: Record<string, SerializedPlayer>
 } & { [K in Exclude<GameStateKey, 'cards' | 'players'>]: JsonValue }
 
+export type SerializedGameMutation = {
+    gameId: GameId // gameId
+    name: GameMutationName // name
+    timestamp: string // timestamp
+    params: Serialized<GameMutationParams> // params
+    authorOid: string // authorOid
+    previousState: Serialized<GameMutationParams> // previousState
+    cancelsMutationId?: GameMutationId // cancelsMutationId
+}
+
 // Here we use a compressed representation of the GameMutation class, to save space.
 // It's really not readable, but it works.
-export type SerializedGameMutation = {
+export type PackedGameMutation = {
+    g: GameId // gameId
     n: GameMutationName // name
     t: string // timestamp
     p: Serialized<GameMutationParams> // params
@@ -121,8 +133,8 @@ export type SerializedGameMutation = {
     c?: GameMutationId // cancelsMutationId
 }
 
-// Same compression strategy than for SerializedGameMutation
-export type SerializedLogEntry = {
+// Same compression strategy than for PackedGameMutation
+export type PackedLogEntry = {
     t: number // text as string index in stringPool
     i: string // timestamp
     a: number // authorName as string index in stringPool
@@ -137,8 +149,8 @@ export type SerializedChatMessage = Serialized<ChatMessage>
 
 export type SerializedHistory = {
     stringPool: string[]
-    logEntries: SerializedLogEntry[]
-    gameMutations: SerializedGameMutation[]
+    logEntries: PackedLogEntry[]
+    gameMutations: MutationHistoryEntry[]
 }
 
 export type SerializedGame = {
@@ -153,7 +165,7 @@ export type SerializedMultiplayerGame = SerializedGame & {
 }
 
 export type GameMutationMessage = {
-    gameMutation: SerializedGameMutation
+    gameMutation: PackedGameMutation
     gameMutationId: GameMutationId
     globalVersion: LamportClockVersion // Always needed
     version?: VectorClockVersion // Only needed for Ordered mutations
