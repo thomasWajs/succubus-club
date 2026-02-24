@@ -59,7 +59,7 @@ export function serializeHistory(): SerializedHistory {
     return {
         stringPool,
         logEntries,
-        gameMutations: history.gameMutations,
+        gameMutations: serializeObject(history.gameMutations),
     }
 }
 
