@@ -25,6 +25,7 @@ import { generateGameId } from '@/shared/state/ids.ts'
 import { BOT_NAME, BOT_PERM_ID, NB_BOTS } from '@/shared/const/bot.ts'
 import { DeckList } from '@/shared/types/gateway.ts'
 import { hasGameState, isCryptId, registerGameState } from '@/shared/registries.ts'
+import { shuffleArray } from '@/shared/utils.ts'
 
 function loadDeck(player: Player, deckList: DeckList) {
     const gameState = useGameStateStore()
@@ -117,6 +118,11 @@ export function setupTrainGame() {
         }
         setupPlayArea(botPlayer, GovernBot.deckList)
     }
+
+    // Random starting order
+    gameState.turnOrder = shuffleArray(gameState.turnOrder)
+
+    gameState.setNewTurnResources()
 
     core.gameStateIsReady = true
 }

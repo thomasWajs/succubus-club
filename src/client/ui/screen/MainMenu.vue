@@ -117,6 +117,8 @@ async function startTrainGame() {
     try {
         setupTrainGame()
         startGame(GameType.TrainBot)
+        // Trigger first bot turn manually
+        setTimeout(() => core.conductor?.runDecisionMaking(), 2000)
     } catch (error) {
         let message = 'An error occurred while starting the game'
         if (error instanceof Error) {

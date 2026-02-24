@@ -203,6 +203,18 @@ export class GameState {
         to.insert(card, position)
     }
 
+    setNewTurnResources(): void {
+        // standard game use 1/2/3/4 transfers for the first 4 turns.
+        // 2-player games use 3/4 transfers for the first 2 turns.
+        const nbPlayers = this.orderedPlayers.length
+        const transfers = Math.min(DEFAULT_TRANSFERS, this.turnNumber + (nbPlayers == 2 ? 2 : 0))
+        this.turnResources = {
+            mpa: DEFAULT_MPA,
+            transfers,
+            dpa: DEFAULT_DPA,
+        }
+    }
+
     changeTurn(newTurnNumber: number): void {
         // The turn didn't change, nothing to do
         if (newTurnNumber == this.turnNumber) {
@@ -218,11 +230,7 @@ export class GameState {
             // Forward
             if (delta > 0) {
                 this.turnPhaseIndex = 0
-                this.turnResources = {
-                    mpa: DEFAULT_MPA,
-                    transfers: Math.min(DEFAULT_TRANSFERS, this.turnNumber),
-                    dpa: DEFAULT_DPA,
-                }
+                this.setNewTurnResources()
             }
             // Backward
             else {
