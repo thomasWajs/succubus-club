@@ -18,7 +18,6 @@ import {
 } from '@/shared/types/multiplayer.ts'
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import { PlayerVision } from '@/shared/types/state.ts'
-import { useTimer } from '@/shared/state/useTimer.ts'
 import { GAME_STATE_VERSION } from '@/shared/const/multiplayer.ts'
 import { CardOid, PlayerCardRegions, PlayerOid } from '@/shared/types/model.ts'
 import { isCryptId, registerGameState, registerHasher } from '@/shared/registries.ts'
@@ -184,11 +183,6 @@ export function loadGame(serializedGame: SerializedGame) {
     }
 
     deserializeHistory(serializedGame.history)
-
-    // Start timer if needed.
-    if (gameState.timerStartTime !== null) {
-        useTimer(gameState.gameId).applyStartTimer(new Date())
-    }
 
     useCoreStore().gameStateIsReady = true
 }

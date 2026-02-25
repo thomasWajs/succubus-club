@@ -157,13 +157,16 @@ export function setupMultiplayerGame(gameRoom: GameRoom) {
 }
 
 export function setupSavedGame(savedGame: DbSavedGame) {
+    const gameState = useGameStateStore()
+    const core = useCoreStore()
+
     resetState()
     loadGame(savedGame.game)
 
-    if (savedGame.gameType == GameType.TrainBot) {
-        const core = useCoreStore()
-        const gameState = useGameStateStore()
+    // Resume the timer where it was at save time
+    useTimer(gameState.gameId).resumeTimer(savedGame.date)
 
+    if (savedGame.gameType == GameType.TrainBot) {
         const botPlayer = gameState.orderedPlayers.find(p => p.name == `${BOT_NAME}1`)
 
         if (!botPlayer) {

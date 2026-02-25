@@ -5,10 +5,29 @@ import { GameId } from '@/shared/types/model.ts'
 
 const TIMER_DURATION = 2 * 60 * 60 * 1000 // 2 hours in milliseconds
 const timerChosen = ref(false)
-let intervalId: number | null = null
-
 // Reactive "now" tick — drives display updates without affecting timer accuracy
 const now = ref(Date.now())
+let intervalId: number | null = null
+
+function startClock() {
+    if (intervalId === null) {
+        intervalId = window.setInterval(() => {
+            now.value = Date.now()
+        }, 500) // 500 is plenty for a seconds-precision display
+    }
+}
+
+/*
+function stopClock() {
+    if (intervalId !== null) {
+        clearInterval(intervalId)
+        intervalId = null
+    }
+}
+ */
+
+// Always run the clock in the background, performance cost is negligible.
+startClock()
 
 export function useTimer(gameId: GameId) {
     const gameState = getGameState(gameId)
@@ -60,7 +79,6 @@ export function useTimer(gameId: GameId) {
 
     const applyStartTimer = (date: Date) => {
         const timestamp = date.getTime()
-        now.value = Date.now()
 
         if (gameState.timerStartTime === null) {
             // Fresh start
@@ -73,22 +91,25 @@ export function useTimer(gameId: GameId) {
 
         gameState.timerIsPaused = false
         gameState.timerPausedAt = null
-
-        if (intervalId === null) {
-            intervalId = window.setInterval(() => {
-                now.value = Date.now()
-            }, 500) // 500 is plenty for a seconds-precision display
-        }
     }
 
     const applyPauseTimer = (date: Date) => {
         gameState.timerPausedAt = date.getTime()
         gameState.timerIsPaused = true
+    }
 
-        if (intervalId !== null) {
-            clearInterval(intervalId)
-            intervalId = null
+    // Resume the timer where it was at a given time.
+    // Useful for loading savedGames
+    const resumeTimer = (date: Date) => {
+        // The timer was not launched, or it was already paused when saving, nothing to do
+        if (gameState.timerStartTime === null || gameState.timerIsPaused) {
+            return
         }
+
+        // Update the pause time to take into acount for elapsed time since save game
+        gameState.timerPausedAt = date.getTime()
+        // Restart the timer now
+        applyStartTimer(new Date())
     }
 
     const resetTimer = () => {
@@ -97,11 +118,6 @@ export function useTimer(gameId: GameId) {
         gameState.timerPausedAt = null
         gameState.timerTotalPausedMs = 0
         timerChosen.value = false
-
-        if (intervalId !== null) {
-            clearInterval(intervalId)
-            intervalId = null
-        }
     }
 
     const formatTime = (time: number) => {
@@ -127,6 +143,7 @@ export function useTimer(gameId: GameId) {
         dispatchPauseTimer,
         applyStartTimer,
         applyPauseTimer,
+        resumeTimer,
         resetTimer,
         formatTime,
         formattedTime,
