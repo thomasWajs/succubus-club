@@ -158,7 +158,7 @@
                 </button>
                 <button
                     class="game-button"
-                    @click="leaveGame"
+                    @click="leaveGame(true)"
                 >
                     Leave
                 </button>
@@ -178,9 +178,7 @@ import { broadcastChatMessage, requestResyncGameState } from '@/client/multiplay
 import UserManual from '@/client/ui/ingame/rightColumn/UserManual.vue'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import LogLine from '@/client/ui/ingame/rightColumn/LogLine.vue'
-import router, { ROUTES } from '@/client/ui/router.ts'
-import { leaveMultiplayer } from '@/client/multiplayer/lobby.ts'
-import { resetState } from '@/client/game/setup.ts'
+import { leaveGame } from '@/client/game/setup.ts'
 
 const core = useCoreStore()
 const gameState = useGameStateStore()
@@ -251,12 +249,6 @@ function sendChatMessage() {
 /** Menu actions **/
 
 const leaveDialog = ref<HTMLDialogElement>()
-
-function leaveGame() {
-    leaveMultiplayer()
-    resetState()
-    router.push({ name: ROUTES.MainMenu })
-}
 
 /** Manual Heads-up Management **/
 

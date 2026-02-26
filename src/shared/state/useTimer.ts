@@ -9,7 +9,7 @@ const timerChosen = ref(false)
 const now = ref(Date.now())
 let intervalId: number | null = null
 
-function startClock() {
+export function startClock() {
     if (intervalId === null) {
         intervalId = window.setInterval(() => {
             now.value = Date.now()
@@ -17,17 +17,12 @@ function startClock() {
     }
 }
 
-/*
-function stopClock() {
+export function stopClock() {
     if (intervalId !== null) {
         clearInterval(intervalId)
         intervalId = null
     }
 }
- */
-
-// Always run the clock in the background, performance cost is negligible.
-startClock()
 
 export function useTimer(gameId: GameId) {
     const gameState = getGameState(gameId)

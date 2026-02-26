@@ -3,6 +3,8 @@ import router, { ROUTES } from '@/client/ui/router.ts'
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import { useBusStore } from '@/client/store/bus.ts'
 import { leaveMultiplayer } from '@/client/multiplayer/lobby.ts'
+import { useCoreStore } from '@/client/store/core.ts'
+import { leaveGame } from '@/client/game/setup.ts'
 
 const IDLE_TIME = 20 * 60 * 1000 // 20 minutes
 const events = ['keydown', 'mousedown', 'scroll', 'touchstart']
@@ -14,12 +16,16 @@ const idle = new IdleJs({
 })
 
 function onIdle() {
+    const core = useCoreStore()
     const multiplayer = useMultiplayerStore()
     const bus = useBusStore()
 
-    if (multiplayer.hasJoinedLobby) {
-        leaveMultiplayer()
+    if (core.gameIsStarted) {
         bus.hasBeenIdle = true
+        leaveGame(true)
+    } else if (multiplayer.hasJoinedLobby) {
+        bus.hasBeenIdle = true
+        leaveMultiplayer()
         router.push({ name: ROUTES.MainMenu })
     }
 }

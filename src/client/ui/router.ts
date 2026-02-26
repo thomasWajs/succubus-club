@@ -10,6 +10,7 @@ import Requirements from '@/client/ui/screen/about/Requirements.vue'
 import Contribute from '@/client/ui/screen/about/Contribute.vue'
 import Copyright from '@/client/ui/screen/about/Copyright.vue'
 import { leaveMultiplayer } from '@/client/multiplayer/lobby.ts'
+import { leaveGame } from '@/client/game/setup.ts'
 
 export const ROUTES = {
     MainMenu: 'MainMenu',
@@ -86,13 +87,14 @@ router.beforeEach((to, from) => {
     if (from.name == ROUTES.Game) {
         leavingGame = true
 
-        // the game is not started anymore
-        core.gameIsStarted = false
-
-        // If the user is in the lobby, leave it
-        if (multiplayer.hasJoinedLobby) {
+        if (core.gameIsStarted) {
+            leaveGame()
+        } else if (multiplayer.hasJoinedLobby) {
             leaveMultiplayer()
         }
+
+        // the game is not started anymore
+        core.gameIsStarted = false
     }
 
     // If trying to access the Game route and game is not started

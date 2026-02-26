@@ -15,17 +15,18 @@ import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import { GameType } from '@/shared/types/state.ts'
 import { loadGame } from '@/client/gateway/serialization.ts'
 import { DbSavedGame } from '@/client/gateway/db.ts'
-import { initAutoSaveGame } from '@/client/gateway/savedGames.ts'
+import { initAutoSaveGame, stopAutoSaveGame } from '@/client/gateway/savedGames.ts'
 import router, { ROUTES } from '@/client/ui/router.ts'
 import { useHistoryStore } from '@/client/store/history.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { resetSync } from '@/client/multiplayer/sync.ts'
-import { useTimer } from '@/shared/state/useTimer.ts'
+import { startClock, stopClock, useTimer } from '@/shared/state/useTimer.ts'
 import { generateGameId } from '@/shared/state/ids.ts'
 import { BOT_NAME, BOT_PERM_ID, NB_BOTS } from '@/shared/const/bot.ts'
 import { DeckList } from '@/shared/types/gateway.ts'
 import { hasGameState, isCryptId, registerGameState } from '@/shared/registries.ts'
 import { shuffleArray } from '@/shared/utils.ts'
+import { leaveMultiplayer } from '@/client/multiplayer/lobby.ts'
 
 function loadDeck(player: Player, deckList: DeckList) {
     const gameState = useGameStateStore()
@@ -185,8 +186,28 @@ export function startGame(gameType: GameType) {
         throw new Error(`Game is already started`)
     }
 
+    // Run the clock in the background while the game is running, performance cost is negligible.
+    startClock()
+
     core.gameIsStarted = true
     core.gameType = gameType
     router.push({ name: ROUTES.Game })
     initAutoSaveGame()
+}
+
+export function leaveGame(redirectToMenu: boolean = false) {
+    const core = useCoreStore()
+
+    if (!core.gameIsStarted) {
+        throw new Error(`Game is not started`)
+    }
+
+    stopClock()
+    stopAutoSaveGame()
+    leaveMultiplayer()
+    resetState()
+
+    if (redirectToMenu) {
+        router.push({ name: ROUTES.MainMenu })
+    }
 }
