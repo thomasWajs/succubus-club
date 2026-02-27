@@ -20,24 +20,20 @@ export type JoinRoomMessage = {
 
 export type LeaveRoomMessage = {
     type: 'leaveRoom'
-    roomId: RoomId
 }
 
 export type GameMutationMessage = {
     type: 'gameMutation'
-    roomId: RoomId
     mutation: AnyGameMutation
 }
 
 export type ChatMessage = {
     type: 'chat'
-    roomId: RoomId
     text: string
 }
 
 export type RequestStateMessage = {
     type: 'requestState'
-    roomId: RoomId
 }
 
 export type ClientMessage =
@@ -51,26 +47,22 @@ export type ClientMessage =
 // Server → Client messages
 export type RoomStateMessage = {
     type: 'roomState'
-    roomId: RoomId
     players: Array<{ userId: PermanentId; userName: string }>
     isStarted: boolean
 }
 
 export type GameStateMessage = {
     type: 'gameState'
-    roomId: RoomId
     state: SerializedGameState
 }
 
 export type MutationBroadcast = {
     type: 'mutation'
-    roomId: RoomId
     mutation: AnyGameMutation
 }
 
 export type ChatBroadcast = {
     type: 'chatMessage'
-    roomId: RoomId
     userId: PermanentId
     userName: string
     text: string
@@ -89,12 +81,3 @@ export type ServerMessage =
     | MutationBroadcast
     | ChatBroadcast
     | ErrorMessage
-
-/**
- * Internal server types
- */
-export type ConnectionInfo = {
-    userId: PermanentId
-    userName: string
-    roomId: RoomId | null
-}

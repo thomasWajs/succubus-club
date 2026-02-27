@@ -1,9 +1,20 @@
 import { WebSocket, WebSocketServer } from 'ws'
-import { ClientMessage, ConnectionInfo, ErrorMessage, ServerMessage } from '@/shared/types/server'
+import { ClientMessage, ErrorMessage, ServerMessage } from '@/shared/types/server'
 import { broadcast, handleDisconnect, handleJoinRoom, handleLeaveRoom } from './rooms'
 import { handleGameMutation } from './validation'
+import { PermanentId, RoomId } from '@/shared/types/multiplayer.ts'
 
 const PORT = parseInt(process.env.WS_PORT || '3001')
+
+/**
+ * Internal server types
+ */
+export type ConnectionInfo = {
+    webSocket: WebSocket
+    userId: PermanentId
+    userName: string
+    roomId: RoomId | null
+}
 
 // Track all active connections
 const connections = new Map<WebSocket, ConnectionInfo>()
@@ -11,18 +22,19 @@ const connections = new Map<WebSocket, ConnectionInfo>()
 /**
  * Initialize WebSocket Server
  */
-const wss = new WebSocketServer({ port: PORT })
+const wsServer = new WebSocketServer({ port: PORT })
 
 console.log(`WebSocket server listening on port ${PORT}`)
 
 /**
  * Handle new client connections
  */
-wss.on('connection', (ws: WebSocket) => {
+wsServer.on('connection', (webSocket: WebSocket) => {
     console.log('New client connected')
 
     // Initialize connection info
-    connections.set(ws, {
+    connections.set(webSocket, {
+        webSocket,
         userId: '', // Will be set on joinRoom
         userName: '', // Will be set on joinRoom
         roomId: null,
@@ -31,69 +43,69 @@ wss.on('connection', (ws: WebSocket) => {
     /**
      * Handle incoming messages
      */
-    ws.on('message', async (data: Buffer) => {
+    webSocket.on('message', async (data: Buffer) => {
         try {
             const message: ClientMessage = JSON.parse(data.toString())
+
+            const connection = connections.get(webSocket)
+            if (!connection) {
+                return
+            }
 
             console.log(`Received message: ${JSON.stringify(message)}`)
 
             switch (message.type) {
                 // TODO : remove after tests
                 case 'publish':
-                    const connection = connections.get(ws)
-                    if (!connection || !connection.roomId) {
-                        break
+                    if (connection.roomId) {
+                        broadcast(connection.roomId, message)
                     }
-                    broadcast(connection.roomId, message)
                     break
 
                 case 'joinRoom':
-                    await handleJoinRoom(ws, message, connections)
+                    await handleJoinRoom(connection, message)
                     break
 
                 case 'leaveRoom':
-                    await handleLeaveRoom(ws, message, connections)
+                    await handleLeaveRoom(connection)
                     break
 
                 case 'gameMutation':
-                    await handleGameMutation(ws, message, connections)
+                    await handleGameMutation(connection, message)
                     break
 
                 case 'chat':
                     // TODO: Implement chat handling
-                    console.log('Chat message received:', message.text)
                     break
 
                 case 'requestState':
                     // TODO: Implement state sync
-                    console.log('State request received for room:', message.roomId)
                     break
 
                 default:
-                    sendError(ws, `Unknown message type: ${(message as any).type}`)
+                    sendError(webSocket, `Unknown message type: ${(message as any).type}`)
             }
         } catch (error) {
             console.error('Error handling message:', error)
-            sendError(ws, 'Failed to process message')
+            sendError(webSocket, 'Failed to process message')
         }
     })
 
     /**
      * Handle client disconnection
      */
-    ws.on('close', () => {
-        console.log('Client disconnected')
-        const connInfo = connections.get(ws)
-        if (connInfo) {
-            handleDisconnect(ws, connections)
+    webSocket.on('close', () => {
+        const connection = connections.get(webSocket)
+        if (connection) {
+            handleDisconnect(connection)
         }
-        connections.delete(ws)
+        connections.delete(webSocket)
     })
 
     /**
      * Handle errors
      */
-    ws.on('error', error => {
+    webSocket.on('error', error => {
         console.error('WebSocket error:', error)
     })
 })
@@ -101,7 +113,7 @@ wss.on('connection', (ws: WebSocket) => {
 /**
  * Handle server errors
  */
-wss.on('error', error => {
+wsServer.on('error', error => {
     console.error('Server error:', error)
 })
 
@@ -130,7 +142,7 @@ export function sendError(ws: WebSocket, errorMessage: string) {
  */
 process.on('SIGINT', () => {
     console.log('\n⏹Shutting down server...')
-    wss.close(() => {
+    wsServer.close(() => {
         console.log('Server closed')
         process.exit(0)
     })
@@ -138,7 +150,7 @@ process.on('SIGINT', () => {
 
 process.on('SIGTERM', () => {
     console.log('\nShutting down server...')
-    wss.close(() => {
+    wsServer.close(() => {
         console.log('Server closed')
         process.exit(0)
     })

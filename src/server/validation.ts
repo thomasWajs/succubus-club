@@ -1,8 +1,7 @@
-import { WebSocket } from 'ws'
-import { ConnectionInfo, GameMutationMessage, MutationBroadcast } from '@/shared/types/server.ts'
-import { sendError } from './index.ts'
+import { GameMutationMessage, MutationBroadcast } from '@/shared/types/server.ts'
+import { ConnectionInfo, sendError } from './index.ts'
 import { broadcast, getRoom } from './rooms.ts'
-import { getOrCreateGameState } from './state.ts'
+import { applyMutation } from './state.ts'
 
 /**
  * Rate limiting: Track mutations per player
@@ -41,75 +40,53 @@ function checkRateLimit(userId: string): boolean {
 /**
  * Handle game mutation from client
  */
-export async function handleGameMutation(
-    ws: WebSocket,
-    message: GameMutationMessage,
-    connections: Map<WebSocket, ConnectionInfo>,
-) {
-    const connInfo = connections.get(ws)
-    if (!connInfo) {
-        sendError(ws, 'Connection not found')
-        return
-    }
-
-    // Verify user is in the room
-    if (connInfo.roomId !== message.roomId) {
-        sendError(ws, 'Not in this room')
-        return
-    }
-
+export async function handleGameMutation(connection: ConnectionInfo, message: GameMutationMessage) {
     // Check rate limit
-    if (!checkRateLimit(connInfo.userId)) {
-        sendError(ws, 'Rate limit exceeded')
-        console.warn(`Rate limit exceeded for user ${connInfo.userId}`)
+    if (!checkRateLimit(connection.userId)) {
+        sendError(connection.webSocket, 'Rate limit exceeded')
+        console.warn(`Rate limit exceeded for user ${connection.userId}`)
         return
     }
 
     // Verify mutation author matches sender
     const mutation = message.mutation
-    if (mutation.author.permId !== connInfo.userId) {
-        sendError(ws, 'Mutation author mismatch')
-        console.warn(`Mutation author mismatch: ${mutation.author.permId} !== ${connInfo.userId}`)
+    if (mutation.author.permId !== connection.userId) {
+        sendError(connection.webSocket, 'Mutation author mismatch')
+        console.warn(`Mutation author mismatch: ${mutation.author.permId} !== ${connection.userId}`)
         return
     }
 
     // Get room
-    const room = getRoom(message.roomId)
+    const room = getRoom(connection.roomId)
     if (!room) {
-        sendError(ws, 'Room not found')
+        sendError(connection.webSocket, 'Room not found')
         return
     }
 
     // Validate mutation
-    // Note: This requires refactoring gameMutations.ts to work with plain objects
-    // For now, we'll just check if the mutation can be applied
-    const gameState = getOrCreateGameState(message.roomId)
-
-    console.log(gameState)
-
     try {
         const validity = mutation.canApply()
         if (!validity.isValid) {
-            sendError(ws, `Invalid mutation: ${validity.reason}`)
+            sendError(connection.webSocket, `Invalid mutation: ${validity.reason}`)
             console.warn(`Invalid mutation: ${validity.reason}`)
             return
         }
     } catch (error) {
         console.error('Error validating mutation:', error)
-        sendError(ws, 'Failed to validate mutation')
+        sendError(connection.webSocket, 'Failed to validate mutation')
         return
     }
 
-    // Apply mutation (placeholder - needs refactoring)
-    // applyMutation(message.roomId, mutation)
+    //const gameState = getGameState(message.roomId)
+    // Apply mutation
+    applyMutation(room.id, mutation)
 
     // Broadcast mutation to all players in the room
     const broadcastMessage: MutationBroadcast = {
         type: 'mutation',
-        roomId: message.roomId,
         mutation,
     }
-    broadcast(message.roomId, broadcastMessage)
+    broadcast(room.id, broadcastMessage)
 
     console.log(`Validated and broadcast mutation: ${mutation.name}`)
 }

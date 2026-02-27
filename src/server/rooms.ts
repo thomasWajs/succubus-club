@@ -1,13 +1,8 @@
 import { WebSocket } from 'ws'
 import { PermanentId, RoomId } from '@/shared/types/multiplayer.ts'
-import {
-    ConnectionInfo,
-    JoinRoomMessage,
-    LeaveRoomMessage,
-    RoomStateMessage,
-    ServerMessage,
-} from '@/shared/types/server.ts'
-import { send, sendError } from './index.ts'
+import { JoinRoomMessage, RoomStateMessage, ServerMessage } from '@/shared/types/server.ts'
+import { ConnectionInfo, send } from './index.ts'
+import { deleteGameState } from './state.ts'
 
 /**
  * Room structure
@@ -23,9 +18,19 @@ type Room = {
 const rooms = new Map<RoomId, Room>()
 
 /**
+ * Get room by ID
+ */
+export function getRoom(roomId: RoomId | null): Room | undefined {
+    if (!roomId) {
+        return undefined
+    }
+    return rooms.get(roomId)
+}
+
+/**
  * Get or create a room
  */
-function getOrCreateRoom(roomId: RoomId): Room {
+export function getOrCreateRoom(roomId: RoomId): Room {
     let room = rooms.get(roomId)
     if (!room) {
         room = {
@@ -41,29 +46,49 @@ function getOrCreateRoom(roomId: RoomId): Room {
 }
 
 /**
- * Handle player joining a room
+ * Get all rooms (for debugging/admin)
  */
-export async function handleJoinRoom(
-    ws: WebSocket,
-    message: JoinRoomMessage,
-    connections: Map<WebSocket, ConnectionInfo>,
-) {
-    const { roomId, userId, userName } = message
+export function getAllRooms(): Room[] {
+    return Array.from(rooms.values())
+}
 
-    // Update connection info
-    const connInfo = connections.get(ws)
-    if (!connInfo) {
-        sendError(ws, 'Connection not found')
+/**
+ * Leave Room
+ */
+export function leaveRoom(connection: ConnectionInfo): Room | undefined {
+    const room = getRoom(connection.roomId)
+    if (!room) {
         return
     }
 
-    connInfo.userId = userId
-    connInfo.userName = userName
-    connInfo.roomId = roomId
+    // Remove player from room
+    room.players.delete(connection.userId)
+
+    // If room is empty, delete it
+    if (room.players.size === 0) {
+        deleteGameState(room.id)
+        rooms.delete(room.id)
+        console.log(`Deleted empty room: ${room.id}`)
+    } else {
+        // Broadcast updated room state
+        broadcastRoomState(room)
+    }
+}
+
+/**
+ * Handle player joining a room
+ */
+export async function handleJoinRoom(connection: ConnectionInfo, message: JoinRoomMessage) {
+    const { roomId, userId, userName } = message
+
+    // Update connection info
+    connection.userId = userId
+    connection.userName = userName
+    connection.roomId = roomId
 
     // Add player to room
     const room = getOrCreateRoom(roomId)
-    room.players.set(userId, { ws, userName })
+    room.players.set(userId, { ws: connection.webSocket, userName })
 
     console.log(`Player ${userName} joined room ${roomId}`)
 
@@ -74,77 +99,26 @@ export async function handleJoinRoom(
 /**
  * Handle player leaving a room
  */
-export async function handleLeaveRoom(
-    ws: WebSocket,
-    message: LeaveRoomMessage,
-    connections: Map<WebSocket, ConnectionInfo>,
-) {
-    console.log(message)
-
-    const connInfo = connections.get(ws)
-    if (!connInfo || !connInfo.roomId) {
-        sendError(ws, 'Not in a room')
-        return
-    }
-
-    const room = rooms.get(connInfo.roomId)
-    if (!room) {
-        sendError(ws, 'Room not found')
-        return
-    }
-
-    // Remove player from room
-    room.players.delete(connInfo.userId)
-    connInfo.roomId = null
-
-    console.log(`Player ${connInfo.userName} left room ${room.id}`)
-
-    // If room is empty, delete it
-    if (room.players.size === 0) {
-        rooms.delete(room.id)
-        console.log(`Deleted empty room: ${room.id}`)
-    } else {
-        // Broadcast updated room state
-        broadcastRoomState(room)
-    }
+export async function handleLeaveRoom(connection: ConnectionInfo) {
+    leaveRoom(connection)
+    connection.roomId = null
+    console.log(`Player ${connection.userName} left room ${connection.roomId}`)
 }
 
 /**
  * Handle player disconnection
  */
-export function handleDisconnect(ws: WebSocket, connections: Map<WebSocket, ConnectionInfo>) {
-    const connInfo = connections.get(ws)
-    if (!connInfo || !connInfo.roomId) {
-        return
-    }
-
-    const room = rooms.get(connInfo.roomId)
-    if (!room) {
-        return
-    }
-
-    // Remove player from room
-    room.players.delete(connInfo.userId)
-
-    console.log(`Player ${connInfo.userName} disconnected from room ${room.id}`)
-
-    // If room is empty, delete it
-    if (room.players.size === 0) {
-        rooms.delete(room.id)
-        console.log(`Deleted empty room: ${room.id}`)
-    } else {
-        // Broadcast updated room state
-        broadcastRoomState(room)
-    }
+export function handleDisconnect(connection: ConnectionInfo) {
+    leaveRoom(connection)
+    console.log(`Player ${connection.userName} disconnected`)
 }
 
 /**
  * Broadcast a message to all players in a room
  */
 export function broadcast(roomId: RoomId, message: ServerMessage) {
-    const room = rooms.get(roomId)
+    const room = getRoom(roomId)
     if (!room) {
-        console.error(`Room not found: ${roomId}`)
         return
     }
 
@@ -164,7 +138,6 @@ function broadcastRoomState(room: Room) {
 
     const message: RoomStateMessage = {
         type: 'roomState',
-        roomId: room.id,
         players,
         isStarted: room.isStarted,
     }
@@ -172,18 +145,4 @@ function broadcastRoomState(room: Room) {
     for (const player of room.players.values()) {
         send(player.ws, message)
     }
-}
-
-/**
- * Get room by ID
- */
-export function getRoom(roomId: RoomId): Room | undefined {
-    return rooms.get(roomId)
-}
-
-/**
- * Get all rooms (for debugging/admin)
- */
-export function getAllRooms(): Room[] {
-    return Array.from(rooms.values())
 }
