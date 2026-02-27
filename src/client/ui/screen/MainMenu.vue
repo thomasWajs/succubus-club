@@ -84,11 +84,34 @@ import IdleModal from '@/client/ui/components/IdleModal.vue'
 import { ref } from 'vue'
 import * as logging from '@/client/logging.ts'
 import { isCrawler, screenBigEnough } from '@/client/game/display.ts'
+import { getScsClient } from '@/client/gateway/realtime.ts'
 
 const core = useCoreStore()
 const bus = useBusStore()
 const router = useRouter()
 const trainBotDisclaimerRef = ref<InstanceType<typeof TrainBotDisclaimer> | null>(null)
+
+/**
+ *  WS Tests
+ */
+
+setTimeout(async () => {
+    const client = getScsClient()
+
+    client.subscribe('error', data => {
+        console.log(data)
+    })
+    client.subscribe('publish', data => {
+        console.log(data)
+    })
+
+    client.publish('joinRoom', {
+        roomId: 'test-room',
+        userId: core.userProfile.permanentId,
+        userName: core.userProfile.playerName,
+    })
+    client.publish('publish', { message: `Hello from ${core.userProfile.playerName}` })
+})
 
 /**
  *  Menu

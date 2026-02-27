@@ -6,6 +6,10 @@ import { AnyGameMutation } from '@/shared/state/gameMutations.ts'
  * These define the protocol between client and server
  */
 
+export type PublishMessage = {
+    type: 'publish'
+}
+
 // Client → Server messages
 export type JoinRoomMessage = {
     type: 'joinRoom'
@@ -37,6 +41,7 @@ export type RequestStateMessage = {
 }
 
 export type ClientMessage =
+    | PublishMessage
     | JoinRoomMessage
     | LeaveRoomMessage
     | GameMutationMessage
@@ -78,6 +83,7 @@ export type ErrorMessage = {
 }
 
 export type ServerMessage =
+    | PublishMessage
     | RoomStateMessage
     | GameStateMessage
     | MutationBroadcast

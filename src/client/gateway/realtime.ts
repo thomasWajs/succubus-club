@@ -1,3 +1,4 @@
+import { ArrayQueue, ExponentialBackoff, Websocket, WebsocketBuilder } from 'websocket-ts'
 import Ably, { InboundMessage, messageCallback, RealtimeChannel } from 'ably'
 import Objects from 'ably/objects'
 import { FirebaseApp, initializeApp } from 'firebase/app'
@@ -30,6 +31,83 @@ import { useBusStore } from '@/client/store/bus.ts'
 
 export function simulateNetworkDelay(time: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, time))
+}
+
+/**
+ * SCS : Succubus Club Server
+ */
+
+const SCS_URL = import.meta.env.VITE_SCS_URL
+
+type MessageHandler<T = unknown> = (data: T) => void | Promise<void>
+
+export class ScsClient {
+    private ws: Websocket
+    private listeners = new Map<string, Set<MessageHandler>>()
+
+    constructor(url: string) {
+        this.ws = new WebsocketBuilder(url)
+            .withBackoff(new ExponentialBackoff(1000, 6))
+            .withBuffer(new ArrayQueue())
+            .onMessage((_ws, event) => {
+                try {
+                    const message = JSON.parse(event.data as string) as Record<string, unknown>
+                    this.handleMessage(message)
+                } catch (error) {
+                    logging.captureMessage(`Failed to parse message: ${error}`, 'error')
+                }
+            })
+            .onError((_ws, event) => {
+                logging.captureMessage(`${event}`)
+            })
+            .build()
+    }
+
+    private handleMessage(message: Record<string, unknown>) {
+        const type = message.type
+        if (typeof type !== 'string' || !this.listeners.has(type)) return
+
+        this.listeners.get(type)?.forEach(handler => {
+            try {
+                handler(message)
+            } catch (error) {
+                logging.captureMessage(`Error in message handler: ${error}`, 'error')
+            }
+        })
+    }
+
+    publish(type: string, data?: Record<string, unknown>) {
+        this.ws.send(JSON.stringify({ type, ...data }))
+    }
+
+    subscribe<T = unknown>(type: string, handler: MessageHandler<T>) {
+        if (!this.listeners.has(type)) {
+            this.listeners.set(type, new Set())
+        }
+        this.listeners.get(type)?.add(handler as MessageHandler)
+    }
+
+    unsubscribe<T = unknown>(type: string, handler: MessageHandler<T>) {
+        this.listeners.get(type)?.delete(handler as MessageHandler)
+    }
+
+    disconnect() {
+        this.ws.close()
+        this.listeners.clear()
+    }
+
+    isConnected(): boolean {
+        return this.ws.readyState === WebSocket.OPEN
+    }
+}
+
+let scsClient: ScsClient | null = null
+
+export function getScsClient() {
+    if (!scsClient) {
+        scsClient = new ScsClient(SCS_URL)
+    }
+    return scsClient
 }
 
 /**

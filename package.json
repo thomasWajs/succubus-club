@@ -50,6 +50,7 @@
         "safe-stable-stringify": "^2.5.0",
         "vue": "^3.5.17",
         "vue-router": "^4.5.1",
+        "websocket-ts": "^2.2.1",
         "xxhash-wasm": "^1.1.0"
     },
     "devDependencies": {
