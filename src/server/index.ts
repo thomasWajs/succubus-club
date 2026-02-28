@@ -1,6 +1,6 @@
 import { WebSocket, WebSocketServer } from 'ws'
 import { ClientMessage, ErrorMessage, ServerMessage } from '@/shared/types/server'
-import { broadcast, handleDisconnect, handleJoinRoom, handleLeaveRoom } from './rooms'
+import { handleDisconnect, handleJoinRoom, handleLeaveRoom } from './rooms'
 import { handleGameMutation } from './validation'
 import { PermanentId, RoomId } from '@/shared/types/multiplayer.ts'
 
@@ -55,13 +55,6 @@ wsServer.on('connection', (webSocket: WebSocket) => {
             console.log(`Received message: ${JSON.stringify(message)}`)
 
             switch (message.type) {
-                // TODO : remove after tests
-                case 'publish':
-                    if (connection.roomId) {
-                        broadcast(connection.roomId, message)
-                    }
-                    break
-
                 case 'joinRoom':
                     await handleJoinRoom(connection, message)
                     break
@@ -70,12 +63,8 @@ wsServer.on('connection', (webSocket: WebSocket) => {
                     await handleLeaveRoom(connection)
                     break
 
-                case 'gameMutation':
+                case 'mutation':
                     await handleGameMutation(connection, message)
-                    break
-
-                case 'chat':
-                    // TODO: Implement chat handling
                     break
 
                 case 'requestState':

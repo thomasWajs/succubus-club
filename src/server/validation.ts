@@ -1,7 +1,6 @@
 import { GameMutationMessage, MutationBroadcast } from '@/shared/types/server.ts'
 import { ConnectionInfo, sendError } from './index.ts'
 import { broadcast, getRoom } from './rooms.ts'
-import { applyMutation } from './state.ts'
 
 /**
  * Rate limiting: Track mutations per player
@@ -49,12 +48,14 @@ export async function handleGameMutation(connection: ConnectionInfo, message: Ga
     }
 
     // Verify mutation author matches sender
+    /*
     const mutation = message.mutation
     if (mutation.author.permId !== connection.userId) {
         sendError(connection.webSocket, 'Mutation author mismatch')
         console.warn(`Mutation author mismatch: ${mutation.author.permId} !== ${connection.userId}`)
         return
     }
+     */
 
     // Get room
     const room = getRoom(connection.roomId)
@@ -64,6 +65,7 @@ export async function handleGameMutation(connection: ConnectionInfo, message: Ga
     }
 
     // Validate mutation
+    /*
     try {
         const validity = mutation.canApply()
         if (!validity.isValid) {
@@ -76,17 +78,16 @@ export async function handleGameMutation(connection: ConnectionInfo, message: Ga
         sendError(connection.webSocket, 'Failed to validate mutation')
         return
     }
+     */
 
     //const gameState = getGameState(message.roomId)
     // Apply mutation
-    applyMutation(room.id, mutation)
+    // applyMutation(room.id, mutation)
 
     // Broadcast mutation to all players in the room
     const broadcastMessage: MutationBroadcast = {
         type: 'mutation',
-        mutation,
+        mutation: message.mutation,
     }
     broadcast(room.id, broadcastMessage)
-
-    console.log(`Validated and broadcast mutation: ${mutation.name}`)
 }

@@ -27,12 +27,17 @@ export type User = {
     deckList: DeckList | null
 }
 
+export enum CommunicationMode {
+    Ably = 'Ably', // Direct messaging through Ably
+    SCS = 'SCS', // Websockets through SCS
+}
 export const EMPTY_SEATING = 'EMPTY_SEATING'
 export type Seating = PermanentId[] | typeof EMPTY_SEATING
 export type GameRoom = {
     id: RoomId
     name: string
     hostId: PermanentId
+    communication: CommunicationMode
     isStarted: boolean
     hasPassword: boolean
     passwordHash: string

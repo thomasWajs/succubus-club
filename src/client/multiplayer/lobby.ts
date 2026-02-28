@@ -12,7 +12,7 @@ import {
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import * as logging from '@/client/logging.ts'
 import { useBusStore } from '@/client/store/bus.ts'
-import { GameRoom, RoomId, Seating } from '@/shared/types/multiplayer.ts'
+import { CommunicationMode, GameRoom, RoomId, Seating } from '@/shared/types/multiplayer.ts'
 import { joinGameRoom, leaveGameRoom } from '@/client/multiplayer/room.ts'
 import { computeKey } from '@/client/multiplayer/encryption.ts'
 import { hash } from '@/shared/registries.ts'
@@ -222,6 +222,7 @@ export async function createGameRoom(
         id: hash(roomName).toString(),
         name: roomName,
         hostId: multiplayer.selfUser.permId,
+        communication: CommunicationMode.Ably,
         isStarted,
         hasPassword: password != '',
         passwordHash: key?.hash ?? '',

@@ -76,19 +76,15 @@ export class ScsClient {
         })
     }
 
-    publish(type: string, data?: Record<string, unknown>) {
+    send(type: string, data?: Record<string, unknown>) {
         this.ws.send(JSON.stringify({ type, ...data }))
     }
 
-    subscribe<T = unknown>(type: string, handler: MessageHandler<T>) {
+    on<T = unknown>(type: string, handler: MessageHandler<T>) {
         if (!this.listeners.has(type)) {
             this.listeners.set(type, new Set())
         }
         this.listeners.get(type)?.add(handler as MessageHandler)
-    }
-
-    unsubscribe<T = unknown>(type: string, handler: MessageHandler<T>) {
-        this.listeners.get(type)?.delete(handler as MessageHandler)
     }
 
     disconnect() {

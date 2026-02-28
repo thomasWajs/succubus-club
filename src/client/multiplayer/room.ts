@@ -1,24 +1,22 @@
 import { watch, WatchHandle } from 'vue'
-import Ably, { ChannelOptions, PresenceMessage } from 'ably'
+import { PresenceMessage } from 'ably'
 import { ablyPublish, ablySubscribe, detachChannel, getAbly } from '@/client/gateway/realtime.ts'
 import {
+    CommunicationMode,
     EMPTY_SEATING,
     GameMutationMessage,
     GameRoom,
     GameStateSyncMessage,
     PermanentId,
     PubsubMessageType,
-    RoomId,
     SerializedChatMessage,
     User,
 } from '@/shared/types/multiplayer.ts'
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import { useBusStore } from '@/client/store/bus.ts'
 import * as logging from '@/client/logging.ts'
-import { serializeMultiplayerGame } from '@/client/gateway/serialization.ts'
-import { shuffleArray } from '@/shared/utils.ts'
 import { useCoreStore } from '@/client/store/core.ts'
-import { resetState, setupMultiplayerGame, startGame } from '@/client/game/setup.ts'
+import { resetState, startGame } from '@/client/game/setup.ts'
 import { GameType } from '@/shared/types/state.ts'
 import { AnyGameMutation } from '@/shared/state/gameMutations.ts'
 import {
@@ -32,51 +30,39 @@ import {
     startGameResync,
 } from '@/client/multiplayer/sync.ts'
 import { broadcastGameRoom, deleteGameRoom } from '@/client/multiplayer/lobby.ts'
-import { fetchGameState, storeGameState } from '@/client/gateway/gameState.ts'
+import { fetchGameState } from '@/client/gateway/gameState.ts'
 import { Key } from '@/client/multiplayer/encryption.ts'
 import { ChatMessage } from '@/shared/types/history.ts'
 import { serializeObject } from '@/shared/serialization.ts'
+import { ablyCommunication, getRoomChannel } from '@/client/multiplayer/communication/ably.ts'
+import { Communication } from '@/client/multiplayer/communication'
+import { scsCommunication } from '@/client/multiplayer/communication/scs.ts'
 
-let _room: ReturnType<typeof connectRoom> | null = null
-
-async function connectRoom(roomId: RoomId, key?: Key) {
-    const ably = getAbly()
-
-    let channelConfig: ChannelOptions = {}
-    if (key) {
-        channelConfig = {
-            cipher: Ably.Realtime.Crypto.getDefaultParams({ key: key.buffer }),
-        }
+function getCommunication(gameRoom?: GameRoom): Communication {
+    if (!gameRoom) {
+        const multiplayer = useMultiplayerStore()
+        gameRoom = multiplayer.currentGameRoom
     }
 
-    const roomChannel = ably.channels.get(roomId, channelConfig)
-    await roomChannel.attach()
+    if (!gameRoom) {
+        throw new Error(`Not connected to a game room`)
+    }
 
-    return {
-        multiplayer: useMultiplayerStore(),
-        ably,
-        roomChannel,
+    if (gameRoom.communication == CommunicationMode.Ably) {
+        return ablyCommunication
+    } else {
+        return scsCommunication
     }
 }
-async function initRoom(roomId: RoomId, key?: Key) {
-    if (_room) {
-        throw new Error('Room already initialized')
-    }
-    _room = connectRoom(roomId, key)
-}
 
-async function useRoom() {
-    if (!_room) {
-        throw new Error('Room not initialized')
-    }
-    return await _room
-}
-
-function ensureGameRoom(): GameRoom {
+export function ensureGameRoom(): GameRoom {
     const multiplayer = useMultiplayerStore()
-    if (!_room || !multiplayer.currentGameRoom) {
+    const comm = getCommunication()
+
+    if (!comm.isInRoom() || !multiplayer.currentGameRoom) {
         throw new Error(`Not in a game room`)
     }
+
     return multiplayer.currentGameRoom
 }
 
@@ -87,6 +73,7 @@ function ensureGameRoom(): GameRoom {
 export async function joinGameRoom(gameRoom: GameRoom, key?: Key) {
     const multiplayer = useMultiplayerStore()
     const bus = useBusStore()
+    const comm = getCommunication(gameRoom)
 
     try {
         // We're already there : do nothing
@@ -97,8 +84,12 @@ export async function joinGameRoom(gameRoom: GameRoom, key?: Key) {
         // Leave any previous room
         await leaveGameRoom()
 
-        await initRoom(gameRoom.id, key)
-        const { roomChannel } = await useRoom()
+        // We'll always need an ably room, for presence and non-gameState messages
+        await ablyCommunication.joinRoom(gameRoom.id, key)
+        const roomChannel = getRoomChannel()
+
+        // If ably, it's already joined. If SCS, we need to join.
+        await comm.joinRoom(gameRoom.id, key)
 
         multiplayer.selfIsReady = false
         multiplayer.currentGameRoomId = gameRoom.id
@@ -143,12 +134,16 @@ export async function joinGameRoom(gameRoom: GameRoom, key?: Key) {
 }
 
 export async function leaveGameRoom() {
-    // We're not in a room, do nothing.
-    if (!_room) {
+    const multiplayer = useMultiplayerStore()
+    const gameRoom = multiplayer.currentGameRoom
+    if (!gameRoom) {
         return
     }
 
-    const { multiplayer, ably, roomChannel } = await useRoom()
+    const comm = getCommunication(gameRoom)
+    if (!comm.isInRoom()) {
+        return
+    }
 
     // We're the last user in the room, we can delete it.
     if (multiplayer.gameRoomUsers.length == 1 && multiplayer.currentGameRoomId) {
@@ -157,11 +152,10 @@ export async function leaveGameRoom() {
 
     unwatchGameRoom?.()
     unwatchGameRoom = null
-    // Detaching from the channel will also leave the presence
-    await detachChannel(roomChannel)
-    // Releasing from the channel will also unsubscribe all listeners
-    ably.channels.release(roomChannel.name)
-    _room = null
+    // We're always connected to ably ( for presence )
+    await ablyCommunication.leaveRoom()
+    // Needed if conencted to SCS
+    await comm.leaveRoom()
     multiplayer.selfIsReady = false
     multiplayer.currentGameRoomId = null
     // Reset the pending sync message, in case there's still messages in there
@@ -254,6 +248,8 @@ function onMemberLeave(presence: PresenceMessage) {
 export function rollSeating() {
     const multiplayer = useMultiplayerStore()
     const gameRoom = ensureGameRoom()
+    const comm = getCommunication(gameRoom)
+
     // Cannot roll seating on a game that's already started
     if (gameRoom.isStarted) {
         throw new Error(`Game already started`)
@@ -261,7 +257,8 @@ export function rollSeating() {
     if (!multiplayer.selfIsHost) {
         throw new Error(`You are not the host`)
     }
-    gameRoom.seating = shuffleArray<string>(gameRoom.players)
+
+    comm.rollSeating()
 }
 
 export function startPickSeating() {
@@ -307,7 +304,7 @@ async function broadcastPickSeat(permId: PermanentId, position: number) {
     if (gameRoom.isStarted) {
         throw new Error(`Game already started`)
     }
-    const { roomChannel } = await useRoom()
+    const roomChannel = getRoomChannel()
     await ablyPublish(roomChannel, PubsubMessageType.PickSeat, { permId, position })
 }
 
@@ -376,7 +373,7 @@ async function broadcastLeaveSeat(permId: PermanentId) {
     if (gameRoom.isStarted) {
         throw new Error(`Game already started`)
     }
-    const { roomChannel } = await useRoom()
+    const roomChannel = getRoomChannel()
     await ablyPublish(roomChannel, PubsubMessageType.LeaveSeat, { permId })
 }
 
@@ -412,21 +409,14 @@ async function onReceiveLeaveSeat(message: { permId: PermanentId }) {
 export async function launchGame() {
     const core = useCoreStore()
     const gameRoom = ensureGameRoom()
+    const comm = getCommunication(gameRoom)
+
     // Cannot launch a game that's already started
     if (gameRoom.isStarted || core.gameIsStarted) {
         throw new Error(`Game already started`)
     }
 
-    const { roomChannel } = await useRoom()
-    core.gameType = GameType.Multiplayer // Needed now to setup correctly the game state
-
-    setupMultiplayerGame(gameRoom)
-    const serializedGame = serializeMultiplayerGame()
-    const gameStateId = await storeGameState(serializedGame)
-    await ablyPublish(roomChannel, PubsubMessageType.LaunchGame, gameStateId)
-    gameRoom.isStarted = true
-    startGame(GameType.Multiplayer)
-    await core.userProfile.setLastMultiGame(gameRoom.id)
+    comm.launchGame(gameRoom)
 }
 
 async function onReceiveLaunchGame(gameStateId: string) {
@@ -454,7 +444,7 @@ export async function broadcastChatMessage(message: ChatMessage) {
     if (!gameRoom.isStarted) {
         throw new Error(`Game is not started`)
     }
-    const { roomChannel } = await useRoom()
+    const roomChannel = getRoomChannel()
     await ablyPublish(roomChannel, PubsubMessageType.Chat, serializeObject(message))
 }
 
@@ -475,7 +465,7 @@ export async function broadcastGameMutation(gameMutation: AnyGameMutation) {
     if (!gameRoom.isStarted) {
         throw new Error(`Game is not started`)
     }
-    const { roomChannel } = await useRoom()
+    const roomChannel = getRoomChannel()
     const message = await makeMutationMessage(gameMutation)
     await ablyPublish(roomChannel, PubsubMessageType.GameMutation, message)
 }
@@ -497,7 +487,10 @@ export async function requestResyncGameState(isUserRequest: boolean = false) {
     if (!gameRoom.isStarted) {
         throw new Error(`Game is not started`)
     }
-    const { multiplayer, ably, roomChannel } = await useRoom()
+
+    const multiplayer = useMultiplayerStore()
+    const ably = getAbly()
+    const roomChannel = getRoomChannel()
 
     startGameResync(isUserRequest)
 
@@ -520,7 +513,7 @@ export async function onReceiveRequestResyncGameState(syncChannelName: string) {
         throw new Error(`Game is not started`)
     }
 
-    const { ably } = await useRoom()
+    const ably = getAbly()
     const syncChannel = ably.channels.get(syncChannelName)
     const syncMessage = await makeResyncGameStateMessage()
     await ablyPublish(syncChannel, PubsubMessageType.Resync, syncMessage)

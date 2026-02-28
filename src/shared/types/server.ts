@@ -1,5 +1,4 @@
 import { PermanentId, RoomId, SerializedGameState } from '@/shared/types/multiplayer.ts'
-import { AnyGameMutation } from '@/shared/state/gameMutations.ts'
 
 /**
  * WebSocket Message Types
@@ -23,13 +22,9 @@ export type LeaveRoomMessage = {
 }
 
 export type GameMutationMessage = {
-    type: 'gameMutation'
-    mutation: AnyGameMutation
-}
-
-export type ChatMessage = {
-    type: 'chat'
-    text: string
+    type: 'mutation'
+    // mutation: AnyGameMutation
+    mutation: string
 }
 
 export type RequestStateMessage = {
@@ -41,7 +36,6 @@ export type ClientMessage =
     | JoinRoomMessage
     | LeaveRoomMessage
     | GameMutationMessage
-    | ChatMessage
     | RequestStateMessage
 
 // Server → Client messages
@@ -58,7 +52,8 @@ export type GameStateMessage = {
 
 export type MutationBroadcast = {
     type: 'mutation'
-    mutation: AnyGameMutation
+    // mutation: AnyGameMutation
+    mutation: string
 }
 
 export type ChatBroadcast = {

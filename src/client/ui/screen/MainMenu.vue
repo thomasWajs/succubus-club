@@ -98,19 +98,19 @@ const trainBotDisclaimerRef = ref<InstanceType<typeof TrainBotDisclaimer> | null
 setTimeout(async () => {
     const client = getScsClient()
 
-    client.subscribe('error', data => {
+    client.on('error', data => {
         console.log(data)
     })
-    client.subscribe('publish', data => {
+    client.on('mutation', data => {
         console.log(data)
     })
 
-    client.publish('joinRoom', {
+    client.send('joinRoom', {
         roomId: 'test-room',
         userId: core.userProfile.permanentId,
         userName: core.userProfile.playerName,
     })
-    client.publish('publish', { message: `Hello from ${core.userProfile.playerName}` })
+    client.send('mutation', { mutation: `Mutation from ${core.userProfile.playerName}` })
 })
 
 /**
