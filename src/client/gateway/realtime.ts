@@ -1,5 +1,5 @@
 import { ArrayQueue, ExponentialBackoff, Websocket, WebsocketBuilder } from 'websocket-ts'
-import Ably, { InboundMessage, messageCallback, RealtimeChannel } from 'ably'
+import Ably, { InboundMessage, RealtimeChannel } from 'ably'
 import Objects from 'ably/objects'
 import { FirebaseApp, initializeApp } from 'firebase/app'
 import {
@@ -25,7 +25,12 @@ import {
     set as rtdbSet,
 } from 'firebase/database'
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
-import { PubsubMessageType } from '@/shared/types/multiplayer.ts'
+import {
+    AblyMessage,
+    MultiplayerMessageType,
+    ScsClientMessage,
+    ScsServerMessage,
+} from '@/shared/types/multiplayer.ts'
 import * as logging from '@/client/logging.ts'
 import { useBusStore } from '@/client/store/bus.ts'
 
@@ -33,17 +38,17 @@ export function simulateNetworkDelay(time: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, time))
 }
 
+export type MessageHandler<T = ScsServerMessage> = (data: T) => void | Promise<void>
+
 /**
  * SCS : Succubus Club Server
  */
 
 const SCS_URL = import.meta.env.VITE_SCS_URL
 
-type MessageHandler<T = unknown> = (data: T) => void | Promise<void>
-
 export class ScsClient {
     private ws: Websocket
-    private listeners = new Map<string, Set<MessageHandler>>()
+    private listeners = new Map<MultiplayerMessageType, Set<MessageHandler>>()
 
     constructor(url: string) {
         this.ws = new WebsocketBuilder(url)
@@ -51,7 +56,7 @@ export class ScsClient {
             .withBuffer(new ArrayQueue())
             .onMessage((_ws, event) => {
                 try {
-                    const message = JSON.parse(event.data as string) as Record<string, unknown>
+                    const message: ScsServerMessage = JSON.parse(event.data as string)
                     this.handleMessage(message)
                 } catch (error) {
                     logging.captureMessage(`Failed to parse message: ${error}`, 'error')
@@ -63,24 +68,32 @@ export class ScsClient {
             .build()
     }
 
-    private handleMessage(message: Record<string, unknown>) {
+    private handleMessage(message: ScsServerMessage) {
         const type = message.type
         if (typeof type !== 'string' || !this.listeners.has(type)) return
 
         this.listeners.get(type)?.forEach(handler => {
+            // Capture all errors on receivers
             try {
                 handler(message)
             } catch (error) {
-                logging.captureMessage(`Error in message handler: ${error}`, 'error')
+                logging.captureException(error)
             }
         })
     }
 
-    send(type: string, data?: Record<string, unknown>) {
-        this.ws.send(JSON.stringify({ type, ...data }))
+    send(message: ScsClientMessage) {
+        // Capture all errors on senders
+        try {
+            this.ws.send(JSON.stringify(message))
+        } catch (e) {
+            const bus = useBusStore()
+            logging.captureException(e)
+            bus.alertWarning('Experiencing connection issues')
+        }
     }
 
-    on<T = unknown>(type: string, handler: MessageHandler<T>) {
+    on<T = unknown>(type: MultiplayerMessageType, handler: MessageHandler<T>) {
         if (!this.listeners.has(type)) {
             this.listeners.set(type, new Set())
         }
@@ -140,8 +153,8 @@ export function getAbly(): Ably.Realtime {
 
 export async function ablySubscribe<T>(
     channel: RealtimeChannel,
-    messageType: PubsubMessageType,
-    messageHandler: messageCallback<T>,
+    messageType: MultiplayerMessageType,
+    messageHandler: MessageHandler<T>,
 ) {
     await channel.subscribe(messageType, async (message: InboundMessage) => {
         // Capture all errors on receivers
@@ -153,10 +166,10 @@ export async function ablySubscribe<T>(
     })
 }
 
-export async function ablyPublish<T>(
+export async function ablyPublish(
     channel: RealtimeChannel,
-    messageType: PubsubMessageType,
-    message: T,
+    messageType: MultiplayerMessageType,
+    message: AblyMessage,
 ) {
     /*
         if (messageType == PubsubMessageType.GameMutation) {

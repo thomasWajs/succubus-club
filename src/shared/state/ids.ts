@@ -1,7 +1,11 @@
-let nextOid: number = 1
+import { nanoid } from 'nanoid'
 
 function generateId() {
-    return `${nextOid++}`
+    return nanoid()
+}
+
+export function generateClientOid() {
+    return `client-${generateId()}`
 }
 
 export function generateGameId() {

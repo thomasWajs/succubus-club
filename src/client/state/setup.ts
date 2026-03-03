@@ -1,15 +1,8 @@
-import {
-    GRID_SIZE,
-    ORDERED_PLAYER_COLORS,
-    TORPOR_ZONE_Y,
-    VERTICAL_SEPARATOR_DEFAULT_X,
-} from '@/shared/const/game.ts'
+import { ORDERED_PLAYER_COLORS } from '@/shared/const/game.ts'
 import { GovernBot } from '@/client/bot/governBot.ts'
 import { Conductor } from '@/client/bot/conductor.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { useCoreStore } from '@/client/store/core.ts'
-import { Player } from '@/shared/model/Player.ts'
-import { INITIAL_CRYPT_SIZE, INITIAL_HAND_SIZE } from '@/shared/const/model.ts'
 import { EMPTY_SEATING, GameRoom } from '@/shared/types/multiplayer.ts'
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import { GameType } from '@/shared/types/state.ts'
@@ -23,48 +16,10 @@ import { resetSync } from '@/client/multiplayer/sync.ts'
 import { startClock, stopClock, useTimer } from '@/shared/state/useTimer.ts'
 import { generateGameId } from '@/shared/state/ids.ts'
 import { BOT_NAME, BOT_PERM_ID, NB_BOTS } from '@/shared/const/bot.ts'
-import { DeckList } from '@/shared/types/gateway.ts'
-import { hasGameState, isCryptId, registerGameState } from '@/shared/registries.ts'
+import { hasGameState, registerGameState } from '@/shared/registries.ts'
 import { shuffleArray } from '@/shared/utils.ts'
 import { leaveMultiplayer } from '@/client/multiplayer/lobby.ts'
-
-function loadDeck(player: Player, deckList: DeckList) {
-    const gameState = useGameStateStore()
-
-    for (const [krcgId, quantity] of Object.entries(deckList)) {
-        if (isCryptId(krcgId)) {
-            for (let i = 0; i < quantity; i++) {
-                gameState.createCryptCard(krcgId, player, player.crypt)
-            }
-        } else {
-            for (let i = 0; i < quantity; i++) {
-                gameState.createLibraryCard(krcgId, player, player.library)
-            }
-        }
-    }
-}
-
-function setupPlayArea(player: Player, deckList: DeckList) {
-    const gameState = useGameStateStore()
-
-    loadDeck(player, deckList)
-
-    player.crypt.shuffle()
-    player.library.shuffle()
-
-    // Draw 7 library cards
-    for (let i = 0; i < INITIAL_HAND_SIZE; i++) {
-        const card = player.library.firstCard
-        gameState.moveCardToRegion(card, player.hand, i)
-    }
-    // Draw 4 crypt cards
-    for (let i = 0; i < INITIAL_CRYPT_SIZE; i++) {
-        const card = player.crypt.firstCard
-        card.x = VERTICAL_SEPARATOR_DEFAULT_X + 9 * GRID_SIZE * i
-        card.y = TORPOR_ZONE_Y
-        gameState.moveCardToRegion(card, player.uncontrolled)
-    }
-}
+import { setupMultiplayerGameState, setupPlayArea } from '@/shared/state/setup.ts'
 
 export function resetState() {
     const core = useCoreStore()
@@ -76,7 +31,7 @@ export function resetState() {
         useTimer(gameState.gameId).resetTimer()
     }
 
-    gameState.$reset()
+    useGameStateStore().$reset()
     useHistoryStore().$reset()
     useGameBusStore().$reset()
 
@@ -105,7 +60,7 @@ export function setupTrainGame() {
         core.userProfile.permanentId,
     )
     gameState.usersToPlayer[core.userProfile.permanentId] = selfPlayer.oid
-    setupPlayArea(selfPlayer, core.selfDeck.cards)
+    setupPlayArea(gameState, selfPlayer, core.selfDeck.cards)
 
     for (let i = 0; i < NB_BOTS; i++) {
         const botPlayer = gameState.createPlayer(
@@ -117,7 +72,7 @@ export function setupTrainGame() {
         if (i == 0) {
             core.conductor = new Conductor(bot)
         }
-        setupPlayArea(botPlayer, GovernBot.deckList)
+        setupPlayArea(gameState, botPlayer, GovernBot.deckList)
     }
 
     // Random starting order
@@ -137,23 +92,8 @@ export function setupMultiplayerGame(gameRoom: GameRoom) {
     }
 
     resetState()
-
-    gameState.gameId = generateGameId()
-    registerGameState(gameState.gameId, gameState)
-
-    for (let i = 0; i < gameRoom.seating.length; i++) {
-        const user = multiplayer.users[gameRoom.seating[i]]
-
-        if (!user.deckList) {
-            throw new Error(`User ${user.name} has no deck list`)
-        }
-
-        const player = gameState.createPlayer(user.name, ORDERED_PLAYER_COLORS[i], user.permId)
-
-        gameState.usersToPlayer[user.permId] = player.oid
-        setupPlayArea(player, user.deckList)
-    }
-
+    const seatedUsers = gameRoom.seating.map(permId => multiplayer.users[permId])
+    setupMultiplayerGameState(gameState, seatedUsers)
     useCoreStore().gameStateIsReady = true
 }
 

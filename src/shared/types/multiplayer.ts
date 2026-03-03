@@ -169,6 +169,41 @@ export type SerializedMultiplayerGame = SerializedGame & {
     mutationVersions: Record<GameMutationId, VectorClockVersion>
 }
 
+/**
+ * Messaging ( through ably OR SCS )
+ */
+
+export enum MultiplayerMessageType {
+    SetUser = 'SetUser',
+
+    JoinRoom = 'JoinRoom',
+    LeaveRoom = 'LeaveRoom',
+
+    RollSeating = 'RollSeating',
+    PickSeat = 'PickSeat',
+    LeaveSeat = 'LeaveSeat',
+
+    SetupGame = 'SetupGame',
+    LaunchGame = 'LaunchGame',
+
+    GameMutation = 'GameMutation',
+    RequestResync = 'RequestResync',
+    GameState = 'GameState', // Send a whole game state
+
+    Chat = 'Chat',
+
+    Error = 'Error',
+}
+
+export type PickSeatMessage = {
+    permId: PermanentId
+    position: number
+}
+
+export type LeaveSeatMessage = {
+    permId: PermanentId
+}
+
 export type GameMutationMessage = {
     gameMutation: PackedGameMutation
     gameMutationId: GameMutationId
@@ -176,22 +211,91 @@ export type GameMutationMessage = {
     version?: VectorClockVersion // Only needed for Ordered mutations
 }
 
-export type GameStateSyncMessage = {
+export type GameStateMessage = {
     gameStateId: string
     globalVersion: LamportClockVersion
     hash: number
 }
 
+export type ErrorMessage = {
+    type: MultiplayerMessageType.Error
+    message: string
+}
+
 /**
- * Pub/Sub message types
+ * Ably
  */
 
-export enum PubsubMessageType {
-    LaunchGame = 'LaunchGame',
-    GameMutation = 'GameMutation',
-    Chat = 'Chat',
-    RequestResync = 'RequestResync',
-    Resync = 'Resync',
-    PickSeat = 'PickSeat',
-    LeaveSeat = 'LeaveSeat',
+export type AblyLaunchGameMessage = {
+    gameStateId: string
 }
+
+export type AblyRequestResyncMessage = {
+    syncChannelName: string
+}
+
+export type AblyMessage =
+    | AblyLaunchGameMessage
+    | PickSeatMessage
+    | LeaveSeatMessage
+    | GameMutationMessage
+    | AblyRequestResyncMessage
+    | GameStateMessage
+    | SerializedChatMessage
+
+/**
+ * SCS
+ */
+
+// Client → Server messages
+export type SetUserMessage = {
+    type: MultiplayerMessageType.SetUser
+    permId: PermanentId
+    name: string
+    deckList: DeckList | null
+    isReady: boolean
+}
+
+export type JoinRoomMessage = {
+    type: MultiplayerMessageType.JoinRoom
+    roomId: RoomId
+    passwordHash: string
+}
+
+export type LeaveRoomMessage = {
+    type: MultiplayerMessageType.LeaveRoom
+}
+
+export type RollSeatingMessage = {
+    type: MultiplayerMessageType.RollSeating
+}
+
+export type ScsSetupGameMessage = {
+    type: MultiplayerMessageType.SetupGame
+    seating: Seating
+}
+
+export type ScsGameMutationMessage = GameMutationMessage & {
+    type: MultiplayerMessageType.GameMutation
+}
+
+export type ScsRequestResyncMessage = {
+    type: MultiplayerMessageType.RequestResync
+}
+
+export type ScsClientMessage =
+    | SetUserMessage
+    | JoinRoomMessage
+    | LeaveRoomMessage
+    | RollSeatingMessage
+    | ScsSetupGameMessage
+    | ScsGameMutationMessage
+    | ScsRequestResyncMessage
+
+// Server → Client messages
+export type ScsLaunchGameMessage = {
+    type: MultiplayerMessageType.LaunchGame
+    serializedGame: SerializedMultiplayerGame
+}
+
+export type ScsServerMessage = ScsLaunchGameMessage | ScsGameMutationMessage | ErrorMessage

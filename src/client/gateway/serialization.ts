@@ -11,7 +11,6 @@ import {
     PackedLogEntry,
     SerializedCardRegion,
     SerializedGame,
-    SerializedGameState,
     SerializedHistory,
     SerializedMultiplayerGame,
     SerializedPlayer,
@@ -24,9 +23,11 @@ import { isCryptId, registerGameState, registerHasher } from '@/shared/registrie
 import {
     deserializeObject,
     deserializeValueRecursive,
+    serializeGameState,
     serializeObject,
     serializeValueRecursive,
 } from '@/shared/serialization.ts'
+import { GameState } from '@/shared/state/gameState.ts'
 
 export function serializeHistory(): SerializedHistory {
     const history = useHistoryStore()
@@ -82,14 +83,7 @@ export function deserializeHistory(serializedHistory: SerializedHistory) {
 
 export function serializeGame(): SerializedGame {
     const rawState = useGameStateStore().$state
-
-    const serializedGameState = {
-        ...serializeObject(rawState),
-        // Override the serializeObject values here,
-        // because it has transformed Player, Card and CardRegion objects into and "OID_" string
-        cards: JSON.parse(JSON.stringify(rawState.cards)),
-        players: JSON.parse(JSON.stringify(rawState.players)),
-    } as unknown as SerializedGameState
+    const serializedGameState = serializeGameState(rawState as GameState)
 
     return {
         version: GAME_STATE_VERSION,

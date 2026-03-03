@@ -19,7 +19,7 @@ import { onBeforeUnmount, watch } from 'vue'
 import { setPhaserGame, useCoreStore } from '@/client/store/core.ts'
 import { useBusStore } from '@/client/store/bus.ts'
 import { display } from '@/client/game/display.ts'
-import { resetState } from '@/client/game/setup.ts'
+import { resetState } from '@/client/state/setup.ts'
 
 const core = useCoreStore()
 const bus = useBusStore()

@@ -16,6 +16,7 @@ import { CommunicationMode, GameRoom, RoomId, Seating } from '@/shared/types/mul
 import { joinGameRoom, leaveGameRoom } from '@/client/multiplayer/room.ts'
 import { computeKey } from '@/client/multiplayer/encryption.ts'
 import { hash } from '@/shared/registries.ts'
+import { scsCommunication } from '@/client/multiplayer/communication/scs.ts'
 
 let LOBBY_CHANNEL_NAME = 'Lobby'
 const GAME_ROOMS_KEY = 'gameRooms'
@@ -71,6 +72,8 @@ export async function joinLobby() {
         await lobbyChannel.presence.enter(multiplayer.selfUser)
         await syncUsers()
         await lobbyChannel.presence.subscribe(syncUsers)
+
+        scsCommunication.setUser()
 
         // Game room list
         rtdbOnValue(rtdbRef(rtdb, GAME_ROOMS_KEY), syncGameRooms)
@@ -145,6 +148,8 @@ async function setupSelfUserWatcher() {
             multiplayer.upsertUser(multiplayer.selfUser)
 
             debounceTimer = setTimeout(() => {
+                scsCommunication.setUser()
+
                 if (lobbyChannel.state == 'attached') {
                     lobbyChannel.presence.update(selfUser)
                 }
@@ -222,7 +227,7 @@ export async function createGameRoom(
         id: hash(roomName).toString(),
         name: roomName,
         hostId: multiplayer.selfUser.permId,
-        communication: CommunicationMode.Ably,
+        communication: CommunicationMode.SCS,
         isStarted,
         hasPassword: password != '',
         passwordHash: key?.hash ?? '',

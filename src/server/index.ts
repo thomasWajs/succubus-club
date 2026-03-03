@@ -1,23 +1,23 @@
 import { WebSocket, WebSocketServer } from 'ws'
-import { ClientMessage, ErrorMessage, ServerMessage } from '@/shared/types/server'
-import { handleDisconnect, handleJoinRoom, handleLeaveRoom } from './rooms'
-import { handleGameMutation } from './validation'
-import { PermanentId, RoomId } from '@/shared/types/multiplayer.ts'
+import { handleJoinRoom, handleLeaveRoom, handleSetupGame, leaveRoom, RoomNotFound } from './rooms'
+import { handleGameMutation } from './gameState.ts'
+import {
+    ErrorMessage,
+    MultiplayerMessageType,
+    ScsClientMessage,
+    ScsServerMessage,
+} from '@/shared/types/multiplayer.ts'
+import { ClientId, ConnectionInfo } from './types.ts'
+import { generateClientOid } from '@/shared/state/ids.ts'
+import { getUser, handleSetUser, removeUser } from './users.ts'
+import { initServer } from './initServer.ts'
+
+initServer()
 
 const PORT = parseInt(process.env.WS_PORT || '3001')
 
-/**
- * Internal server types
- */
-export type ConnectionInfo = {
-    webSocket: WebSocket
-    userId: PermanentId
-    userName: string
-    roomId: RoomId | null
-}
-
 // Track all active connections
-const connections = new Map<WebSocket, ConnectionInfo>()
+const connections = new Map<ClientId, ConnectionInfo>()
 
 /**
  * Initialize WebSocket Server
@@ -32,11 +32,13 @@ console.log(`WebSocket server listening on port ${PORT}`)
 wsServer.on('connection', (webSocket: WebSocket) => {
     console.log('New client connected')
 
+    const clientId = generateClientOid()
+
     // Initialize connection info
-    connections.set(webSocket, {
+    connections.set(clientId, {
+        clientId,
         webSocket,
-        userId: '', // Will be set on joinRoom
-        userName: '', // Will be set on joinRoom
+        permId: '', // Will be set on joinRoom
         roomId: null,
     })
 
@@ -45,9 +47,9 @@ wsServer.on('connection', (webSocket: WebSocket) => {
      */
     webSocket.on('message', async (data: Buffer) => {
         try {
-            const message: ClientMessage = JSON.parse(data.toString())
+            const message: ScsClientMessage = JSON.parse(data.toString())
 
-            const connection = connections.get(webSocket)
+            const connection = connections.get(clientId)
             if (!connection) {
                 return
             }
@@ -55,19 +57,31 @@ wsServer.on('connection', (webSocket: WebSocket) => {
             console.log(`Received message: ${JSON.stringify(message)}`)
 
             switch (message.type) {
-                case 'joinRoom':
+                case MultiplayerMessageType.SetUser:
+                    await handleSetUser(connection, message)
+                    break
+
+                case MultiplayerMessageType.JoinRoom:
                     await handleJoinRoom(connection, message)
                     break
 
-                case 'leaveRoom':
+                case MultiplayerMessageType.LeaveRoom:
                     await handleLeaveRoom(connection)
                     break
 
-                case 'mutation':
+                case MultiplayerMessageType.RollSeating:
+                    // TODO: Implement RollSeating
+                    break
+
+                case MultiplayerMessageType.SetupGame:
+                    await handleSetupGame(connection, message)
+                    break
+
+                case MultiplayerMessageType.GameMutation:
                     await handleGameMutation(connection, message)
                     break
 
-                case 'requestState':
+                case MultiplayerMessageType.RequestResync:
                     // TODO: Implement state sync
                     break
 
@@ -75,8 +89,13 @@ wsServer.on('connection', (webSocket: WebSocket) => {
                     sendError(webSocket, `Unknown message type: ${(message as any).type}`)
             }
         } catch (error) {
-            console.error('Error handling message:', error)
-            sendError(webSocket, 'Failed to process message')
+            if (error instanceof RoomNotFound) {
+                console.error('RoomNotFound when handling message:', error)
+                sendError(webSocket, 'Not in a game room')
+            } else {
+                console.error('Error handling message:', error)
+                sendError(webSocket, 'Failed to process message')
+            }
         }
     })
 
@@ -84,11 +103,11 @@ wsServer.on('connection', (webSocket: WebSocket) => {
      * Handle client disconnection
      */
     webSocket.on('close', () => {
-        const connection = connections.get(webSocket)
+        const connection = connections.get(clientId)
         if (connection) {
             handleDisconnect(connection)
         }
-        connections.delete(webSocket)
+        connections.delete(clientId)
     })
 
     /**
@@ -107,40 +126,47 @@ wsServer.on('error', error => {
 })
 
 /**
+ * Handle player disconnection
+ */
+export function handleDisconnect(connection: ConnectionInfo) {
+    const user = getUser(connection.permId)
+    leaveRoom(connection)
+    if (user) {
+        removeUser(user.permId)
+    }
+    console.log(`Player ${user?.name} disconnected`)
+}
+
+/**
  * Utility: Send message to a client
  */
-export function send(ws: WebSocket, message: ServerMessage) {
-    if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify(message))
+export function send(webSocket: WebSocket, message: ScsServerMessage) {
+    if (webSocket.readyState === WebSocket.OPEN) {
+        webSocket.send(JSON.stringify(message))
     }
 }
 
 /**
  * Utility: Send error to a client
  */
-export function sendError(ws: WebSocket, errorMessage: string) {
+export function sendError(webSocket: WebSocket, errorMessage: string) {
     const message: ErrorMessage = {
-        type: 'error',
+        type: MultiplayerMessageType.Error,
         message: errorMessage,
     }
-    send(ws, message)
+    send(webSocket, message)
 }
 
 /**
  * Graceful shutdown
  */
-process.on('SIGINT', () => {
-    console.log('\n⏹Shutting down server...')
+function gracefulShutdown() {
+    console.log('Shutting down server...')
     wsServer.close(() => {
         console.log('Server closed')
         process.exit(0)
     })
-})
+}
 
-process.on('SIGTERM', () => {
-    console.log('\nShutting down server...')
-    wsServer.close(() => {
-        console.log('Server closed')
-        process.exit(0)
-    })
-})
+process.on('SIGINT', gracefulShutdown)
+process.on('SIGTERM', gracefulShutdown)

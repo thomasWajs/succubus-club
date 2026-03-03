@@ -71,7 +71,7 @@
 import { useCoreStore } from '@/client/store/core.ts'
 import { GameType } from '@/shared/types/state.ts'
 import { joinLobby } from '@/client/multiplayer/lobby.ts'
-import { setupTrainGame, startGame } from '@/client/game/setup.ts'
+import { setupTrainGame, startGame } from '@/client/state/setup.ts'
 import { useRouter } from 'vue-router'
 import TopBar from '@/client/ui/components/TopBar.vue'
 import { waitUntil } from '@/shared/utils.ts'
@@ -84,34 +84,11 @@ import IdleModal from '@/client/ui/components/IdleModal.vue'
 import { ref } from 'vue'
 import * as logging from '@/client/logging.ts'
 import { isCrawler, screenBigEnough } from '@/client/game/display.ts'
-import { getScsClient } from '@/client/gateway/realtime.ts'
 
 const core = useCoreStore()
 const bus = useBusStore()
 const router = useRouter()
 const trainBotDisclaimerRef = ref<InstanceType<typeof TrainBotDisclaimer> | null>(null)
-
-/**
- *  WS Tests
- */
-
-setTimeout(async () => {
-    const client = getScsClient()
-
-    client.on('error', data => {
-        console.log(data)
-    })
-    client.on('mutation', data => {
-        console.log(data)
-    })
-
-    client.send('joinRoom', {
-        roomId: 'test-room',
-        userId: core.userProfile.permanentId,
-        userName: core.userProfile.playerName,
-    })
-    client.send('mutation', { mutation: `Mutation from ${core.userProfile.playerName}` })
-})
 
 /**
  *  Menu

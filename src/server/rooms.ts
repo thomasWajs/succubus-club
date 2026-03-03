@@ -1,18 +1,20 @@
-import { WebSocket } from 'ws'
-import { PermanentId, RoomId } from '@/shared/types/multiplayer.ts'
-import { JoinRoomMessage, RoomStateMessage, ServerMessage } from '@/shared/types/server.ts'
-import { ConnectionInfo, send } from './index.ts'
-import { deleteGameState } from './state.ts'
+import {
+    EMPTY_SEATING,
+    JoinRoomMessage,
+    MultiplayerMessageType,
+    RoomId,
+    ScsServerMessage,
+    ScsSetupGameMessage,
+} from '@/shared/types/multiplayer.ts'
+import { send, sendError } from './index.ts'
+import { ConnectionInfo, Room } from './types.ts'
+import { createGameState } from './gameState.ts'
+import { getUser, getUserConnection } from './users.ts'
+import { deleteGameState } from '@/shared/registries.ts'
+import { serializeGameState } from '@/shared/serialization.ts'
+import { GAME_STATE_VERSION } from '@/shared/const/multiplayer.ts'
 
-/**
- * Room structure
- */
-type Room = {
-    id: RoomId
-    players: Map<PermanentId, { ws: WebSocket; userName: string }>
-    isStarted: boolean
-    createdAt: Date
-}
+export class RoomNotFound extends Error {}
 
 // Active rooms
 const rooms = new Map<RoomId, Room>()
@@ -28,28 +30,33 @@ export function getRoom(roomId: RoomId | null): Room | undefined {
 }
 
 /**
- * Get or create a room
+ * Get room by ID, and throw an exception if undefined
  */
-export function getOrCreateRoom(roomId: RoomId): Room {
-    let room = rooms.get(roomId)
+export function ensureRoom(roomId: RoomId | null): Room {
+    const room = getRoom(roomId)
     if (!room) {
-        room = {
-            id: roomId,
-            players: new Map(),
-            isStarted: false,
-            createdAt: new Date(),
-        }
-        rooms.set(roomId, room)
-        console.log(`Created room: ${roomId}`)
+        throw new RoomNotFound(`Room  ${roomId} not found`)
     }
     return room
 }
 
 /**
- * Get all rooms (for debugging/admin)
+ * Get or create a room
  */
-export function getAllRooms(): Room[] {
-    return Array.from(rooms.values())
+export function getOrCreateRoom(roomId: RoomId, passwordHash: string): Room {
+    let room = rooms.get(roomId)
+    if (!room) {
+        room = {
+            id: roomId,
+            players: new Set(),
+            passwordHash,
+            seating: EMPTY_SEATING,
+            gameId: null,
+        }
+        rooms.set(roomId, room)
+        console.log(`Created room: ${roomId}`)
+    }
+    return room
 }
 
 /**
@@ -62,16 +69,13 @@ export function leaveRoom(connection: ConnectionInfo): Room | undefined {
     }
 
     // Remove player from room
-    room.players.delete(connection.userId)
+    room.players.delete(connection.permId)
 
     // If room is empty, delete it
     if (room.players.size === 0) {
         deleteGameState(room.id)
         rooms.delete(room.id)
         console.log(`Deleted empty room: ${room.id}`)
-    } else {
-        // Broadcast updated room state
-        broadcastRoomState(room)
     }
 }
 
@@ -79,70 +83,76 @@ export function leaveRoom(connection: ConnectionInfo): Room | undefined {
  * Handle player joining a room
  */
 export async function handleJoinRoom(connection: ConnectionInfo, message: JoinRoomMessage) {
-    const { roomId, userId, userName } = message
+    const user = getUser(connection.permId)
+    const { roomId, passwordHash } = message
 
-    // Update connection info
-    connection.userId = userId
-    connection.userName = userName
-    connection.roomId = roomId
+    const room = getOrCreateRoom(roomId, passwordHash)
+
+    // Ensure players knows the password when there's one
+    if (room.passwordHash && room.passwordHash != passwordHash) {
+        sendError(connection.webSocket, 'Incorrect Password')
+        return
+    }
 
     // Add player to room
-    const room = getOrCreateRoom(roomId)
-    room.players.set(userId, { ws: connection.webSocket, userName })
-
-    console.log(`Player ${userName} joined room ${roomId}`)
-
-    // Broadcast updated room state to all players in the room
-    broadcastRoomState(room)
+    connection.roomId = roomId
+    room.players.add(connection.permId)
+    console.log(`Player ${user?.name} joined room ${roomId}`)
 }
 
 /**
  * Handle player leaving a room
  */
 export async function handleLeaveRoom(connection: ConnectionInfo) {
+    const user = getUser(connection.permId)
+    const roomId = connection.roomId
     leaveRoom(connection)
     connection.roomId = null
-    console.log(`Player ${connection.userName} left room ${connection.roomId}`)
+    console.log(`Player ${user?.name} left room ${roomId}`)
 }
 
 /**
- * Handle player disconnection
+ * Handle game launching
  */
-export function handleDisconnect(connection: ConnectionInfo) {
-    leaveRoom(connection)
-    console.log(`Player ${connection.userName} disconnected`)
+export async function handleSetupGame(connection: ConnectionInfo, message: ScsSetupGameMessage) {
+    const room = ensureRoom(connection.roomId)
+
+    room.seating = message.seating
+
+    const gameState = createGameState(room)
+    const serializedGameState = serializeGameState(gameState)
+    const serializedGame = {
+        version: GAME_STATE_VERSION,
+        gameState: serializedGameState,
+        history: {
+            stringPool: [],
+            logEntries: [],
+            gameMutations: [],
+        },
+        objectClocks: {},
+        mutationVersions: {},
+    }
+
+    broadcast(room.id, {
+        type: MultiplayerMessageType.LaunchGame,
+        serializedGame: serializedGame,
+    })
 }
 
 /**
  * Broadcast a message to all players in a room
  */
-export function broadcast(roomId: RoomId, message: ServerMessage) {
+export function broadcast(roomId: RoomId, message: ScsServerMessage) {
+    console.log(`Broadcasting ${message.type} to room ${roomId}`)
     const room = getRoom(roomId)
     if (!room) {
         return
     }
 
-    for (const player of room.players.values()) {
-        send(player.ws, message)
-    }
-}
-
-/**
- * Broadcast room state to all players in the room
- */
-function broadcastRoomState(room: Room) {
-    const players = Array.from(room.players.entries()).map(([userId, player]) => ({
-        userId,
-        userName: player.userName,
-    }))
-
-    const message: RoomStateMessage = {
-        type: 'roomState',
-        players,
-        isStarted: room.isStarted,
-    }
-
-    for (const player of room.players.values()) {
-        send(player.ws, message)
+    for (const permId of room.players.values()) {
+        const connection = getUserConnection(permId)
+        if (connection) {
+            send(connection.webSocket, message)
+        }
     }
 }

@@ -158,16 +158,6 @@
                                 ⚠ {{ warning }}
                             </span>
                         </div>
-                        <button
-                            v-if="
-                                user.permId === multiplayer.selfUser.permId &&
-                                multiplayer.areAllUsersReady
-                            "
-                            class="leave-seat-btn"
-                            @click="leaveSeat()"
-                        >
-                            Leave Seat
-                        </button>
                     </div>
                 </div>
 

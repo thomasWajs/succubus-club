@@ -7,7 +7,7 @@ import { useBusStore, useGameBusStore } from '@/client/store/bus.ts'
 import * as logging from '@/client/logging.ts'
 import {
     GameMutationMessage,
-    GameStateSyncMessage,
+    GameStateMessage,
     MutationSyncMode,
     PermanentId,
     SerializedChatMessage,
@@ -19,7 +19,7 @@ import { ClockCompare, LamportClock, VectorClock } from '@/shared/multiplayer/cl
 import { useHistoryStore } from '@/client/store/history.ts'
 import { useCoreStore } from '@/client/store/core.ts'
 import { fetchGameState, storeGameState } from '@/client/gateway/gameState.ts'
-import { resetState } from '@/client/game/setup.ts'
+import { resetState } from '@/client/state/setup.ts'
 import { ChatMessage, MutationHistoryEntry } from '@/shared/types/history.ts'
 import { applyMutationLocally } from '@/client/state/gameMutations.ts'
 import { hashObject } from '@/shared/registries.ts'
@@ -478,7 +478,7 @@ export function startGameResync(isUserRequest: boolean) {
     desyncDate = new Date()
 }
 
-export async function makeResyncGameStateMessage(): Promise<GameStateSyncMessage> {
+export async function makeResyncGameStateMessage(): Promise<GameStateMessage> {
     return stateMutex.withLock(async () => {
         const multiplayer = useMultiplayerStore()
         const core = useCoreStore()
@@ -491,7 +491,7 @@ export async function makeResyncGameStateMessage(): Promise<GameStateSyncMessage
     })
 }
 
-export async function applyGameResync(syncMessage: GameStateSyncMessage) {
+export async function applyGameResync(syncMessage: GameStateMessage) {
     const multiplayer = useMultiplayerStore()
     const bus = useBusStore()
 

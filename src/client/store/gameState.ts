@@ -7,7 +7,7 @@ import { useGameBusStore } from '@/client/store/bus.ts'
 import { Card } from '@/shared/model/Card.ts'
 import { AnyCardRegion, PlayerOid } from '@/shared/types/model.ts'
 
-class ClientGameState extends GameState {
+export class ClientGameState extends GameState {
     // May be undefined for spectators
     get selfPlayerOid(): PlayerOid | undefined {
         return this.usersToPlayer[useCoreStore().userProfile.permanentId]

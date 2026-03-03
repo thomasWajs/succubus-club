@@ -4,7 +4,7 @@ import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import { useBusStore } from '@/client/store/bus.ts'
 import { leaveMultiplayer } from '@/client/multiplayer/lobby.ts'
 import { useCoreStore } from '@/client/store/core.ts'
-import { leaveGame } from '@/client/game/setup.ts'
+import { leaveGame } from '@/client/state/setup.ts'
 
 const IDLE_TIME = 20 * 60 * 1000 // 20 minutes
 const events = ['keydown', 'mousedown', 'scroll', 'touchstart']

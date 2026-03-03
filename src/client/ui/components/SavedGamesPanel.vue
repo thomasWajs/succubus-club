@@ -51,7 +51,7 @@ import { useBusStore } from '@/client/store/bus.ts'
 import { shallowRef } from 'vue'
 import { GameType } from '@/shared/types/state.ts'
 import { createGameRoom, joinLobby } from '@/client/multiplayer/lobby.ts'
-import { setupSavedGame, startGame } from '@/client/game/setup.ts'
+import { setupSavedGame, startGame } from '@/client/state/setup.ts'
 import { db, DbSavedGame } from '@/client/gateway/db.ts'
 import * as logging from '@/client/logging.ts'
 

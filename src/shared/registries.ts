@@ -38,16 +38,14 @@ export function setGameResources<K extends keyof typeof gameResources>(
  * Game State
  */
 
-// TODO make something more robust than a simple in-memory map
-// TODO : use a weakmap ?
-const gameStateRegistry: Record<GameId, GameState> = {}
+const gameStateRegistry = new Map<GameId, GameState>()
 
 export function hasGameState(gameId: GameId): boolean {
-    return gameId in gameStateRegistry
+    return gameStateRegistry.has(gameId)
 }
 
 export function getGameState(gameId: GameId): GameState {
-    const gameState = gameStateRegistry[gameId]
+    const gameState = gameStateRegistry.get(gameId)
     if (!gameState) {
         throw new Error(`No game state found for game ${gameId}`)
     }
@@ -55,7 +53,11 @@ export function getGameState(gameId: GameId): GameState {
 }
 
 export function registerGameState(gameId: GameId, gameState: GameState) {
-    gameStateRegistry[gameId] = gameState
+    gameStateRegistry.set(gameId, gameState)
+}
+
+export function deleteGameState(gameId: GameId): void {
+    gameStateRegistry.delete(gameId)
 }
 
 /**

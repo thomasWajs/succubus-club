@@ -10,7 +10,7 @@ import Requirements from '@/client/ui/screen/about/Requirements.vue'
 import Contribute from '@/client/ui/screen/about/Contribute.vue'
 import Copyright from '@/client/ui/screen/about/Copyright.vue'
 import { leaveMultiplayer } from '@/client/multiplayer/lobby.ts'
-import { leaveGame } from '@/client/game/setup.ts'
+import { leaveGame } from '@/client/state/setup.ts'
 
 export const ROUTES = {
     MainMenu: 'MainMenu',

@@ -3,11 +3,17 @@ import {
     PackedGameMutation,
     Serialized,
     SerializedGameMutation,
+    SerializedGameState,
 } from '@/shared/types/multiplayer.ts'
 import { DATE_PREFIX, OID_PREFIX } from '@/shared/const/multiplayer.ts'
 import { AnyGameMutation, gameMutations } from '@/shared/state/gameMutations.ts'
 import { GameId } from '@/shared/types/model.ts'
 import { getGameState } from '@/shared/registries.ts'
+import { GameState } from '@/shared/state/gameState.ts'
+
+/**
+ * Generic serialization
+ */
 
 export function serializeValueRecursive(value: unknown): JsonValue {
     // Handle null and undefined
@@ -97,6 +103,24 @@ export function deserializeValueRecursive(value: JsonValue, gameId: GameId): unk
 export function deserializeObject<T = unknown>(serializedObject: Serialized<T>, gameId: GameId): T {
     return deserializeValueRecursive(serializedObject, gameId) as T
 }
+
+/**
+ * Game state serialization
+ */
+
+export function serializeGameState(gameState: GameState): SerializedGameState {
+    return {
+        ...serializeObject(gameState),
+        // Override the serializeObject values here,
+        // because it has transformed Player, Card and CardRegion objects into and "OID_" string
+        cards: JSON.parse(JSON.stringify(gameState.cards)),
+        players: JSON.parse(JSON.stringify(gameState.players)),
+    } as unknown as SerializedGameState
+}
+
+/**
+ * Game mutations serialization
+ */
 
 export function serializeGameMutation(gameMutation: AnyGameMutation): SerializedGameMutation {
     return {

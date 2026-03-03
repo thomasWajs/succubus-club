@@ -178,7 +178,7 @@ import { broadcastChatMessage, requestResyncGameState } from '@/client/multiplay
 import UserManual from '@/client/ui/ingame/rightColumn/UserManual.vue'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import LogLine from '@/client/ui/ingame/rightColumn/LogLine.vue'
-import { leaveGame } from '@/client/game/setup.ts'
+import { leaveGame } from '@/client/state/setup.ts'
 
 const core = useCoreStore()
 const gameState = useGameStateStore()

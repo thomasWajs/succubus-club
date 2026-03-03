@@ -1,15 +1,33 @@
-import { GameRoom, PubsubMessageType, RoomId } from '@/shared/types/multiplayer.ts'
+import {
+    AblyLaunchGameMessage,
+    GameMutationMessage,
+    GameRoom,
+    MultiplayerMessageType,
+    RoomId,
+} from '@/shared/types/multiplayer.ts'
 import { Key } from '@/client/multiplayer/encryption.ts'
-import { ablyPublish, detachChannel, getAbly } from '@/client/gateway/realtime.ts'
+import {
+    ablyPublish,
+    ablySubscribe,
+    detachChannel,
+    getAbly,
+    MessageHandler,
+} from '@/client/gateway/realtime.ts'
 import Ably, { ChannelOptions } from 'ably'
-import { ensureGameRoom } from '@/client/multiplayer/room.ts'
+import {
+    ensureGameRoom,
+    onReceiveResyncGameState,
+    receiveGameMutation,
+    receiveLaunchGame,
+} from '@/client/multiplayer/room.ts'
 import { shuffleArray } from '@/shared/utils.ts'
 import { Communication } from '@/client/multiplayer/communication/index.ts'
 import { GameType } from '@/shared/types/state.ts'
 import { useCoreStore } from '@/client/store/core.ts'
-import { storeGameState } from '@/client/gateway/gameState.ts'
+import { fetchGameState, storeGameState } from '@/client/gateway/gameState.ts'
 import { serializeMultiplayerGame } from '@/client/gateway/serialization.ts'
-import { setupMultiplayerGame, startGame } from '@/client/game/setup.ts'
+import { setupMultiplayerGame, startGame } from '@/client/state/setup.ts'
+import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 
 /**
  * Ably Room Management
@@ -65,10 +83,14 @@ export function getRoomChannel() {
  * Implementation of Communication through Ably
  */
 
-export const ablyCommunication: Communication = {
+const ablyCommunication: Communication = {
     joinRoom: initRoom,
     leaveRoom: disconnectRoom,
     isInRoom,
+
+    async subscribe<T>(messageType: MultiplayerMessageType, handler: MessageHandler<T>) {
+        await ablySubscribe(getRoomChannel(), messageType, handler)
+    },
 
     rollSeating() {
         const gameRoom = ensureGameRoom()
@@ -84,16 +106,45 @@ export const ablyCommunication: Communication = {
         setupMultiplayerGame(gameRoom)
         const serializedGame = serializeMultiplayerGame()
         const gameStateId = await storeGameState(serializedGame)
-        await ablyPublish(roomChannel, PubsubMessageType.LaunchGame, gameStateId)
+        await ablyPublish(roomChannel, MultiplayerMessageType.LaunchGame, { gameStateId })
         gameRoom.isStarted = true
         startGame(GameType.Multiplayer)
         await core.userProfile.setLastMultiGame(gameRoom.id)
     },
-    onReceiveLaunchGame() {},
 
-    sendGameMutation() {},
-    onReceiveGameMutation() {},
+    async onReceiveLaunchGame(message: AblyLaunchGameMessage) {
+        const { gameStateId } = message
+        const serializedGame = await fetchGameState(gameStateId)
+        if (!serializedGame) {
+            throw new Error(`Could not find game state at ${gameStateId} in Firestore.`)
+        }
+        await receiveLaunchGame(serializedGame)
+    },
 
-    requestResyncGameState() {},
-    onReceiveResyncGameState() {},
+    async broadcastGameMutation(message: GameMutationMessage) {
+        await ablyPublish(getRoomChannel(), MultiplayerMessageType.GameMutation, message)
+    },
+
+    async onReceiveGameMutation(message: GameMutationMessage) {
+        await receiveGameMutation(message)
+    },
+
+    async requestResyncGameState() {
+        const multiplayer = useMultiplayerStore()
+        const ably = getAbly()
+        const roomChannel = getRoomChannel()
+
+        const syncChannelName = `sync-${multiplayer.selfUser.permId}`
+        const syncChannel = ably.channels.get(syncChannelName)
+        await ablySubscribe(syncChannel, MultiplayerMessageType.GameState, onReceiveResyncGameState)
+        // Leave the resync channel after 30 seconds
+        setTimeout(async () => {
+            await detachChannel(syncChannel)
+            ably.channels.release(syncChannelName)
+        }, 1000 * 30)
+
+        // Ask everyone, and use the more recent state ( according to global clock )
+        await ablyPublish(roomChannel, MultiplayerMessageType.RequestResync, { syncChannelName })
+    },
 }
+export default ablyCommunication
