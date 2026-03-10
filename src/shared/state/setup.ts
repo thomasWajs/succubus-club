@@ -7,10 +7,11 @@ import {
     TORPOR_ZONE_Y,
     VERTICAL_SEPARATOR_DEFAULT_X,
 } from '@/shared/const/game.ts'
-import { isCryptId, registerGameState } from '@/shared/registries.ts'
+import { registerGameState } from '@/shared/registries.ts'
 import { GameState } from '@/shared/state/gameState.ts'
 import { User } from '@/shared/types/multiplayer.ts'
 import { generateGameId } from '@/shared/state/ids.ts'
+import { isCryptId } from '@/shared/model/Card.ts'
 
 function loadDeck(gameState: GameState, player: Player, deckList: DeckList) {
     for (const [krcgId, quantity] of Object.entries(deckList)) {

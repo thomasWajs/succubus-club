@@ -3,7 +3,8 @@ import { useCoreStore } from '@/client/store/core.ts'
 import { convertFromText, fetchAmaranth, fetchVdb } from '@/client/resources/krcg.ts'
 import { MAX_LIB_SIZE, MIN_CRYPT_SIZE, MIN_LIB_SIZE } from '@/shared/const/model.ts'
 import { Deck, DeckList } from '@/shared/types/gateway.ts'
-import { isCryptId } from '@/shared/registries.ts'
+
+import { isCryptId } from '@/shared/model/Card.ts'
 
 export async function getOrImportDeck(
     source: DeckSource,

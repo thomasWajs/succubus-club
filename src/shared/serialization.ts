@@ -10,6 +10,31 @@ import { AnyGameMutation, gameMutations } from '@/shared/state/gameMutations.ts'
 import { GameId } from '@/shared/types/model.ts'
 import { getGameState } from '@/shared/registries.ts'
 import { GameState } from '@/shared/state/gameState.ts'
+import { stringify as stableStringify } from 'safe-stable-stringify'
+import xxhash, { XXHashAPI } from 'xxhash-wasm'
+
+/**
+ * Hashing functions
+ */
+
+let wasmHasher: XXHashAPI | null = null
+
+export function initWasmHasher() {
+    xxhash().then(_hasher_ => {
+        wasmHasher = _hasher_
+    })
+}
+
+export function hash(content: string) {
+    if (!wasmHasher) {
+        throw new Error('hasher not initialized')
+    }
+    return wasmHasher.h32(content)
+}
+
+export function hashObject(object: object) {
+    return hash(stableStringify(object))
+}
 
 /**
  * Generic serialization

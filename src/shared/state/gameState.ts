@@ -13,6 +13,7 @@ import {
     CardRevelation,
     CardRevelationTargetOid,
     CombatState,
+    KnownCards,
     TargetDeclaration,
 } from '@/shared/types/state.ts'
 import { PermanentId } from '@/shared/types/multiplayer.ts'
@@ -33,6 +34,11 @@ export class GameState {
     /** Main objects **/
     players: Record<PlayerOid, Player> = {}
     cards: Record<CardOid, Card> = {}
+    // The cards known by the running service.
+    // The server knows them all.
+    // In Ably mode, the client knows them all.
+    // In SCS mode, the client only knows the cards it has seen.
+    knownCards: KnownCards = {}
 
     /**
      * Allow to match Users to their Player when loading a gameState
@@ -182,14 +188,18 @@ export class GameState {
     }
 
     createCryptCard(krcgId: KrcgId, owner: Player, cardRegion: AnyCardRegion): CryptCard {
-        const card = new CryptCard(this.gameId, generateCardOid(), krcgId, owner.oid)
+        const cardOid = generateCardOid()
+        this.knownCards[cardOid] = krcgId
+        const card = new CryptCard(this.gameId, cardOid, owner.oid)
         this.cards[card.oid] = card
         cardRegion.append(card)
         return card
     }
 
     createLibraryCard(krcgId: KrcgId, owner: Player, cardRegion: AnyCardRegion): LibraryCard {
-        const card = new LibraryCard(this.gameId, generateCardOid(), krcgId, owner.oid)
+        const cardOid = generateCardOid()
+        this.knownCards[cardOid] = krcgId
+        const card = new LibraryCard(this.gameId, cardOid, owner.oid)
         this.cards[card.oid] = card
         cardRegion.append(card)
         return card

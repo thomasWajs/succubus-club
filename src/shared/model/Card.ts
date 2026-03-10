@@ -17,7 +17,7 @@ import {
     Disciplines,
     LibraryCardResource,
 } from '@/shared/types/resources.ts'
-import { gameResources, isCryptId } from '@/shared/registries.ts'
+import { gameResources } from '@/shared/registries.ts'
 import { Snap } from '@/shared/utils.ts'
 
 class MinionAttributes {
@@ -39,11 +39,17 @@ class VampireAttributes {
     //traits: Trait[]
 }
 
+export function isCryptId(krcgId: KrcgId) {
+    // Krcg id of crypt card begins by 2, library begins by 1
+    return krcgId[0] == '2'
+}
+
 export abstract class Card extends BaseModel {
     x = 0 // This is relative to its container, with origin=0
     y = 0 // This is relative to its container, with origin=0
     isLocked = false
     isFlipped = false
+    isCrypt: boolean // Used to show the correct backcard when we don't know the krcgId
 
     blood = 0
     greenCounter = 0
@@ -56,28 +62,27 @@ export abstract class Card extends BaseModel {
     protected constructor(
         public gameId: GameId,
         public oid: CardOid,
-        public readonly krcgId: KrcgId,
         public ownerOid: PlayerOid,
     ) {
         super(gameId, oid)
     }
 
-    abstract get resource(): CardResource
+    abstract get resource(): CardResource | undefined
 
-    get isCrypt() {
-        return isCryptId(this.krcgId)
+    get krcgId(): KrcgId | undefined {
+        return this.gameState.knownCards[this.oid]
     }
 
     get name() {
-        return this.resource.name
+        return this.resource?.name ?? ''
     }
 
     get rulings() {
-        return this.resource.rulings
+        return this.resource?.rulings ?? []
     }
 
     get text() {
-        return this.resource.text
+        return this.resource?.text ?? ''
     }
 
     get owner() {
@@ -194,18 +199,17 @@ export abstract class Card extends BaseModel {
         }
 
         const gameState = this.gameState
-        const text = this.resource.text
         const phase = gameState.turnPhase.toLowerCase()
 
         return (
             // Match "during each [...] phase"
-            new RegExp(`during each(.)*${phase} phase`, 'i').test(text) ||
+            new RegExp(`during each(.)*${phase} phase`, 'i').test(this.text) ||
             // Match "during their [...] phase"
             (this.region.owner == gameState.activePlayer &&
-                new RegExp(`during(.)*their(.)*${phase} phase`, 'i').test(text)) ||
+                new RegExp(`during(.)*their(.)*${phase} phase`, 'i').test(this.text)) ||
             // Match "during your [...] phase"
             (this.controller == gameState.activePlayer &&
-                new RegExp(`during your ${phase} phase`, 'i').test(text))
+                new RegExp(`during your ${phase} phase`, 'i').test(this.text))
         )
     }
 }
@@ -213,31 +217,38 @@ export abstract class Card extends BaseModel {
 export class CryptCard extends Card {
     minionAttrs: MinionAttributes
     vampireAttrs: VampireAttributes
+    isCrypt = true
 
     constructor(
         public gameId: GameId,
         public oid: CardOid,
-        public readonly krcgId: KrcgId,
         public ownerOid: PlayerOid,
     ) {
-        super(gameId, oid, krcgId, ownerOid)
-
-        const cardResource = this.resource
+        super(gameId, oid, ownerOid)
 
         this.minionAttrs = new MinionAttributes()
-        this.minionAttrs.capacity = cardResource.capacity
-        this.minionAttrs.disciplines = { ...cardResource.disciplines } // Clone the disciplines object
-
         this.vampireAttrs = new VampireAttributes()
-        this.vampireAttrs.clan = cardResource.clan
-        this.vampireAttrs.sect = cardResource.sect
-        this.vampireAttrs.title = cardResource.title
 
-        const implementation = CRYPT_CARD_IMPLEMENTATIONS[this.krcgId]
-        implementation?.adapt(this)
+        // TODO : Finish the knownCards/resource
+        if (this.krcgId && this.resource) {
+            const cardResource = this.resource
+
+            this.minionAttrs.capacity = cardResource.capacity
+            this.minionAttrs.disciplines = { ...cardResource.disciplines } // Clone the disciplines object
+
+            this.vampireAttrs.clan = cardResource.clan
+            this.vampireAttrs.sect = cardResource.sect
+            this.vampireAttrs.title = cardResource.title
+
+            const implementation = CRYPT_CARD_IMPLEMENTATIONS[this.krcgId]
+            implementation?.adapt(this)
+        }
     }
 
-    get resource() {
+    get resource(): CryptCardResource | undefined {
+        if (!this.krcgId) {
+            return undefined
+        }
         const resource = gameResources.cardbase[this.krcgId]
         if (!resource) {
             throw new Error(`Crypt card ${this.krcgId} not found in Card Base`)
@@ -247,24 +258,25 @@ export class CryptCard extends Card {
 }
 
 export class LibraryCard extends Card {
-    disciplines = [] as string[]
+    isCrypt = false
 
     constructor(
         public gameId: GameId,
         public oid: CardOid,
-        public readonly krcgId: KrcgId,
         public ownerOid: PlayerOid,
     ) {
-        super(gameId, oid, krcgId, ownerOid)
+        super(gameId, oid, ownerOid)
 
-        this.disciplines = this.resource.discipline.split('/')
-
-        if (this.resource.type == LibraryCardType.Ally) {
+        // TODO : Finish the knownCards/resource
+        if (this.resource && this.resource.type == LibraryCardType.Ally) {
             this.minionAttrs = new MinionAttributes()
         }
     }
 
-    get resource() {
+    get resource(): LibraryCardResource | undefined {
+        if (!this.krcgId) {
+            return undefined
+        }
         const resource = gameResources.cardbase[this.krcgId]
         if (!resource) {
             throw new Error(`Library card ${this.krcgId} not found in Card Base`)
@@ -273,23 +285,27 @@ export class LibraryCard extends Card {
     }
 
     get type() {
-        return this.resource.type
+        return this.resource?.type
     }
 
     get bloodCost() {
-        return this.resource.blood
+        return this.resource?.blood
     }
 
     get poolCost() {
-        return this.resource.pool
+        return this.resource?.pool
     }
 
     get clan() {
-        return this.resource.clan
+        return this.resource?.clan
     }
 
     get requirement() {
-        return this.resource.requirement
+        return this.resource?.requirement
+    }
+
+    get disciplines(): string[] {
+        return this.resource?.discipline.split('/') ?? []
     }
 }
 

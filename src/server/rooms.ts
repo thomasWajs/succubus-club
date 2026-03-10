@@ -2,17 +2,19 @@ import {
     EMPTY_SEATING,
     JoinRoomMessage,
     MultiplayerMessageType,
+    PermanentId,
     RoomId,
     ScsServerMessage,
     ScsSetupGameMessage,
 } from '@/shared/types/multiplayer.ts'
 import { send, sendError } from './index.ts'
 import { ConnectionInfo, Room } from './types.ts'
-import { createGameState } from './gameState.ts'
+import { createGameState, getKnownCards } from './gameState.ts'
 import { getUser, getUserConnection } from './users.ts'
 import { deleteGameState } from '@/shared/registries.ts'
 import { serializeGameState } from '@/shared/serialization.ts'
 import { GAME_STATE_VERSION } from '@/shared/const/multiplayer.ts'
+import { GameState } from '@/shared/state/gameState.ts'
 
 export class RoomNotFound extends Error {}
 
@@ -116,43 +118,57 @@ export async function handleLeaveRoom(connection: ConnectionInfo) {
  */
 export async function handleSetupGame(connection: ConnectionInfo, message: ScsSetupGameMessage) {
     const room = ensureRoom(connection.roomId)
-
     room.seating = message.seating
-
     const gameState = createGameState(room)
-    const serializedGameState = serializeGameState(gameState)
-    const serializedGame = {
-        version: GAME_STATE_VERSION,
-        gameState: serializedGameState,
-        history: {
-            stringPool: [],
-            logEntries: [],
-            gameMutations: [],
-        },
-        objectClocks: {},
-        mutationVersions: {},
-    }
 
-    broadcast(room.id, {
-        type: MultiplayerMessageType.LaunchGame,
-        serializedGame: serializedGame,
+    broadcastTailored(room.id, permId => {
+        const knownCards = getKnownCards(gameState, permId)
+        const userGameState = { ...gameState, knownCards } as GameState
+        const serializedGameState = serializeGameState(userGameState)
+        const serializedGame = {
+            version: GAME_STATE_VERSION,
+            gameState: serializedGameState,
+            history: {
+                stringPool: [],
+                logEntries: [],
+                gameMutations: [],
+            },
+            objectClocks: {},
+            mutationVersions: {},
+        }
+
+        return {
+            type: MultiplayerMessageType.LaunchGame,
+            serializedGame: serializedGame,
+        }
     })
 }
 
 /**
  * Broadcast a message to all players in a room
  */
-export function broadcast(roomId: RoomId, message: ScsServerMessage) {
-    console.log(`Broadcasting ${message.type} to room ${roomId}`)
+type MessageGetter = (permId: PermanentId) => ScsServerMessage | undefined
+
+// Broadcast with a callback to personnalize the message ( for gameState.knownCards )
+export function broadcastTailored(roomId: RoomId, getMessage: MessageGetter) {
     const room = getRoom(roomId)
     if (!room) {
         return
     }
 
+    console.log(`Broadcasting to room ${roomId}`)
+
     for (const permId of room.players.values()) {
         const connection = getUserConnection(permId)
         if (connection) {
-            send(connection.webSocket, message)
+            const message = getMessage(permId)
+            if (message) {
+                send(connection.webSocket, message)
+            }
         }
     }
+}
+
+export function broadcast(roomId: RoomId, message: ScsServerMessage) {
+    broadcastTailored(roomId, () => message)
 }

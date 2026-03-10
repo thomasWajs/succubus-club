@@ -28,6 +28,9 @@ import {
 } from '@/shared/cardImpl'
 
 function getImplementationACA(action: ActionCardFromHandAction) {
+    if (!action.card.krcgId) {
+        throw new Error('ActionCardAction has no krcgId')
+    }
     const ImplementationClass = ACTION_CARD_IMPLEMENTATIONS[action.card.krcgId]
 
     if (!ImplementationClass) {
@@ -38,6 +41,9 @@ function getImplementationACA(action: ActionCardFromHandAction) {
 }
 
 function getImplementationAM(actionModifier: ActionModifier) {
+    if (!actionModifier.card.krcgId) {
+        throw new Error('ActionCardAction has no krcgId')
+    }
     const ImplementationClass = ACTION_MODIFIER_CARD_IMPLEMENTATIONS[actionModifier.card.krcgId]
 
     if (!ImplementationClass) {
@@ -289,6 +295,10 @@ const behaviors: Partial<Behaviors> = {
             }
         },
         canDeclare(action: ActionCardFromHandAction) {
+            if (!action.card.resource) {
+                return Invalid('Action card has no resource')
+            }
+
             // Check for discipline compatibility if needed
             // For now, don't take into account multi-discipline cards
             const cardDiscipline = action.card.resource.discipline as Discipline

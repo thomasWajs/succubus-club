@@ -9,7 +9,7 @@ import { secureName } from '@/shared/state/cardVisibility.ts'
 import { ACTION_TYPES, LibraryCardType, TurnPhase } from '@/shared/const/model.ts'
 import { Player } from '@/shared/model/Player.ts'
 
-export function selfCanSee(card: Card) {
+export function selfCanSee(card: Card): boolean {
     const gameState = useGameStateStore()
     return gameState.selfPlayer ?
             // For players
@@ -18,7 +18,7 @@ export function selfCanSee(card: Card) {
         :   cardVisibility.anyoneCanSee(card)
 }
 
-export function selfCanSeeOrPeek(card: Card) {
+export function selfCanSeeOrPeek(card: Card): boolean {
     const gameState = useGameStateStore()
     return gameState.selfPlayer ?
             // For players
@@ -27,7 +27,11 @@ export function selfCanSeeOrPeek(card: Card) {
         :   cardVisibility.anyoneCanSee(card)
 }
 
-export function selfCanPlay(card: LibraryCard) {
+export function selfCanPlay(card: LibraryCard): boolean {
+    if (!card.resource) {
+        return false
+    }
+
     const gameState = useGameStateStore()
     const resource = card.resource
     // A card may have multiples types, we must check each of them
@@ -50,6 +54,6 @@ export function selfCanPlay(card: LibraryCard) {
     return false
 }
 
-export function selfSecureName(target: Card | Player) {
+export function selfSecureName(target: Card | Player): string {
     return secureName(target, useGameStateStore().selfPlayer)
 }

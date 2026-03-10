@@ -2,7 +2,7 @@ import { DeckList, KrcgId } from '@/shared/types/gateway.ts'
 import { CardResource, deckName, SetAndPrecons, setName } from '@/shared/types/resources.ts'
 import { GameId } from '@/shared/types/model.ts'
 import { GameState } from '@/shared/state/gameState.ts'
-import { stringify as stableStringify } from 'safe-stable-stringify'
+
 import {
     GameMutation,
     GameMutationClassType,
@@ -10,11 +10,6 @@ import {
 } from '@/shared/state/gameMutations.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { Validity } from '@/shared/types/state.ts'
-
-export function isCryptId(krcgId: KrcgId) {
-    // Krcg id of crypt card begins by 2, library begins by 1
-    return krcgId[0] == '2'
-}
 
 /**
  * Game Resources
@@ -88,26 +83,4 @@ export function getMutationTrigger() {
             'No mutation trigger registered. Did you forget to call registerMutationTrigger() ?',
         )
     return mutationTrigger
-}
-
-/**
- * Hash Function
- */
-
-type HashFunction = (str: string) => number
-let hashFunction: HashFunction | null = null
-
-export function registerHasher(newHasher: HashFunction) {
-    hashFunction = newHasher
-}
-
-export function hash(str: string) {
-    if (!hashFunction) {
-        throw new Error('No hash function set')
-    }
-    return hashFunction(str)
-}
-
-export function hashObject(object: object) {
-    return hash(stableStringify(object))
 }

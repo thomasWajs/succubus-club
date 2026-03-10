@@ -12,6 +12,7 @@
     "dependencies": {
         "better-sqlite3": "^12.6.0",
         "nanoid": "^5.1.6",
+        "safe-stable-stringify": "^2.5.0",
         "ws": "^8.19.0"
     },
     "devDependencies": {

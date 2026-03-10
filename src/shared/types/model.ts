@@ -1,25 +1,13 @@
-// Alias to specify the expected objects through the codebase
-
 import { CardRegion } from '@/shared/model/CardRegion.ts'
 import { Card, CryptCard, LibraryCard } from '@/shared/model/Card.ts'
 
+// Aliases to specify the expected objects through the codebase
 export type GameId = string
-
 export type ObjectId = string
-
 export type CardOid = ObjectId
-
-export type CardTexture = {
-    textureName: string
-    frameName?: string
-}
-
-// Alias to specify the expected objects through the codebase
+export type PlayerOid = ObjectId
 export type CardRegionOid = ObjectId
 export type AnyCardRegion = CardRegion<Card>
-
-// Alias to specify the expected objects through the codebase
-export type PlayerOid = ObjectId
 
 export type PlayerCardRegions = {
     // Library contains only library cards

@@ -88,7 +88,8 @@ import { CARDS_PATH } from '@/client/resources/cards.ts'
 import { Discipline, DisciplineLevel, LibraryCardType } from '@/shared/const/model.ts'
 import { DeckList, KrcgId } from '@/shared/types/gateway.ts'
 import { CryptCardResource, LibraryCardResource } from '@/shared/types/resources.ts'
-import { gameResources, isCryptId } from '@/shared/registries.ts'
+import { gameResources } from '@/shared/registries.ts'
+import { isCryptId } from '@/shared/model/Card.ts'
 
 const props = defineProps<{
     deckList: DeckList

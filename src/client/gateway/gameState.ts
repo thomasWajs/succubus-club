@@ -11,7 +11,7 @@ import {
 import { useCoreStore } from '@/client/store/core.ts'
 import { cborDecoder, cborEncoder } from '@/client/gateway/serialization.ts'
 import { SerializedMultiplayerGame } from '@/shared/types/multiplayer.ts'
-import { hashObject } from '@/shared/registries.ts'
+import { hashObject } from '@/shared/serialization.ts'
 
 type GameStateDoc = {
     encodedGame: fsBytes

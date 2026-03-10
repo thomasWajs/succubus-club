@@ -1,12 +1,13 @@
 // Register server code into shared functions
 import { setGameResources } from '@/shared/registries.ts'
+import { initWasmHasher } from '@/shared/serialization.ts'
 import { readFileSync } from 'fs'
 import { resolve } from 'path'
 
 export function initServer() {
     //registerMutationTrigger({ act, actSelf })
-    //initWasmHasher()
 
+    initWasmHasher()
     loadCardbase()
 }
 

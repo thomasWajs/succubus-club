@@ -93,7 +93,7 @@ const floatingActions = computed(() => {
         player => player.vampiresInTorpor,
     )
     const actionsInHand = actingMinion.controller.hand.cards.filter(card =>
-        ACTION_TYPES.includes(card.type),
+        card.type ? ACTION_TYPES.includes(card.type) : false,
     )
     const cardsInPlay = Object.values(gameState.cards).filter(card => card.isIn.controlled)
 

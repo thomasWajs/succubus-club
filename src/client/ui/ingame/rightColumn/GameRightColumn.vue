@@ -69,7 +69,7 @@ const closeUpCardImage = computed(() => {
     }
 
     const cardTexture = useCardTexture(closeUp.card)
-    const texture = closeUp.canView ? cardTexture.texture : cardTexture.backTexture
+    const texture = closeUp.canView ? cardTexture.texture.value : cardTexture.backTexture
     return core.phaserGame.textures.getBase64(texture.textureName, texture.frameName)
 })
 

@@ -6,6 +6,7 @@ import { useCoreStore } from '@/client/store/core.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { Card } from '@/shared/model/Card.ts'
 import { AnyCardRegion, PlayerOid } from '@/shared/types/model.ts'
+import { KnownCards } from '@/shared/types/state.ts'
 
 export class ClientGameState extends GameState {
     // May be undefined for spectators
@@ -40,6 +41,12 @@ export class ClientGameState extends GameState {
 
     get centralPlayerSeatingIndex(): number {
         return this.turnOrder.findIndex(playerOid => playerOid === this.centralPlayer.oid)
+    }
+
+    updateKnownCards(knownCards?: KnownCards) {
+        if (knownCards) {
+            this.knownCards = { ...this.knownCards, ...knownCards }
+        }
     }
 
     /**

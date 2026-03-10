@@ -6,7 +6,7 @@ import {
 import { AvatarId, DeckList } from '@/shared/types/gateway.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { CardRegion } from '@/shared/model/CardRegion.ts'
-import { PlayerVision } from '@/shared/types/state.ts'
+import { KnownCards, PlayerVision } from '@/shared/types/state.ts'
 import { Card } from '@/shared/model/Card.ts'
 import { ChatMessage, MutationHistoryEntry } from '@/shared/types/history.ts'
 import { GameState } from '@/shared/state/gameState.ts'
@@ -209,6 +209,7 @@ export type GameMutationMessage = {
     gameMutationId: GameMutationId
     globalVersion: LamportClockVersion // Always needed
     version?: VectorClockVersion // Only needed for Ordered mutations
+    knownCards?: KnownCards // Sent by the server in SCS mode
 }
 
 export type GameStateMessage = {

@@ -51,6 +51,7 @@ export function setupTrainGame() {
 
     resetState()
 
+    // noinspection JSConstantReassignment
     gameState.gameId = generateGameId()
     registerGameState(gameState.gameId, gameState)
 
@@ -76,6 +77,7 @@ export function setupTrainGame() {
     }
 
     // Random starting order
+    // noinspection JSConstantReassignment
     gameState.turnOrder = shuffleArray(gameState.turnOrder)
 
     gameState.setNewTurnResources()

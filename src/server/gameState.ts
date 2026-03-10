@@ -1,5 +1,5 @@
 import { sendError } from './index.ts'
-import { broadcast, ensureRoom, getRoom } from './rooms.ts'
+import { broadcastTailored, ensureRoom, getRoom } from './rooms.ts'
 import {
     EMPTY_SEATING,
     PermanentId,
@@ -7,11 +7,13 @@ import {
     ScsGameMutationMessage,
 } from '@/shared/types/multiplayer.ts'
 import { ConnectionInfo, RateLimitInfo, Room } from './types.ts'
-import { AnyGameMutation } from '@/shared/state/gameMutations.ts'
 import { GameState } from '@/shared/state/gameState.ts'
 import { setupMultiplayerGameState } from '@/shared/state/setup.ts'
 import { getUser } from './users.ts'
 import { getGameState } from '@/shared/registries.ts'
+import { KnownCards } from '@/shared/types/state.ts'
+import { anyoneCanSee, canSeeOrPeek } from '@/shared/state/cardVisibility.ts'
+import { unpackGameMutation } from '@/shared/serialization.ts'
 
 const RATE_LIMIT_WINDOW = 1000 // 1 second
 const RATE_LIMIT_MAX = 50 // Max mutations per window
@@ -68,19 +70,18 @@ export function getRoomGameState(roomId: RoomId): GameState | undefined {
 }
 
 /**
- * Apply a mutation to a room's game state
+ * In a game state, get cards that are known by a given user
  */
-export function applyMutation(roomId: RoomId, mutation: AnyGameMutation): void {
-    const gameState = getRoomGameState(roomId)
-
-    if (!gameState) {
-        return
+export function getKnownCards(gameState: GameState, permId: PermanentId): KnownCards {
+    const userKnownCards: KnownCards = {}
+    const playerOid = gameState.usersToPlayer[permId]
+    const player = playerOid ? gameState.players[playerOid] : undefined
+    for (const card of Object.values(gameState.cards)) {
+        if (card.krcgId && (anyoneCanSee(card) || (player && canSeeOrPeek(player, card)))) {
+            userKnownCards[card.oid] = card.krcgId
+        }
     }
-
-    // Apply the mutation
-    // For now, this is a placeholder.
-
-    console.log(`Applied mutation ${mutation.name} to room ${roomId}`)
+    return userKnownCards
 }
 
 /**
@@ -97,21 +98,26 @@ export async function handleGameMutation(
         return
     }
 
-    // Verify mutation author matches sender
-    /*
-    const mutation = message.mutation
-    if (mutation.author.permId !== connection.userId) {
-        sendError(connection.webSocket, 'Mutation author mismatch')
-        console.warn(`Mutation author mismatch: ${mutation.author.permId} !== ${connection.userId}`)
-        return
-    }
-     */
-
-    // Get room
+    // Get room and its game state
     const room = ensureRoom(connection.roomId)
 
+    if (!room.gameId) {
+        sendError(connection.webSocket, 'Game not launched')
+        console.warn(`Game not launched for user ${connection.permId} in room ${room.id}`)
+        return
+    }
+
+    const gameState = getGameState(room.gameId)
+    const mutation = unpackGameMutation(message.gameMutation)
+
+    // Verify mutation author matches sender
+    if (mutation.author.permId !== connection.permId) {
+        sendError(connection.webSocket, 'Mutation author mismatch')
+        console.warn(`Mutation author mismatch: ${mutation.author.permId} !== ${connection.permId}`)
+        return
+    }
+
     // Validate mutation
-    /*
     try {
         const validity = mutation.canApply()
         if (!validity.isValid) {
@@ -124,19 +130,15 @@ export async function handleGameMutation(
         sendError(connection.webSocket, 'Failed to validate mutation')
         return
     }
-     */
 
-    //const gameState = getGameState(message.roomId)
     // Apply mutation
-    // applyMutation(room.id, mutation)
+    mutation.apply()
+
+    console.log(`Applied mutation ${mutation.name} to room ${room.id}`)
 
     // Broadcast mutation to all players in the room
-    /*
-    const broadcastMessage: MutationBroadcast = {
-        type: 'mutation',
-        mutation: message.mutation,
-    }
-     */
-
-    broadcast(room.id, message)
+    broadcastTailored(room.id, permId => {
+        const knownCards = getKnownCards(gameState, permId)
+        return { ...message, knownCards }
+    })
 }

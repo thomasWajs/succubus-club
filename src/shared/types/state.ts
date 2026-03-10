@@ -3,6 +3,7 @@ import { Player } from '@/shared/model/Player.ts'
 import { Card, LibraryCard, Minion } from '@/shared/model/Card.ts'
 import { DisciplineLevel } from '@/shared/const/model.ts'
 import { AnyCardRegion, CardOid, CardRegionOid, PlayerOid, Point2D } from '@/shared/types/model.ts'
+import { KrcgId } from '@/shared/types/gateway.ts'
 
 export enum GameType {
     TrainBot = 'TrainBot',
@@ -170,6 +171,11 @@ export type Reaction = Declaration & {
 }
 
 /** Card Visibility **/
+
+/**
+ *  Cards known by a service ( client or server )
+ */
+export type KnownCards = Record<CardOid, KrcgId>
 
 /**
  * Store which player can or cannot see a given card.

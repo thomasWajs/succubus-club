@@ -11,13 +11,21 @@
 import Phaser from 'phaser'
 import { Scene } from 'phavuer'
 import { useGameStateStore } from '@/client/store/gameState.ts'
-import { ATLAS_FREQUENT, CARDS_PATH } from '@/client/resources/cards.ts'
-import { preloadedTextures, Texture } from '@/client/resources/textures.ts'
+import { ATLAS_FREQUENT } from '@/client/resources/cards.ts'
+import {
+    enqueueTextureLoading,
+    getFrequentCards,
+    preloadedTextures,
+    setupTextureListener,
+    Texture,
+} from '@/client/resources/textures.ts'
 import { gameResources } from '@/shared/registries.ts'
 
 const gameState = useGameStateStore()
 
 function preload(scene: Phaser.Scene) {
+    setupTextureListener(scene)
+
     for (const textureName of Object.values(Texture)) {
         scene.textures.addImage(
             textureName,
@@ -26,15 +34,17 @@ function preload(scene: Phaser.Scene) {
     }
 
     scene.textures.addAtlas(ATLAS_FREQUENT, preloadedTextures.atlasTexture, gameResources.atlasJson)
-    const frequentCards = scene.textures.get(ATLAS_FREQUENT).getFrameNames()
+    const frequentCards = getFrequentCards()
 
-    const cardsInGame = new Set<string>()
-    for (const [_, card] of Object.entries(gameState.cards)) {
-        cardsInGame.add(card.resource.imageName)
+    const knownCardsInGame = new Set<string>()
+    for (const card of Object.values(gameState.cards)) {
+        if (card.resource) {
+            knownCardsInGame.add(card.resource.imageName)
+        }
     }
-    for (const cardName of cardsInGame) {
+    for (const cardName of knownCardsInGame) {
         if (!frequentCards.includes(cardName)) {
-            scene.load.image(cardName, `${CARDS_PATH}/${cardName}.webp`)
+            enqueueTextureLoading(scene, cardName)
         }
     }
 }

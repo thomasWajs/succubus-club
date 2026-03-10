@@ -22,10 +22,10 @@ import { fetchGameState, storeGameState } from '@/client/gateway/gameState.ts'
 import { resetState } from '@/client/state/setup.ts'
 import { ChatMessage, MutationHistoryEntry } from '@/shared/types/history.ts'
 import { applyMutationLocally } from '@/client/state/gameMutations.ts'
-import { hashObject } from '@/shared/registries.ts'
 import {
     deserializeGameMutation,
     deserializeObject,
+    hashObject,
     packGameMutation,
     unpackGameMutation,
 } from '@/shared/serialization.ts'
@@ -44,14 +44,15 @@ type ReceivedMutation = {
     gameMutation: AnyGameMutation
     version: VectorClockVersion
 }
-let receivedMutations: Set<GameMutationId> = new Set()
+// Mutations already seen : sent by us, or already received
+let seenMutations: Set<GameMutationId> = new Set()
 // This is for messages that arrives out of order during a game
 let pendingOrderedMutations: ReceivedMutation[] = []
 // This is for messages received before joining or during a resync
 let pendingSyncMessage: (GameMutationMessage | SerializedChatMessage)[] = []
 
 export function resetSync() {
-    receivedMutations = new Set()
+    seenMutations = new Set()
     pendingOrderedMutations = []
     // Don't reset pendingSyncMessage here !!
 
@@ -303,6 +304,7 @@ function applyPeerMutation(gameMutation: AnyGameMutation, remoteVersion?: Vector
         return
     }
 
+    // Apply the mutation
     applyMutationLocally(gameMutation)
 
     // remoteVersion should always be defined, we checked in _unsafeReceiveMutationMessage
@@ -370,6 +372,8 @@ function _unsafeMakeMutationMessage(gameMutation: AnyGameMutation): GameMutation
         }
     }
 
+    seenMutations.add(gameMutation.id)
+
     return message
 }
 
@@ -386,13 +390,17 @@ function _unsafeReceiveMutationMessage(gameMutationMessage: GameMutationMessage)
     }
 
     const multiplayer = useMultiplayerStore()
+    const gameState = useGameStateStore()
 
     try {
+        // Always update known cards, even if we reject the mutation
+        gameState.updateKnownCards(gameMutationMessage.knownCards)
+
         // Don't process twice the same mutation
-        if (receivedMutations.has(gameMutationMessage.gameMutationId)) {
+        if (seenMutations.has(gameMutationMessage.gameMutationId)) {
             return
         }
-        receivedMutations.add(gameMutationMessage.gameMutationId)
+        seenMutations.add(gameMutationMessage.gameMutationId)
 
         // Update our global clock when we receive a non-applied remote mutation,
         // whatever the result ( pending, applied, invalid )

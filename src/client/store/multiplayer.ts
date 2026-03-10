@@ -3,9 +3,9 @@ import { useCoreStore } from '@/client/store/core.ts'
 import {
     EMPTY_SEATING,
     GameRoom,
+    PermanentId,
     RoomId,
     User,
-    UserRecord,
     VectorClockVersion,
     VersioningId,
 } from '@/shared/types/multiplayer.ts'
@@ -22,7 +22,7 @@ export const useMultiplayerStore = defineStore('multiplayer', {
          */
 
         // id ==> User
-        users: {} as UserRecord,
+        users: {} as Record<PermanentId, User>,
 
         // Fetched from firebase. avatarId  => encoded image data
         avatars: {} as Record<AvatarId, string>,

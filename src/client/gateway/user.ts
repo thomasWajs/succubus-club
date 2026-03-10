@@ -11,7 +11,7 @@ import { User } from '@/shared/types/multiplayer.ts'
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import { DbUserProfile } from '@/client/gateway/db.ts'
 import { AvatarDoc } from '@/shared/types/gateway.ts'
-import { hash } from '@/shared/registries.ts'
+import { hash } from '@/shared/serialization.ts'
 
 const avatarCollection = fsCollection(getFirestore(), 'avatars')
 

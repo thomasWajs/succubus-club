@@ -2,7 +2,6 @@ import { useGameStateStore } from '@/client/store/gameState.ts'
 import { Card, CryptCard, LibraryCard } from '@/shared/model/Card.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { CardRegion } from '@/shared/model/CardRegion.ts'
-import xxhash, { XXHashAPI } from 'xxhash-wasm'
 
 import { useHistoryStore } from '@/client/store/history.ts'
 import { useCoreStore } from '@/client/store/core.ts'
@@ -19,7 +18,7 @@ import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import { PlayerVision } from '@/shared/types/state.ts'
 import { GAME_STATE_VERSION } from '@/shared/const/multiplayer.ts'
 import { CardOid, PlayerCardRegions, PlayerOid } from '@/shared/types/model.ts'
-import { isCryptId, registerGameState, registerHasher } from '@/shared/registries.ts'
+import { registerGameState } from '@/shared/registries.ts'
 import {
     deserializeObject,
     deserializeValueRecursive,
@@ -125,11 +124,12 @@ export function loadGame(serializedGame: SerializedGame) {
     const cards = {} as Record<CardOid, Card>
 
     for (const cardData of Object.values(jsonCards)) {
-        const CardClass = isCryptId(cardData.krcgId) ? CryptCard : LibraryCard
-        const card = new CardClass(gameId, cardData.oid, cardData.krcgId, cardData.ownerOid)
+        const CardClass = cardData.isCrypt ? CryptCard : LibraryCard
+        const card = new CardClass(gameId, cardData.oid, cardData.ownerOid)
         Object.assign(card, cardData)
         cards[card.oid] = card
     }
+    // noinspection JSConstantReassignment
     gameState.cards = cards
 
     /** Deserialize Players **/
@@ -166,6 +166,7 @@ export function loadGame(serializedGame: SerializedGame) {
             // playerData.handSize,
         )
     }
+    // noinspection JSConstantReassignment
     gameState.players = players
 
     /** Deserialize Other values **/
@@ -182,24 +183,8 @@ export function loadGame(serializedGame: SerializedGame) {
 }
 
 /**
- * Hashing functions
+ * CBOR Encoding
  */
-
-let wasmHasher: XXHashAPI | null = null
-
-export function initWasmHasher() {
-    xxhash().then(_hasher_ => {
-        wasmHasher = _hasher_
-        registerHasher(wasmHash)
-    })
-}
-
-export function wasmHash(content: string) {
-    if (!wasmHasher) {
-        throw new Error('hasher not initialized')
-    }
-    return wasmHasher.h32(content)
-}
 
 export const cborEncoder = new CborEncoder()
 export const cborDecoder = new CborDecoderBase()
