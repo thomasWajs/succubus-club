@@ -2,10 +2,12 @@ import { Card, CryptCard, LibraryCard } from '@/shared/model/Card.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { BaseModel } from '@/shared/model/BaseModel.ts'
 import {
+    CardRegionVisibility,
     DEFAULT_DPA,
     DEFAULT_MPA,
     DEFAULT_TRANSFERS,
     INITIAL_POOL,
+    RegionName,
     TurnSequence,
 } from '@/shared/const/model.ts'
 import {
@@ -27,6 +29,7 @@ import {
     PlayerOid,
 } from '@/shared/types/model.ts'
 import { KrcgId } from '@/shared/types/gateway.ts'
+import { CardRegion } from '@/shared/model/CardRegion.ts'
 
 export class GameState {
     gameId: GameId = ''
@@ -104,6 +107,13 @@ export class GameState {
             }
         }
         return regions
+    }
+
+    /**
+     * An empty region, to serve as "void" placeholder for detached cards
+     */
+    get limboRegion(): AnyCardRegion {
+        return new CardRegion(this.gameId, 'limbo', RegionName.Limbo, CardRegionVisibility.Hidden)
     }
 
     /**

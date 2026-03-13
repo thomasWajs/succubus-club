@@ -19,13 +19,7 @@
         <button
             v-if="gameState.isPlayer"
             class="game-button shuffle-button"
-            @click="
-                gameMutations.shuffle.actSelf({
-                    cardRegion: cardRegion,
-                    cardsOrder: cardRegion.generateShuffledCardsOrder(),
-                    previousCardsOrder: [...cardRegion.cardsOid],
-                })
-            "
+            @click="shuffleCardRegion(cardRegion)"
         >
             Shuffle
         </button>
@@ -68,13 +62,13 @@
 </template>
 
 <script setup lang="ts">
-import { gameMutations } from '@/shared/state/gameMutations.ts'
 import { ALL_PLAYERS } from '@/shared/types/state.ts'
 import RevelationButton from '@/client/ui/ingame/RevelationButton.vue'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { CSSProperties } from 'vue'
 import { AnyCardRegion } from '@/shared/types/model.ts'
+import { shuffleCardRegion } from '@/client/state/gameMutations.ts'
 
 defineProps<{
     cardRegion: AnyCardRegion

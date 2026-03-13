@@ -162,7 +162,7 @@ export function getCardRegionDraggedOver(dragTarget: GameObjects.GameObject) {
 }
 
 export function getRegionScale(cardRegion: AnyCardRegion) {
-    return cardRegion?.owner.scale ?? DEFAULT_PLAYER_SCALE
+    return cardRegion?.owner?.scale ?? DEFAULT_PLAYER_SCALE
     // return cardRegion?.is.ready ? cardRegion?.owner.scale : 1
 }
 

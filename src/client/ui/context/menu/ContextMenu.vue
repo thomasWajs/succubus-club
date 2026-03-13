@@ -67,14 +67,7 @@
         <ContextMenuButton
             v-if="firstCard.isIn.library || firstCard.isIn.crypt"
             :closeOnClick="true"
-            :cardAction="
-                (card: Card) =>
-                    gameMutations.shuffle.actSelf({
-                        cardRegion: card.region,
-                        cardsOrder: card.region.generateShuffledCardsOrder(),
-                        previousCardsOrder: [...card.region.cardsOid],
-                    })
-            "
+            :cardAction="(card: Card) => shuffleCardRegion(card.region)"
         >
             Shuffle
         </ContextMenuButton>
@@ -117,6 +110,7 @@ import { selfCanAttemptBlock } from '@/shared/state/actionState.ts'
 import InfrequentMenuButtons from '@/client/ui/context/menu/InfrequentMenuButtons.vue'
 import { useContextSelection } from '@/client/ui/context/menu/useContextSelection.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
+import { shuffleCardRegion } from '@/client/state/gameMutations.ts'
 
 const { core, gameBus, commands, firstCard, singleCard, singleMinion } = useContextSelection()
 const gameState = useGameStateStore()

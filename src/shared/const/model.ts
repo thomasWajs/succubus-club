@@ -7,6 +7,7 @@ export enum RegionName {
     Uncontrolled = 'Uncontrolled',
     Torpor = 'Torpor',
     Ready = 'Ready',
+    Limbo = 'Limbo',
 }
 
 export enum CardRegionVisibility {

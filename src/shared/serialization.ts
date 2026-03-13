@@ -2,6 +2,7 @@ import {
     JsonValue,
     PackedGameMutation,
     Serialized,
+    SerializedCard,
     SerializedGameMutation,
     SerializedGameState,
 } from '@/shared/types/multiplayer.ts'
@@ -12,6 +13,7 @@ import { getGameState } from '@/shared/registries.ts'
 import { GameState } from '@/shared/state/gameState.ts'
 import { stringify as stableStringify } from 'safe-stable-stringify'
 import xxhash, { XXHashAPI } from 'xxhash-wasm'
+import { CryptCard, LibraryCard } from '@/shared/model/Card.ts'
 
 /**
  * Hashing functions
@@ -127,6 +129,13 @@ export function deserializeValueRecursive(value: JsonValue, gameId: GameId): unk
 
 export function deserializeObject<T = unknown>(serializedObject: Serialized<T>, gameId: GameId): T {
     return deserializeValueRecursive(serializedObject, gameId) as T
+}
+
+export function rehydrateCard(gameState: GameState, cardData: SerializedCard) {
+    const CardClass = cardData.isCrypt ? CryptCard : LibraryCard
+    const card = new CardClass(gameState.gameId, cardData.oid, cardData.ownerOid)
+    Object.assign(card, cardData)
+    gameState.cards[card.oid] = card
 }
 
 /**

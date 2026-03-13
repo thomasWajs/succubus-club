@@ -69,7 +69,7 @@ export function resetPendingSyncMessage() {
     pendingSyncMessage = []
 }
 
-function ensureClock(versioningId: VersioningId): VectorClock {
+export function ensureClock(versioningId: VersioningId): VectorClock {
     const multiplayer = useMultiplayerStore()
     multiplayer.objectClocks[versioningId] ??= new VectorClock()
     return multiplayer.objectClocks[versioningId]

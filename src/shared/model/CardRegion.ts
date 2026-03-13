@@ -3,6 +3,7 @@ import { CardRegionVisibility, RegionName } from '@/shared/const/model.ts'
 import { Card } from '@/shared/model/Card.ts'
 import { shuffleArray } from '@/shared/utils.ts'
 import { CardOid, CardRegionOid, GameId } from '@/shared/types/model.ts'
+import { Player } from '@/shared/model/Player.ts'
 
 export class CardRegion<CardType extends Card> extends BaseModel {
     constructor(
@@ -34,7 +35,7 @@ export class CardRegion<CardType extends Card> extends BaseModel {
         return this.gameState.cards[this.cardsOid[0]]
     }
 
-    get owner() {
+    get owner(): Player | undefined {
         return this.gameState.regionOwners[this.oid]
     }
 

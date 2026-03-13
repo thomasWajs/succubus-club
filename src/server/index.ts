@@ -1,6 +1,6 @@
 import { WebSocket, WebSocketServer } from 'ws'
 import { handleJoinRoom, handleLeaveRoom, handleSetupGame, leaveRoom, RoomNotFound } from './rooms'
-import { handleGameMutation } from './gameState.ts'
+import { handleGameMutation, handleShuffleCardRegion } from './gameState.ts'
 import {
     ErrorMessage,
     MultiplayerMessageType,
@@ -79,6 +79,10 @@ wsServer.on('connection', (webSocket: WebSocket) => {
 
                 case MultiplayerMessageType.GameMutation:
                     await handleGameMutation(connection, message)
+                    break
+
+                case MultiplayerMessageType.ShuffleCardRegion:
+                    await handleShuffleCardRegion(connection, message)
                     break
 
                 case MultiplayerMessageType.RequestResync:

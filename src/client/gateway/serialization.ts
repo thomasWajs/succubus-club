@@ -1,5 +1,5 @@
 import { useGameStateStore } from '@/client/store/gameState.ts'
-import { Card, CryptCard, LibraryCard } from '@/shared/model/Card.ts'
+import { Card } from '@/shared/model/Card.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { CardRegion } from '@/shared/model/CardRegion.ts'
 
@@ -17,11 +17,12 @@ import {
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import { PlayerVision } from '@/shared/types/state.ts'
 import { GAME_STATE_VERSION } from '@/shared/const/multiplayer.ts'
-import { CardOid, PlayerCardRegions, PlayerOid } from '@/shared/types/model.ts'
+import { PlayerCardRegions, PlayerOid } from '@/shared/types/model.ts'
 import { registerGameState } from '@/shared/registries.ts'
 import {
     deserializeObject,
     deserializeValueRecursive,
+    rehydrateCard,
     serializeGameState,
     serializeObject,
     serializeValueRecursive,
@@ -114,23 +115,15 @@ export function loadGame(serializedGame: SerializedGame) {
     }
 
     const gameState = useGameStateStore()
-
     const gameStateData = serializedGame.gameState
     const gameId = gameStateData.gameId as string
     registerGameState(gameId, gameState)
 
     /** Deserialize Cards **/
     const jsonCards = gameStateData.cards
-    const cards = {} as Record<CardOid, Card>
-
     for (const cardData of Object.values(jsonCards)) {
-        const CardClass = cardData.isCrypt ? CryptCard : LibraryCard
-        const card = new CardClass(gameId, cardData.oid, cardData.ownerOid)
-        Object.assign(card, cardData)
-        cards[card.oid] = card
+        rehydrateCard(gameState, cardData)
     }
-    // noinspection JSConstantReassignment
-    gameState.cards = cards
 
     /** Deserialize Players **/
     type PlayerCardRegionsKey = keyof PlayerCardRegions

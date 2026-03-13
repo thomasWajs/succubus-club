@@ -107,6 +107,7 @@ export function useCardDragDrop(
         // No card grouping possible if the card is already in a group
         if (
             !cardGroupingEnabled.value ||
+            !cardRegion.owner ||
             cardRegion.owner.oid != gameState.selfPlayer?.oid ||
             !cardRegion.is.ready ||
             gameBus.selectedCards.length > 1 ||

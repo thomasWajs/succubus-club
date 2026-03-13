@@ -10,7 +10,7 @@ import { KnownCards, PlayerVision } from '@/shared/types/state.ts'
 import { Card } from '@/shared/model/Card.ts'
 import { ChatMessage, MutationHistoryEntry } from '@/shared/types/history.ts'
 import { GameState } from '@/shared/state/gameState.ts'
-import { GameId } from '@/shared/types/model.ts'
+import { GameId, ObjectId } from '@/shared/types/model.ts'
 
 /**
  * Types for user matching
@@ -107,7 +107,7 @@ export type Serialized<T> = JsonValue & {
 }
 
 export type SerializedPlayer = Serialized<Player>
-type SerializedCard = Serialized<Card>
+export type SerializedCard = Serialized<Card>
 export type SerializedCardRegion = Serialized<CardRegion<Card>>
 
 type GameStateKey = keyof GameState
@@ -187,6 +187,7 @@ export enum MultiplayerMessageType {
     LaunchGame = 'LaunchGame',
 
     GameMutation = 'GameMutation',
+    ShuffleCardRegion = 'ShuffleCardRegion',
     RequestResync = 'RequestResync',
     GameState = 'GameState', // Send a whole game state
 
@@ -280,6 +281,13 @@ export type ScsGameMutationMessage = GameMutationMessage & {
     type: MultiplayerMessageType.GameMutation
 }
 
+export type ScsShuffleCardRegionMessage = {
+    type: MultiplayerMessageType.ShuffleCardRegion
+    cardRegionOid: ObjectId
+    globalVersion: LamportClockVersion
+    version: VectorClockVersion
+}
+
 export type ScsRequestResyncMessage = {
     type: MultiplayerMessageType.RequestResync
 }
@@ -291,6 +299,7 @@ export type ScsClientMessage =
     | RollSeatingMessage
     | ScsSetupGameMessage
     | ScsGameMutationMessage
+    | ScsShuffleCardRegionMessage
     | ScsRequestResyncMessage
 
 // Server → Client messages

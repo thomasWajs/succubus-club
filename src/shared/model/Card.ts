@@ -99,7 +99,7 @@ export abstract class Card extends BaseModel {
     }
 
     get region() {
-        return this.gameState.cardLocations[this.oid]
+        return this.gameState.cardLocations[this.oid] ?? this.gameState.limboRegion
     }
 
     // Shortcuts to check this card's region

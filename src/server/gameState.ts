@@ -2,9 +2,11 @@ import { sendError } from './index.ts'
 import { broadcastTailored, ensureRoom, getRoom } from './rooms.ts'
 import {
     EMPTY_SEATING,
+    MultiplayerMessageType,
     PermanentId,
     RoomId,
     ScsGameMutationMessage,
+    ScsShuffleCardRegionMessage,
 } from '@/shared/types/multiplayer.ts'
 import { ConnectionInfo, RateLimitInfo, Room } from './types.ts'
 import { GameState } from '@/shared/state/gameState.ts'
@@ -13,8 +15,12 @@ import { getUser } from './users.ts'
 import { getGameState } from '@/shared/registries.ts'
 import { KnownCards } from '@/shared/types/state.ts'
 import { anyoneCanSee, canSeeOrPeek } from '@/shared/state/cardVisibility.ts'
-import { unpackGameMutation } from '@/shared/serialization.ts'
+import { packGameMutation, unpackGameMutation } from '@/shared/serialization.ts'
 import * as persistence from './persistence.ts'
+import { generateCardOid } from '@/shared/state/ids.ts'
+import { CardOid } from '@/shared/types/model.ts'
+import { gameMutations } from '@/shared/state/gameMutations.ts'
+import { shuffleArray } from '@/shared/utils.ts'
 
 const RATE_LIMIT_WINDOW = 1000 // 1 second
 const RATE_LIMIT_MAX = 50 // Max mutations per window
@@ -71,19 +77,42 @@ export function getRoomGameState(roomId: RoomId): GameState | undefined {
     }
 }
 
+export function getPlayer(gameState: GameState, permId: PermanentId) {
+    const playerOid = gameState.usersToPlayer[permId]
+    return playerOid ? gameState.players[playerOid] : undefined
+}
+
 /**
  * In a game state, get cards that are known by a given user
  */
 export function getKnownCards(gameState: GameState, permId: PermanentId): KnownCards {
     const userKnownCards: KnownCards = {}
-    const playerOid = gameState.usersToPlayer[permId]
-    const player = playerOid ? gameState.players[playerOid] : undefined
+    const player = getPlayer(gameState, permId)
     for (const card of Object.values(gameState.cards)) {
         if (card.krcgId && (anyoneCanSee(card) || (player && canSeeOrPeek(player, card)))) {
             userKnownCards[card.oid] = card.krcgId
         }
     }
     return userKnownCards
+}
+
+function validateBeforeMutation(connection: ConnectionInfo) {
+    // Check rate limit
+    if (!checkRateLimit(connection.permId)) {
+        console.warn(`Rate limit exceeded for user ${connection.permId}`)
+        throw new Error('Rate limit exceeded')
+    }
+
+    // Get room and its game state
+    const room = ensureRoom(connection.roomId)
+
+    if (!room.gameId) {
+        console.warn(`Game not launched for user ${connection.permId} in room ${room.id}`)
+        throw new Error('Game not launched')
+    }
+
+    const gameState = getGameState(room.gameId)
+    return { room, gameState }
 }
 
 /**
@@ -93,57 +122,123 @@ export async function handleGameMutation(
     connection: ConnectionInfo,
     message: ScsGameMutationMessage,
 ) {
-    // Check rate limit
-    if (!checkRateLimit(connection.permId)) {
-        sendError(connection.webSocket, 'Rate limit exceeded')
-        console.warn(`Rate limit exceeded for user ${connection.permId}`)
-        return
-    }
-
-    // Get room and its game state
-    const room = ensureRoom(connection.roomId)
-
-    if (!room.gameId) {
-        sendError(connection.webSocket, 'Game not launched')
-        console.warn(`Game not launched for user ${connection.permId} in room ${room.id}`)
-        return
-    }
-
-    const gameState = getGameState(room.gameId)
-    const mutation = unpackGameMutation(message.gameMutation)
-
-    // Verify mutation author matches sender
-    if (mutation.author.permId !== connection.permId) {
-        sendError(connection.webSocket, 'Mutation author mismatch')
-        console.warn(`Mutation author mismatch: ${mutation.author.permId} !== ${connection.permId}`)
-        return
-    }
-
-    // Validate mutation
     try {
+        let { room, gameState } = validateBeforeMutation(connection)
+
+        const mutation = unpackGameMutation(message.gameMutation)
+
+        // Verify mutation author matches sender
+        if (mutation.author.permId !== connection.permId) {
+            console.warn(
+                `Mutation author mismatch: ${mutation.author.permId} !== ${connection.permId}`,
+            )
+            throw new Error('Mutation author mismatch')
+        }
+
+        // Validate mutation
         const validity = mutation.canApply()
         if (!validity.isValid) {
-            sendError(connection.webSocket, `Invalid mutation: ${validity.reason}`)
             console.warn(`Invalid mutation: ${validity.reason}`)
-            return
+            throw new Error(`Invalid mutation: ${validity.reason}`)
         }
+
+        // Apply mutation
+        mutation.apply()
+
+        console.log(`Applied mutation ${mutation.name} to room ${room.id}`)
+
+        // Persist updated game state
+        persistence.saveGameState(gameState)
+
+        // Broadcast mutation to all players in the room
+        broadcastTailored(room.id, permId => {
+            const knownCards = getKnownCards(gameState, permId)
+            return { ...message, knownCards }
+        })
     } catch (error) {
-        console.error('Error validating mutation:', error)
-        sendError(connection.webSocket, 'Failed to validate mutation')
-        return
+        sendError(connection.webSocket, `${error}`)
     }
+}
 
-    // Apply mutation
-    mutation.apply()
+/**
+ * Handle shuffle request from client
+ */
+export async function handleShuffleCardRegion(
+    connection: ConnectionInfo,
+    message: ScsShuffleCardRegionMessage,
+) {
+    try {
+        const { room, gameState } = validateBeforeMutation(connection)
 
-    console.log(`Applied mutation ${mutation.name} to room ${room.id}`)
+        const cardRegion = gameState.cardRegions[message.cardRegionOid]
+        const player = getPlayer(gameState, connection.permId)
 
-    // Persist updated game state
-    persistence.saveGameState(gameState)
+        if (!cardRegion) {
+            throw new Error('Card region not found')
+        }
+        if (!player) {
+            throw new Error('Player not found')
+        }
 
-    // Broadcast mutation to all players in the room
-    broadcastTailored(room.id, permId => {
-        const knownCards = getKnownCards(gameState, permId)
-        return { ...message, knownCards }
-    })
+        console.log(`Shuffling ${cardRegion.name} for room ${room.id}`)
+
+        // Generate new OIDs for all cards in the region
+        const newOidArray: CardOid[] = []
+        for (const oldOid of cardRegion.cardsOid) {
+            const newOid = generateCardOid()
+            newOidArray.push(newOid)
+            const card = gameState.cards[oldOid]
+            if (card) {
+                // Update the card's oid
+                card.oid = newOid
+                // Move the card to the new key
+                gameState.cards[newOid] = card
+                delete gameState.cards[oldOid]
+
+                if (gameState.knownCards[oldOid]) {
+                    gameState.knownCards[newOid] = gameState.knownCards[oldOid]
+                    delete gameState.knownCards[oldOid]
+                }
+
+                if (oldOid in gameState.revelations) {
+                    gameState.revelations[newOid] = gameState.revelations[oldOid]
+                    delete gameState.revelations[oldOid]
+                }
+            }
+        }
+
+        // Generate shuffled order with new OIDs
+        const shuffledOrder = shuffleArray(newOidArray)
+
+        console.log(`Shuffled ${cardRegion.name}: ${shuffledOrder.length} cards`)
+
+        // Serialize the shuffled cards
+        const serializedShuffledCards = shuffledOrder.map(newOid =>
+            JSON.parse(JSON.stringify(gameState.cards[newOid])),
+        )
+
+        const shuffleMutation = gameMutations.shuffle.createMutation(player, {
+            cardRegion,
+            previousCardsOrder: [...cardRegion.cardsOid],
+            cardsOrder: shuffledOrder,
+            shuffledCards: serializedShuffledCards,
+        })
+
+        const packedShuffleMutation = packGameMutation(shuffleMutation)
+        // Packing will transform cards into their oid, we need to override this behaviour
+        packedShuffleMutation.p.shuffledCards = serializedShuffledCards
+
+        const mutationMessage: ScsGameMutationMessage = {
+            type: MultiplayerMessageType.GameMutation,
+            gameMutation: packedShuffleMutation,
+            gameMutationId: shuffleMutation.id,
+            globalVersion: message.globalVersion,
+            version: message.version,
+        }
+
+        // Apply mutation through the normal pipeline (validates, applies, persists, broadcasts)
+        await handleGameMutation(connection, mutationMessage)
+    } catch (error) {
+        sendError(connection.webSocket, `${error}`)
+    }
 }

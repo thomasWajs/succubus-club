@@ -9,6 +9,7 @@ import {
     GameMutation,
     GameMutationClassType,
     GameMutationParams,
+    gameMutations,
     PingCard,
     ResolveAction,
     ResolveBlock,
@@ -18,6 +19,10 @@ import { useGameStateStore } from '@/client/store/gameState.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { MutationHistoryEntry } from '@/shared/types/history.ts'
 import { deserializeGameMutation } from '@/shared/serialization.ts'
+import { AnyCardRegion } from '@/shared/types/model.ts'
+import { CommunicationMode } from '@/shared/types/multiplayer.ts'
+import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
+import { sendShuffleRequest } from '@/client/multiplayer/communication/scs.ts'
 
 /**
  * Apply the mutation locally, if it's valid.
@@ -116,4 +121,29 @@ export function cancelMutation(mutationEntry: MutationHistoryEntry) {
     }
     const mutation = deserializeGameMutation(mutationEntry.serializedMutation)
     dispatchMutation(mutation.getCancelMutation())
+}
+
+/**
+ * Shuffle Card Region
+ */
+
+export async function shuffleCardRegion(cardRegion: AnyCardRegion) {
+    const core = useCoreStore()
+    const multiplayer = useMultiplayerStore()
+
+    // For SCS mode, request server-side shuffle
+    if (core.gameType == GameType.Multiplayer) {
+        const gameRoom = multiplayer.currentGameRoom
+        if (gameRoom && gameRoom.communication == CommunicationMode.SCS) {
+            await sendShuffleRequest(cardRegion)
+            return
+        }
+    }
+
+    // For other modes, use client-side shuffle
+    gameMutations.shuffle.actSelf({
+        cardRegion,
+        cardsOrder: cardRegion.generateShuffledCardsOrder(),
+        previousCardsOrder: [...cardRegion.cardsOid],
+    })
 }

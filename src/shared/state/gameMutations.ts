@@ -26,7 +26,12 @@ import {
     VALID,
     Validity,
 } from '@/shared/types/state.ts'
-import { MutationSyncMode, VersioningId, VersioningTarget } from '@/shared/types/multiplayer.ts'
+import {
+    MutationSyncMode,
+    SerializedCard,
+    VersioningId,
+    VersioningTarget,
+} from '@/shared/types/multiplayer.ts'
 import { isRevealedToViewer, secureName } from '@/shared/state/cardVisibility.ts'
 import { useTimer } from '@/shared/state/useTimer.ts'
 import {
@@ -40,7 +45,7 @@ import * as actions from '@/shared/state/minionActions.ts'
 import { GameState } from '@/shared/state/gameState.ts'
 import { AnyCardRegion, CardOid, GameId } from '@/shared/types/model.ts'
 import { getGameState, getMutationTrigger } from '@/shared/registries.ts'
-import { hashObject, serializeObject } from '@/shared/serialization.ts'
+import { hashObject, rehydrateCard, serializeObject } from '@/shared/serialization.ts'
 
 export type GameMutationId = number
 export interface GameMutationParams {
@@ -53,7 +58,7 @@ export abstract class GameMutation<ParamsType extends GameMutationParams> {
     readonly id: GameMutationId // Used to identify mutation when cancelling it
     abstract readonly syncMode: MutationSyncMode
 
-    isUserCancellable = true
+    _isUserCancellable = true
     isIgnoredForCancel = false
     cancelToResolveConflict = false // will be set to true if the mutation is cancelled to resolve a conflict
 
@@ -100,8 +105,13 @@ export abstract class GameMutation<ParamsType extends GameMutationParams> {
         }
         return this._versioningId
     }
+
     protected get _versioningId(): VersioningId {
         return ''
+    }
+
+    get isUserCancellable() {
+        return this._isUserCancellable
     }
 
     /**
@@ -723,7 +733,7 @@ class Influence extends ChangeCounterMutation {
 type MoveCardParams = CardMovement
 
 class MoveCard extends GameMutation<MoveCardParams> {
-    isUserCancellable = false
+    _isUserCancellable = false
     isIgnoredForCancel = true
     readonly syncMode = MutationSyncMode.Ordered
     declare public previousState: Omit<CardMovement, 'card'>
@@ -830,7 +840,7 @@ class MoveCardToRegion extends GameMutation<MoveCardToRegionParams> {
             }
         }
 
-        return `Move ${CARD_LOG_PLACEHOLDER} from ${this.params.fromCardRegion.owner.name}'s ${this.params.fromCardRegion.name} to ${this.params.toCardRegion.owner.name}'s ${this.params.toCardRegion.name}`
+        return `Move ${CARD_LOG_PLACEHOLDER} from ${this.params.fromCardRegion.owner?.name}'s ${this.params.fromCardRegion.name} to ${this.params.toCardRegion.owner?.name}'s ${this.params.toCardRegion.name}`
     }
 
     get card() {
@@ -1012,7 +1022,7 @@ class Reveal extends GameMutation<RevealParams> {
             this.params.target instanceof CardRegion ?
                 this.params.target
             :   this.params.target.region
-        const cardRegionString = `${cardRegion.owner.name}'s ${cardRegion.name}`
+        const cardRegionString = `${cardRegion.owner?.name}'s ${cardRegion.name}`
 
         let verb, particle
         if (isRevealedToViewer(this.params.target, this.params.viewer)) {
@@ -1123,21 +1133,41 @@ interface ShuffleParams extends GameMutationParams {
     cardRegion: AnyCardRegion
     previousCardsOrder: CardOid[]
     cardsOrder: CardOid[]
+    shuffledCards?: SerializedCard[] // Serialized card objects with new OIDs (for server-side shuffle)
 }
 
-class Shuffle extends GameMutation<ShuffleParams> {
+export class Shuffle extends GameMutation<ShuffleParams> {
     readonly syncMode = MutationSyncMode.Ordered
+
+    // Cannot cancel shuffling when it's done server-side
+    get isUserCancellable() {
+        return this.params.shuffledCards === undefined
+    }
 
     protected get _versioningId(): VersioningId {
         return `${VersioningTarget.Shuffle}-${this.params.cardRegion.oid}`
     }
 
-    protected updateGameState() {
+    protected updateGameState(gameState: GameState) {
+        // If shuffledCards provided (server-side shuffle with new OIDs)
+        if (this.params.shuffledCards) {
+            // Remove old cards from gameState.cards
+            for (const oldOid of this.params.previousCardsOrder) {
+                delete gameState.cards[oldOid]
+            }
+
+            // Add cards with new OIDs to gameState.cards
+            for (const cardData of this.params.shuffledCards) {
+                rehydrateCard(gameState, cardData)
+            }
+        }
+
+        // Apply the shuffled order
         this.params.cardRegion.cardsOid = this.params.cardsOrder
     }
 
     formatForLog() {
-        return `${this.cancelsMutationId ? 'Rewind shuffle' : 'Shuffle'} ${this.params.cardRegion.owner.name}'s ${this.params.cardRegion.name}`
+        return `${this.cancelsMutationId ? 'Rewind shuffle' : 'Shuffle'} ${this.params.cardRegion.owner?.name}'s ${this.params.cardRegion.name}`
     }
 
     getCancelMutation(): AnyGameMutation {
@@ -1318,7 +1348,7 @@ interface DeclareActionModifierParams extends GameMutationParams {
 }
 
 class DeclareActionModifier extends GameMutation<DeclareActionModifierParams> {
-    isUserCancellable = false
+    _isUserCancellable = false
     readonly syncMode = MutationSyncMode.Exclusive
 
     get allowedPlayer() {
@@ -1361,7 +1391,7 @@ interface DeclareBlockParams extends GameMutationParams {
 }
 
 class DeclareBlock extends GameMutation<DeclareBlockParams> {
-    isUserCancellable = false
+    _isUserCancellable = false
     readonly syncMode = MutationSyncMode.Exclusive
 
     get allowedPlayer() {
@@ -1402,7 +1432,7 @@ interface DeclareReactionParams extends GameMutationParams {
 }
 
 class DeclareReaction extends GameMutation<DeclareReactionParams> {
-    isUserCancellable = false
+    _isUserCancellable = false
     readonly syncMode = MutationSyncMode.Exclusive
 
     get allowedPlayer() {
@@ -1438,7 +1468,7 @@ class DeclareReaction extends GameMutation<DeclareReactionParams> {
  */
 
 class EndAction extends GameMutation<EmptyParams> {
-    isUserCancellable = false
+    _isUserCancellable = false
     readonly syncMode = MutationSyncMode.Merge
     declare public previousState: { actionName: string }
 
@@ -1466,7 +1496,7 @@ class EndAction extends GameMutation<EmptyParams> {
  */
 
 export class ResolveAction extends GameMutation<EmptyParams> {
-    isUserCancellable = false
+    _isUserCancellable = false
     readonly syncMode = MutationSyncMode.Exclusive
     declare public previousState: { actionName: string }
 
@@ -1498,7 +1528,7 @@ export class ResolveAction extends GameMutation<EmptyParams> {
  */
 
 export class ResolveBlock extends GameMutation<EmptyParams> {
-    isUserCancellable = false
+    _isUserCancellable = false
     readonly syncMode = MutationSyncMode.Exclusive
 
     get allowedPlayer() {
