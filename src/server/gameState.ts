@@ -14,6 +14,7 @@ import { getGameState } from '@/shared/registries.ts'
 import { KnownCards } from '@/shared/types/state.ts'
 import { anyoneCanSee, canSeeOrPeek } from '@/shared/state/cardVisibility.ts'
 import { unpackGameMutation } from '@/shared/serialization.ts'
+import * as persistence from './persistence.ts'
 
 const RATE_LIMIT_WINDOW = 1000 // 1 second
 const RATE_LIMIT_MAX = 50 // Max mutations per window
@@ -56,6 +57,7 @@ export function createGameState(room: Room): GameState {
     const seatedUsers = room.seating.map(permId => getUser(permId))
     setupMultiplayerGameState(gameState, seatedUsers)
     room.gameId = gameState.gameId
+    persistence.saveGameState(gameState)
     return gameState
 }
 
@@ -135,6 +137,9 @@ export async function handleGameMutation(
     mutation.apply()
 
     console.log(`Applied mutation ${mutation.name} to room ${room.id}`)
+
+    // Persist updated game state
+    persistence.saveGameState(gameState)
 
     // Broadcast mutation to all players in the room
     broadcastTailored(room.id, permId => {

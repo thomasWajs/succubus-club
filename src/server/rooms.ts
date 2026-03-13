@@ -11,15 +11,24 @@ import { send, sendError } from './index.ts'
 import { ConnectionInfo, Room } from './types.ts'
 import { createGameState, getKnownCards } from './gameState.ts'
 import { getUser, getUserConnection } from './users.ts'
-import { deleteGameState } from '@/shared/registries.ts'
 import { serializeGameState } from '@/shared/serialization.ts'
 import { GAME_STATE_VERSION } from '@/shared/const/multiplayer.ts'
 import { GameState } from '@/shared/state/gameState.ts'
+import * as persistence from './persistence.ts'
 
 export class RoomNotFound extends Error {}
 
 // Active rooms
 const rooms = new Map<RoomId, Room>()
+
+/**
+ * Restore rooms from persistence
+ */
+export function restoreRooms(persistedRooms: Room[]): void {
+    for (const room of persistedRooms) {
+        rooms.set(room.id, room)
+    }
+}
 
 /**
  * Get room by ID
@@ -56,6 +65,7 @@ export function getOrCreateRoom(roomId: RoomId, passwordHash: string): Room {
             gameId: null,
         }
         rooms.set(roomId, room)
+        persistence.saveRoom(room)
         console.log(`Created room: ${roomId}`)
     }
     return room
@@ -75,7 +85,10 @@ export function leaveRoom(connection: ConnectionInfo): Room | undefined {
 
     // If room is empty, delete it
     if (room.players.size === 0) {
-        deleteGameState(room.id)
+        if (room.gameId) {
+            persistence.deleteGameState(room.gameId)
+        }
+        persistence.deleteRoom(room.id)
         rooms.delete(room.id)
         console.log(`Deleted empty room: ${room.id}`)
     }
@@ -119,6 +132,7 @@ export async function handleLeaveRoom(connection: ConnectionInfo) {
 export async function handleSetupGame(connection: ConnectionInfo, message: ScsSetupGameMessage) {
     const room = ensureRoom(connection.roomId)
     room.seating = message.seating
+    persistence.saveRoom(room)
     const gameState = createGameState(room)
 
     broadcastTailored(room.id, permId => {

@@ -27,7 +27,13 @@ coverage
 *.sln
 *.sw?
 
+# Typescript build
 *.tsbuildinfo
+
+#Server persistence
+*.db
+*.db-shm
+*.db-wal
 
 # Sentry Config File
 .env.sentry-build-plugin
