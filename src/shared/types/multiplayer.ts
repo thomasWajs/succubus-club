@@ -24,8 +24,9 @@ export type User = {
     name: string
     avatarId: AvatarId | null
     isReady: boolean
-    deckList: DeckList | null
 }
+
+export type UserDecks = Record<PermanentId, DeckList>
 
 export enum CommunicationMode {
     Ably = 'Ably', // Direct messaging through Ably
@@ -179,6 +180,8 @@ export enum MultiplayerMessageType {
     JoinRoom = 'JoinRoom',
     LeaveRoom = 'LeaveRoom',
 
+    Deck = 'Deck',
+
     RollSeating = 'RollSeating',
     PickSeat = 'PickSeat',
     LeaveSeat = 'LeaveSeat',
@@ -194,6 +197,11 @@ export enum MultiplayerMessageType {
     Chat = 'Chat',
 
     Error = 'Error',
+}
+
+export type DeckMessage = {
+    permId: PermanentId
+    deckList: DeckList // Full deck or card counts (SCS-to-client)
 }
 
 export type PickSeatMessage = {
@@ -237,6 +245,7 @@ export type AblyRequestResyncMessage = {
 }
 
 export type AblyMessage =
+    | DeckMessage
     | AblyLaunchGameMessage
     | PickSeatMessage
     | LeaveSeatMessage
@@ -254,8 +263,11 @@ export type SetUserMessage = {
     type: MultiplayerMessageType.SetUser
     permId: PermanentId
     name: string
-    deckList: DeckList | null
     isReady: boolean
+}
+
+export type ScsDeckMessage = DeckMessage & {
+    type: MultiplayerMessageType.Deck
 }
 
 export type JoinRoomMessage = {
@@ -294,6 +306,7 @@ export type ScsRequestResyncMessage = {
 
 export type ScsClientMessage =
     | SetUserMessage
+    | ScsDeckMessage
     | JoinRoomMessage
     | LeaveRoomMessage
     | RollSeatingMessage
@@ -308,4 +321,8 @@ export type ScsLaunchGameMessage = {
     serializedGame: SerializedMultiplayerGame
 }
 
-export type ScsServerMessage = ScsLaunchGameMessage | ScsGameMutationMessage | ErrorMessage
+export type ScsServerMessage =
+    | ScsDeckMessage
+    | ScsLaunchGameMessage
+    | ScsGameMutationMessage
+    | ErrorMessage

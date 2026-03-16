@@ -250,8 +250,6 @@ function applyPeerMutation(gameMutation: AnyGameMutation, remoteVersion?: Vector
 
         // There's a conflict to resolve
         if (clock.compare(remoteVersion) == ClockCompare.Concurrent) {
-            multiplayer.stats.conflicts++
-
             const localConflictingMutationEntries = getConflictingMutations(
                 gameMutation.versioningId,
                 remoteVersion,
@@ -428,7 +426,6 @@ function _unsafeReceiveMutationMessage(gameMutationMessage: GameMutationMessage)
             // Buffer out-of-order mutations
             if (!canApplyOrderedMutation(receivedMutation)) {
                 pendingOrderedMutations.push(receivedMutation)
-                multiplayer.stats.pendingMutations++
                 return
             }
         }

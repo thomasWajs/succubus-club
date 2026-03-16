@@ -9,11 +9,7 @@ import {
 import { Key } from '@/client/multiplayer/encryption.ts'
 import { getScsClient, MessageHandler } from '@/client/gateway/realtime.ts'
 import ablyCommunication from '@/client/multiplayer/communication/ably.ts'
-import {
-    ensureGameRoom,
-    receiveGameMutation,
-    receiveLaunchGame,
-} from '@/client/multiplayer/room.ts'
+import { ensureGameRoom, receiveLaunchGame } from '@/client/multiplayer/room.ts'
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import { Communication } from '@/client/multiplayer/communication/index.ts'
 import { AnyCardRegion } from '@/shared/types/model.ts'
@@ -39,7 +35,6 @@ export const scsCommunication: ScsCommunication = {
             type: MultiplayerMessageType.SetUser,
             permId: multiplayer.selfUser.permId,
             name: multiplayer.selfUser.name,
-            deckList: multiplayer.selfUser.deckList,
             isReady: multiplayer.selfUser.isReady,
         })
     },
@@ -65,6 +60,18 @@ export const scsCommunication: ScsCommunication = {
     async subscribe<T>(messageType: MultiplayerMessageType, handler: MessageHandler<T>) {
         const scs = getScsClient()
         scs.on(messageType, handler)
+    },
+
+    async sendDeck() {
+        const multiplayer = useMultiplayerStore()
+        if (!multiplayer.selfDeck) {
+            return
+        }
+        getScsClient().send({
+            type: MultiplayerMessageType.Deck,
+            permId: multiplayer.selfUser.permId,
+            deckList: multiplayer.selfDeck,
+        })
     },
 
     rollSeating() {
@@ -94,10 +101,6 @@ export const scsCommunication: ScsCommunication = {
             type: MultiplayerMessageType.GameMutation,
             ...message,
         })
-    },
-
-    async onReceiveGameMutation(message: GameMutationMessage) {
-        await receiveGameMutation(message)
     },
 
     async requestResyncGameState() {

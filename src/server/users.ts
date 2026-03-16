@@ -26,9 +26,9 @@ export function removeUser(permId: PermanentId) {
  * Handle user setting its data
  */
 export async function handleSetUser(connection: ConnectionInfo, message: SetUserMessage) {
-    const { permId, name, deckList, isReady } = message
+    const { permId, name, isReady } = message
     connection.permId = permId
-    const user = { permId, name, deckList, isReady, avatarId: null }
+    const user = { permId, name, isReady, avatarId: null }
     addUser(permId, user, connection)
     console.log(`Player ${name} set their data.`)
 }

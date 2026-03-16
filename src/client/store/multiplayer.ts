@@ -6,13 +6,14 @@ import {
     PermanentId,
     RoomId,
     User,
+    UserDecks,
     VectorClockVersion,
     VersioningId,
 } from '@/shared/types/multiplayer.ts'
 import { LamportClock, VectorClock } from '@/shared/multiplayer/clock.ts'
 import { GameMutationId } from '@/shared/state/gameMutations.ts'
 import { fetchAvatar } from '@/client/gateway/user.ts'
-import { AvatarId } from '@/shared/types/gateway.ts'
+import { AvatarId, DeckList } from '@/shared/types/gateway.ts'
 import { MutationHistoryEntry } from '@/shared/types/history.ts'
 
 export const useMultiplayerStore = defineStore('multiplayer', {
@@ -26,6 +27,9 @@ export const useMultiplayerStore = defineStore('multiplayer', {
 
         // Fetched from firebase. avatarId  => encoded image data
         avatars: {} as Record<AvatarId, string>,
+
+        // Known decklists of users in the room
+        userDecks: {} as UserDecks,
 
         // RoomId ==> GameRoom
         gameRooms: {} as Record<RoomId, GameRoom>,
@@ -53,15 +57,6 @@ export const useMultiplayerStore = defineStore('multiplayer', {
         // Maintains a map of recent ordered mutations per versioningId that could potentially
         // conflict with incoming mutations. This avoids scanning the entire history.
         conflictWindows: {} as Record<VersioningId, MutationHistoryEntry[]>,
-
-        /** Simple stats to get insights on crashes */
-
-        stats: {
-            pendingMutations: 0,
-            conflicts: 0,
-            peerJoins: 0,
-            peerLeaves: 0,
-        },
     }),
     getters: {
         selfUser: (state): User => {
@@ -71,8 +66,11 @@ export const useMultiplayerStore = defineStore('multiplayer', {
                 name: core.userProfile.playerName,
                 avatarId: core.userProfile.avatarFirebaseId,
                 isReady: state.selfIsReady,
-                deckList: core.selfDeck?.cards ?? null,
             }
+        },
+
+        selfDeck: (): DeckList | null => {
+            return useCoreStore().selfDeck?.cards ?? null
         },
 
         hasJoinedLobby: (state): boolean => useCoreStore().userProfile.permanentId in state.users,
@@ -112,7 +110,7 @@ export const useMultiplayerStore = defineStore('multiplayer', {
         },
 
         areAllUsersReady(): boolean {
-            return this.gameRoomUsers.every(user => user.isReady && user.deckList)
+            return this.gameRoomUsers.every(user => user.isReady && this.userDecks[user.permId])
         },
         isSeatingReady(): boolean {
             if (

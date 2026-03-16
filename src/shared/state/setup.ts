@@ -9,7 +9,7 @@ import {
 } from '@/shared/const/game.ts'
 import { registerGameState } from '@/shared/registries.ts'
 import { GameState } from '@/shared/state/gameState.ts'
-import { User } from '@/shared/types/multiplayer.ts'
+import { User, UserDecks } from '@/shared/types/multiplayer.ts'
 import { generateGameId } from '@/shared/state/ids.ts'
 import { isCryptId } from '@/shared/model/Card.ts'
 
@@ -47,7 +47,11 @@ export function setupPlayArea(gameState: GameState, player: Player, deckList: De
     }
 }
 
-export function setupMultiplayerGameState(gameState: GameState, seatedUsers: (User | undefined)[]) {
+export function setupMultiplayerGameState(
+    gameState: GameState,
+    seatedUsers: (User | undefined)[],
+    userDecks: UserDecks,
+) {
     gameState.gameId = generateGameId()
     registerGameState(gameState.gameId, gameState)
 
@@ -56,13 +60,15 @@ export function setupMultiplayerGameState(gameState: GameState, seatedUsers: (Us
         if (!user) {
             throw new Error(`User ${i} is undefined`)
         }
-        if (!user.deckList) {
+
+        const deckList = userDecks[user?.permId]
+        if (!deckList) {
             throw new Error(`User ${user.name} has no deck list`)
         }
 
         const player = gameState.createPlayer(user.name, ORDERED_PLAYER_COLORS[i], user.permId)
 
         gameState.usersToPlayer[user.permId] = player.oid
-        setupPlayArea(gameState, player, user.deckList)
+        setupPlayArea(gameState, player, deckList)
     }
 }

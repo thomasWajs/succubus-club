@@ -17,7 +17,6 @@ import Ably, { ChannelOptions } from 'ably'
 import {
     ensureGameRoom,
     onReceiveResyncGameState,
-    receiveGameMutation,
     receiveLaunchGame,
 } from '@/client/multiplayer/room.ts'
 import { shuffleArray } from '@/shared/utils.ts'
@@ -92,6 +91,18 @@ const ablyCommunication: Communication = {
         await ablySubscribe(getRoomChannel(), messageType, handler)
     },
 
+    async sendDeck() {
+        const multiplayer = useMultiplayerStore()
+        if (!multiplayer.selfDeck) {
+            return
+        }
+        const roomChannel = getRoomChannel()
+        await ablyPublish(roomChannel, MultiplayerMessageType.Deck, {
+            permId: multiplayer.selfUser.permId,
+            deckList: multiplayer.selfDeck,
+        })
+    },
+
     rollSeating() {
         const gameRoom = ensureGameRoom()
         // Will be propagated through the gameRoom watcher
@@ -123,10 +134,6 @@ const ablyCommunication: Communication = {
 
     async broadcastGameMutation(message: GameMutationMessage) {
         await ablyPublish(getRoomChannel(), MultiplayerMessageType.GameMutation, message)
-    },
-
-    async onReceiveGameMutation(message: GameMutationMessage) {
-        await receiveGameMutation(message)
     },
 
     async requestResyncGameState() {

@@ -1,4 +1,4 @@
-import { PermanentId, RoomId, Seating } from '@/shared/types/multiplayer.ts'
+import { PermanentId, RoomId, Seating, UserDecks } from '@/shared/types/multiplayer.ts'
 import { WebSocket } from 'ws'
 import { GameId } from '@/shared/types/model.ts'
 
@@ -31,8 +31,9 @@ export type ScsUser = {
  */
 export type Room = {
     id: RoomId
-    players: Set<PermanentId>
     passwordHash: string // empty string == no password
+    userDecks: UserDecks
+    players: Set<PermanentId>
     seating: Seating
     gameId: GameId | null
 }

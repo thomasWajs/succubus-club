@@ -95,7 +95,7 @@ export function setupMultiplayerGame(gameRoom: GameRoom) {
 
     resetState()
     const seatedUsers = gameRoom.seating.map(permId => multiplayer.users[permId])
-    setupMultiplayerGameState(gameState, seatedUsers)
+    setupMultiplayerGameState(gameState, seatedUsers, multiplayer.userDecks)
     useCoreStore().gameStateIsReady = true
 }
 

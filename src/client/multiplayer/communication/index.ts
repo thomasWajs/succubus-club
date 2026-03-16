@@ -14,11 +14,11 @@ export interface Communication {
 
     subscribe<T>(messageType: MultiplayerMessageType, handler: MessageHandler<T>): Promise<void>
 
+    sendDeck(): Promise<void>
     rollSeating(): void
     launchGame(gameRoom: GameRoom): Promise<void>
     broadcastGameMutation(message: GameMutationMessage): Promise<void>
     requestResyncGameState(): Promise<void>
 
     onReceiveLaunchGame(message: unknown): Promise<void>
-    onReceiveGameMutation(message: unknown): Promise<void>
 }

@@ -1,5 +1,12 @@
 import { WebSocket, WebSocketServer } from 'ws'
-import { handleJoinRoom, handleLeaveRoom, handleSetupGame, leaveRoom, RoomNotFound } from './rooms'
+import {
+    handleDeck,
+    handleJoinRoom,
+    handleLeaveRoom,
+    handleSetupGame,
+    leaveRoom,
+    RoomNotFound,
+} from './rooms'
 import { handleGameMutation, handleShuffleCardRegion } from './gameState.ts'
 import {
     ErrorMessage,
@@ -67,6 +74,10 @@ wsServer.on('connection', (webSocket: WebSocket) => {
 
                 case MultiplayerMessageType.LeaveRoom:
                     await handleLeaveRoom(connection)
+                    break
+
+                case MultiplayerMessageType.Deck:
+                    await handleDeck(connection, message)
                     break
 
                 case MultiplayerMessageType.RollSeating:

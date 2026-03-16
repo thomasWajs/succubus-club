@@ -197,12 +197,8 @@
                     <button
                         v-if="!multiplayer.selfIsReady"
                         class="ready-btn"
-                        :disabled="multiplayer.selfUser.deckList == null"
-                        :title="
-                            multiplayer.selfUser.deckList == null ?
-                                'Select a deck to get ready'
-                            :   ''
-                        "
+                        :disabled="multiplayer.selfDeck == null"
+                        :title="multiplayer.selfDeck == null ? 'Select a deck to get ready' : ''"
                         @click="multiplayer.selfIsReady = true"
                     >
                         ✔️ I'm Ready
@@ -384,7 +380,7 @@ function getUserStatusClass(user: User) {
     if (multiplayer.currentGameRoom?.isStarted) {
         return 'started'
     }
-    if (user.deckList == null) {
+    if (!multiplayer.userDecks[user.permId]) {
         return 'no-deck'
     }
     if (user.isReady) {
@@ -394,7 +390,7 @@ function getUserStatusClass(user: User) {
 }
 
 function getUserStatusText(user: User) {
-    if (user.deckList == null) {
+    if (!multiplayer.userDecks[user.permId]) {
         return 'No Deck'
     }
     if (user.isReady) {
@@ -404,11 +400,12 @@ function getUserStatusText(user: User) {
 }
 
 function getDeckWarnings(user: User) {
-    if (!user.deckList) {
+    const deckList = multiplayer.userDecks[user.permId]
+    if (!deckList) {
         return []
     }
 
-    const counter = countCards(user.deckList)
+    const counter = countCards(deckList)
     const warnings = []
 
     if (counter.lib < MIN_LIB_SIZE || counter.lib > MAX_LIB_SIZE) {

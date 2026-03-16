@@ -3,6 +3,7 @@ import { PresenceMessage } from 'ably'
 import { ablyPublish, ablySubscribe, getAbly } from '@/client/gateway/realtime.ts'
 import {
     CommunicationMode,
+    DeckMessage,
     EMPTY_SEATING,
     GameMutationMessage,
     GameRoom,
@@ -40,7 +41,7 @@ import ablyCommunication, { getRoomChannel } from '@/client/multiplayer/communic
 import { Communication } from '@/client/multiplayer/communication'
 import { scsCommunication } from '@/client/multiplayer/communication/scs.ts'
 
-function getCommunication(gameRoom?: GameRoom): Communication {
+export function getCommunication(gameRoom?: GameRoom): Communication {
     if (!gameRoom) {
         const multiplayer = useMultiplayerStore()
         gameRoom = multiplayer.currentGameRoom
@@ -83,6 +84,9 @@ export async function joinGameRoom(gameRoom: GameRoom, key?: Key) {
             return
         }
 
+        multiplayer.selfIsReady = false
+        multiplayer.currentGameRoomId = gameRoom.id
+
         // Leave any previous room
         await leaveGameRoom()
 
@@ -90,27 +94,13 @@ export async function joinGameRoom(gameRoom: GameRoom, key?: Key) {
         await ablyCommunication.joinRoom(gameRoom.id, key)
         const roomChannel = getRoomChannel()
 
-        // If ably, it's already joined. If SCS, we need to join.
-        await comm.joinRoom(gameRoom.id, key)
-
-        multiplayer.selfIsReady = false
-        multiplayer.currentGameRoomId = gameRoom.id
-        if (canUserBeAPlayer(gameRoom, multiplayer.selfUser)) {
-            multiplayer.upsertGameRoomPlayer(multiplayer.selfUser)
-        } else {
-            multiplayer.upsertGameRoomSpectator(multiplayer.selfUser)
-        }
-
-        // The host is responsible for sending game room updates to the other players
-        if (multiplayer.selfIsHost) {
-            setupGameRoomWatcher()
-        }
-
         /**
          * Set up room event handlers
          */
 
         await roomChannel.presence.enter(multiplayer.selfUser)
+
+        // Activate all subscriptions
         await Promise.all([
             // Presence / Users
             roomChannel.presence.subscribe('enter', onMemberJoin),
@@ -118,7 +108,8 @@ export async function joinGameRoom(gameRoom: GameRoom, key?: Key) {
 
             // Game messages
             comm.subscribe(MultiplayerMessageType.LaunchGame, comm.onReceiveLaunchGame),
-            comm.subscribe(MultiplayerMessageType.GameMutation, comm.onReceiveGameMutation),
+            comm.subscribe(MultiplayerMessageType.GameMutation, receiveGameMutation),
+            comm.subscribe(MultiplayerMessageType.Deck, receiveDeck),
 
             // Chat and seat picking is always through ably
             ablySubscribe(roomChannel, MultiplayerMessageType.Chat, onReceiveChatMessage),
@@ -130,6 +121,24 @@ export async function joinGameRoom(gameRoom: GameRoom, key?: Key) {
             ablySubscribe(roomChannel, MultiplayerMessageType.PickSeat, onReceivePickSeat),
             ablySubscribe(roomChannel, MultiplayerMessageType.LeaveSeat, onReceiveLeaveSeat),
         ])
+
+        // The host is responsible for sending game room updates to the other players
+        if (multiplayer.selfIsHost) {
+            setupGameRoomWatcher()
+        }
+
+        // If ably, it's already joined. If SCS, we need to join.
+        await comm.joinRoom(gameRoom.id, key)
+
+        if (canUserBeAPlayer(gameRoom, multiplayer.selfUser)) {
+            multiplayer.upsertGameRoomPlayer(multiplayer.selfUser)
+        } else {
+            multiplayer.upsertGameRoomSpectator(multiplayer.selfUser)
+        }
+
+        if (multiplayer.selfDeck) {
+            await comm.sendDeck()
+        }
     } catch (e) {
         logging.captureException(e)
         bus.alertError('Error joining game room. Please try again')
@@ -226,7 +235,10 @@ function onMemberJoin(presence: PresenceMessage) {
         multiplayer.upsertGameRoomSpectator(user)
     }
 
-    multiplayer.stats.peerJoins++
+    // In Ably mode, send our decklist to the newly connected user
+    if (gameRoom.communication == CommunicationMode.Ably) {
+        getCommunication(gameRoom).sendDeck()
+    }
 }
 
 function onMemberLeave(presence: PresenceMessage) {
@@ -238,13 +250,17 @@ function onMemberLeave(presence: PresenceMessage) {
         alertDisconnect(user)
         multiplayer.removeGameRoomPlayer(user)
         multiplayer.removeGameRoomSpectator(user)
-        multiplayer.stats.peerLeaves++
 
         // Special-case : host is not connected anymore, and can't broadcast with its watcher.
         if (gameRoom && !multiplayer.isHostConnected) {
             broadcastGameRoom(gameRoom)
         }
     }
+}
+
+function receiveDeck(deckMessage: DeckMessage) {
+    const multiplayer = useMultiplayerStore()
+    multiplayer.userDecks[deckMessage.permId] = deckMessage.deckList
 }
 
 /** Seating Messages */

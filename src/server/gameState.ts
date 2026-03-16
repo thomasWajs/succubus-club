@@ -61,7 +61,7 @@ export function createGameState(room: Room): GameState {
 
     const gameState = new GameState()
     const seatedUsers = room.seating.map(permId => getUser(permId))
-    setupMultiplayerGameState(gameState, seatedUsers)
+    setupMultiplayerGameState(gameState, seatedUsers, room.userDecks)
     room.gameId = gameState.gameId
     persistence.saveGameState(gameState)
     return gameState

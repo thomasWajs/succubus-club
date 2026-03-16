@@ -13,7 +13,7 @@ import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import * as logging from '@/client/logging.ts'
 import { useBusStore } from '@/client/store/bus.ts'
 import { CommunicationMode, GameRoom, RoomId, Seating } from '@/shared/types/multiplayer.ts'
-import { joinGameRoom, leaveGameRoom } from '@/client/multiplayer/room.ts'
+import { getCommunication, joinGameRoom, leaveGameRoom } from '@/client/multiplayer/room.ts'
 import { computeKey } from '@/client/multiplayer/encryption.ts'
 import { scsCommunication } from '@/client/multiplayer/communication/scs.ts'
 import { hash } from '@/shared/serialization.ts'
@@ -27,6 +27,7 @@ if (import.meta.env.DEV) {
 }
 
 let unwatchSelfUser: WatchHandle | null = null
+let unwatchSelfDeck: WatchHandle | null = null
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 
 let _lobby: ReturnType<typeof connectLobby> | null = null
@@ -61,6 +62,9 @@ export async function joinLobby() {
     }
 
     multiplayer.upsertUser(multiplayer.selfUser)
+    if (multiplayer.selfDeck) {
+        multiplayer.userDecks[multiplayer.selfUser.permId] = multiplayer.selfDeck
+    }
 
     const { rtdb, lobbyChannel } = await useLobby()
     try {
@@ -84,6 +88,7 @@ export async function joinLobby() {
     }
 
     await setupSelfUserWatcher()
+    await setupSelfDeckWatcher()
 }
 
 export async function leaveLobby() {
@@ -91,6 +96,8 @@ export async function leaveLobby() {
 
     unwatchSelfUser?.()
     unwatchSelfUser = null
+    unwatchSelfDeck?.()
+    unwatchSelfDeck = null
 
     // Detaching from the channel will also leave the presence
     await detachChannel(lobbyChannel)
@@ -155,6 +162,33 @@ async function setupSelfUserWatcher() {
                 }
                 debounceTimer = null
             }, DEBOUNCE_DELAY)
+        },
+    )
+}
+
+async function setupSelfDeckWatcher() {
+    // Watcher is already active, do nothing.
+    if (unwatchSelfDeck) {
+        return
+    }
+
+    const { multiplayer } = await useLobby()
+
+    // Watch for changes to selfUser and broadcast when it updates
+    // Use a debounce timer to prevent sending a burst of updates on e.g. username edit
+    unwatchSelfDeck = watch(
+        () => multiplayer.selfDeck,
+        selfDeck => {
+            if (!selfDeck) {
+                return
+            }
+            multiplayer.userDecks[multiplayer.selfUser.permId] = selfDeck
+            const gameRoom = multiplayer.currentGameRoom
+            if (!gameRoom) {
+                return
+            }
+            const comm = getCommunication(gameRoom)
+            comm.sendDeck()
         },
     )
 }
