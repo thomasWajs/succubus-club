@@ -69,8 +69,7 @@
                     >
                         <span class="scs-indicator" />
                         <span class="scs-label"
-                            >SCS Status :
-                            {{ multiplayer.scsConnected ? 'Online' : 'Offline' }}</span
+                            >Server : {{ multiplayer.scsConnected ? 'Online' : 'Offline' }}</span
                         >
                     </div>
                 </div>
@@ -147,51 +146,78 @@
                 </div>
 
                 <!-- Create Room -->
-                <div class="create-room">
-                    <input
-                        v-model="roomName"
-                        class="input-field"
-                        :disabled="multiplayer.currentGameRoomId !== null"
-                        placeholder="Enter room name..."
-                        @keydown.enter="onCreateGameRoom"
-                    />
-                    <button
-                        class="create-room-btn"
-                        :disabled="!roomName.trim() || multiplayer.currentGameRoomId !== null"
-                        @click="onCreateGameRoom"
-                    >
-                        Create Room
-                    </button>
-                </div>
+                <div class="create-room-section">
+                    <!-- First Row: Room Name | Password | Enable Aids | Allow Spectators -->
+                    <div class="create-room-row-1">
+                        <input
+                            v-model="roomName"
+                            class="input-field room-name-input"
+                            :disabled="multiplayer.currentGameRoomId !== null"
+                            placeholder="Enter room name..."
+                            @keydown.enter="onCreateGameRoom"
+                        />
+                        <input
+                            v-model="roomPassword"
+                            type="text"
+                            class="input-field room-password-input"
+                            :disabled="multiplayer.currentGameRoomId !== null"
+                            placeholder="Password (optional)..."
+                        />
+                        <label
+                            class="checkbox-label"
+                            title='Show hints to players, like "take pool for the edge" or "during X do Y". Disable for stricter sanctionned play.'
+                        >
+                            <input
+                                v-model="enableAids"
+                                type="checkbox"
+                                :disabled="multiplayer.currentGameRoomId !== null"
+                            />
+                            <span>Enable aids</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input
+                                v-model="allowSpectators"
+                                type="checkbox"
+                                :disabled="multiplayer.currentGameRoomId !== null"
+                            />
+                            <span>Allow spectators</span>
+                        </label>
+                    </div>
 
-                <!-- Additional Room Options -->
-                <div class="room-options">
-                    <input
-                        v-model="roomPassword"
-                        type="text"
-                        class="input-field room-password"
-                        :disabled="multiplayer.currentGameRoomId !== null"
-                        placeholder="Password (optional)..."
-                    />
-                    <label
-                        class="checkbox-label"
-                        title='Show hints to players, like "take pool for the edge" or "during X do Y". Disable for stricter sanctionned play.'
-                    >
-                        <input
-                            v-model="enableAids"
-                            type="checkbox"
+                    <!-- Second Row: Communication Toggle -->
+                    <div class="create-room-row-2">
+                        <ToggleSwitch
+                            v-model="communicationMode"
                             :disabled="multiplayer.currentGameRoomId !== null"
+                            :options="[
+                                {
+                                    value: CommunicationMode.Ably,
+                                    label: 'Direct Connection',
+                                    description: 'Faster, Always Available, No Anti-Cheat',
+                                    tooltip:
+                                        'Players communicate directly between them for faster gameplay, but there\'s no anti-cheat mechanism',
+                                },
+                                {
+                                    value: CommunicationMode.SCS,
+                                    label: 'Server',
+                                    description: 'Slower, Anti-Cheat',
+                                    tooltip:
+                                        'Use an authoritative server to ensure player can\'t cheat, but slows down the game. May be unavailable',
+                                },
+                            ]"
                         />
-                        <span>Enable aids</span>
-                    </label>
-                    <label class="checkbox-label">
-                        <input
-                            v-model="allowSpectators"
-                            type="checkbox"
-                            :disabled="multiplayer.currentGameRoomId !== null"
-                        />
-                        <span>Allow spectators</span>
-                    </label>
+                    </div>
+
+                    <!-- Third Row: Create Room Button -->
+                    <div class="create-room-row-3">
+                        <button
+                            class="create-room-btn"
+                            :disabled="!roomName.trim() || multiplayer.currentGameRoomId !== null"
+                            @click="onCreateGameRoom"
+                        >
+                            Create Room
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -206,13 +232,14 @@ import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import { connectIntoGame, joinGameRoom } from '@/client/multiplayer/room.ts'
 import TopBar from '@/client/ui/components/TopBar.vue'
 import { useCoreStore } from '@/client/store/core.ts'
-import { GameRoom } from '@/shared/types/multiplayer.ts'
+import { CommunicationMode, GameRoom } from '@/shared/types/multiplayer.ts'
 import UserAvatar from '@/client/ui/components/UserAvatar.vue'
 import * as logging from '@/client/logging.ts'
 import { useBusStore } from '@/client/store/bus.ts'
 import { createGameRoom } from '@/client/multiplayer/lobby.ts'
 import { computeKey } from '@/client/multiplayer/encryption.ts'
 import CurrentRoom from '@/client/ui/components/CurrentRoom.vue'
+import ToggleSwitch from '@/client/ui/components/ToggleSwitch.vue'
 
 const core = useCoreStore()
 const multiplayer = useMultiplayerStore()
@@ -260,6 +287,7 @@ const roomPasswords = ref<{ [gameRoomId: string]: string }>({})
 const roomPasswordErrors = ref<{ [gameRoomId: string]: boolean }>({})
 const enableAids = ref(true)
 const allowSpectators = ref(true)
+const communicationMode = ref<CommunicationMode>(CommunicationMode.Ably)
 
 function onCreateGameRoom() {
     const cleanedRoomName = roomName.value.trim()
@@ -267,7 +295,13 @@ function onCreateGameRoom() {
         return
     }
 
-    createGameRoom(cleanedRoomName, roomPassword.value, enableAids.value, allowSpectators.value)
+    createGameRoom(
+        cleanedRoomName,
+        roomPassword.value,
+        communicationMode.value,
+        enableAids.value,
+        allowSpectators.value,
+    )
     roomName.value = ''
     roomPassword.value = ''
 }
@@ -635,29 +669,42 @@ if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
     }
 }
 
-.create-room {
+.create-room-section {
     border-top: 1px solid $bone-grey;
     padding-top: 1rem;
     display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.create-room-row-1 {
+    display: flex;
     gap: 1rem;
+    align-items: center;
+
+    .room-name-input {
+        flex: 1;
+        min-width: 200px;
+    }
+
+    .room-password-input {
+        flex: 1;
+        min-width: 180px;
+    }
+}
+
+.create-room-row-2 {
+    display: flex;
+    width: 100%;
+}
+
+.create-room-row-3 {
+    display: flex;
+    justify-content: center;
 }
 
 .create-room-btn {
     @include button-purple;
-}
-
-.room-options {
-    display: flex;
-    gap: 1rem;
-    margin-top: 0.75rem;
-    margin-right: 10rem;
-    align-items: center;
-    justify-content: space-between;
-
-    .room-password {
-        max-width: 400px;
-        flex-grow: 1;
-    }
 }
 
 .no-rooms-message {
