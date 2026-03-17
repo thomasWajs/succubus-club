@@ -60,6 +60,19 @@
                     <h3 class="panel-title">
                         Rooms ({{ Object.keys(multiplayer.gameRooms).length }})
                     </h3>
+                    <div
+                        class="scs-status"
+                        :class="{
+                            'scs-online': multiplayer.scsConnected,
+                            'scs-offline': !multiplayer.scsConnected,
+                        }"
+                    >
+                        <span class="scs-indicator" />
+                        <span class="scs-label"
+                            >SCS Status :
+                            {{ multiplayer.scsConnected ? 'Online' : 'Offline' }}</span
+                        >
+                    </div>
                 </div>
 
                 <!-- Room List -->
@@ -462,6 +475,45 @@ if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
     align-items: center;
     justify-content: space-between;
     margin-bottom: 1rem;
+}
+
+.scs-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    padding: 0.4rem 0.8rem;
+
+    .scs-indicator {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        transition: all 0.3s ease;
+    }
+
+    .scs-label {
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    &.scs-online {
+        background: rgba($light-teal, 0.15);
+        color: $silver-grey;
+
+        .scs-indicator {
+            background: $lighter-teal;
+        }
+    }
+
+    &.scs-offline {
+        background: rgba($crimson-red, 0.1);
+        color: $silver-grey;
+
+        .scs-indicator {
+            background: $crimson-red;
+        }
+    }
 }
 
 .refresh-btn {

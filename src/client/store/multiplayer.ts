@@ -22,6 +22,9 @@ export const useMultiplayerStore = defineStore('multiplayer', {
          *  Lobby / Room connection
          */
 
+        // SCS server connection status
+        scsConnected: false,
+
         // id ==> User
         users: {} as Record<PermanentId, User>,
 

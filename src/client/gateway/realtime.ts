@@ -54,6 +54,12 @@ export class ScsClient {
         this.ws = new WebsocketBuilder(url)
             .withBackoff(new ExponentialBackoff(1000, 6))
             .withBuffer(new ArrayQueue())
+            .onOpen(() => {
+                useMultiplayerStore().scsConnected = true
+            })
+            .onClose(() => {
+                useMultiplayerStore().scsConnected = false
+            })
             .onMessage((_ws, event) => {
                 try {
                     const message: ScsServerMessage = JSON.parse(event.data as string)
