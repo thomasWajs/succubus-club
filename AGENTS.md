@@ -12,6 +12,8 @@ Succubus Club is a TCG (Trading Card Game) web platform for playing V:TES in a b
 - **src/server**: Node.js + WebSocket game server (using `ws`).
 - **src/shared**: Shared logic, models, and constants used by both client and server.
 
+Multiplayer connection can be made either directly between clients through ably ( Ably mode ), or with an authoritative central server ( SCS mode ).
+
 ### 2. General Rules
 - **Line Endings**: Always use LF line endings (never CRLF).
 - **Emojis**: NEVER use emojis in the codebase.

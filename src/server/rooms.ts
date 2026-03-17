@@ -6,7 +6,6 @@ import {
     PermanentId,
     RoomId,
     ScsServerMessage,
-    ScsSetupGameMessage,
 } from '@/shared/types/multiplayer.ts'
 import { send, sendError } from './index.ts'
 import { ConnectionInfo, Room } from './types.ts'
@@ -17,6 +16,7 @@ import { GAME_STATE_VERSION } from '@/shared/const/multiplayer.ts'
 import { GameState } from '@/shared/state/gameState.ts'
 import * as persistence from './persistence.ts'
 import { DeckList } from '@/shared/types/gateway.ts'
+import { shuffleArray } from '@/shared/utils.ts'
 
 export class RoomNotFound extends Error {}
 
@@ -176,12 +176,48 @@ export async function handleDeck(connection: ConnectionInfo, message: DeckMessag
 }
 
 /**
+ * Handle roll seating
+ */
+export async function handleRollSeating(connection: ConnectionInfo) {
+    const room = ensureRoom(connection.roomId)
+    const user = getUser(connection.permId)
+
+    // Generate random seating from players
+    const players = Array.from(room.players)
+    const seating = shuffleArray(players)
+
+    // Store the seating in the room
+    room.seating = seating
+    persistence.saveRoom(room)
+
+    console.log(`Player ${user?.name} rolled seating in room ${room.id}`)
+
+    // Broadcast the seating to all players
+    broadcast(room.id, {
+        type: MultiplayerMessageType.RollSeating,
+        seating: seating,
+    })
+}
+
+/**
  * Handle game launching
  */
-export async function handleSetupGame(connection: ConnectionInfo, message: ScsSetupGameMessage) {
+export async function handleSetupGame(connection: ConnectionInfo) {
     const room = ensureRoom(connection.roomId)
-    room.seating = message.seating
-    persistence.saveRoom(room)
+
+    // Enforce seating: only allow launching if seating is set and matches current players
+    if (!room.seating || room.seating === EMPTY_SEATING) {
+        throw new Error('Seating must be set before launching the game')
+    }
+
+    // Validate that all seated players are in the room
+    const seatingArray = Array.isArray(room.seating) ? room.seating : []
+    for (const permId of seatingArray) {
+        if (!room.players.has(permId)) {
+            throw new Error(`Seated player ${permId} is not in the room`)
+        }
+    }
+
     const gameState = createGameState(room)
 
     broadcastTailored(room.id, permId => {

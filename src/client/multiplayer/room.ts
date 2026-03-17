@@ -12,6 +12,7 @@ import {
     MultiplayerMessageType,
     PermanentId,
     PickSeatMessage,
+    ScsRollSeatingMessage,
     SerializedChatMessage,
     SerializedMultiplayerGame,
     User,
@@ -110,6 +111,11 @@ export async function joinGameRoom(gameRoom: GameRoom, key?: Key) {
             comm.subscribe(MultiplayerMessageType.LaunchGame, comm.onReceiveLaunchGame),
             comm.subscribe(MultiplayerMessageType.GameMutation, receiveGameMutation),
             comm.subscribe(MultiplayerMessageType.Deck, receiveDeck),
+
+            // In SCS mode, subscribe to RollSeating from server
+            gameRoom.communication === CommunicationMode.SCS ?
+                comm.subscribe(MultiplayerMessageType.RollSeating, onReceiveRollSeating)
+            :   Promise.resolve(),
 
             // Chat and seat picking is always through ably
             ablySubscribe(roomChannel, MultiplayerMessageType.Chat, onReceiveChatMessage),
@@ -279,6 +285,18 @@ export function rollSeating() {
     }
 
     comm.rollSeating()
+}
+
+function onReceiveRollSeating(message: ScsRollSeatingMessage) {
+    const gameRoom = ensureGameRoom()
+
+    // Cannot roll seating if the game is already started
+    if (gameRoom.isStarted) {
+        return
+    }
+
+    // Update the seating with the server-generated seating
+    gameRoom.seating = message.seating
 }
 
 export function startPickSeating() {

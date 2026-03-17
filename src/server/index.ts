@@ -3,6 +3,7 @@ import {
     handleDeck,
     handleJoinRoom,
     handleLeaveRoom,
+    handleRollSeating,
     handleSetupGame,
     leaveRoom,
     RoomNotFound,
@@ -81,11 +82,11 @@ wsServer.on('connection', (webSocket: WebSocket) => {
                     break
 
                 case MultiplayerMessageType.RollSeating:
-                    // TODO: Implement RollSeating
+                    await handleRollSeating(connection)
                     break
 
                 case MultiplayerMessageType.SetupGame:
-                    await handleSetupGame(connection, message)
+                    await handleSetupGame(connection)
                     break
 
                 case MultiplayerMessageType.GameMutation:

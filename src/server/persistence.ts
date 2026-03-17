@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3'
 import { Room } from './types.ts'
-import { RoomId, Seating } from '@/shared/types/multiplayer.ts'
+import { RoomId, Seating, UserDecks } from '@/shared/types/multiplayer.ts'
 import { GameId } from '@/shared/types/model.ts'
 import { GameState } from '@/shared/state/gameState.ts'
 
@@ -24,6 +24,7 @@ export function initTables() {
     CREATE TABLE IF NOT EXISTS rooms (
         id TEXT PRIMARY KEY,
         password_hash TEXT NOT NULL,
+        userDecks TEXT NOT NULL,
         seating TEXT NOT NULL,
         game_id TEXT,
         created_at INTEGER NOT NULL,
@@ -70,15 +71,24 @@ export function saveRoom(room: Room): void {
     try {
         const now = Date.now()
         const stmt = db.prepare(`
-            INSERT INTO rooms (id, password_hash, seating, game_id, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO rooms (id, password_hash, userDecks, seating, game_id, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 password_hash = excluded.password_hash,
+                userDecks = excluded.userDecks,
                 seating = excluded.seating,
                 game_id = excluded.game_id,
                 updated_at = excluded.updated_at
         `)
-        stmt.run(room.id, room.passwordHash, JSON.stringify(room.seating), room.gameId, now, now)
+        stmt.run(
+            room.id,
+            room.passwordHash,
+            JSON.stringify(room.userDecks),
+            JSON.stringify(room.seating),
+            room.gameId,
+            now,
+            now,
+        )
     } catch (error) {
         console.error('Error saving room:', error)
     }
@@ -96,6 +106,7 @@ export function loadRoom(roomId: RoomId): Room | undefined {
             id: row.id,
             players: new Set(), // Will be repopulated as players reconnect
             passwordHash: row.password_hash,
+            userDecks: JSON.parse(row.userDecks) as UserDecks,
             seating: JSON.parse(row.seating) as Seating,
             gameId: row.game_id,
         }
@@ -114,6 +125,7 @@ export function loadAllRooms(): Room[] {
             id: row.id,
             players: new Set(), // Will be repopulated as players reconnect
             passwordHash: row.password_hash,
+            userDecks: JSON.parse(row.userDecks) as UserDecks,
             seating: JSON.parse(row.seating) as Seating,
             gameId: row.game_id,
         }))

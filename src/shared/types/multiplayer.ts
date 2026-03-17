@@ -286,7 +286,6 @@ export type RollSeatingMessage = {
 
 export type ScsSetupGameMessage = {
     type: MultiplayerMessageType.SetupGame
-    seating: Seating
 }
 
 export type ScsGameMutationMessage = GameMutationMessage & {
@@ -316,6 +315,11 @@ export type ScsClientMessage =
     | ScsRequestResyncMessage
 
 // Server → Client messages
+export type ScsRollSeatingMessage = {
+    type: MultiplayerMessageType.RollSeating
+    seating: PermanentId[]
+}
+
 export type ScsLaunchGameMessage = {
     type: MultiplayerMessageType.LaunchGame
     serializedGame: SerializedMultiplayerGame
@@ -323,6 +327,7 @@ export type ScsLaunchGameMessage = {
 
 export type ScsServerMessage =
     | ScsDeckMessage
+    | ScsRollSeatingMessage
     | ScsLaunchGameMessage
     | ScsGameMutationMessage
     | ErrorMessage

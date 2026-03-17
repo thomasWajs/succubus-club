@@ -8,7 +8,6 @@ import {
 } from '@/shared/types/multiplayer.ts'
 import { Key } from '@/client/multiplayer/encryption.ts'
 import { getScsClient, MessageHandler } from '@/client/gateway/realtime.ts'
-import ablyCommunication from '@/client/multiplayer/communication/ably.ts'
 import { ensureGameRoom, receiveLaunchGame } from '@/client/multiplayer/room.ts'
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import { Communication } from '@/client/multiplayer/communication/index.ts'
@@ -75,8 +74,7 @@ export const scsCommunication: ScsCommunication = {
     },
 
     rollSeating() {
-        // getScsClient().send({ type: MultiplayerMessageType.RollSeating })
-        ablyCommunication.rollSeating()
+        getScsClient().send({ type: MultiplayerMessageType.RollSeating })
     },
 
     async launchGame() {
@@ -87,7 +85,6 @@ export const scsCommunication: ScsCommunication = {
 
         getScsClient().send({
             type: MultiplayerMessageType.SetupGame,
-            seating: gameRoom.seating,
         })
         gameRoom.isStarted = true
     },
