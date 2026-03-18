@@ -52,15 +52,16 @@ export class ScsClient {
     private listeners = new Map<MultiplayerMessageType, Set<MessageHandler>>()
 
     constructor(url: string) {
-        useMultiplayerStore().scsStatus = ScsStatus.Connecting
+        const multiplayer = useMultiplayerStore()
+        multiplayer.scsStatus = ScsStatus.Connecting
         this.ws = new WebsocketBuilder(url)
             .withBackoff(new ExponentialBackoff(1000, 6))
             .withBuffer(new ArrayQueue())
             .onOpen(() => {
-                useMultiplayerStore().scsStatus = ScsStatus.Connected
+                multiplayer.scsStatus = ScsStatus.Connected
             })
             .onClose(() => {
-                useMultiplayerStore().scsStatus = ScsStatus.Disconnected
+                multiplayer.scsStatus = ScsStatus.Disconnected
             })
             .onMessage((_ws, event) => {
                 try {

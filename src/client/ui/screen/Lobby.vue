@@ -57,7 +57,7 @@
             <!-- Available Rooms -->
             <div class="rooms-panel">
                 <div class="rooms-header">
-                    <h3 class="panel-title">
+                    <h3 class="panel-title no-margin">
                         Rooms ({{ Object.keys(multiplayer.gameRooms).length }})
                     </h3>
                     <div
@@ -70,13 +70,11 @@
                     >
                         <span class="scs-indicator" />
                         <span class="scs-label"
-                            >Server :
+                            >SCS :
                             {{
-                                multiplayer.scsStatus === ScsStatus.Connecting
-                                    ? 'Connecting'
-                                    : multiplayer.scsStatus === ScsStatus.Connected
-                                      ? 'Online'
-                                      : 'Offline'
+                                multiplayer.scsStatus === ScsStatus.Connecting ? 'Connecting'
+                                : multiplayer.scsStatus === ScsStatus.Connected ? 'Online'
+                                : 'Offline'
                             }}</span
                         >
                     </div>
@@ -103,6 +101,13 @@
                             <div class="room-info-left">
                                 <span class="room-lock">
                                     <template v-if="gameRoom.hasPassword">🔒</template>
+                                </span>
+                                <span class="communication-mode-badge">
+                                    {{
+                                        gameRoom.communication === CommunicationMode.Ably ?
+                                            'Direct'
+                                        :   'SCS'
+                                    }}
                                 </span>
                                 <h4 class="room-name">{{ gameRoom.name }}</h4>
                             </div>
@@ -154,7 +159,10 @@
                 </div>
 
                 <!-- Create Room -->
-                <div class="create-room-section">
+                <div
+                    v-show="!multiplayer.currentGameRoomId"
+                    class="create-room-section"
+                >
                     <!-- First Row: Room Name | Password | Enable Aids | Allow Spectators -->
                     <div class="create-room-row-1">
                         <input
@@ -207,7 +215,7 @@
                                 },
                                 {
                                     value: CommunicationMode.SCS,
-                                    label: 'Server',
+                                    label: 'Succubus Club Server ( SCS )',
                                     description: 'Slower, Anti-Cheat',
                                     tooltip:
                                         'Use an authoritative server to ensure player can\'t cheat, but slows down the game. May be unavailable.',
@@ -369,6 +377,8 @@ if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
 </script>
 
 <style lang="scss" scoped>
+@use '../../styles/base' as *;
+
 .lobby-container {
     background: black;
 }
@@ -435,6 +445,10 @@ if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
     font-weight: 300;
     font-family: serif;
     letter-spacing: 0.5px;
+
+    &.no-margin {
+        margin: 0;
+    }
 }
 
 /**
@@ -629,6 +643,11 @@ if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
         display: flex;
         align-items: center;
         width: 0.5rem;
+    }
+
+    .communication-mode-badge {
+        @extend .teal-badge;
+        width: 2rem;
     }
 
     .room-name {

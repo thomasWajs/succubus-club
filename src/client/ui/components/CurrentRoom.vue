@@ -5,10 +5,19 @@
         class="current-room-panel"
     >
         <div class="current-room-header">
-            <h3 class="panel-title">
-                {{ multiplayer.currentGameRoom.name }} (
-                {{ multiplayer.currentGameRoom.players.length }} )
-            </h3>
+            <div class="room-header-left">
+                <span class="teal-badge">
+                    {{
+                        multiplayer.currentGameRoom.communication === CommunicationMode.Ably ?
+                            'Direct'
+                        :   'SCS'
+                    }}
+                </span>
+                <h3 class="panel-title">
+                    {{ multiplayer.currentGameRoom.name }} (
+                    {{ multiplayer.currentGameRoom.players.length }} )
+                </h3>
+            </div>
 
             <!-- Unseated Players (shown during pick seating mode) -->
             <div
@@ -318,7 +327,7 @@ import {
     startPickSeating,
 } from '@/client/multiplayer/room.ts'
 import { useCoreStore } from '@/client/store/core.ts'
-import { EMPTY_SEATING, User } from '@/shared/types/multiplayer.ts'
+import { CommunicationMode, EMPTY_SEATING, User } from '@/shared/types/multiplayer.ts'
 import UserAvatar from '@/client/ui/components/UserAvatar.vue'
 import * as logging from '@/client/logging.ts'
 import { useBusStore } from '@/client/store/bus.ts'
@@ -470,6 +479,8 @@ async function startConnectIntoGame(gameRoom?: any) {
 </script>
 
 <style lang="scss" scoped>
+@use '../../styles/base' as *;
+
 .panel-title {
     margin: 0 0 1rem 0;
     font-size: 1.25rem;
@@ -515,6 +526,12 @@ async function startConnectIntoGame(gameRoom?: any) {
     align-items: center;
     justify-content: space-between;
     margin-bottom: 1.5rem;
+}
+
+.room-header-left {
+    display: flex;
+    align-items: start;
+    gap: 1rem;
 }
 
 .seating-rolled-message {

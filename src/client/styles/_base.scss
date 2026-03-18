@@ -117,6 +117,11 @@ select {
     background: $shadow-purple;
 }
 
+.teal-badge {
+    @include badge;
+    background: $shadow-teal;
+}
+
 .blood-list {
     padding-left: 1.5rem;
 
