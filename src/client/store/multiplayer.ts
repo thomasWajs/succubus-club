@@ -5,6 +5,7 @@ import {
     GameRoom,
     PermanentId,
     RoomId,
+    ScsStatus,
     User,
     UserDecks,
     VectorClockVersion,
@@ -23,7 +24,7 @@ export const useMultiplayerStore = defineStore('multiplayer', {
          */
 
         // SCS server connection status
-        scsConnected: false,
+        scsStatus: ScsStatus.Connecting,
 
         // id ==> User
         users: {} as Record<PermanentId, User>,

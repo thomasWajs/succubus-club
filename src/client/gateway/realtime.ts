@@ -30,6 +30,7 @@ import {
     MultiplayerMessageType,
     ScsClientMessage,
     ScsServerMessage,
+    ScsStatus,
 } from '@/shared/types/multiplayer.ts'
 import * as logging from '@/client/logging.ts'
 import { useBusStore } from '@/client/store/bus.ts'
@@ -51,14 +52,15 @@ export class ScsClient {
     private listeners = new Map<MultiplayerMessageType, Set<MessageHandler>>()
 
     constructor(url: string) {
+        useMultiplayerStore().scsStatus = ScsStatus.Connecting
         this.ws = new WebsocketBuilder(url)
             .withBackoff(new ExponentialBackoff(1000, 6))
             .withBuffer(new ArrayQueue())
             .onOpen(() => {
-                useMultiplayerStore().scsConnected = true
+                useMultiplayerStore().scsStatus = ScsStatus.Connected
             })
             .onClose(() => {
-                useMultiplayerStore().scsConnected = false
+                useMultiplayerStore().scsStatus = ScsStatus.Disconnected
             })
             .onMessage((_ws, event) => {
                 try {

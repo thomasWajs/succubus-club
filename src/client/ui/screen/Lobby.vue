@@ -63,13 +63,21 @@
                     <div
                         class="scs-status"
                         :class="{
-                            'scs-online': multiplayer.scsConnected,
-                            'scs-offline': !multiplayer.scsConnected,
+                            'scs-connecting': multiplayer.scsStatus === ScsStatus.Connecting,
+                            'scs-online': multiplayer.scsStatus === ScsStatus.Connected,
+                            'scs-offline': multiplayer.scsStatus === ScsStatus.Disconnected,
                         }"
                     >
                         <span class="scs-indicator" />
                         <span class="scs-label"
-                            >Server : {{ multiplayer.scsConnected ? 'Online' : 'Offline' }}</span
+                            >Server :
+                            {{
+                                multiplayer.scsStatus === ScsStatus.Connecting
+                                    ? 'Connecting'
+                                    : multiplayer.scsStatus === ScsStatus.Connected
+                                      ? 'Online'
+                                      : 'Offline'
+                            }}</span
                         >
                     </div>
                 </div>
@@ -232,7 +240,7 @@ import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import { connectIntoGame, joinGameRoom } from '@/client/multiplayer/room.ts'
 import TopBar from '@/client/ui/components/TopBar.vue'
 import { useCoreStore } from '@/client/store/core.ts'
-import { CommunicationMode, GameRoom } from '@/shared/types/multiplayer.ts'
+import { CommunicationMode, GameRoom, ScsStatus } from '@/shared/types/multiplayer.ts'
 import UserAvatar from '@/client/ui/components/UserAvatar.vue'
 import * as logging from '@/client/logging.ts'
 import { useBusStore } from '@/client/store/bus.ts'
@@ -531,6 +539,16 @@ if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
         letter-spacing: 0.5px;
     }
 
+    &.scs-connecting {
+        background: rgba(orange, 0.1);
+        color: $silver-grey;
+
+        .scs-indicator {
+            background: orange;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+    }
+
     &.scs-online {
         background: rgba($light-teal, 0.15);
         color: $silver-grey;
@@ -547,6 +565,16 @@ if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
         .scs-indicator {
             background: $crimson-red;
         }
+    }
+}
+
+@keyframes pulse {
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
     }
 }
 
