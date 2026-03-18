@@ -238,7 +238,7 @@ async function syncGameRooms(snapshot: DataSnapshot) {
 export async function createGameRoom(
     roomName: string,
     password: string = '',
-    communication: CommunicationMode,
+    communication: CommunicationMode = CommunicationMode.Ably,
     enableAids: boolean = true,
     allowSpectators: boolean = true,
     seating: Seating = [],

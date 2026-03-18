@@ -90,6 +90,7 @@ function continueSavedGame(savedGame: DbSavedGame) {
         createGameRoom(
             savedGame.roomName,
             savedGame.password,
+            savedGame.communication,
             !!savedGame.enableAids,
             !!savedGame.allowSpectators,
             savedGame.seating,

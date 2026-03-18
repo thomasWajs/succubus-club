@@ -195,14 +195,14 @@
                                     label: 'Direct Connection',
                                     description: 'Faster, Always Available, No Anti-Cheat',
                                     tooltip:
-                                        'Players communicate directly between them for faster gameplay, but there\'s no anti-cheat mechanism',
+                                        'Players communicate directly between them for faster gameplay, but there\'s no anti-cheat mechanism.',
                                 },
                                 {
                                     value: CommunicationMode.SCS,
                                     label: 'Server',
                                     description: 'Slower, Anti-Cheat',
                                     tooltip:
-                                        'Use an authoritative server to ensure player can\'t cheat, but slows down the game. May be unavailable',
+                                        'Use an authoritative server to ensure player can\'t cheat, but slows down the game. May be unavailable.',
                                 },
                             ]"
                         />

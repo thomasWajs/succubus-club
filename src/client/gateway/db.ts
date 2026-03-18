@@ -2,7 +2,13 @@ import Dexie, { Entity, type EntityTable } from 'dexie'
 import { toRaw } from 'vue'
 import { GameType } from '@/shared/types/state.ts'
 import { setUser } from '@sentry/vue'
-import { PermanentId, RoomId, Seating, SerializedGame } from '@/shared/types/multiplayer.ts'
+import {
+    CommunicationMode,
+    PermanentId,
+    RoomId,
+    Seating,
+    SerializedGame,
+} from '@/shared/types/multiplayer.ts'
 import { AvatarId, Deck, DeckList } from '@/shared/types/gateway.ts' // If you know, you know ;-)
 
 // If you know, you know ;-)
@@ -130,6 +136,7 @@ export class DbSavedGame extends Entity<SuccubusDb> {
     gameType: GameType
     roomName: string
     password: string
+    communication: CommunicationMode
     enableAids: number // We cannot index boolean with Dexie, so fallback on 0=false / 1=true
     allowSpectators: number // We cannot index boolean with Dexie, so fallback on 0=false / 1=true
     seating: Seating
