@@ -12,7 +12,13 @@ import {
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import * as logging from '@/client/logging.ts'
 import { useBusStore } from '@/client/store/bus.ts'
-import { CommunicationMode, GameRoom, RoomId, Seating } from '@/shared/types/multiplayer.ts'
+import {
+    CommunicationMode,
+    GameRoom,
+    RoomId,
+    ScsStatus,
+    Seating,
+} from '@/shared/types/multiplayer.ts'
 import { getCommunication, joinGameRoom, leaveGameRoom } from '@/client/multiplayer/room.ts'
 import { computeKey } from '@/client/multiplayer/encryption.ts'
 import { scsCommunication } from '@/client/multiplayer/communication/scs.ts'
@@ -249,6 +255,12 @@ export async function createGameRoom(
     if (multiplayer.gameRoomNames.includes(roomName) || roomName == LOBBY_CHANNEL_NAME) {
         const bus = useBusStore()
         bus.alertError('A game room with this name already exists.')
+        return
+    }
+
+    if (communication == CommunicationMode.SCS && multiplayer.scsStatus == ScsStatus.Disconnected) {
+        const bus = useBusStore()
+        bus.alertError('SCS is offline. You can use Direct Connection.')
         return
     }
 
