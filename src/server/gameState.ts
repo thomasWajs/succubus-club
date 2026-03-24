@@ -62,8 +62,11 @@ export function createGameState(room: Room): GameState {
     const gameState = new GameState()
     const seatedUsers = room.seating.map(permId => getUser(permId))
     setupMultiplayerGameState(gameState, seatedUsers, room.userDecks)
-    room.gameId = gameState.gameId
     persistence.saveGameState(gameState)
+
+    room.gameId = gameState.gameId
+    persistence.saveRoom(room)
+
     return gameState
 }
 
@@ -157,6 +160,7 @@ export async function handleGameMutation(
         })
     } catch (error) {
         sendError(connection.webSocket, `${error}`)
+        console.warn(`Error applying mutation: ${error}`)
     }
 }
 
@@ -240,5 +244,6 @@ export async function handleShuffleCardRegion(
         await handleGameMutation(connection, mutationMessage)
     } catch (error) {
         sendError(connection.webSocket, `${error}`)
+        console.warn(`Error shuffling card region: ${error}`)
     }
 }

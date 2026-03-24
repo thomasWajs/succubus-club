@@ -121,6 +121,10 @@ export function getEdulcoratedDeckList(deckList: DeckList) {
  * Handle player joining a room
  */
 export async function handleJoinRoom(connection: ConnectionInfo, message: JoinRoomMessage) {
+    if (connection.roomId) {
+        throw new Error(`Connection is already in another room ${connection.roomId}`)
+    }
+
     const user = getUser(connection.permId)
     const { roomId, passwordHash } = message
 

@@ -1,4 +1,4 @@
-import { ArrayQueue, ExponentialBackoff, Websocket, WebsocketBuilder } from 'websocket-ts'
+import { ArrayQueue, LinearBackoff, Websocket, WebsocketBuilder } from 'websocket-ts'
 import Ably, { InboundMessage, RealtimeChannel } from 'ably'
 import Objects from 'ably/objects'
 import { FirebaseApp, initializeApp } from 'firebase/app'
@@ -49,16 +49,19 @@ const SCS_URL = import.meta.env.VITE_SCS_URL
 
 export class ScsClient {
     private ws: Websocket
-    private listeners = new Map<MultiplayerMessageType, Set<MessageHandler>>()
+    private openHandler: (() => void) | null = null
+    private messageHandlers = new Map<MultiplayerMessageType, Set<MessageHandler>>()
 
-    constructor(url: string) {
+    public connect() {
         const multiplayer = useMultiplayerStore()
         multiplayer.scsStatus = ScsStatus.Connecting
-        this.ws = new WebsocketBuilder(url)
-            .withBackoff(new ExponentialBackoff(1000, 6))
+        this.ws = new WebsocketBuilder(SCS_URL)
+            .withBackoff(new LinearBackoff(0, 2000, 30000))
             .withBuffer(new ArrayQueue())
             .onOpen(() => {
                 multiplayer.scsStatus = ScsStatus.Connected
+                this.openHandler?.()
+                console.warn('SCS connection established')
             })
             .onClose(() => {
                 multiplayer.scsStatus = ScsStatus.Disconnected
@@ -79,9 +82,9 @@ export class ScsClient {
 
     private handleMessage(message: ScsServerMessage) {
         const type = message.type
-        if (typeof type !== 'string' || !this.listeners.has(type)) return
+        if (typeof type !== 'string' || !this.messageHandlers.has(type)) return
 
-        this.listeners.get(type)?.forEach(handler => {
+        this.messageHandlers.get(type)?.forEach(handler => {
             // Capture all errors on receivers
             try {
                 handler(message)
@@ -102,20 +105,20 @@ export class ScsClient {
         }
     }
 
+    onOpen(openHandler: () => void) {
+        this.openHandler = openHandler
+    }
+
     on<T = unknown>(type: MultiplayerMessageType, handler: MessageHandler<T>) {
-        if (!this.listeners.has(type)) {
-            this.listeners.set(type, new Set())
+        if (!this.messageHandlers.has(type)) {
+            this.messageHandlers.set(type, new Set())
         }
-        this.listeners.get(type)?.add(handler as MessageHandler)
+        this.messageHandlers.get(type)?.add(handler as MessageHandler)
     }
 
     disconnect() {
         this.ws.close()
-        this.listeners.clear()
-    }
-
-    isConnected(): boolean {
-        return this.ws.readyState === WebSocket.OPEN
+        this.messageHandlers.clear()
     }
 }
 
@@ -123,9 +126,16 @@ let scsClient: ScsClient | null = null
 
 export function getScsClient() {
     if (!scsClient) {
-        scsClient = new ScsClient(SCS_URL)
+        scsClient = new ScsClient()
     }
     return scsClient
+}
+
+export function releaseScsClient() {
+    if (scsClient) {
+        scsClient.disconnect()
+    }
+    scsClient = null
 }
 
 /**

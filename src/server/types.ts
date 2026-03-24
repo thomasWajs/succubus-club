@@ -15,18 +15,6 @@ export type ConnectionInfo = {
 }
 
 /**
- * One client connection through websocket
- */
-/*
-export type ScsUser = {
-    permId: PermanentId
-    name: string
-    isReady: boolean
-    deckList: DeckList | null
-}
- */
-
-/**
  * Room structure
  */
 export type Room = {

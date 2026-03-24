@@ -4,6 +4,8 @@ import {
     detachChannel,
     getAbly,
     getRtdb,
+    getScsClient,
+    releaseScsClient,
     rtdbOnValue,
     rtdbRef,
     rtdbRemove,
@@ -45,10 +47,15 @@ async function connectLobby() {
     const lobbyChannel = ably.channels.get(LOBBY_CHANNEL_NAME)
     await lobbyChannel.attach()
 
+    const scsClient = getScsClient()
+    scsClient.onOpen(scsCommunication.announce)
+    scsClient.connect()
+
     return {
         multiplayer: useMultiplayerStore(),
         rtdb,
         ably,
+        scsClient,
         lobbyChannel,
     }
 }
@@ -83,8 +90,6 @@ export async function joinLobby() {
         await syncUsers()
         await lobbyChannel.presence.subscribe(syncUsers)
 
-        scsCommunication.setUser()
-
         // Game room list
         rtdbOnValue(rtdbRef(rtdb, GAME_ROOMS_KEY), syncGameRooms)
     } catch (e) {
@@ -110,6 +115,9 @@ export async function leaveLobby() {
     // Releasing from the channel will also unsubscribe all listeners
     ably.channels.release(LOBBY_CHANNEL_NAME)
     _lobby = null
+
+    // Disconnect websocket to SCS
+    releaseScsClient()
 }
 
 export async function leaveMultiplayer() {

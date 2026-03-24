@@ -13,13 +13,15 @@ export function getUserConnection(permId: PermanentId) {
     return userConnections.get(permId)
 }
 
-export function addUser(permId: PermanentId, user: User, connection: ConnectionInfo) {
+function upsertUser(permId: PermanentId, user: User, connection: ConnectionInfo) {
+    connection.permId = permId
     users.set(permId, user)
     userConnections.set(permId, connection)
 }
 
 export function removeUser(permId: PermanentId) {
     users.delete(permId)
+    userConnections.delete(permId)
 }
 
 /**
@@ -27,8 +29,18 @@ export function removeUser(permId: PermanentId) {
  */
 export async function handleSetUser(connection: ConnectionInfo, message: SetUserMessage) {
     const { permId, name, isReady } = message
-    connection.permId = permId
+
+    console.log(`Player ${connection.permId} is setting their data.`)
+
+    if (connection.permId && connection.permId != permId) {
+        throw new Error(`Connection is already set for another user : ${connection.permId}`)
+    }
+
+    if (connection.permId == '' && (users.has(permId) || userConnections.has(permId))) {
+        throw new Error(`User ${permId} already exists`)
+    }
+
     const user = { permId, name, isReady, avatarId: null }
-    addUser(permId, user, connection)
+    upsertUser(permId, user, connection)
     console.log(`Player ${name} set their data.`)
 }

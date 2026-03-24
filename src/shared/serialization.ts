@@ -3,17 +3,21 @@ import {
     PackedGameMutation,
     Serialized,
     SerializedCard,
+    SerializedCardRegion,
     SerializedGameMutation,
     SerializedGameState,
+    SerializedPlayer,
 } from '@/shared/types/multiplayer.ts'
 import { DATE_PREFIX, OID_PREFIX } from '@/shared/const/multiplayer.ts'
 import { AnyGameMutation, gameMutations } from '@/shared/state/gameMutations.ts'
-import { GameId } from '@/shared/types/model.ts'
-import { getGameState } from '@/shared/registries.ts'
+import { GameId, PlayerCardRegions, PlayerOid } from '@/shared/types/model.ts'
+import { getGameState, registerGameState } from '@/shared/registries.ts'
 import { GameState } from '@/shared/state/gameState.ts'
 import { stringify as stableStringify } from 'safe-stable-stringify'
 import xxhash, { XXHashAPI } from 'xxhash-wasm'
 import { CryptCard, LibraryCard } from '@/shared/model/Card.ts'
+import { Player } from '@/shared/model/Player.ts'
+import { CardRegion } from '@/shared/model/CardRegion.ts'
 
 /**
  * Hashing functions
@@ -150,6 +154,66 @@ export function serializeGameState(gameState: GameState): SerializedGameState {
         cards: JSON.parse(JSON.stringify(gameState.cards)),
         players: JSON.parse(JSON.stringify(gameState.players)),
     } as unknown as SerializedGameState
+}
+
+export function deserializeGameState(
+    serializedGameState: SerializedGameState,
+    gameState: GameState,
+) {
+    const gameId = serializedGameState.gameId as string
+
+    gameState.gameId = gameId
+    registerGameState(gameId, gameState)
+
+    /** Deserialize Cards **/
+    const jsonCards = serializedGameState.cards
+    for (const cardData of Object.values(jsonCards)) {
+        rehydrateCard(gameState, cardData)
+    }
+
+    /** Deserialize Players **/
+    type PlayerCardRegionsKey = keyof PlayerCardRegions
+    const jsonPlayers = serializedGameState.players
+    const players = {} as Record<PlayerOid, Player>
+
+    for (const playerData of Object.values(jsonPlayers) as SerializedPlayer[]) {
+        const cardRegions = {} as PlayerCardRegions
+        for (const [regionName, regionData] of Object.entries(playerData.cardRegions) as [
+            PlayerCardRegionsKey,
+            SerializedCardRegion,
+        ][]) {
+            cardRegions[regionName] = new CardRegion<never>(
+                gameId,
+                regionData.oid,
+                regionData.name,
+                regionData.visibility,
+                regionData.cardsOid,
+            )
+        }
+
+        const playerOid = playerData.oid
+        players[playerOid] = new Player(
+            gameId,
+            playerOid,
+            playerData.permId,
+            cardRegions,
+            playerData.name,
+            playerData.rgbaColor,
+            playerData.pool,
+            playerData.victoryPoints,
+            playerData.isOusted,
+            // playerData.handSize,
+        )
+    }
+    gameState.players = players
+
+    /** Deserialize Other values **/
+
+    for (const [key, value] of Object.entries(serializedGameState)) {
+        if (key != 'cards' && key != 'players' && key in gameState) {
+            Object.assign(gameState, { [key]: deserializeValueRecursive(value, gameId) })
+        }
+    }
 }
 
 /**

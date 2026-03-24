@@ -37,8 +37,8 @@ console.log(`WebSocket server listening on port ${PORT}`)
 /**
  * Handle new client connections
  */
-wsServer.on('connection', (webSocket: WebSocket) => {
-    console.log('New client connected')
+wsServer.on('connection', (webSocket: WebSocket, req) => {
+    console.log('New client connected : ' + req.socket.remoteAddress)
 
     const clientId = generateClientOid()
 
@@ -46,8 +46,8 @@ wsServer.on('connection', (webSocket: WebSocket) => {
     connections.set(clientId, {
         clientId,
         webSocket,
-        permId: '', // Will be set on joinRoom
-        roomId: null,
+        permId: '', // Will be set on setUser
+        roomId: null, // Will be set on joinRoom
     })
 
     /**

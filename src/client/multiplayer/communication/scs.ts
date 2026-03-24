@@ -17,6 +17,7 @@ import { ensureClock } from '@/client/multiplayer/sync.ts'
 import { useCoreStore } from '@/client/store/core.ts'
 
 interface ScsCommunication extends Communication {
+    announce(): void
     setUser(): void
 }
 
@@ -25,8 +26,19 @@ interface ScsCommunication extends Communication {
  */
 
 let currentRoomId: RoomId | null = null
+let currentKey: Key | undefined = undefined
 
 export const scsCommunication: ScsCommunication = {
+    // Send our identity to the server
+    announce() {
+        scsCommunication.setUser()
+
+        // When reconnecting to the server after an unexpected disconnect
+        if (currentRoomId) {
+            scsCommunication.joinRoom(currentRoomId, currentKey)
+        }
+    },
+
     setUser() {
         const multiplayer = useMultiplayerStore()
 
@@ -45,6 +57,7 @@ export const scsCommunication: ScsCommunication = {
             passwordHash: key?.hash ?? '',
         })
         currentRoomId = roomId
+        currentKey = key
     },
 
     async leaveRoom() {
@@ -57,8 +70,7 @@ export const scsCommunication: ScsCommunication = {
     },
 
     async subscribe<T>(messageType: MultiplayerMessageType, handler: MessageHandler<T>) {
-        const scs = getScsClient()
-        scs.on(messageType, handler)
+        getScsClient().on(messageType, handler)
     },
 
     async sendDeck() {
