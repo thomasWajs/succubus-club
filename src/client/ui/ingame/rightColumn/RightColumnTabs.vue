@@ -231,7 +231,7 @@ const archivedLogEntries = computed(() => {
     }
     const serializedArchive: SerializedHistory = JSON.parse(history.archive)
     const archivedHistory = new HistoryStore()
-    deserializeHistory('', serializedArchive, archivedHistory)
+    deserializeHistory(gameState.gameId, serializedArchive, archivedHistory)
     return archivedHistory.logEntries
 })
 

@@ -225,7 +225,7 @@ export function deserializeGameState(
  * History serialization
  */
 
-export function serializeHistory(history: HistoryStore): SerializedHistory {
+export function serializeHistory(history: HistoryStore, withArchive: boolean): SerializedHistory {
     // Compress strings into a string pool
     const stringPool: string[] = []
     const stringToId = new Map<string, number>()
@@ -273,6 +273,7 @@ export function serializeHistory(history: HistoryStore): SerializedHistory {
         stringPool,
         logEntries,
         gameMutations,
+        archive: withArchive ? history.archive : undefined,
     }
 }
 
@@ -308,6 +309,10 @@ export function deserializeHistory(
             serializedMutation: serializeGameMutation(unpackGameMutation(mutationEntry.p)),
         }
     })
+
+    if (serializedHistory.archive) {
+        history.archive = serializedHistory.archive
+    }
 }
 
 /**

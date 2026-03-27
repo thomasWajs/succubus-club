@@ -8,6 +8,7 @@ import {
 } from '@/shared/serialization.ts'
 import { getAuthorColorRgba } from '@/shared/colors.ts'
 import { SerializedHistory } from '@/shared/types/multiplayer.ts'
+import { GameId } from '@/shared/types/model.ts'
 
 const HISTORY_ARCHIVE_THRESHOLD = 150
 const HISTORY_KEEP_RECENT = 100
@@ -101,7 +102,7 @@ export class HistoryStore {
             this.logEntries.length > HISTORY_ARCHIVE_THRESHOLD ||
             this.gameMutations.length > HISTORY_ARCHIVE_THRESHOLD
         ) {
-            this.archiveOldHistory()
+            this.archiveOldHistory(gameMutation.gameId)
         }
     }
 
@@ -113,12 +114,12 @@ export class HistoryStore {
         })
     }
 
-    archiveOldHistory() {
+    archiveOldHistory(gameId: GameId) {
         // 1. Deserialize existing archive
         const archivedHistory: HistoryStore = new HistoryStore()
         if (this.archive !== '') {
             const serializedArchive: SerializedHistory = JSON.parse(this.archive)
-            deserializeHistory('', serializedArchive, archivedHistory)
+            deserializeHistory(gameId, serializedArchive, archivedHistory)
         }
 
         // 2. Append older entries to archive
@@ -134,8 +135,8 @@ export class HistoryStore {
         )
         archivedHistory.gameMutations.push(...gameMutationsToArchive)
 
-        // 3. Re-serialize archive with the new entries
-        this.archive = JSON.stringify(serializeHistory(archivedHistory))
+        // 3. Re-serialize archive with the new entries, and without embedding our own archive
+        this.archive = JSON.stringify(serializeHistory(archivedHistory, false))
 
         // 4. Remove older entries from active history
         this.logEntries = this.logEntries.slice(-HISTORY_KEEP_RECENT)

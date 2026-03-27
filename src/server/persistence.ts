@@ -103,12 +103,6 @@ export function initTables() {
 
 export function saveRoom(room: Room): void {
     try {
-        console.log('About to save room:', {
-            id: room.id,
-            gameId: room.gameId,
-            hasPlayers: room.players.size > 0,
-        })
-
         const now = Date.now()
         const stmt = db.prepare(`
             INSERT INTO rooms (id, passwordHash, userDecks, seating, gameId, globalClock, objectClocks, history, createdAt, updatedAt)
@@ -131,7 +125,7 @@ export function saveRoom(room: Room): void {
             room.gameId,
             JSON.stringify(room.globalClock),
             JSON.stringify(room.objectClocks),
-            JSON.stringify(serializeHistory(room.history)),
+            JSON.stringify(serializeHistory(room.history, true)),
             now,
             now,
         )

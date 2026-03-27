@@ -19,7 +19,7 @@ export function serializeGame(): SerializedGame {
     const rawState = useGameStateStore().$state
     const serializedGameState = serializeGameState(rawState as GameState)
     const rawHistory = useHistoryStore().$state
-    const serializedHistory = serializeHistory(rawHistory as HistoryStore)
+    const serializedHistory = serializeHistory(rawHistory as HistoryStore, true)
 
     return {
         version: GAME_STATE_VERSION,

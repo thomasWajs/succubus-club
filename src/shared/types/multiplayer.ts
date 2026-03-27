@@ -171,6 +171,7 @@ export type SerializedHistory = {
     stringPool: string[]
     logEntries: PackedLogEntry[]
     gameMutations: PackedMutationHistoryEntry[]
+    archive?: string
 }
 
 export type SerializedGame = {

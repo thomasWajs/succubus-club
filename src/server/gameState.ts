@@ -131,7 +131,7 @@ export function getSerializedGame(
     return {
         version: GAME_STATE_VERSION,
         gameState: serializedGameState,
-        history: serializeHistory(room.history),
+        history: serializeHistory(room.history, true),
         objectClocks,
         // We don't need those in SCS mode
         mutationVersions: {},

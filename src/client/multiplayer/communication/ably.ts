@@ -1,6 +1,7 @@
 import {
     AblyGameStateMessage,
     AblyLaunchGameMessage,
+    AblyRequestResyncMessage,
     GameMutationMessage,
     GameRoom,
     MultiplayerMessageType,
@@ -98,14 +99,14 @@ async function requestResyncGameState() {
     await ablyPublish(roomChannel, MultiplayerMessageType.RequestResync, { syncChannelName })
 }
 
-export async function onReceiveRequestResyncGameState(syncChannelName: string) {
+export async function onReceiveRequestResyncGameState(message: AblyRequestResyncMessage) {
     const gameRoom = ensureGameRoom()
     if (!gameRoom.isStarted) {
         throw new Error(`Game is not started`)
     }
 
     const ably = getAbly()
-    const syncChannel = ably.channels.get(syncChannelName)
+    const syncChannel = ably.channels.get(message.syncChannelName)
     const syncMessage = await makeResyncGameStateMessage()
     await ablyPublish(syncChannel, MultiplayerMessageType.GameState, syncMessage)
 }
