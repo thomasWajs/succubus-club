@@ -1,4 +1,5 @@
 import {
+    AblyGameStateMessage,
     AblyLaunchGameMessage,
     GameMutationMessage,
     GameRoom,
@@ -14,11 +15,7 @@ import {
     MessageHandler,
 } from '@/client/gateway/realtime.ts'
 import Ably, { ChannelOptions } from 'ably'
-import {
-    ensureGameRoom,
-    onReceiveResyncGameState,
-    receiveLaunchGame,
-} from '@/client/multiplayer/room.ts'
+import { ensureGameRoom, receiveLaunchGame } from '@/client/multiplayer/room.ts'
 import { shuffleArray } from '@/shared/utils.ts'
 import { Communication } from '@/client/multiplayer/communication/index.ts'
 import { GameType } from '@/shared/types/state.ts'
@@ -27,6 +24,7 @@ import { fetchGameState, storeGameState } from '@/client/gateway/gameState.ts'
 import { serializeMultiplayerGame } from '@/client/gateway/serialization.ts'
 import { setupMultiplayerGame, startGame } from '@/client/state/setup.ts'
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
+import { applyGameResync, makeResyncGameStateMessage } from '@/client/multiplayer/sync.ts'
 
 /**
  * Ably Room Management
@@ -79,10 +77,53 @@ export function getRoomChannel() {
 }
 
 /**
+ * Ably Game Sync
+ */
+
+async function requestResyncGameState() {
+    const multiplayer = useMultiplayerStore()
+    const ably = getAbly()
+    const roomChannel = getRoomChannel()
+
+    const syncChannelName = `sync-${multiplayer.selfUser.permId}`
+    const syncChannel = ably.channels.get(syncChannelName)
+    await ablySubscribe(syncChannel, MultiplayerMessageType.GameState, onReceiveResyncGameState)
+    // Leave the resync channel after 30 seconds
+    setTimeout(async () => {
+        await detachChannel(syncChannel)
+        ably.channels.release(syncChannelName)
+    }, 1000 * 30)
+
+    // Ask everyone, and use the more recent state ( according to global clock )
+    await ablyPublish(roomChannel, MultiplayerMessageType.RequestResync, { syncChannelName })
+}
+
+export async function onReceiveRequestResyncGameState(syncChannelName: string) {
+    const gameRoom = ensureGameRoom()
+    if (!gameRoom.isStarted) {
+        throw new Error(`Game is not started`)
+    }
+
+    const ably = getAbly()
+    const syncChannel = ably.channels.get(syncChannelName)
+    const syncMessage = await makeResyncGameStateMessage()
+    await ablyPublish(syncChannel, MultiplayerMessageType.GameState, syncMessage)
+}
+
+export async function onReceiveResyncGameState(syncMessage: AblyGameStateMessage) {
+    const gameRoom = ensureGameRoom()
+    // Cannot receive sync state if the game is not started
+    if (!gameRoom.isStarted) {
+        return
+    }
+    await applyGameResync(syncMessage)
+}
+
+/**
  * Implementation of Communication through Ably
  */
 
-const ablyCommunication: Communication = {
+export const ablyCommunication: Communication = {
     joinRoom: initRoom,
     leaveRoom: disconnectRoom,
     isInRoom,
@@ -136,22 +177,5 @@ const ablyCommunication: Communication = {
         await ablyPublish(getRoomChannel(), MultiplayerMessageType.GameMutation, message)
     },
 
-    async requestResyncGameState() {
-        const multiplayer = useMultiplayerStore()
-        const ably = getAbly()
-        const roomChannel = getRoomChannel()
-
-        const syncChannelName = `sync-${multiplayer.selfUser.permId}`
-        const syncChannel = ably.channels.get(syncChannelName)
-        await ablySubscribe(syncChannel, MultiplayerMessageType.GameState, onReceiveResyncGameState)
-        // Leave the resync channel after 30 seconds
-        setTimeout(async () => {
-            await detachChannel(syncChannel)
-            ably.channels.release(syncChannelName)
-        }, 1000 * 30)
-
-        // Ask everyone, and use the more recent state ( according to global clock )
-        await ablyPublish(roomChannel, MultiplayerMessageType.RequestResync, { syncChannelName })
-    },
+    requestResyncGameState,
 }
-export default ablyCommunication

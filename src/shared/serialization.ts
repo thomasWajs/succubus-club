@@ -1,11 +1,13 @@
 import {
     JsonValue,
     PackedGameMutation,
+    PackedLogEntry,
     Serialized,
     SerializedCard,
     SerializedCardRegion,
     SerializedGameMutation,
     SerializedGameState,
+    SerializedHistory,
     SerializedPlayer,
 } from '@/shared/types/multiplayer.ts'
 import { DATE_PREFIX, OID_PREFIX } from '@/shared/const/multiplayer.ts'
@@ -15,9 +17,11 @@ import { getGameState, registerGameState } from '@/shared/registries.ts'
 import { GameState } from '@/shared/state/gameState.ts'
 import { stringify as stableStringify } from 'safe-stable-stringify'
 import xxhash, { XXHashAPI } from 'xxhash-wasm'
-import { CryptCard, LibraryCard } from '@/shared/model/Card.ts'
+import { Card, CryptCard, LibraryCard } from '@/shared/model/Card.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { CardRegion } from '@/shared/model/CardRegion.ts'
+import { HistoryStore } from '@/shared/state/history.ts'
+import { PlayerVision } from '@/shared/types/state.ts'
 
 /**
  * Hashing functions
@@ -214,6 +218,61 @@ export function deserializeGameState(
             Object.assign(gameState, { [key]: deserializeValueRecursive(value, gameId) })
         }
     }
+}
+
+/**
+ * History serialization
+ */
+
+export function serializeHistory(history: HistoryStore): SerializedHistory {
+    // Compress strings into a string pool
+    const stringPool: string[] = []
+    const stringToId = new Map<string, number>()
+    const internString = (str: string): number => {
+        if (!stringToId.has(str)) {
+            const id = stringPool.length
+            stringPool.push(str)
+            stringToId.set(str, id)
+        }
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        return stringToId.get(str)!
+    }
+
+    const logEntries: PackedLogEntry[] = history.logEntries.map(logEntry => ({
+        t: internString(logEntry.text),
+        i: serializeValueRecursive(logEntry.timestamp) as string,
+        a: internString(logEntry.authorName),
+        r: internString(logEntry.authorColorRgba),
+        n: logEntry.cancelText ? internString(logEntry.cancelText) : undefined,
+        p: logEntry.playerVision ? serializeObject(logEntry.playerVision) : undefined,
+        c: logEntry.card ? serializeValueRecursive(logEntry.card) : undefined,
+        m: logEntry.mutationId,
+    }))
+
+    return {
+        stringPool,
+        logEntries,
+        gameMutations: serializeObject(history.gameMutations),
+    }
+}
+
+export function deserializeHistory(
+    gameId: GameId,
+    serializedHistory: SerializedHistory,
+    history: HistoryStore,
+) {
+    const stringPool = serializedHistory.stringPool
+    history.logEntries = serializedHistory.logEntries.map(logEntry => ({
+        text: stringPool[logEntry.t],
+        timestamp: deserializeValueRecursive(logEntry.i, gameId) as Date,
+        authorName: stringPool[logEntry.a],
+        authorColorRgba: stringPool[logEntry.r],
+        cancelText: logEntry.n ? stringPool[logEntry.n] : undefined,
+        playerVision: logEntry.p ? deserializeObject<PlayerVision>(logEntry.p, gameId) : undefined,
+        card: logEntry.c ? (deserializeValueRecursive(logEntry.c, gameId) as Card) : undefined,
+        mutationId: logEntry.m,
+    }))
+    history.gameMutations = serializedHistory.gameMutations
 }
 
 /**

@@ -8,15 +8,14 @@ import {
     ScsServerMessage,
 } from '@/shared/types/multiplayer.ts'
 import { send, sendError } from './index.ts'
-import { ConnectionInfo, Room } from './types.ts'
-import { createGameState, getKnownCards } from './gameState.ts'
+import { ConnectionInfo, Room, SERVER_PERM_ID } from './types.ts'
+import { createGameState, getSerializedGame } from './gameState.ts'
 import { getUser, getUserConnection } from './users.ts'
-import { serializeGameState } from '@/shared/serialization.ts'
-import { GAME_STATE_VERSION } from '@/shared/const/multiplayer.ts'
-import { GameState } from '@/shared/state/gameState.ts'
 import * as persistence from './persistence.ts'
 import { DeckList } from '@/shared/types/gateway.ts'
 import { shuffleArray } from '@/shared/utils.ts'
+import { LamportClock } from '@/shared/multiplayer/clock.ts'
+import { HistoryStore } from '@/shared/state/history.ts'
 
 export class RoomNotFound extends Error {}
 
@@ -66,6 +65,9 @@ export function getOrCreateRoom(roomId: RoomId, passwordHash: string): Room {
             seating: EMPTY_SEATING,
             gameId: null,
             userDecks: {},
+            globalClock: new LamportClock(SERVER_PERM_ID),
+            objectClocks: {},
+            history: new HistoryStore(),
         }
         rooms.set(roomId, room)
         persistence.saveRoom(room)
@@ -224,27 +226,10 @@ export async function handleSetupGame(connection: ConnectionInfo) {
 
     const gameState = createGameState(room)
 
-    broadcastTailored(room.id, permId => {
-        const knownCards = getKnownCards(gameState, permId)
-        const userGameState = { ...gameState, knownCards } as GameState
-        const serializedGameState = serializeGameState(userGameState)
-        const serializedGame = {
-            version: GAME_STATE_VERSION,
-            gameState: serializedGameState,
-            history: {
-                stringPool: [],
-                logEntries: [],
-                gameMutations: [],
-            },
-            objectClocks: {},
-            mutationVersions: {},
-        }
-
-        return {
-            type: MultiplayerMessageType.LaunchGame,
-            serializedGame: serializedGame,
-        }
-    })
+    broadcastTailored(room.id, permId => ({
+        type: MultiplayerMessageType.LaunchGame,
+        serializedGame: getSerializedGame(gameState, room, permId),
+    }))
 }
 
 /**

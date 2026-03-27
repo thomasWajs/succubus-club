@@ -8,7 +8,7 @@ import {
     leaveRoom,
     RoomNotFound,
 } from './rooms'
-import { handleGameMutation, handleShuffleCardRegion } from './gameState.ts'
+import { handleGameMutation, handleRequestResync, handleShuffleCardRegion } from './gameState.ts'
 import {
     ErrorMessage,
     MultiplayerMessageType,
@@ -96,9 +96,8 @@ wsServer.on('connection', (webSocket: WebSocket, req) => {
                 case MultiplayerMessageType.ShuffleCardRegion:
                     await handleShuffleCardRegion(connection, message)
                     break
-
                 case MultiplayerMessageType.RequestResync:
-                    // TODO: Implement state sync
+                    handleRequestResync(connection)
                     break
 
                 default:

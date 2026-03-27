@@ -1,26 +1,37 @@
-import { sendError } from './index.ts'
+import { send, sendError } from './index.ts'
 import { broadcastTailored, ensureRoom, getRoom } from './rooms.ts'
 import {
     EMPTY_SEATING,
     MultiplayerMessageType,
+    MutationSyncMode,
     PermanentId,
     RoomId,
     ScsGameMutationMessage,
+    ScsGameStateMessage,
     ScsShuffleCardRegionMessage,
+    SerializedMultiplayerGame,
 } from '@/shared/types/multiplayer.ts'
-import { ConnectionInfo, RateLimitInfo, Room } from './types.ts'
+import { ConnectionInfo, RateLimitInfo, Room, SERVER_PERM_ID } from './types.ts'
 import { GameState } from '@/shared/state/gameState.ts'
 import { setupMultiplayerGameState } from '@/shared/state/setup.ts'
 import { getUser } from './users.ts'
 import { getGameState } from '@/shared/registries.ts'
 import { KnownCards } from '@/shared/types/state.ts'
 import { anyoneCanSee, canSeeOrPeek } from '@/shared/state/cardVisibility.ts'
-import { packGameMutation, unpackGameMutation } from '@/shared/serialization.ts'
+import {
+    hashObject,
+    packGameMutation,
+    serializeGameState,
+    serializeHistory,
+    unpackGameMutation,
+} from '@/shared/serialization.ts'
 import * as persistence from './persistence.ts'
 import { generateCardOid } from '@/shared/state/ids.ts'
 import { CardOid } from '@/shared/types/model.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
 import { shuffleArray } from '@/shared/utils.ts'
+import { GAME_STATE_VERSION } from '@/shared/const/multiplayer.ts'
+import { ClockCompare, VectorClock } from '@/shared/multiplayer/clock.ts'
 
 const RATE_LIMIT_WINDOW = 1000 // 1 second
 const RATE_LIMIT_MAX = 50 // Max mutations per window
@@ -99,7 +110,38 @@ export function getKnownCards(gameState: GameState, permId: PermanentId): KnownC
     return userKnownCards
 }
 
-function validateBeforeMutation(connection: ConnectionInfo) {
+/**
+ * Get a serialized game for launch or resync
+ */
+export function getSerializedGame(
+    gameState: GameState,
+    room: Room,
+    permId: PermanentId,
+): SerializedMultiplayerGame {
+    const knownCards = getKnownCards(gameState, permId)
+    const userGameState = { ...gameState, knownCards } as GameState
+    const serializedGameState = serializeGameState(userGameState)
+    const objectClocks = Object.fromEntries(
+        Object.entries(room.objectClocks).map(([versioningId, clock]) => [
+            versioningId,
+            clock.version,
+        ]),
+    )
+
+    return {
+        version: GAME_STATE_VERSION,
+        gameState: serializedGameState,
+        history: serializeHistory(room.history),
+        objectClocks,
+        // We don't need those in SCS mode
+        mutationVersions: {},
+    }
+}
+
+/**
+ * Validate before applying in-game messages ( mutations, shuffle, resync )
+ */
+function validateBeforeGameMessage(connection: ConnectionInfo) {
     // Check rate limit
     if (!checkRateLimit(connection.permId)) {
         console.warn(`Rate limit exceeded for user ${connection.permId}`)
@@ -126,7 +168,7 @@ export async function handleGameMutation(
     message: ScsGameMutationMessage,
 ) {
     try {
-        let { room, gameState } = validateBeforeMutation(connection)
+        let { room, gameState } = validateBeforeGameMessage(connection)
 
         const mutation = unpackGameMutation(message.gameMutation)
 
@@ -145,13 +187,35 @@ export async function handleGameMutation(
             throw new Error(`Invalid mutation: ${validity.reason}`)
         }
 
+        room.globalClock.update(message.globalVersion)
+
+        if (mutation.syncMode == MutationSyncMode.Ordered) {
+            if (!message.version) {
+                console.error(`Missing version for Ordered mutation`)
+                throw new Error(`Missing version for Ordered mutation`)
+            }
+
+            room.objectClocks[mutation.versioningId] ??= new VectorClock()
+            const clock = room.objectClocks[mutation.versioningId]
+
+            if (clock.compare(message.version) == ClockCompare.Concurrent) {
+                // TODO: handle conflicts by rejecting conflicting mutations
+            }
+
+            clock.merge(message.version)
+        }
+
         // Apply mutation
         mutation.apply()
 
+        // Store in history
+        room.history.addGameMutation(mutation)
+
         console.log(`Applied mutation ${mutation.name} to room ${room.id}`)
 
-        // Persist updated game state
+        // Persist updated game state and room clocks
         persistence.saveGameState(gameState)
+        persistence.saveRoom(room)
 
         // Broadcast mutation to all players in the room
         broadcastTailored(room.id, permId => {
@@ -172,7 +236,7 @@ export async function handleShuffleCardRegion(
     message: ScsShuffleCardRegionMessage,
 ) {
     try {
-        const { room, gameState } = validateBeforeMutation(connection)
+        const { room, gameState } = validateBeforeGameMessage(connection)
 
         const cardRegion = gameState.cardRegions[message.cardRegionOid]
         const player = getPlayer(gameState, connection.permId)
@@ -245,5 +309,29 @@ export async function handleShuffleCardRegion(
     } catch (error) {
         sendError(connection.webSocket, `${error}`)
         console.warn(`Error shuffling card region: ${error}`)
+    }
+}
+
+/**
+ * Handle game state resync request from client
+ * Used when a client reconnects or needs to recover from disconnection.
+ */
+export function handleRequestResync(connection: ConnectionInfo): void {
+    try {
+        const { room, gameState } = validateBeforeGameMessage(connection)
+
+        const mutationMessage: ScsGameStateMessage = {
+            type: MultiplayerMessageType.GameState,
+            serializedGame: getSerializedGame(gameState, room, connection.permId),
+            globalVersion: room.globalClock.advance(SERVER_PERM_ID),
+            hash: hashObject(gameState),
+        }
+
+        send(connection.webSocket, mutationMessage)
+
+        console.log(`Resync sent for room ${room.id}, player ${connection.permId}`)
+    } catch (error) {
+        sendError(connection.webSocket, `Resync failed: ${error}`)
+        console.error(`Error during resync:`, error)
     }
 }

@@ -227,12 +227,6 @@ export type GameMutationMessage = {
     knownCards?: KnownCards // Sent by the server in SCS mode
 }
 
-export type GameStateMessage = {
-    gameStateId: string
-    globalVersion: LamportClockVersion
-    hash: number
-}
-
 export type ErrorMessage = {
     type: MultiplayerMessageType.Error
     message: string
@@ -250,6 +244,12 @@ export type AblyRequestResyncMessage = {
     syncChannelName: string
 }
 
+export type AblyGameStateMessage = {
+    gameStateId: string
+    globalVersion: LamportClockVersion
+    hash: number
+}
+
 export type AblyMessage =
     | DeckMessage
     | AblyLaunchGameMessage
@@ -257,7 +257,7 @@ export type AblyMessage =
     | LeaveSeatMessage
     | GameMutationMessage
     | AblyRequestResyncMessage
-    | GameStateMessage
+    | AblyGameStateMessage
     | SerializedChatMessage
 
 /**
@@ -331,9 +331,17 @@ export type ScsLaunchGameMessage = {
     serializedGame: SerializedMultiplayerGame
 }
 
+export type ScsGameStateMessage = {
+    type: MultiplayerMessageType.GameState
+    serializedGame: SerializedMultiplayerGame
+    globalVersion: LamportClockVersion
+    hash: number
+}
+
 export type ScsServerMessage =
     | ScsDeckMessage
     | ScsRollSeatingMessage
     | ScsLaunchGameMessage
     | ScsGameMutationMessage
+    | ScsGameStateMessage
     | ErrorMessage

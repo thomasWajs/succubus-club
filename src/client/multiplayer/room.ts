@@ -1,13 +1,12 @@
 import { watch, WatchHandle } from 'vue'
 import { PresenceMessage } from 'ably'
-import { ablyPublish, ablySubscribe, getAbly } from '@/client/gateway/realtime.ts'
+import { ablyPublish, ablySubscribe } from '@/client/gateway/realtime.ts'
 import {
     CommunicationMode,
     DeckMessage,
     EMPTY_SEATING,
     GameMutationMessage,
     GameRoom,
-    GameStateMessage,
     LeaveSeatMessage,
     MultiplayerMessageType,
     PermanentId,
@@ -25,10 +24,8 @@ import { resetState, startGame } from '@/client/state/setup.ts'
 import { GameType } from '@/shared/types/state.ts'
 import { AnyGameMutation } from '@/shared/state/gameMutations.ts'
 import {
-    applyGameResync,
     applyInitialGameState,
     makeMutationMessage,
-    makeResyncGameStateMessage,
     receiveChatMessage,
     receiveMutationMessage,
     resetPendingSyncMessage,
@@ -38,9 +35,13 @@ import { broadcastGameRoom, deleteGameRoom } from '@/client/multiplayer/lobby.ts
 import { Key } from '@/client/multiplayer/encryption.ts'
 import { ChatMessage } from '@/shared/types/history.ts'
 import { serializeObject } from '@/shared/serialization.ts'
-import ablyCommunication, { getRoomChannel } from '@/client/multiplayer/communication/ably.ts'
+import {
+    ablyCommunication,
+    getRoomChannel,
+    onReceiveRequestResyncGameState,
+} from '@/client/multiplayer/communication/ably.ts'
 import { Communication } from '@/client/multiplayer/communication'
-import { scsCommunication } from '@/client/multiplayer/communication/scs.ts'
+import { onReceiveGameSync, scsCommunication } from '@/client/multiplayer/communication/scs.ts'
 
 export function getCommunication(gameRoom?: GameRoom): Communication {
     if (!gameRoom) {
@@ -101,6 +102,18 @@ export async function joinGameRoom(gameRoom: GameRoom, key?: Key) {
 
         await roomChannel.presence.enter(multiplayer.selfUser)
 
+        // In SCS mode, subscribe to RollSeating and GameState from server
+        let scsSubscriptions: Promise<void>[] = []
+        if (gameRoom.communication === CommunicationMode.SCS) {
+            scsSubscriptions = [
+                scsCommunication.subscribe(
+                    MultiplayerMessageType.RollSeating,
+                    onReceiveRollSeating,
+                ),
+                scsCommunication.subscribe(MultiplayerMessageType.GameState, onReceiveGameSync),
+            ]
+        }
+
         // Activate all subscriptions
         await Promise.all([
             // Presence / Users
@@ -112,11 +125,6 @@ export async function joinGameRoom(gameRoom: GameRoom, key?: Key) {
             comm.subscribe(MultiplayerMessageType.GameMutation, receiveGameMutation),
             comm.subscribe(MultiplayerMessageType.Deck, receiveDeck),
 
-            // In SCS mode, subscribe to RollSeating from server
-            gameRoom.communication === CommunicationMode.SCS ?
-                comm.subscribe(MultiplayerMessageType.RollSeating, onReceiveRollSeating)
-            :   Promise.resolve(),
-
             // Chat and seat picking is always through ably
             ablySubscribe(roomChannel, MultiplayerMessageType.Chat, onReceiveChatMessage),
             ablySubscribe(
@@ -126,6 +134,8 @@ export async function joinGameRoom(gameRoom: GameRoom, key?: Key) {
             ),
             ablySubscribe(roomChannel, MultiplayerMessageType.PickSeat, onReceivePickSeat),
             ablySubscribe(roomChannel, MultiplayerMessageType.LeaveSeat, onReceiveLeaveSeat),
+
+            ...scsSubscriptions,
         ])
 
         // The host is responsible for sending game room updates to the other players
@@ -526,27 +536,6 @@ export async function requestResyncGameState(isUserRequest: boolean = false) {
 
     startGameResync(isUserRequest)
     await comm.requestResyncGameState()
-}
-
-export async function onReceiveRequestResyncGameState(syncChannelName: string) {
-    const gameRoom = ensureGameRoom()
-    if (!gameRoom.isStarted) {
-        throw new Error(`Game is not started`)
-    }
-
-    const ably = getAbly()
-    const syncChannel = ably.channels.get(syncChannelName)
-    const syncMessage = await makeResyncGameStateMessage()
-    await ablyPublish(syncChannel, MultiplayerMessageType.GameState, syncMessage)
-}
-
-export async function onReceiveResyncGameState(syncMessage: GameStateMessage) {
-    const gameRoom = ensureGameRoom()
-    // Cannot receive sync state if the game is not started
-    if (!gameRoom.isStarted) {
-        return
-    }
-    await applyGameResync(syncMessage)
 }
 
 export async function connectIntoGame(gameRoom?: GameRoom) {

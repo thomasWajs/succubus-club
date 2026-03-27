@@ -6,12 +6,14 @@ import { useGameStateStore } from '@/client/store/gameState.ts'
 import { useBusStore, useGameBusStore } from '@/client/store/bus.ts'
 import * as logging from '@/client/logging.ts'
 import {
+    AblyGameStateMessage,
     GameMutationMessage,
-    GameStateMessage,
     MutationSyncMode,
     PermanentId,
+    ScsGameStateMessage,
     SerializedChatMessage,
     SerializedGame,
+    SerializedMultiplayerGame,
     VectorClockVersion,
     VersioningId,
 } from '@/shared/types/multiplayer.ts'
@@ -483,7 +485,22 @@ export function startGameResync(isUserRequest: boolean) {
     desyncDate = new Date()
 }
 
-export async function makeResyncGameStateMessage(): Promise<GameStateMessage> {
+export function endGameResync() {
+    const bus = useBusStore()
+
+    // Let the message visible at least 2 seconds
+    if (bus.isResyncing) {
+        const timeout =
+            DESYNC_MESSAGE_MINIMUM_TIME_VISIBLE -
+            (new Date().getTime() - (desyncDate?.getTime() ?? 0))
+        setTimeout(() => {
+            bus.alertSuccess('Game successfully resynced with other players.')
+        }, timeout)
+    }
+    bus.isResyncing = false
+}
+
+export async function makeResyncGameStateMessage(): Promise<AblyGameStateMessage> {
     return stateMutex.withLock(async () => {
         const multiplayer = useMultiplayerStore()
         const core = useCoreStore()
@@ -496,9 +513,8 @@ export async function makeResyncGameStateMessage(): Promise<GameStateMessage> {
     })
 }
 
-export async function applyGameResync(syncMessage: GameStateMessage) {
+export async function applyGameResync(syncMessage: AblyGameStateMessage | ScsGameStateMessage) {
     const multiplayer = useMultiplayerStore()
-    const bus = useBusStore()
 
     // Protect access to global clock
     await stateMutex.withLock(async () => {
@@ -508,10 +524,16 @@ export async function applyGameResync(syncMessage: GameStateMessage) {
             multiplayer.globalClock.compare(syncMessage.globalVersion) <= 0 &&
             syncMessage.hash != hashObject(useGameStateStore().$state)
         ) {
-            const serializedGame = await fetchGameState(syncMessage.gameStateId)
+            let serializedGame: SerializedMultiplayerGame | undefined | null
 
-            if (!serializedGame) {
-                throw new Error(`Failed to fetch game state from ${syncMessage.gameStateId}`)
+            if ('gameStateId' in syncMessage) {
+                serializedGame = await fetchGameState(syncMessage.gameStateId)
+
+                if (!serializedGame) {
+                    throw new Error(`Failed to fetch game state from ${syncMessage.gameStateId}`)
+                }
+            } else {
+                serializedGame = syncMessage.serializedGame
             }
 
             loadGame(serializedGame)
@@ -530,16 +552,7 @@ export async function applyGameResync(syncMessage: GameStateMessage) {
             multiplayer.mutationVersions = serializedGame.mutationVersions
         }
 
-        // Let the message visible at least 2 seconds
-        if (bus.isResyncing) {
-            const timeout =
-                DESYNC_MESSAGE_MINIMUM_TIME_VISIBLE -
-                (new Date().getTime() - (desyncDate?.getTime() ?? 0))
-            setTimeout(() => {
-                bus.alertSuccess('Game successfully resynced with other players.')
-            }, timeout)
-        }
-        bus.isResyncing = false
+        endGameResync()
 
         // Flush mutations that we may have received during the sync
         flushPendingMessages()

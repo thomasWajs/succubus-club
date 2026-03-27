@@ -2,6 +2,7 @@ import {
     GameMutationMessage,
     MultiplayerMessageType,
     RoomId,
+    ScsGameStateMessage,
     ScsLaunchGameMessage,
     ScsShuffleCardRegionMessage,
     VersioningTarget,
@@ -13,12 +14,50 @@ import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import { Communication } from '@/client/multiplayer/communication/index.ts'
 import { AnyCardRegion } from '@/shared/types/model.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
-import { ensureClock } from '@/client/multiplayer/sync.ts'
+import { applyGameResync, ensureClock } from '@/client/multiplayer/sync.ts'
 import { useCoreStore } from '@/client/store/core.ts'
 
 interface ScsCommunication extends Communication {
     announce(): void
     setUser(): void
+}
+
+/**
+ * SCS Game Sync
+ */
+
+export async function onReceiveGameSync(message: ScsGameStateMessage) {
+    const gameRoom = ensureGameRoom()
+    // Cannot receive sync state if the game is not started
+    if (!gameRoom.isStarted) {
+        return
+    }
+    await applyGameResync(message)
+}
+
+/**
+ * Send shuffle request to server
+ */
+export async function sendShuffleRequest(cardRegion: AnyCardRegion) {
+    const core = useCoreStore()
+    const gameState = useGameStateStore()
+    const multiplayer = useMultiplayerStore()
+
+    if (!gameState.selfPlayer) {
+        throw new Error('Cannot shuffle without a self player defined')
+    }
+
+    const versioningId = `${VersioningTarget.Shuffle}-${cardRegion.oid}`
+    const clock = ensureClock(versioningId)
+    const version = clock.version
+    version[core.userProfile.permanentId] = clock.get(core.userProfile.permanentId) + 1
+    const message: ScsShuffleCardRegionMessage = {
+        type: MultiplayerMessageType.ShuffleCardRegion,
+        cardRegionOid: cardRegion.oid,
+        globalVersion: multiplayer.globalClock,
+        version,
+    }
+    getScsClient().send(message)
 }
 
 /**
@@ -115,29 +154,4 @@ export const scsCommunication: ScsCommunication = {
     async requestResyncGameState() {
         getScsClient().send({ type: MultiplayerMessageType.RequestResync })
     },
-}
-
-/**
- * Send shuffle request to server
- */
-export async function sendShuffleRequest(cardRegion: AnyCardRegion) {
-    const core = useCoreStore()
-    const gameState = useGameStateStore()
-    const multiplayer = useMultiplayerStore()
-
-    if (!gameState.selfPlayer) {
-        throw new Error('Cannot shuffle without a self player defined')
-    }
-
-    const versioningId = `${VersioningTarget.Shuffle}-${cardRegion.oid}`
-    const clock = ensureClock(versioningId)
-    const version = clock.version
-    version[core.userProfile.permanentId] = clock.get(core.userProfile.permanentId) + 1
-    const message: ScsShuffleCardRegionMessage = {
-        type: MultiplayerMessageType.ShuffleCardRegion,
-        cardRegionOid: cardRegion.oid,
-        globalVersion: multiplayer.globalClock,
-        version,
-    }
-    getScsClient().send(message)
 }

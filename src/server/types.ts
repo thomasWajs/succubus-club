@@ -1,6 +1,16 @@
-import { PermanentId, RoomId, Seating, UserDecks } from '@/shared/types/multiplayer.ts'
+import {
+    PermanentId,
+    RoomId,
+    Seating,
+    UserDecks,
+    VersioningId,
+} from '@/shared/types/multiplayer.ts'
 import { WebSocket } from 'ws'
 import { GameId } from '@/shared/types/model.ts'
+import { LamportClock, VectorClock } from '@/shared/multiplayer/clock.ts'
+import { HistoryStore } from '@/shared/state/history.ts'
+
+export const SERVER_PERM_ID = '0000_SCS'
 
 export type ClientId = string
 
@@ -24,6 +34,9 @@ export type Room = {
     players: Set<PermanentId>
     seating: Seating
     gameId: GameId | null
+    globalClock: LamportClock
+    objectClocks: Record<VersioningId, VectorClock>
+    history: HistoryStore
 }
 /**
  * Rate limiting: Track mutations per player

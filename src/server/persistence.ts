@@ -1,11 +1,36 @@
 import Database from 'better-sqlite3'
 import { Room } from './types.ts'
-import { RoomId, Seating, SerializedGameState, UserDecks } from '@/shared/types/multiplayer.ts'
+import {
+    RoomId,
+    Seating,
+    SerializedGameState,
+    UserDecks,
+    VectorClockVersion,
+    VersioningId,
+} from '@/shared/types/multiplayer.ts'
 import { GameId } from '@/shared/types/model.ts'
 import { GameState } from '@/shared/state/gameState.ts'
-import { deserializeGameState, serializeGameState } from '@/shared/serialization.ts'
+import {
+    deserializeGameState,
+    deserializeHistory,
+    serializeGameState,
+    serializeHistory,
+} from '@/shared/serialization.ts'
+import { LamportClock, VectorClock } from '@/shared/multiplayer/clock.ts'
+import { HistoryStore } from '@/shared/state/history.ts'
 
 const DB_PATH = process.env.DB_PATH || './game-server.db'
+
+type RoomRow = {
+    id: string
+    passwordHash: string
+    userDecks: string
+    seating: string
+    gameId: string
+    globalClock: string
+    objectClocks: string
+    history: string
+}
 
 type GameStateRow = {
     gameId: string
@@ -33,6 +58,9 @@ export function initTables() {
         userDecks TEXT NOT NULL,
         seating TEXT NOT NULL,
         gameId TEXT,
+        globalClock TEXT NOT NULL,
+        objectClocks TEXT NOT NULL,
+        history TEXT NOT NULL,
         createdAt INTEGER NOT NULL,
         updatedAt INTEGER NOT NULL
     )
@@ -75,15 +103,24 @@ export function initTables() {
 
 export function saveRoom(room: Room): void {
     try {
+        console.log('About to save room:', {
+            id: room.id,
+            gameId: room.gameId,
+            hasPlayers: room.players.size > 0,
+        })
+
         const now = Date.now()
         const stmt = db.prepare(`
-            INSERT INTO rooms (id, passwordHash, userDecks, seating, gameId, createdAt, updatedAt)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO rooms (id, passwordHash, userDecks, seating, gameId, globalClock, objectClocks, history, createdAt, updatedAt)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 passwordHash = excluded.passwordHash,
                 userDecks = excluded.userDecks,
                 seating = excluded.seating,
                 gameId = excluded.gameId,
+                globalClock = excluded.globalClock,
+                objectClocks = excluded.objectClocks,
+                history = excluded.history,
                 updatedAt = excluded.updatedAt
         `)
         stmt.run(
@@ -92,6 +129,9 @@ export function saveRoom(room: Room): void {
             JSON.stringify(room.userDecks),
             JSON.stringify(room.seating),
             room.gameId,
+            JSON.stringify(room.globalClock),
+            JSON.stringify(room.objectClocks),
+            JSON.stringify(serializeHistory(room.history)),
             now,
             now,
         )
@@ -100,22 +140,39 @@ export function saveRoom(room: Room): void {
     }
 }
 
+function loadRoomRow(row: RoomRow): Room {
+    const globalClockData = JSON.parse(row.globalClock)
+    const globalClock = new LamportClock(globalClockData.permId, globalClockData.tick)
+
+    const objectClocksData: Record<VersioningId, VectorClockVersion> = JSON.parse(row.objectClocks)
+    const objectClocks = Object.fromEntries(
+        Object.entries(objectClocksData).map(([k, v]) => [k, new VectorClock(v)]),
+    )
+
+    const history = new HistoryStore()
+    deserializeHistory(row.gameId, JSON.parse(row.history), history)
+
+    return {
+        id: row.id,
+        players: new Set(), // Will be repopulated as players reconnect
+        passwordHash: row.passwordHash,
+        userDecks: JSON.parse(row.userDecks) as UserDecks,
+        seating: JSON.parse(row.seating) as Seating,
+        gameId: row.gameId,
+        globalClock,
+        objectClocks,
+        history,
+    }
+}
+
 export function loadRoom(roomId: RoomId): Room | undefined {
     try {
         const stmt = db.prepare('SELECT * FROM rooms WHERE id = ?')
-        const row = stmt.get(roomId) as any
+        const row = stmt.get(roomId) as RoomRow
         if (!row) {
             return undefined
         }
-
-        return {
-            id: row.id,
-            players: new Set(), // Will be repopulated as players reconnect
-            passwordHash: row.passwordHash,
-            userDecks: JSON.parse(row.userDecks) as UserDecks,
-            seating: JSON.parse(row.seating) as Seating,
-            gameId: row.gameId,
-        }
+        return loadRoomRow(row)
     } catch (error) {
         console.error('Error loading room:', error)
         return undefined
@@ -126,15 +183,7 @@ export function loadAllRooms(): Room[] {
     try {
         const stmt = db.prepare('SELECT * FROM rooms')
         const rows = stmt.all() as any[]
-
-        return rows.map(row => ({
-            id: row.id,
-            players: new Set(), // Will be repopulated as players reconnect
-            passwordHash: row.passwordHash,
-            userDecks: JSON.parse(row.userDecks) as UserDecks,
-            seating: JSON.parse(row.seating) as Seating,
-            gameId: row.gameId,
-        }))
+        return rows.map(loadRoomRow)
     } catch (error) {
         console.error('Error loading all rooms:', error)
         return []
