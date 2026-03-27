@@ -4,7 +4,9 @@ import { App } from 'vue'
 import { Pinia } from 'pinia'
 import { useCoreStore } from '@/client/store/core.ts'
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
-import { serializeHistory } from '@/client/gateway/serialization.ts'
+import { serializeHistory } from '@/shared/serialization.ts'
+import { useHistoryStore } from '@/client/store/history.ts'
+import { HistoryStore } from '@/shared/state/history.ts'
 
 export function initSentry(app: App) {
     Sentry.init({
@@ -56,7 +58,9 @@ export function initSentryPiniaPlugin(pinia: Pinia) {
                 }
 
                 // Serialized history is a much more compact representation
-                transformedState.gameHistory = serializeHistory()
+                transformedState.gameHistory = serializeHistory(
+                    useHistoryStore().$state as HistoryStore,
+                )
 
                 return transformedState
             },
