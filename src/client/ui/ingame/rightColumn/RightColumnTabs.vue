@@ -8,8 +8,16 @@
             ref="logLines"
             class="log-lines"
         >
+            <button
+                v-if="history.archive !== ''"
+                class="archive-button"
+                @click="openArchive"
+            >
+                {{ showArchive ? 'Showing full history' : 'View full history' }}
+            </button>
+
             <LogLine
-                v-for="(logEntry, index) in history.logEntries"
+                v-for="(logEntry, index) in displayedLogEntries"
                 :key="'logEntry-' + index"
                 :logEntry="logEntry"
                 :index="index"
@@ -179,6 +187,9 @@ import UserManual from '@/client/ui/ingame/rightColumn/UserManual.vue'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import LogLine from '@/client/ui/ingame/rightColumn/LogLine.vue'
 import { leaveGame } from '@/client/state/setup.ts'
+import { deserializeHistory } from '@/shared/serialization.ts'
+import { HistoryStore } from '@/shared/state/history.ts'
+import { SerializedHistory } from '@/shared/types/multiplayer.ts'
 
 const core = useCoreStore()
 const gameState = useGameStateStore()
@@ -190,6 +201,7 @@ const history = useHistoryStore()
 
 const activeTab = ref('logs')
 const isEnlarged = ref(false)
+const showArchive = ref(false)
 
 const tabs = [
     { id: 'logs', title: 'Logs' },
@@ -199,11 +211,36 @@ const tabs = [
 
 function toggleEnlarged() {
     isEnlarged.value = !isEnlarged.value
+    if (!isEnlarged.value) {
+        showArchive.value = false
+    }
+}
+
+function openArchive() {
+    isEnlarged.value = true
+    showArchive.value = true
 }
 
 /** Logs Tab **/
 
 const logLines = ref<HTMLDivElement>()
+
+const archivedLogEntries = computed(() => {
+    if (!showArchive.value || !history.archive) {
+        return []
+    }
+    const serializedArchive: SerializedHistory = JSON.parse(history.archive)
+    const archivedHistory = new HistoryStore()
+    deserializeHistory('', serializedArchive, archivedHistory)
+    return archivedHistory.logEntries
+})
+
+const displayedLogEntries = computed(() => {
+    if (showArchive.value) {
+        return [...archivedLogEntries.value, ...history.logEntries]
+    }
+    return history.logEntries
+})
 
 function scrollLog() {
     nextTick(() => {
@@ -314,6 +351,13 @@ function dismissManualHeadsUp() {
     overflow: hidden;
     display: flex;
     flex-direction: column;
+
+    .archive-button {
+        @include button-grey;
+        font-size: 15px;
+        padding: 6px 10px;
+        margin-bottom: 8px;
+    }
 
     .chat-box {
         display: flex;

@@ -8,7 +8,7 @@ import { Player } from '@/shared/model/Player.ts'
 import { CardRegion } from '@/shared/model/CardRegion.ts'
 import { KnownCards, PlayerVision } from '@/shared/types/state.ts'
 import { Card } from '@/shared/model/Card.ts'
-import { ChatMessage, MutationHistoryEntry } from '@/shared/types/history.ts'
+import { ChatMessage } from '@/shared/types/history.ts'
 import { GameState } from '@/shared/state/gameState.ts'
 import { GameId, ObjectId } from '@/shared/types/model.ts'
 
@@ -157,12 +157,20 @@ export type PackedLogEntry = {
     m?: GameMutationId // mutationId
 }
 
+// Use a more compact PackedGameMutation, instead of SerializedGameMutation
+export type PackedMutationHistoryEntry = {
+    i: GameMutationId // id
+    c: boolean // isIgnoredForCancel
+    u: boolean // isUserCancellable
+    p: PackedGameMutation // packedMutation
+}
+
 export type SerializedChatMessage = Serialized<ChatMessage>
 
 export type SerializedHistory = {
     stringPool: string[]
     logEntries: PackedLogEntry[]
-    gameMutations: MutationHistoryEntry[]
+    gameMutations: PackedMutationHistoryEntry[]
 }
 
 export type SerializedGame = {

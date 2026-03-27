@@ -4,8 +4,8 @@ import { App } from 'vue'
 import { Pinia } from 'pinia'
 import { useCoreStore } from '@/client/store/core.ts'
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
-import { useHistoryStore } from '@/client/store/history.ts'
 import { serializeHistory } from '@/shared/serialization.ts'
+import { useHistoryStore } from '@/client/store/history.ts'
 import { HistoryStore } from '@/shared/state/history.ts'
 
 export function initSentry(app: App) {
