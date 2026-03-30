@@ -1,3 +1,8 @@
+## [0.6.3] - 2026-03-30
+
+Bugfix:
+- Address game unresponsiveness when history grows large ( at the end of games )
+
 ## [0.6.2] - 2026-02-25
 
 Features:

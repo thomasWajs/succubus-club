@@ -145,31 +145,48 @@ export type PackedGameMutation = {
     c?: GameMutationId // cancelsMutationId
 }
 
-// Same compression strategy than for PackedGameMutation
-export type PackedLogEntry = {
-    t: number // text as string index in stringPool
+// An Id inside the string pool
+export type InternId = string
+// An object whose keys and string values has been interned into the string pool to save space
+export type InternedObject = Record<InternId, unknown>
+
+// An even more compressed representation of GameMutation, with a string pool,
+// for storage in history archive.
+export type InternedGameMutation = {
+    g: InternId // gameId  as string index in stringPool
+    n: InternId // name as string index in stringPool
+    t: string // timestamp
+    p: InternedObject // params
+    a: InternId // authorOid as string index in stringPool
+    s: InternedObject // previousState
+    c?: GameMutationId // cancelsMutationId
+}
+
+// Same compression strategy than for InternedGameMutation
+export type InternedLogEntry = {
+    t: InternId // text as string index in stringPool
     i: string // timestamp
-    a: number // authorName as string index in stringPool
-    r: number // authorColorRgba as string index in stringPool
-    n?: number // cancelText as string index in stringPool
-    p?: Serialized<PlayerVision> // playerVision
+    a: InternId // authorName as string index in stringPool
+    r: InternId // authorColorRgba as string index in stringPool
+    n?: InternId // cancelText as string index in stringPool
+    p?: InternedObject // playerVision
     c?: JsonValue // card
     m?: GameMutationId // mutationId
 }
 
-// Use a more compact PackedGameMutation, instead of SerializedGameMutation
+// Use a more compact InternedGameMutation, instead of SerializedGameMutation
 export type PackedMutationHistoryEntry = {
     i: GameMutationId // id
     c: boolean // isIgnoredForCancel
     u: boolean // isUserCancellable
-    p: PackedGameMutation // packedMutation
+    g: InternedGameMutation //internedGameMutation
 }
 
 export type SerializedChatMessage = Serialized<ChatMessage>
 
 export type SerializedHistory = {
     stringPool: string[]
-    logEntries: PackedLogEntry[]
+    logEntries: InternedLogEntry[]
     gameMutations: PackedMutationHistoryEntry[]
     archive?: string
 }

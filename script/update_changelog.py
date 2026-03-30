@@ -80,8 +80,8 @@ def main():
         return
 
     # Check if there are features
-    if not changelog_data['features']:
-        print(f"Version {changelog_data['version']} has no features. Skipping update.")
+    if not changelog_data['features'] and not changelog_data['bugfixes']:
+        print(f"Version {changelog_data['version']} has no features or bugfixes. Skipping update.")
         return
 
     # Update changelog.ts
