@@ -1,14 +1,16 @@
 import {
+    InternedLogEntry,
+    InternedObject,
+    InternId,
     JsonValue,
     PackedGameMutation,
-    PackedLogEntry,
     PackedMutationHistoryEntry,
     Serialized,
     SerializedGameMutation,
     SerializedHistory,
 } from '@/shared/types/multiplayer.ts'
 import { DATE_PREFIX, OID_PREFIX } from '@/shared/const/multiplayer.ts'
-import { AnyGameMutation, GameMutationParams, gameMutations } from '@/shared/state/gameMutations.ts'
+import { AnyGameMutation, GameMutationName, gameMutations } from '@/shared/state/gameMutations.ts'
 import { GameId } from '@/shared/types/model.ts'
 import { getGameState } from '@/shared/registries.ts'
 import { HistoryStore } from '@/shared/state/history.ts'
@@ -111,44 +113,61 @@ export function deserializeObject<T = unknown>(serializedObject: Serialized<T>, 
 export function serializeHistory(history: HistoryStore): SerializedHistory {
     // Compress strings into a string pool
     const stringPool: string[] = []
-    const stringToId = new Map<string, number>()
-    const internString = (str: string): number => {
+    const stringToId = new Map<string, string>()
+    const internString = (str: string): string => {
         if (!stringToId.has(str)) {
-            const id = stringPool.length
+            const id = String(stringPool.length)
             stringPool.push(str)
             stringToId.set(str, id)
         }
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         return stringToId.get(str)!
     }
+    const internObjectKeys = (object: Record<string, unknown>): InternedObject => {
+        return Object.fromEntries(
+            Object.entries(object).map(([k, v]) => [
+                internString(k),
+                typeof v === 'string' ? internString(v) : v,
+            ]),
+        )
+    }
 
-    const logEntries: PackedLogEntry[] = history.logEntries.map(logEntry => ({
-        t: internString(logEntry.text),
-        i: serializeValueRecursive(logEntry.timestamp) as string,
-        a: internString(logEntry.authorName),
-        r: internString(logEntry.authorColorRgba),
-        n: logEntry.cancelText ? internString(logEntry.cancelText) : undefined,
-        p: logEntry.playerVision ? serializeObject(logEntry.playerVision) : undefined,
-        c: logEntry.card ? serializeValueRecursive(logEntry.card) : undefined,
-        m: logEntry.mutationId,
-    }))
+    const logEntries: InternedLogEntry[] = history.logEntries.map(logEntry => {
+        const playerVision =
+            logEntry.playerVision ?
+                internObjectKeys(serializeObject(logEntry.playerVision))
+            :   undefined
+
+        return {
+            t: internString(logEntry.text),
+            i: serializeValueRecursive(logEntry.timestamp) as string,
+            a: internString(logEntry.authorName),
+            r: internString(logEntry.authorColorRgba),
+            n: logEntry.cancelText ? internString(logEntry.cancelText) : undefined,
+            p: playerVision,
+            c: logEntry.card ? serializeValueRecursive(logEntry.card) : undefined,
+            m: logEntry.mutationId,
+        }
+    })
 
     const gameMutations: PackedMutationHistoryEntry[] = history.gameMutations.map(mutationEntry => {
         const packedGameMutation = packGameMutation(
             deserializeGameMutation(mutationEntry.serializedMutation as SerializedGameMutation),
         )
-        packedGameMutation.p = Object.fromEntries(
-            Object.entries(packedGameMutation.p).map(([k, v]) => [internString(k), v]),
-        ) as Serialized<GameMutationParams>
-        packedGameMutation.s = Object.fromEntries(
-            Object.entries(packedGameMutation.s).map(([k, v]) => [internString(k), v]),
-        ) as Serialized<GameMutationParams>
+        const internedGameMutation = {
+            ...packedGameMutation,
+            g: internString(packedGameMutation.g),
+            n: internString(packedGameMutation.n),
+            p: internObjectKeys(packedGameMutation.p),
+            a: internString(packedGameMutation.a),
+            s: internObjectKeys(packedGameMutation.s),
+        }
 
         return {
             i: mutationEntry.id,
             c: mutationEntry.isIgnoredForCancel,
             u: mutationEntry.isUserCancellable,
-            p: packedGameMutation,
+            g: internedGameMutation,
         }
     })
 
@@ -165,30 +184,49 @@ export function deserializeHistory(
     history: HistoryStore,
 ) {
     const stringPool = serializedHistory.stringPool
-    history.logEntries = serializedHistory.logEntries.map(logEntry => ({
-        text: stringPool[logEntry.t],
-        timestamp: deserializeValueRecursive(logEntry.i, gameId) as Date,
-        authorName: stringPool[logEntry.a],
-        authorColorRgba: stringPool[logEntry.r],
-        cancelText: logEntry.n ? stringPool[logEntry.n] : undefined,
-        playerVision: logEntry.p ? deserializeObject<PlayerVision>(logEntry.p, gameId) : undefined,
-        card: logEntry.c ? (deserializeValueRecursive(logEntry.c, gameId) as Card) : undefined,
-        mutationId: logEntry.m,
-    }))
+    const resolveString = (internId: InternId): string => stringPool[Number(internId)]
+
+    const resolveObjectKeys = <T>(obj: Record<string, unknown>): T =>
+        Object.fromEntries(
+            Object.entries(obj).map(([k, v]) => [
+                stringPool[Number(k)],
+                typeof v === 'string' ? resolveString(v) : v,
+            ]),
+        ) as T
+
+    history.logEntries = serializedHistory.logEntries.map(logEntry => {
+        const playerVision =
+            logEntry.p ?
+                deserializeObject<PlayerVision>(resolveObjectKeys(logEntry.p), gameId)
+            :   undefined
+
+        return {
+            text: resolveString(logEntry.t),
+            timestamp: deserializeValueRecursive(logEntry.i, gameId) as Date,
+            authorName: resolveString(logEntry.a),
+            authorColorRgba: resolveString(logEntry.r),
+            cancelText: logEntry.n ? resolveString(logEntry.n) : undefined,
+            playerVision,
+            card: logEntry.c ? (deserializeValueRecursive(logEntry.c, gameId) as Card) : undefined,
+            mutationId: logEntry.m,
+        }
+    })
 
     history.gameMutations = serializedHistory.gameMutations.map(mutationEntry => {
-        mutationEntry.p.p = Object.fromEntries(
-            Object.entries(mutationEntry.p.p).map(([k, v]) => [stringPool[Number(k)], v]),
-        ) as Serialized<GameMutationParams>
-        mutationEntry.p.s = Object.fromEntries(
-            Object.entries(mutationEntry.p.s).map(([k, v]) => [stringPool[Number(k)], v]),
-        ) as Serialized<GameMutationParams>
+        const packedGameMutation: PackedGameMutation = {
+            ...mutationEntry.g,
+            g: resolveString(mutationEntry.g.g),
+            n: resolveString(mutationEntry.g.n) as GameMutationName,
+            p: resolveObjectKeys(mutationEntry.g.p),
+            a: resolveString(mutationEntry.g.a),
+            s: resolveObjectKeys(mutationEntry.g.s),
+        }
 
         return {
             id: mutationEntry.i,
             isIgnoredForCancel: mutationEntry.c,
             isUserCancellable: mutationEntry.u,
-            serializedMutation: serializeGameMutation(unpackGameMutation(mutationEntry.p)),
+            serializedMutation: serializeGameMutation(unpackGameMutation(packedGameMutation)),
         }
     })
 }
@@ -248,7 +286,7 @@ export function deserializeGameMutation(gameMutationJson: SerializedGameMutation
     return gameMutation
 }
 
-export function unpackGameMutation(packedGameMutation: PackedGameMutation) {
+export function unpackGameMutation(packedGameMutation: PackedGameMutation): AnyGameMutation {
     return deserializeGameMutation({
         gameId: packedGameMutation.g,
         name: packedGameMutation.n,
