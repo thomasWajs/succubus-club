@@ -8,7 +8,7 @@ import {
 } from '@/shared/serialization.ts'
 import { getAuthorColorRgba } from '@/shared/colors.ts'
 import { SerializedHistory } from '@/shared/types/multiplayer.ts'
-import { GameId } from '@/shared/types/model.ts'
+import { GameId, PlayerOid } from '@/shared/types/model.ts'
 
 const HISTORY_ARCHIVE_THRESHOLD = 150
 const HISTORY_KEEP_RECENT = 100
@@ -141,5 +141,14 @@ export class HistoryStore {
         // 4. Remove older entries from active history
         this.logEntries = this.logEntries.slice(-HISTORY_KEEP_RECENT)
         this.gameMutations = this.gameMutations.slice(-HISTORY_KEEP_RECENT)
+    }
+
+    getLastMutationForPlayer(playerOid: PlayerOid): MutationHistoryEntry | undefined {
+        for (let i = this.gameMutations.length - 1; i >= 0; i--) {
+            const mutation = this.gameMutations[i]
+            if (mutation.serializedMutation.authorOid == playerOid) {
+                return mutation
+            }
+        }
     }
 }

@@ -32,10 +32,8 @@ import { CardRegion } from '@/shared/model/CardRegion.ts'
 
 let wasmHasher: XXHashAPI | null = null
 
-export function initWasmHasher() {
-    xxhash().then(_hasher_ => {
-        wasmHasher = _hasher_
-    })
+export async function initWasmHasher() {
+    wasmHasher = await xxhash()
 }
 
 export function hash(content: string) {
@@ -110,9 +108,13 @@ export function deserializeValueRecursive(value: JsonValue, gameId: GameId): unk
             return new Date(value.substring(DATE_PREFIX.length))
         }
 
+        const allStateObjects = {
+            ...gameState.allStateObjects,
+            ...gameState.staleCards,
+        }
         if (value.startsWith(OID_PREFIX)) {
             const oid = value.substring(OID_PREFIX.length)
-            const stateObject = gameState.allStateObjects[oid]
+            const stateObject = allStateObjects[oid]
             if (!stateObject) {
                 throw new Error(`Unknown state object : ${oid}`)
             }
@@ -142,11 +144,15 @@ export function deserializeObject<T = unknown>(serializedObject: Serialized<T>, 
     return deserializeValueRecursive(serializedObject, gameId) as T
 }
 
-export function rehydrateCard(gameState: GameState, cardData: SerializedCard) {
+export function rehydrateCard(
+    gameState: GameState,
+    cardData: SerializedCard,
+    target: 'cards' | 'staleCards' = 'cards',
+) {
     const CardClass = cardData.isCrypt ? CryptCard : LibraryCard
     const card = new CardClass(gameState.gameId, cardData.oid, cardData.ownerOid)
     Object.assign(card, cardData)
-    gameState.cards[card.oid] = card
+    gameState[target][card.oid] = card
 }
 
 /**
@@ -159,6 +165,7 @@ export function serializeGameState(gameState: GameState): SerializedGameState {
         // Override the serializeObject values here,
         // because it has transformed Player, Card and CardRegion objects into and "OID_" string
         cards: JSON.parse(JSON.stringify(gameState.cards)),
+        staleCards: JSON.parse(JSON.stringify(gameState.staleCards)),
         players: JSON.parse(JSON.stringify(gameState.players)),
     } as unknown as SerializedGameState
 }
@@ -175,7 +182,11 @@ export function deserializeGameState(
     /** Deserialize Cards **/
     const jsonCards = serializedGameState.cards
     for (const cardData of Object.values(jsonCards)) {
-        rehydrateCard(gameState, cardData)
+        rehydrateCard(gameState, cardData, 'cards')
+    }
+    const jsonStaleCards = serializedGameState.staleCards
+    for (const cardData of Object.values(jsonStaleCards)) {
+        rehydrateCard(gameState, cardData, 'staleCards')
     }
 
     /** Deserialize Players **/
@@ -217,7 +228,7 @@ export function deserializeGameState(
     /** Deserialize Other values **/
 
     for (const [key, value] of Object.entries(serializedGameState)) {
-        if (key != 'cards' && key != 'players' && key in gameState) {
+        if (key != 'cards' && key != 'staleCards' && key != 'players' && key in gameState) {
             Object.assign(gameState, { [key]: deserializeValueRecursive(value, gameId) })
         }
     }

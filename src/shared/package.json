@@ -1,0 +1,29 @@
+{
+    "name": "succubus-club-shared",
+    "private": true,
+    "type": "module",
+    "dependencies": {
+        "nanoid": "^5.1.6",
+        "safe-stable-stringify": "^2.5.0",
+        "vue": "^3.5.17",
+        "xxhash-wasm": "^1.1.0"
+    },
+    "devDependencies": {
+        "@eslint/js": "^9.36.0",
+        "@sentry/vite-plugin": "^3.6.1",
+        "@tsconfig/node20": "^20.1.6",
+        "@types/node": "^20.19.21",
+        "@typescript-eslint/eslint-plugin": "^8.46.0",
+        "@typescript-eslint/parser": "^8.46.0",
+        "@vue/tsconfig": "^0.7.0",
+        "eslint": "^9.37.0",
+        "eslint-config-prettier": "^10.1.8",
+        "eslint-plugin-prettier": "^5.5.5",
+        "eslint-plugin-vue": "^10.5.0",
+        "prettier": "^3.6.2",
+        "terser": "^5.44.0",
+        "typescript": "~5.8.3",
+        "vue-eslint-parser": "^10.2.0",
+        "vue-tsc": "^3.1.1"
+    }
+}

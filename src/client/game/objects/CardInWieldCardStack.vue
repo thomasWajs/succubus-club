@@ -8,7 +8,7 @@
         :texture="displayedTexture.textureName"
         :frame="displayedTexture.frameName"
         :scale="cardAttrs.scale"
-        :visible="dragAttrs.isDragging"
+        :visible="dragAttrs.isDragging && gameBus.stackDropGapPosition === null"
     />
 
     <Image
@@ -25,7 +25,7 @@
         @pointerover="onPointerOver"
         @pointerout="onPointerOut"
         @pointerdown="onPointerDown"
-        @dragstart="onDragStart()"
+        @dragstart="onDragStartFromStack"
         @drag="onDrag"
         @dragend="onDragEndFromStack"
         @drop="onDrop"
@@ -36,7 +36,7 @@
         v-if="gameState.isPlayer"
         ref="cardOutline"
         :key="key + 'cardOutline'"
-        :visible="!!getCardOutlineColor"
+        :visible="!dragAttrs.isDragging && !!getCardOutlineColor"
         :origin="0"
         :x="cardAttrs.x"
         :y="cardAttrs.y"
@@ -57,6 +57,10 @@ import {
     CARD_HEIGHT,
     CARD_OUTLINE_THICKNESS,
     CARD_WIDTH,
+    WIELD_CARD_DISPLAY_WIDTH,
+    WIELD_CARDS_OFFSET,
+    WIELD_INDICATOR_WIDTH,
+    WIELD_X,
 } from '@/shared/const/game.ts'
 import { Card } from '@/shared/model/Card.ts'
 import { CardAttrs, PhaserDataKey, RegionCategory } from '@/client/game/types.ts'
@@ -65,13 +69,16 @@ import { useCardOutline } from '@/client/game/composables/useCardOutline.ts'
 import { useCardDragDrop } from '@/client/game/composables/useCardDragDrop.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
-import { getCardScale } from '@/client/game/utils.ts'
+import { getCardScale, reorderCardIndex } from '@/client/game/utils.ts'
 import { useCardTexture } from '@/client/game/composables/useCardTexture.ts'
+import { AnyCardRegion } from '@/shared/types/model.ts'
 
-const { card, x, y } = defineProps<{
+const STACK_CARD_Y = 15
+
+const { card, cardRegion, displayIndex } = defineProps<{
     card: Card
-    x: number
-    y: number
+    cardRegion: AnyCardRegion
+    displayIndex: number
 }>()
 
 const gameBus = useGameBusStore()
@@ -85,10 +92,21 @@ const cardOutline = refObj<GameObjects.Rectangle>()
 const key = computed(() => `wield${card.oid.toString()}`)
 
 const cardAttrs = computed((): CardAttrs => {
+    // When a search filter is active, use the display index as-is (no gap reordering)
+    const { index } =
+        gameBus.wieldCardStack.searchString ?
+            { index: displayIndex }
+        :   reorderCardIndex(
+                cardRegion.cards.indexOf(card),
+                cardRegion.cards.length,
+                gameBus.stackDropGapPosition,
+                gameBus.draggedStackCardPosition,
+            )
+
     return {
         category: RegionCategory.Stack,
-        x,
-        y,
+        x: WIELD_X + index * WIELD_CARD_DISPLAY_WIDTH + WIELD_CARDS_OFFSET + WIELD_INDICATOR_WIDTH,
+        y: STACK_CARD_Y,
         rotation: 0,
         scale: getCardScale(RegionCategory.Stack),
     }
@@ -152,8 +170,14 @@ const { dragAttrs, onDragStart, onDrag, onDragEnd, onDrop } = useCardDragDrop(
     bringToTop,
 )
 
-// A modified version of onDragEnd that unselect the card at the end of the drag.
+function onDragStartFromStack() {
+    gameBus.draggedStackCardPosition = cardRegion.cards.indexOf(card)
+    onDragStart()
+}
+
+// A modified version of onDragEnd that unselects the card and resets stack drag state.
 function onDragEndFromStack() {
+    gameBus.draggedStackCardPosition = null
     onDragEnd()
     gameBus.selectedCards = []
 }

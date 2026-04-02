@@ -42,6 +42,8 @@ export class GameState {
     // In Ably mode, the client knows them all.
     // In SCS mode, the client only knows the cards it has seen.
     knownCards: KnownCards = {}
+    // Cards that have been reassigned to a new id. Keep them just for deserialization
+    staleCards: Record<CardOid, Card> = {}
 
     /**
      * Allow to match Users to their Player when loading a gameState
@@ -215,14 +217,30 @@ export class GameState {
         return card
     }
 
-    moveCardToRegion(card: Card, to: AnyCardRegion, position: number = 0): void {
+    moveCardToRegion(card: Card, to: AnyCardRegion, position: number = 0) {
         if (to.cardsOid.includes(card.oid)) {
             // Card is already there, nothing to do
-            return
+            return { leftPlay: false }
         }
+
+        const wasInPlay = card.isIn.play
 
         card.region.remove(card)
         to.insert(card, position)
+
+        const leftPlay = wasInPlay && !card.isIn.play
+
+        if (leftPlay) {
+            card.updatePropertiesInPlay({
+                isLocked: false,
+                isFlipped: false,
+                blood: 0,
+                greenCounter: 0,
+                markers: [],
+            })
+        }
+
+        return { leftPlay }
     }
 
     setNewTurnResources(): void {

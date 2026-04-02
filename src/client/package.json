@@ -1,0 +1,27 @@
+{
+    "name": "succubus-club-client",
+    "private": true,
+    "type": "module",
+    "dependencies": {
+        "succubus-club-shared": "file:../shared",
+        "@jsonjoy.com/json-pack": "^1.21.0",
+        "@sentry/vue": "^9.46.0",
+        "ably": "^2.14.0",
+        "dexie": "^4.2.1",
+        "firebase": "^12.4.0",
+        "idle-js": "^1.2.0",
+        "phaser": "^3.90.0",
+        "phavuer": "^0.19.6",
+        "pinia": "^3.0.3",
+        "pinia-class-transformer": "^3.2.3",
+        "vue-router": "^4.5.1",
+        "websocket-ts": "^2.2.1"
+    },
+    "devDependencies": {
+        "@types/idle-js": "^1.2.3",
+        "@vitejs/plugin-vue": "^6.0.1",
+        "sass": "^1.93.2",
+        "vite": "^7.1.9",
+        "vite-plugin-vue-devtools": "^7.7.7"
+    }
+}

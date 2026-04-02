@@ -42,7 +42,7 @@
             :origin="0"
             :x="WIELD_X"
             :y="0"
-            :width="INDICATOR_WIDTH"
+            :width="WIELD_INDICATOR_WIDTH"
             :height="cardsPanelHeight - (hasScroll ? WIELD_SCROLLBAR_HEIGHT : 0)"
             :fillColor="Colors.WIELD_BORDER.color"
             :fillAlpha="0.8"
@@ -53,7 +53,7 @@
             :style="INDICATOR_TEXT_STYLE"
             :originY="0.5"
             :originX="0.25"
-            :x="WIELD_X + INDICATOR_WIDTH / 2"
+            :x="WIELD_X + WIELD_INDICATOR_WIDTH / 2"
             :y="cardsPanelHeight / 2"
         />
 
@@ -64,8 +64,8 @@
         >
             <CardInWieldCardStack
                 :card="card"
-                :x="WIELD_X + index * CARD_DISPLAY_WIDTH + CARDS_OFFSET + INDICATOR_WIDTH"
-                :y="15"
+                :cardRegion="cardRegion"
+                :displayIndex="index"
                 @wheel="onWheel"
             />
         </template>
@@ -74,9 +74,14 @@
         <Rectangle
             key="bottomIndicator"
             :origin="0"
-            :x="WIELD_X + cards.length * CARD_DISPLAY_WIDTH + CARDS_OFFSET + INDICATOR_WIDTH"
+            :x="
+                WIELD_X +
+                cards.length * WIELD_CARD_DISPLAY_WIDTH +
+                WIELD_CARDS_OFFSET +
+                WIELD_INDICATOR_WIDTH
+            "
             :y="0"
-            :width="INDICATOR_WIDTH"
+            :width="WIELD_INDICATOR_WIDTH"
             :height="cardsPanelHeight - (hasScroll ? WIELD_SCROLLBAR_HEIGHT : 0)"
             :fillColor="Colors.WIELD_BORDER.color"
             :fillAlpha="0.8"
@@ -89,10 +94,10 @@
             :originX="0.25"
             :x="
                 WIELD_X +
-                cards.length * CARD_DISPLAY_WIDTH +
-                CARDS_OFFSET +
-                INDICATOR_WIDTH / 2 +
-                INDICATOR_WIDTH
+                cards.length * WIELD_CARD_DISPLAY_WIDTH +
+                WIELD_CARDS_OFFSET +
+                WIELD_INDICATOR_WIDTH / 2 +
+                WIELD_INDICATOR_WIDTH
             "
             :y="cardsPanelHeight / 2"
         />
@@ -117,11 +122,12 @@
 <script setup lang="ts">
 import { Colors } from '@/client/colors.ts'
 import {
-    CARD_WIDTH,
     RIGHT_COLUMN_WIDTH,
     WIELD_ACTIONS_WIDTH,
-    WIELD_CARD_SCALE,
+    WIELD_CARD_DISPLAY_WIDTH,
     WIELD_CARD_STACK_HEIGHT,
+    WIELD_CARDS_OFFSET,
+    WIELD_INDICATOR_WIDTH,
     WIELD_SCROLLBAR_ALPHA,
     WIELD_SCROLLBAR_HEIGHT,
     WIELD_X,
@@ -131,7 +137,7 @@ import {
 } from '@/shared/const/game.ts'
 import { Container, Rectangle, Text, useScene } from 'phavuer'
 import { useGameBusStore } from '@/client/store/bus.ts'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import CardInWieldCardStack from '@/client/game/objects/CardInWieldCardStack.vue'
 import Phaser, { GameObjects } from 'phaser'
 import WieldCardStackActions from '@/client/ui/ingame/WieldCardStackActions.vue'
@@ -140,7 +146,10 @@ import { WorldAlignment } from '@/client/gateway/db.ts'
 import { AnyCardRegion } from '@/shared/types/model.ts'
 import { selfSecureName } from '@/client/state/self.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
+import { dropCoordinates, getWorldPoint } from '@/client/game/utils.ts'
+import { PhaserDataKey, RegionCategory } from '@/client/game/types.ts'
 import EventData = Phaser.Types.Input.EventData
+import Pointer = Phaser.Input.Pointer
 
 const { cardRegion } = defineProps<{
     cardRegion: AnyCardRegion
@@ -159,10 +168,6 @@ const wieldsActionsHeight = WIELD_CARD_STACK_HEIGHT
 const cardsPanelWidth = width - wieldsActionsWidth
 const cardsPanelHeight = height
 
-const CARD_DISPLAY_WIDTH = WIELD_CARD_SCALE * CARD_WIDTH + 8
-const CARDS_OFFSET = 15
-
-const INDICATOR_WIDTH = 25
 const INDICATOR_TEXT_STYLE = {
     color: 'white',
     fontStyle: 'bold',
@@ -230,7 +235,11 @@ const scrollbarY = WIELD_Y + cardsPanelHeight - WIELD_SCROLLBAR_HEIGHT
 const scrollbarWidth = ref(0)
 
 const totalCardsWidth = computed(() => {
-    return cards.value.length * CARD_DISPLAY_WIDTH + CARDS_OFFSET + INDICATOR_WIDTH * 2
+    return (
+        cards.value.length * WIELD_CARD_DISPLAY_WIDTH +
+        WIELD_CARDS_OFFSET +
+        WIELD_INDICATOR_WIDTH * 2
+    )
 })
 
 const hasScroll = computed(() => {
@@ -253,16 +262,21 @@ function updateScrollbar() {
 function onCardsPanelCreate(cardsPanel_: GameObjects.Container) {
     cardsPanel = cardsPanel_
 
-    // Set Interactive to listen to wheel events
-    cardsPanel.setInteractive(
-        new Phaser.Geom.Rectangle(
+    cardsPanel.setData(PhaserDataKey.CardRegionOid, cardRegion.oid)
+    cardsPanel.setData(PhaserDataKey.RegionCategory, RegionCategory.Stack)
+
+    // Set Interactive to listen to drop and wheel events
+    cardsPanel.setInteractive({
+        // wider hit area for easier grabbing
+        hitArea: new Phaser.Geom.Rectangle(
             WIELD_X,
             WIELD_Y,
-            100 * CARD_DISPLAY_WIDTH, // Scroll up to 100 cards, should be enough
+            100 * WIELD_CARD_DISPLAY_WIDTH, // Scroll up to 100 cards, should be enough
             cardsPanelHeight,
         ),
-        Phaser.Geom.Rectangle.Contains,
-    )
+        hitAreaCallback: Phaser.Geom.Rectangle.Contains,
+        dropZone: true,
+    })
 
     // Add a mask to hide cards overflowing from the cards panel
     const graphics = scene.make.graphics()
@@ -274,6 +288,51 @@ function onCardsPanelCreate(cardsPanel_: GameObjects.Container) {
     cardsPanel.x = 0
     // Create scrollbar
     updateScrollbar()
+
+    /**
+     * Handle reordering for cards in the wield card stack
+     */
+    const stackBounds = new Phaser.Geom.Rectangle(WIELD_X, WIELD_Y, width, height)
+
+    scene.input.on(Phaser.Input.Events.DRAG_START, onStackDragStart)
+    scene.input.on(Phaser.Input.Events.DRAG, onStackDrag)
+    scene.input.on(Phaser.Input.Events.DRAG_END, onStackDragEnd)
+
+    function onStackDragStart() {
+        gameBus.stackDropGapPosition = null
+    }
+
+    function onStackDrag(pointer: Pointer) {
+        gameBus.stackDropGapPosition = null
+        // Only compute gap when dragging from within this stack and no search filter
+        if (gameBus.draggedStackCardPosition === null || gameBus.wieldCardStack.searchString) {
+            return
+        }
+        // Reorder only when the pointer is within the wield stack window
+        const worldPoint = getWorldPoint(pointer.x, pointer.y)
+        if (!stackBounds.contains(worldPoint.x, worldPoint.y)) {
+            return
+        }
+        const coord = dropCoordinates(pointer, cardsPanel)
+        gameBus.stackDropGapPosition = 0
+        for (let i = 0; i < cardRegion.cards.length; i++) {
+            const cardX =
+                WIELD_X + i * WIELD_CARD_DISPLAY_WIDTH + WIELD_CARDS_OFFSET + WIELD_INDICATOR_WIDTH
+            if (cardX < coord.x) {
+                gameBus.stackDropGapPosition = i
+            }
+        }
+    }
+
+    function onStackDragEnd() {
+        gameBus.stackDropGapPosition = null
+    }
+
+    onUnmounted(() => {
+        scene.input.off(Phaser.Input.Events.DRAG_START, onStackDragStart)
+        scene.input.off(Phaser.Input.Events.DRAG, onStackDrag)
+        scene.input.off(Phaser.Input.Events.DRAG_END, onStackDragEnd)
+    })
 }
 
 function onScrollbarPointerDown(pointer: Phaser.Input.Pointer, {}, {}, event: EventData) {

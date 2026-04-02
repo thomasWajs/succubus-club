@@ -1,4 +1,6 @@
-import { send, sendError } from './index.ts'
+import { send, sendError } from './wsServer.ts'
+import { captureException } from './logging.ts'
+import logger from './logger.ts'
 import { broadcastTailored, ensureRoom, getRoom } from './rooms.ts'
 import {
     EMPTY_SEATING,
@@ -8,6 +10,7 @@ import {
     RoomId,
     ScsGameMutationMessage,
     ScsGameStateMessage,
+    ScsMutationRejectedMessage,
     ScsShuffleCardRegionMessage,
     SerializedMultiplayerGame,
 } from '@/shared/types/multiplayer.ts'
@@ -144,7 +147,7 @@ export function getSerializedGame(
 function validateBeforeGameMessage(connection: ConnectionInfo) {
     // Check rate limit
     if (!checkRateLimit(connection.permId)) {
-        console.warn(`Rate limit exceeded for user ${connection.permId}`)
+        logger.warn(`Rate limit exceeded for user ${connection.permId}`)
         throw new Error('Rate limit exceeded')
     }
 
@@ -152,7 +155,7 @@ function validateBeforeGameMessage(connection: ConnectionInfo) {
     const room = ensureRoom(connection.roomId)
 
     if (!room.gameId) {
-        console.warn(`Game not launched for user ${connection.permId} in room ${room.id}`)
+        logger.warn(`Game not launched for user ${connection.permId} in room ${room.id}`)
         throw new Error('Game not launched')
     }
 
@@ -174,7 +177,7 @@ export async function handleGameMutation(
 
         // Verify mutation author matches sender
         if (mutation.author.permId !== connection.permId) {
-            console.warn(
+            logger.warn(
                 `Mutation author mismatch: ${mutation.author.permId} !== ${connection.permId}`,
             )
             throw new Error('Mutation author mismatch')
@@ -183,7 +186,7 @@ export async function handleGameMutation(
         // Validate mutation
         const validity = mutation.canApply()
         if (!validity.isValid) {
-            console.warn(`Invalid mutation: ${validity.reason}`)
+            logger.warn(`Invalid mutation: ${validity.reason}`)
             throw new Error(`Invalid mutation: ${validity.reason}`)
         }
 
@@ -191,7 +194,6 @@ export async function handleGameMutation(
 
         if (mutation.syncMode == MutationSyncMode.Ordered) {
             if (!message.version) {
-                console.error(`Missing version for Ordered mutation`)
                 throw new Error(`Missing version for Ordered mutation`)
             }
 
@@ -199,7 +201,15 @@ export async function handleGameMutation(
             const clock = room.objectClocks[mutation.versioningId]
 
             if (clock.compare(message.version) == ClockCompare.Concurrent) {
-                // TODO: handle conflicts by rejecting conflicting mutations
+                logger.info(
+                    `Conflict detected for mutation ${mutation.name} (${message.gameMutationId}) in room ${room.id}, rejecting`,
+                )
+                const rejectionMessage: ScsMutationRejectedMessage = {
+                    type: MultiplayerMessageType.MutationRejected,
+                    gameMutationId: message.gameMutationId,
+                }
+                send(connection.webSocket, rejectionMessage)
+                return
             }
 
             clock.merge(message.version)
@@ -211,7 +221,7 @@ export async function handleGameMutation(
         // Store in history
         room.history.addGameMutation(mutation)
 
-        console.log(`Applied mutation ${mutation.name} to room ${room.id}`)
+        logger.debug(`Applied mutation ${mutation.name} to room ${room.id}`)
 
         // Persist updated game state and room clocks
         persistence.saveGameState(gameState)
@@ -223,8 +233,9 @@ export async function handleGameMutation(
             return { ...message, knownCards }
         })
     } catch (error) {
+        logger.error(`Error applying mutation: ${error}`)
+        captureException(error)
         sendError(connection.webSocket, `${error}`)
-        console.warn(`Error applying mutation: ${error}`)
     }
 }
 
@@ -248,19 +259,30 @@ export async function handleShuffleCardRegion(
             throw new Error('Player not found')
         }
 
-        console.log(`Shuffling ${cardRegion.name} for room ${room.id}`)
+        // Prevent multiple shuffle
+        const lastMutation = room.history.getLastMutationForPlayer(player.oid)
+        if (lastMutation && lastMutation.serializedMutation.name == 'shuffle') {
+            sendError(connection.webSocket, `This stack is already shuffled.`)
+            return
+        }
 
-        // Generate new OIDs for all cards in the region
+        logger.debug(`Shuffling ${cardRegion.name} for room ${room.id}`)
+
+        // Generate new OIDs for all cards in the region,
+        // so users can't track the new positions
         const newOidArray: CardOid[] = []
         for (const oldOid of cardRegion.cardsOid) {
             const newOid = generateCardOid()
             newOidArray.push(newOid)
             const card = gameState.cards[oldOid]
             if (card) {
+                // Store for history deserialization
+                gameState.staleCards[oldOid] = card
                 // Update the card's oid
                 card.oid = newOid
                 // Move the card to the new key
                 gameState.cards[newOid] = card
+                // Delete the old key
                 delete gameState.cards[oldOid]
 
                 if (gameState.knownCards[oldOid]) {
@@ -278,7 +300,7 @@ export async function handleShuffleCardRegion(
         // Generate shuffled order with new OIDs
         const shuffledOrder = shuffleArray(newOidArray)
 
-        console.log(`Shuffled ${cardRegion.name}: ${shuffledOrder.length} cards`)
+        logger.debug(`Shuffled ${cardRegion.name}: ${shuffledOrder.length} cards`)
 
         // Serialize the shuffled cards
         const serializedShuffledCards = shuffledOrder.map(newOid =>
@@ -307,8 +329,9 @@ export async function handleShuffleCardRegion(
         // Apply mutation through the normal pipeline (validates, applies, persists, broadcasts)
         await handleGameMutation(connection, mutationMessage)
     } catch (error) {
+        logger.error(`Error shuffling card region: ${error}`)
+        captureException(error)
         sendError(connection.webSocket, `${error}`)
-        console.warn(`Error shuffling card region: ${error}`)
     }
 }
 
@@ -329,9 +352,10 @@ export function handleRequestResync(connection: ConnectionInfo): void {
 
         send(connection.webSocket, mutationMessage)
 
-        console.log(`Resync sent for room ${room.id}, player ${connection.permId}`)
+        logger.debug(`Resync sent for room ${room.id}, player ${connection.permId}`)
     } catch (error) {
+        logger.error(`Resync failed: ${error}`)
+        captureException(error)
         sendError(connection.webSocket, `Resync failed: ${error}`)
-        console.error(`Error during resync:`, error)
     }
 }

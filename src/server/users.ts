@@ -1,5 +1,6 @@
 import { PermanentId, SetUserMessage, User } from '@/shared/types/multiplayer.ts'
 import { ConnectionInfo } from './types.ts'
+import logger from './logger.ts'
 
 // Track active users
 const users = new Map<PermanentId, User>()
@@ -30,8 +31,6 @@ export function removeUser(permId: PermanentId) {
 export async function handleSetUser(connection: ConnectionInfo, message: SetUserMessage) {
     const { permId, name, isReady } = message
 
-    console.log(`Player ${connection.permId} is setting their data.`)
-
     if (connection.permId && connection.permId != permId) {
         throw new Error(`Connection is already set for another user : ${connection.permId}`)
     }
@@ -42,5 +41,5 @@ export async function handleSetUser(connection: ConnectionInfo, message: SetUser
 
     const user = { permId, name, isReady, avatarId: null }
     upsertUser(permId, user, connection)
-    console.log(`Player ${name} set their data.`)
+    logger.info(`Player ${name} set their data.`)
 }

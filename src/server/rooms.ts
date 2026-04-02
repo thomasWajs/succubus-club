@@ -7,8 +7,9 @@ import {
     RoomId,
     ScsServerMessage,
 } from '@/shared/types/multiplayer.ts'
-import { send, sendError } from './index.ts'
+import { send, sendError } from './wsServer.ts'
 import { ConnectionInfo, Room, SERVER_PERM_ID } from './types.ts'
+import logger from './logger.ts'
 import { createGameState, getSerializedGame } from './gameState.ts'
 import { getUser, getUserConnection } from './users.ts'
 import * as persistence from './persistence.ts'
@@ -71,7 +72,7 @@ export function getOrCreateRoom(roomId: RoomId, passwordHash: string): Room {
         }
         rooms.set(roomId, room)
         persistence.saveRoom(room)
-        console.log(`Created room: ${roomId}`)
+        logger.info(`Created room: ${roomId}`)
     }
     return room
 }
@@ -96,7 +97,7 @@ export function leaveRoom(connection: ConnectionInfo): Room | undefined {
         }
         persistence.deleteRoom(room.id)
         rooms.delete(room.id)
-        console.log(`Deleted empty room: ${room.id}`)
+        logger.info(`Deleted empty room: ${room.id}`)
     }
 }
 
@@ -140,10 +141,14 @@ export async function handleJoinRoom(connection: ConnectionInfo, message: JoinRo
 
     // Send the decklists of other connected players to the new player
     for (const permId of room.players.values()) {
+        const userDeck = room.userDecks[permId]
+        if (!userDeck) {
+            continue
+        }
         send(connection.webSocket, {
             type: MultiplayerMessageType.Deck,
             permId: permId,
-            deckList: getEdulcoratedDeckList(room.userDecks[permId]),
+            deckList: getEdulcoratedDeckList(userDeck),
         })
     }
 
@@ -151,7 +156,7 @@ export async function handleJoinRoom(connection: ConnectionInfo, message: JoinRo
     connection.roomId = roomId
     room.players.add(connection.permId)
 
-    console.log(`Player ${user?.name} joined room ${roomId}`)
+    logger.info(`Player ${user?.name} joined room ${roomId}`)
 }
 
 /**
@@ -162,7 +167,7 @@ export async function handleLeaveRoom(connection: ConnectionInfo) {
     const roomId = connection.roomId
     leaveRoom(connection)
     connection.roomId = null
-    console.log(`Player ${user?.name} left room ${roomId}`)
+    logger.info(`Player ${user?.name} left room ${roomId}`)
 }
 
 /**
@@ -172,7 +177,7 @@ export async function handleDeck(connection: ConnectionInfo, message: DeckMessag
     const room = ensureRoom(connection.roomId)
     room.userDecks[connection.permId] = message.deckList
 
-    console.log(`Player ${connection.permId} set their deck.`)
+    logger.info(`Player ${connection.permId} set their deck.`)
 
     broadcast(room.id, {
         type: MultiplayerMessageType.Deck,
@@ -196,7 +201,7 @@ export async function handleRollSeating(connection: ConnectionInfo) {
     room.seating = seating
     persistence.saveRoom(room)
 
-    console.log(`Player ${user?.name} rolled seating in room ${room.id}`)
+    logger.info(`Player ${user?.name} rolled seating in room ${room.id}`)
 
     // Broadcast the seating to all players
     broadcast(room.id, {
@@ -244,7 +249,7 @@ export function broadcastTailored(roomId: RoomId, getMessage: MessageGetter) {
         return
     }
 
-    console.log(`Broadcasting to room ${roomId}`)
+    logger.debug(`Broadcasting to room ${roomId}`)
 
     for (const permId of room.players.values()) {
         const connection = getUserConnection(permId)

@@ -129,7 +129,20 @@ export function cancelMutation(mutationEntry: MutationHistoryEntry) {
 
 export async function shuffleCardRegion(cardRegion: AnyCardRegion) {
     const core = useCoreStore()
+    const gameState = useGameStateStore()
+    const history = useHistoryStore()
     const multiplayer = useMultiplayerStore()
+
+    if (!gameState.selfPlayer) {
+        return
+    }
+
+    // Prevent multiple shuffle
+    const lastMutation = history.getLastMutationForPlayer(gameState.selfPlayer.oid)
+    if (lastMutation && lastMutation.serializedMutation.name == 'shuffle') {
+        useBusStore().alertWarning(`This stack is already shuffled.`)
+        return
+    }
 
     // For SCS mode, request server-side shuffle
     if (core.gameType == GameType.Multiplayer) {

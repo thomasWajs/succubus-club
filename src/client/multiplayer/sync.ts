@@ -10,6 +10,7 @@ import {
     GameMutationMessage,
     MutationSyncMode,
     PermanentId,
+    ScsMutationRejectedMessage,
     ScsGameStateMessage,
     SerializedChatMessage,
     SerializedGame,
@@ -189,6 +190,12 @@ function pruneConflictWindow(versioningId: VersioningId, appliedVersion: VectorC
     )
 }
 
+function cancelMutationToResolveConflict(mutation: AnyGameMutation) {
+    const cancelMutation = mutation.getCancelMutation()
+    cancelMutation.cancelToResolveConflict = true
+    applyMutationLocally(cancelMutation)
+}
+
 function getConflictingMutations(
     versioningId: VersioningId,
     remoteVersion: VectorClockVersion,
@@ -269,10 +276,7 @@ function applyPeerMutation(gameMutation: AnyGameMutation, remoteVersion?: Vector
                 if (localMutation.author.permId !== winningPermId) {
                     // Cancel mutations that were already applied, but only locally.
                     // Broadcasting is not needed as other peers will run the same conflict resolution.
-                    const cancelMutation = localMutation.getCancelMutation()
-                    // display in the logs there was a conflict to decrease user surprise
-                    cancelMutation.cancelToResolveConflict = true
-                    applyMutationLocally(cancelMutation)
+                    cancelMutationToResolveConflict(localMutation)
                 }
             }
 
@@ -441,6 +445,31 @@ function _unsafeReceiveMutationMessage(gameMutationMessage: GameMutationMessage)
         // requestResyncGameState()
         return
     }
+}
+
+/**
+ * Rejected mutations (SCS mode)
+ */
+
+export async function receiveRejectedMutation(message: ScsMutationRejectedMessage) {
+    await stateMutex.withLock(() => _unsafeReceiveRejectedMutation(message))
+}
+
+function _unsafeReceiveRejectedMutation(message: ScsMutationRejectedMessage) {
+    const history = useHistoryStore()
+    const mutationEntry = history.gameMutationsMap[message.gameMutationId]
+
+    if (!mutationEntry) {
+        return
+    }
+
+    // Don't cancel a mutation that is already cancelled
+    if (history.cancelledMutations.has(message.gameMutationId)) {
+        return
+    }
+
+    const localMutation = deserializeGameMutation(mutationEntry.serializedMutation)
+    cancelMutationToResolveConflict(localMutation)
 }
 
 /**

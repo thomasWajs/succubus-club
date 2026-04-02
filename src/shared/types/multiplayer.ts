@@ -6,7 +6,7 @@ import {
 import { AvatarId, DeckList } from '@/shared/types/gateway.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { CardRegion } from '@/shared/model/CardRegion.ts'
-import { KnownCards, PlayerVision } from '@/shared/types/state.ts'
+import { KnownCards } from '@/shared/types/state.ts'
 import { Card } from '@/shared/model/Card.ts'
 import { ChatMessage } from '@/shared/types/history.ts'
 import { GameState } from '@/shared/state/gameState.ts'
@@ -120,8 +120,9 @@ export type SerializedCardRegion = Serialized<CardRegion<Card>>
 type GameStateKey = keyof GameState
 export type SerializedGameState = {
     cards: Record<string, SerializedCard>
+    staleCards: Record<string, SerializedCard>
     players: Record<string, SerializedPlayer>
-} & { [K in Exclude<GameStateKey, 'cards' | 'players'>]: JsonValue }
+} & { [K in Exclude<GameStateKey, 'cards' | 'staleCards' | 'players'>]: JsonValue }
 
 export type SerializedGameMutation = {
     gameId: GameId // gameId
@@ -221,6 +222,7 @@ export enum MultiplayerMessageType {
     SetupGame = 'SetupGame',
     LaunchGame = 'LaunchGame',
 
+    MutationRejected = 'MutationRejected',
     GameMutation = 'GameMutation',
     ShuffleCardRegion = 'ShuffleCardRegion',
     RequestResync = 'RequestResync',
@@ -364,10 +366,16 @@ export type ScsGameStateMessage = {
     hash: number
 }
 
+export type ScsMutationRejectedMessage = {
+    type: MultiplayerMessageType.MutationRejected
+    gameMutationId: GameMutationId
+}
+
 export type ScsServerMessage =
     | ScsDeckMessage
     | ScsRollSeatingMessage
     | ScsLaunchGameMessage
     | ScsGameMutationMessage
     | ScsGameStateMessage
+    | ScsMutationRejectedMessage
     | ErrorMessage

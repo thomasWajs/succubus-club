@@ -60,25 +60,20 @@ export class ClientGameState extends GameState {
     }
 
     moveCardToRegion(card: Card, to: AnyCardRegion, position: number = 0) {
-        if (to.cardsOid.includes(card.oid)) {
-            // Card is already there, nothing to do
-            return
-        }
-
-        const wasInPlay = card.isIn.play
-
-        super.moveCardToRegion(card, to, position)
+        const { leftPlay } = super.moveCardToRegion(card, to, position)
 
         // Game state is clearly not the ideal place to put this,
         // but it's the central point for moving cards around regions.
         // If someone has a better idea, feel free to refactor.
-        if (wasInPlay && !card.isIn.play) {
+        if (leftPlay) {
             const gameBus = useGameBusStore()
             // Deselect a card when moved out of the play area.
             gameBus.removeFromSelection(card)
             // Remove from card group when moved out of the play area.
             gameBus.removeFromCardGroup(card)
         }
+
+        return { leftPlay }
     }
 }
 

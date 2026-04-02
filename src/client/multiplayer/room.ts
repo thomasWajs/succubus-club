@@ -41,7 +41,12 @@ import {
     onReceiveRequestResyncGameState,
 } from '@/client/multiplayer/communication/ably.ts'
 import { Communication } from '@/client/multiplayer/communication'
-import { onReceiveGameSync, scsCommunication } from '@/client/multiplayer/communication/scs.ts'
+import {
+    onReceiveGameSync,
+    onReceiveMutationRejected,
+    onReceiveServerError,
+    scsCommunication,
+} from '@/client/multiplayer/communication/scs.ts'
 
 export function getCommunication(gameRoom?: GameRoom): Communication {
     if (!gameRoom) {
@@ -102,7 +107,7 @@ export async function joinGameRoom(gameRoom: GameRoom, key?: Key) {
 
         await roomChannel.presence.enter(multiplayer.selfUser)
 
-        // In SCS mode, subscribe to RollSeating and GameState from server
+        // In SCS mode, subscribe to RollSeating, GameState and MutationRejected from server
         let scsSubscriptions: Promise<void>[] = []
         if (gameRoom.communication === CommunicationMode.SCS) {
             scsSubscriptions = [
@@ -111,6 +116,11 @@ export async function joinGameRoom(gameRoom: GameRoom, key?: Key) {
                     onReceiveRollSeating,
                 ),
                 scsCommunication.subscribe(MultiplayerMessageType.GameState, onReceiveGameSync),
+                scsCommunication.subscribe(
+                    MultiplayerMessageType.MutationRejected,
+                    onReceiveMutationRejected,
+                ),
+                scsCommunication.subscribe(MultiplayerMessageType.Error, onReceiveServerError),
             ]
         }
 

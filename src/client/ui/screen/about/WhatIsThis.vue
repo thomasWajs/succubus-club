@@ -11,18 +11,27 @@
             This is a fan-made project crafted by a passionate player who clearly has too much time
             on their hands. It's completely free, with no ads and no tracking.
         </p>
-        <p>
-            Multiplayer runs directly between players, which means there's no authoritative server
-            keeping watch. This makes cheating embarrassingly easy, so the whole thing relies on
-            trust and good sportsmanship. Please be fair !
-        </p>
 
         <p>
-            Since there's no central server, there are no accounts either – all your data stays in
-            your browser's local storage.
+            There are no accounts nor tracking – all your data stays in your browser's local
+            storage.
         </p>
 
-        <p class="inline-message">⚠ Definitely not suitable for tournament play.</p>
+        <p>Multiplayer supports two communication modes:</p>
+        <ul class="blood-list">
+            <li>
+                Direct mode : Players connect directly to each other, so there is no authoritative
+                server watching over the game. Faster, but cheating is possible, and players are
+                expected to rely on trust and good sportsmanship.
+            </li>
+            <li>
+                Succubus Club Server (SCS) : Slower, but an authoritative server handles the game
+                state and prevents players from taking a look at hidden cards they are not supposed
+                to see.
+            </li>
+        </ul>
+
+        <p class="inline-message">Suitable for tournament play ONLY when using SCS.</p>
     </div>
 </template>
 <script setup lang="ts"></script>

@@ -1,9 +1,11 @@
 import {
+    ErrorMessage,
     GameMutationMessage,
     MultiplayerMessageType,
     RoomId,
     ScsGameStateMessage,
     ScsLaunchGameMessage,
+    ScsMutationRejectedMessage,
     ScsShuffleCardRegionMessage,
     VersioningTarget,
 } from '@/shared/types/multiplayer.ts'
@@ -14,8 +16,9 @@ import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import { Communication } from '@/client/multiplayer/communication/index.ts'
 import { AnyCardRegion } from '@/shared/types/model.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
-import { applyGameResync, ensureClock } from '@/client/multiplayer/sync.ts'
+import { applyGameResync, ensureClock, receiveRejectedMutation } from '@/client/multiplayer/sync.ts'
 import { useCoreStore } from '@/client/store/core.ts'
+import { useBusStore } from '@/client/store/bus.ts'
 
 interface ScsCommunication extends Communication {
     announce(): void
@@ -25,6 +28,18 @@ interface ScsCommunication extends Communication {
 /**
  * SCS Game Sync
  */
+
+export function onReceiveServerError(message: ErrorMessage) {
+    useBusStore().alertError(`SCS ${message.message}`)
+}
+
+export async function onReceiveMutationRejected(message: ScsMutationRejectedMessage) {
+    const gameRoom = ensureGameRoom()
+    if (!gameRoom.isStarted) {
+        return
+    }
+    await receiveRejectedMutation(message)
+}
 
 export async function onReceiveGameSync(message: ScsGameStateMessage) {
     const gameRoom = ensureGameRoom()
@@ -75,6 +90,7 @@ export const scsCommunication: ScsCommunication = {
         // When reconnecting to the server after an unexpected disconnect
         if (currentRoomId) {
             scsCommunication.joinRoom(currentRoomId, currentKey)
+            scsCommunication.sendDeck()
         }
     },
 

@@ -1,6 +1,6 @@
 import { Player } from '@/shared/model/Player.ts'
 import { CardRegion } from '@/shared/model/CardRegion.ts'
-import { Card, Minion } from '@/shared/model/Card.ts'
+import { Card, Minion, PropertiesInPlay } from '@/shared/model/Card.ts'
 import { ActionVerb, Marker, TurnSequence } from '@/shared/const/model.ts'
 import {
     CARD_LOG_PLACEHOLDER,
@@ -360,6 +360,16 @@ class ChangeMarker extends GameMutation<ChangeMarkerParams> {
 
     protected get _versioningId(): VersioningId {
         return `${VersioningTarget.Marker}-${this.params.card.oid}`
+    }
+
+    getValidity() {
+        // There's no markers outside of the play area
+        if (!this.params.card.isIn.play)
+            return Invalid(
+                `${secureName(this.params.card, this.author)} : Cannot change marker because it is not in play`,
+            )
+
+        return VALID
     }
 
     protected updateGameState() {
@@ -727,7 +737,9 @@ class Influence extends ChangeCounterMutation {
 }
 
 /**
- * Move card
+ * Move card inside the same region.
+ * Use {x; y} when in play ( on the table ).
+ * Use {position} when in a stack ( all other regions, including hand ).
  */
 
 type MoveCardParams = CardMovement
@@ -763,6 +775,15 @@ class MoveCard extends GameMutation<MoveCardParams> {
         }
     }
 
+    formatForLog() {
+        // Log reordering only when outside of ready and hand ( stacks )
+        if (this.params.card.isIn.hand || this.params.card.isIn.play) {
+            return null
+        }
+        const previousPosition = (this.previousState.position ?? 0) as number
+        return `Reorder ${this.params.card.region.name} : ${CARD_LOG_PLACEHOLDER} position ${previousPosition + 1} --> ${this.params.card.position + 1}`
+    }
+
     get card() {
         return this.params.card
     }
@@ -783,11 +804,12 @@ class MoveCard extends GameMutation<MoveCardParams> {
 interface MoveCardToRegionParams extends CardMovement {
     fromCardRegion: AnyCardRegion
     toCardRegion: AnyCardRegion
+    propsInPlay?: PropertiesInPlay
 }
 
 class MoveCardToRegion extends GameMutation<MoveCardToRegionParams> {
     readonly syncMode = MutationSyncMode.Ordered
-    declare public previousState: Omit<CardMovement, 'card'>
+    declare public previousState: { propsInPlay: PropertiesInPlay } & Omit<CardMovement, 'card'>
 
     protected get _versioningId(): VersioningId {
         return `${VersioningTarget.Card}-${this.params.card.oid}`
@@ -818,15 +840,21 @@ class MoveCardToRegion extends GameMutation<MoveCardToRegionParams> {
     protected updateGameState(gameState: GameState) {
         const card = this.params.card
 
+        const { isLocked, isFlipped, blood, greenCounter, markers } = this.card
         this.previousState = {
             position: card.position,
             x: card.x,
             y: card.y,
+            propsInPlay: { isLocked, isFlipped, blood, greenCounter, markers },
         }
 
         gameState.moveCardToRegion(card, this.params.toCardRegion, this.params.position)
         if (this.params.x != undefined && this.params.y != undefined) {
             card.setCoordinates(this.params.x, this.params.y)
+        }
+        // Only used for inverse mutations
+        if (this.params.propsInPlay) {
+            card.updatePropertiesInPlay(this.params.propsInPlay)
         }
     }
 
@@ -1103,7 +1131,7 @@ class SetLock extends ChangeCardBoolMutation {
 
     getValidity() {
         // Can lock/unlock only in controlled
-        return this.params.card.isIn.controlled ?
+        return this.params.card.isIn.play ?
                 VALID
             :   Invalid(`Cannot lock/unlock in ${this.params.card.region.name}`)
     }
@@ -1151,9 +1179,12 @@ export class Shuffle extends GameMutation<ShuffleParams> {
     protected updateGameState(gameState: GameState) {
         // If shuffledCards provided (server-side shuffle with new OIDs)
         if (this.params.shuffledCards) {
-            // Remove old cards from gameState.cards
+            // Move old cards to staleCards
             for (const oldOid of this.params.previousCardsOrder) {
-                delete gameState.cards[oldOid]
+                if (gameState.cards[oldOid]) {
+                    gameState.staleCards[oldOid] = gameState.cards[oldOid]
+                    delete gameState.cards[oldOid]
+                }
             }
 
             // Add cards with new OIDs to gameState.cards

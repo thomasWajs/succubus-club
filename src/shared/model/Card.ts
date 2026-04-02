@@ -39,12 +39,20 @@ class VampireAttributes {
     //traits: Trait[]
 }
 
+export type PropertiesInPlay = {
+    isLocked: boolean
+    isFlipped: boolean
+    blood: number
+    greenCounter: number
+    markers: string[]
+}
+
 export function isCryptId(krcgId: KrcgId) {
     // Krcg id of crypt card begins by 2, library begins by 1
     return krcgId[0] == '2'
 }
 
-export abstract class Card extends BaseModel {
+export abstract class Card extends BaseModel implements PropertiesInPlay {
     x = 0 // This is relative to its container, with origin=0
     y = 0 // This is relative to its container, with origin=0
     isLocked = false
@@ -107,8 +115,12 @@ export abstract class Card extends BaseModel {
         return this.region.is
     }
 
-    get position() {
+    get position(): number {
         return this.region.indexOf(this)
+    }
+
+    updatePropertiesInPlay(props: PropertiesInPlay) {
+        Object.assign(this, props)
     }
 
     isMinion(): this is Minion {

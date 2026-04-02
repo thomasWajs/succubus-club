@@ -69,6 +69,32 @@ export function getScreenPoint(x: number, y: number) {
     }
 }
 
+/**
+ * Compute the adjusted card index and virtual list length for gap-based reordering.
+ * Used for both hand and wield card stack to produce the visual gap effect while dragging.
+ */
+export function reorderCardIndex(
+    cardIndex: number,
+    targetListLength: number,
+    dropGapPosition: number | null,
+    draggedCardPosition: number | null,
+): { index: number; length: number } {
+    let offset = 0
+    let length = targetListLength
+    // When dragging any card into the target list,
+    // display the card at its position after drop
+    if (dropGapPosition !== null) {
+        length++
+        if (cardIndex >= dropGapPosition) offset++
+    }
+    // When the dragged card comes from the target list, remove it from calculations
+    if (draggedCardPosition !== null) {
+        length--
+        if (cardIndex > draggedCardPosition) offset--
+    }
+    return { index: cardIndex + offset, length }
+}
+
 export function dropCoordinates(pointer: Pointer, toContainer: GameObjects.Container) {
     if (!pointer || !toContainer) {
         return { x: 0, y: 0 }

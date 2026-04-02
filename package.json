@@ -22,6 +22,10 @@
         "vue",
         "vite"
     ],
+    "workspaces": [
+        "src/server",
+        "src/client"
+    ],
     "scripts": {
         "dev": "vite --config vite/config.dev.mjs",
         "preview": "vite preview",
@@ -35,46 +39,5 @@
         "server:dev": "cd src/server && npm run dev",
         "server:build": "cd src/server && npm run build",
         "server:start": "cd src/server && npm run start"
-    },
-    "dependencies": {
-        "@jsonjoy.com/json-pack": "^1.21.0",
-        "@sentry/vue": "^9.46.0",
-        "ably": "^2.14.0",
-        "dexie": "^4.2.1",
-        "firebase": "^12.4.0",
-        "idle-js": "^1.2.0",
-        "nanoid": "^5.1.6",
-        "phaser": "^3.90.0",
-        "phavuer": "^0.19.6",
-        "pinia": "^3.0.3",
-        "pinia-class-transformer": "^3.2.3",
-        "safe-stable-stringify": "^2.5.0",
-        "vue": "^3.5.17",
-        "vue-router": "^4.5.1",
-        "websocket-ts": "^2.2.1",
-        "xxhash-wasm": "^1.1.0"
-    },
-    "devDependencies": {
-        "@eslint/js": "^9.36.0",
-        "@sentry/vite-plugin": "^3.6.1",
-        "@tsconfig/node20": "^20.1.6",
-        "@types/idle-js": "^1.2.3",
-        "@types/node": "^20.19.21",
-        "@typescript-eslint/eslint-plugin": "^8.46.0",
-        "@typescript-eslint/parser": "^8.46.0",
-        "@vitejs/plugin-vue": "^6.0.1",
-        "@vue/tsconfig": "^0.7.0",
-        "eslint": "^9.37.0",
-        "eslint-config-prettier": "^10.1.8",
-        "eslint-plugin-prettier": "^5.5.4",
-        "eslint-plugin-vue": "^10.5.0",
-        "prettier": "^3.6.2",
-        "sass": "^1.93.2",
-        "terser": "^5.44.0",
-        "typescript": "~5.8.3",
-        "vite": "^7.1.9",
-        "vite-plugin-vue-devtools": "^7.7.7",
-        "vue-eslint-parser": "^10.2.0",
-        "vue-tsc": "^3.1.1"
     }
 }

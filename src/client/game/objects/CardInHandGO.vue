@@ -99,7 +99,7 @@ import { useCardDragDrop } from '@/client/game/composables/useCardDragDrop.ts'
 import ButtonGo from '@/client/game/objects/ButtonGo.vue'
 import { useCardClick } from '@/client/game/composables/useCardClick.ts'
 import { useCardOutline } from '@/client/game/composables/useCardOutline.ts'
-import { getCardScale } from '@/client/game/utils.ts'
+import { getCardScale, reorderCardIndex } from '@/client/game/utils.ts'
 import { playCardFromHand } from '@/client/game/declaration.ts'
 import { selfCanPlay } from '@/client/state/self.ts'
 import { useCardTexture } from '@/client/game/composables/useCardTexture.ts'
@@ -126,25 +126,12 @@ const cardAttrs = computed((): CardAttrs => {
     let x = 0
 
     if (hand) {
-        let handLength = hand.length
-        let cardIndex = hand.indexOf(card)
-        let cardIndexOffset = 0
-        // When dragging any card into the hand,
-        // display the card at its position after drop
-        if (gameBus.handDropGapPosition !== null) {
-            handLength++
-            if (cardIndex >= gameBus.handDropGapPosition) {
-                cardIndexOffset++
-            }
-        }
-        // When the dragged card comes from the hand, remove it from calculations
-        if (gameBus.draggedHandCardPosition !== null) {
-            handLength--
-            if (cardIndex > gameBus.draggedHandCardPosition) {
-                cardIndexOffset--
-            }
-        }
-        cardIndex += cardIndexOffset
+        const { index: cardIndex, length: handLength } = reorderCardIndex(
+            hand.indexOf(card),
+            hand.length,
+            gameBus.handDropGapPosition,
+            gameBus.draggedHandCardPosition,
+        )
 
         const maxSpacing = CARD_WIDTH * CARD_IN_HAND_SCALE + 10
         const spacing = Math.min(

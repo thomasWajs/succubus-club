@@ -227,7 +227,7 @@ let firestore: Firestore | null = null
 export function getFirebase(): FirebaseApp {
     if (!firebase) {
         firebase = initializeApp({
-            apiKey: import.meta.env.FIREBASE_API_KEY,
+            apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
             authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
             databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL,
             projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,

@@ -222,7 +222,8 @@ export function useCardDragDrop(
         if (
             gameBus.dragOver.gameObjects.target &&
             gameBus.dragOver.cardRegion &&
-            gameBus.dragOver.regionCategory
+            gameBus.dragOver.regionCategory &&
+            gameBus.dragOver.regionCategory != RegionCategory.Stack
         ) {
             const cardRegion = gameBus.dragOver.cardRegion
             const isOverPlayArea = gameBus.dragOver.regionCategory == RegionCategory.Table
@@ -307,6 +308,7 @@ export function useCardDragDrop(
 
     function onDrop() {
         const card = cardRef.value
+
         // Not dropped on any region, abort
         if (
             !dragAttrs.isDragging ||
@@ -329,11 +331,30 @@ export function useCardDragDrop(
             gameBus.cardPendingIntoGroup = card
         }
 
-        const position = targetCardRegion.is.hand ? (gameBus.handDropGapPosition ?? 0) : 0
-        const movement: CardMovement = { card, x, y, position }
+        const isHand = targetCardRegion.is.hand
+        const isWieldStack = gameBus.wieldCardStack.cardRegion?.oid == targetCardRegion.oid
+        const position =
+            isHand ? (gameBus.handDropGapPosition ?? 0)
+            : isWieldStack ? (gameBus.stackDropGapPosition ?? 0)
+            : 0
 
-        // We're not changing region, just move the card inside the same region
+        let movement: CardMovement
+        if (isHand || isWieldStack) {
+            // position did not change, do nothing
+            if (position == card.position) {
+                return
+            }
+            movement = { card, position }
+        } else {
+            // coords did not change, do nothing
+            if (x == card.x && y == card.y) {
+                return
+            }
+            movement = { card, x, y }
+        }
+
         if (targetCardRegion.oid == card.region.oid) {
+            // We're not changing region, just move the card inside the same region
             gameMutations.moveCard.actSelf(movement)
         }
         // We change region

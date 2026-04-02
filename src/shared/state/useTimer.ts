@@ -7,11 +7,11 @@ const TIMER_DURATION = 2 * 60 * 60 * 1000 // 2 hours in milliseconds
 const timerChosen = ref(false)
 // Reactive "now" tick — drives display updates without affecting timer accuracy
 const now = ref(Date.now())
-let intervalId: number | null = null
+let intervalId: ReturnType<typeof setInterval> | null = null
 
 export function startClock() {
     if (intervalId === null) {
-        intervalId = window.setInterval(() => {
+        intervalId = setInterval(() => {
             now.value = Date.now()
         }, 500) // 500 is plenty for a seconds-precision display
     }

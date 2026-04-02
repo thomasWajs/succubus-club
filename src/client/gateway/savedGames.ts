@@ -97,10 +97,10 @@ async function autoSaveGame() {
     await removeOldAutoSavedGames()
 }
 
-let intervalId: number | null = null
+let intervalId: ReturnType<typeof setInterval> | null = null
 
 export function initAutoSaveGame() {
-    intervalId = window.setInterval(autoSaveGame, AUTO_SAVE_INTERVAL)
+    intervalId = setInterval(autoSaveGame, AUTO_SAVE_INTERVAL)
 }
 
 export function stopAutoSaveGame() {

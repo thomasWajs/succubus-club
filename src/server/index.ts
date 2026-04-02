@@ -1,186 +1,54 @@
-import { WebSocket, WebSocketServer } from 'ws'
-import {
-    handleDeck,
-    handleJoinRoom,
-    handleLeaveRoom,
-    handleRollSeating,
-    handleSetupGame,
-    leaveRoom,
-    RoomNotFound,
-} from './rooms'
-import { handleGameMutation, handleRequestResync, handleShuffleCardRegion } from './gameState.ts'
-import {
-    ErrorMessage,
-    MultiplayerMessageType,
-    ScsClientMessage,
-    ScsServerMessage,
-} from '@/shared/types/multiplayer.ts'
-import { ClientId, ConnectionInfo } from './types.ts'
-import { generateClientOid } from '@/shared/state/ids.ts'
-import { getUser, handleSetUser, removeUser } from './users.ts'
+import 'instrument'
+import http from 'http'
 import { initServer } from './initServer.ts'
+import logger from './logger.ts'
+import { stopWsServer, wsServer } from './wsServer.ts'
+import { handleLogsRequest } from './logServer.ts'
 
-initServer()
+const PORT = parseInt(process.env.WS_PORT ?? '3001')
 
-const PORT = parseInt(process.env.WS_PORT || '3001')
+await initServer()
 
-// Track all active connections
-const connections = new Map<ClientId, ConnectionInfo>()
-
-/**
- * Initialize WebSocket Server
- */
-const wsServer = new WebSocketServer({ port: PORT })
-
-console.log(`WebSocket server listening on port ${PORT}`)
-
-/**
- * Handle new client connections
- */
-wsServer.on('connection', (webSocket: WebSocket, req) => {
-    console.log('New client connected : ' + req.socket.remoteAddress)
-
-    const clientId = generateClientOid()
-
-    // Initialize connection info
-    connections.set(clientId, {
-        clientId,
-        webSocket,
-        permId: '', // Will be set on setUser
-        roomId: null, // Will be set on joinRoom
-    })
-
-    /**
-     * Handle incoming messages
-     */
-    webSocket.on('message', async (data: Buffer) => {
-        try {
-            const message: ScsClientMessage = JSON.parse(data.toString())
-
-            const connection = connections.get(clientId)
-            if (!connection) {
-                return
-            }
-
-            console.log(`Received message: ${JSON.stringify(message)}`)
-
-            switch (message.type) {
-                case MultiplayerMessageType.SetUser:
-                    await handleSetUser(connection, message)
-                    break
-
-                case MultiplayerMessageType.JoinRoom:
-                    await handleJoinRoom(connection, message)
-                    break
-
-                case MultiplayerMessageType.LeaveRoom:
-                    await handleLeaveRoom(connection)
-                    break
-
-                case MultiplayerMessageType.Deck:
-                    await handleDeck(connection, message)
-                    break
-
-                case MultiplayerMessageType.RollSeating:
-                    await handleRollSeating(connection)
-                    break
-
-                case MultiplayerMessageType.SetupGame:
-                    await handleSetupGame(connection)
-                    break
-
-                case MultiplayerMessageType.GameMutation:
-                    await handleGameMutation(connection, message)
-                    break
-
-                case MultiplayerMessageType.ShuffleCardRegion:
-                    await handleShuffleCardRegion(connection, message)
-                    break
-                case MultiplayerMessageType.RequestResync:
-                    handleRequestResync(connection)
-                    break
-
-                default:
-                    sendError(webSocket, `Unknown message type: ${(message as any).type}`)
-            }
-        } catch (error) {
-            if (error instanceof RoomNotFound) {
-                console.error('RoomNotFound when handling message:', error)
-                sendError(webSocket, 'Not in a game room')
-            } else {
-                console.error('Error handling message:', error)
-                sendError(webSocket, 'Failed to process message')
-            }
-        }
-    })
-
-    /**
-     * Handle client disconnection
-     */
-    webSocket.on('close', () => {
-        const connection = connections.get(clientId)
-        if (connection) {
-            handleDisconnect(connection)
-        }
-        connections.delete(clientId)
-    })
-
-    /**
-     * Handle errors
-     */
-    webSocket.on('error', error => {
-        console.error('WebSocket error:', error)
-    })
+const server = http.createServer((req, res) => {
+    if (req.method == 'GET' && req.url === '/logs') {
+        return handleLogsRequest(req, res)
+    }
+    res.writeHead(404).end()
 })
 
 /**
- * Handle server errors
+ * Delegate web sockets
  */
-wsServer.on('error', error => {
-    console.error('Server error:', error)
+server.on('upgrade', (req, socket, head) => {
+    wsServer.handleUpgrade(req, socket, head, ws => {
+        wsServer.emit('connection', ws, req)
+    })
 })
 
-/**
- * Handle player disconnection
- */
-export function handleDisconnect(connection: ConnectionInfo) {
-    const user = getUser(connection.permId)
-    leaveRoom(connection)
-    if (user) {
-        removeUser(user.permId)
-    }
-    console.log(`Player ${user?.name} disconnected`)
-}
+server.listen(PORT, () => {
+    logger.info(`Server listening on port ${PORT}`)
+})
 
-/**
- * Utility: Send message to a client
- */
-export function send(webSocket: WebSocket, message: ScsServerMessage) {
-    if (webSocket.readyState === WebSocket.OPEN) {
-        webSocket.send(JSON.stringify(message))
-    }
-}
-
-/**
- * Utility: Send error to a client
- */
-export function sendError(webSocket: WebSocket, errorMessage: string) {
-    const message: ErrorMessage = {
-        type: MultiplayerMessageType.Error,
-        message: errorMessage,
-    }
-    send(webSocket, message)
+export async function stopServer() {
+    await new Promise<void>((resolve, reject) => {
+        server.close(err => {
+            if (err) reject(err)
+            else {
+                logger.info(`Server closed`)
+                resolve()
+            }
+        })
+    })
 }
 
 /**
  * Graceful shutdown
  */
-function gracefulShutdown() {
-    console.log('Shutting down server...')
-    wsServer.close(() => {
-        console.log('Server closed')
-        process.exit(0)
-    })
+async function gracefulShutdown() {
+    logger.info('Shutting down server...')
+    await stopWsServer()
+    await stopServer()
+    process.exit(0)
 }
 
 process.on('SIGINT', gracefulShutdown)

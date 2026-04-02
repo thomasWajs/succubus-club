@@ -7,7 +7,8 @@
                 href="https://opensource.org/license/mit"
                 target="_blank"
                 >MIT licensed</a
-            >, Copyright (c) 2025 Thomas Wajs
+            >, Copyright (c) 2025-{{ new Date().getFullYear() }}
+            Thomas Wajs
         </p>
         <p>
             Portions of the materials are the copyrights and trademarks of Paradox Interactive AB,

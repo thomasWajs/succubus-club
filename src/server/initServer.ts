@@ -5,11 +5,10 @@ import { readFileSync } from 'fs'
 import { resolve } from 'path'
 import { initTables, loadPersistedData } from './persistence.ts'
 import { restoreRooms } from './rooms.ts'
+import logger from './logger.ts'
 
-export function initServer() {
-    //registerMutationTrigger({ act, actSelf })
-
-    initWasmHasher()
+export async function initServer() {
+    await initWasmHasher()
     loadCardbase()
     initTables()
     restorePersistedData()
@@ -19,6 +18,7 @@ function loadCardbase() {
     const cardbasePath = resolve('../../public/assets/cardbase.json')
     const cardbase = JSON.parse(readFileSync(cardbasePath, 'utf-8'))
     setGameResources('cardbase', cardbase)
+    logger.info('Cardbase loaded')
 }
 
 function restorePersistedData() {

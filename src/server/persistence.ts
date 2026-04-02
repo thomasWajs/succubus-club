@@ -1,4 +1,8 @@
+import fs from 'fs'
+import path from 'path'
 import Database from 'better-sqlite3'
+import { captureException } from './logging.ts'
+import logger from './logger.ts'
 import { Room } from './types.ts'
 import {
     RoomId,
@@ -19,7 +23,7 @@ import {
 import { LamportClock, VectorClock } from '@/shared/multiplayer/clock.ts'
 import { HistoryStore } from '@/shared/state/history.ts'
 
-const DB_PATH = process.env.DB_PATH || './game-server.db'
+const DB_PATH = process.env.SCS_DB_PATH || '../../data/game-server.db'
 
 type RoomRow = {
     id: string
@@ -40,12 +44,11 @@ type GameStateRow = {
 /**
  * Initialize SQLite database
  */
+fs.mkdirSync(path.dirname(DB_PATH), { recursive: true })
 const db = new Database(DB_PATH)
 
 // Enable WAL mode for better concurrency
 db.pragma('journal_mode = WAL')
-
-console.log(`Database initialized at: ${DB_PATH}`)
 
 /**
  * Create tables if they don't exist
@@ -75,10 +78,10 @@ export function initTables() {
     )
 `)
 
-    console.log('Database tables initialized')
+    logger.info('Database tables initialized')
 
-    // Cleanup old data (older than 24 hours)
-    const twentyFourHoursAgo = Date.now() - 24 * 60 * 60 * 1000
+    // Cleanup old data (older than 12 hours)
+    const twentyFourHoursAgo = Date.now() - 12 * 60 * 60 * 1000
 
     try {
         const deleteOldRooms = db.prepare('DELETE FROM rooms WHERE updatedAt < ?')
@@ -88,12 +91,12 @@ export function initTables() {
         const deletedGameStates = deleteOldGameStates.run(twentyFourHoursAgo)
 
         if (deletedRooms.changes > 0 || deletedGameStates.changes > 0) {
-            console.log(
+            logger.info(
                 `Cleaned up ${deletedRooms.changes} old rooms and ${deletedGameStates.changes} old game states`,
             )
         }
     } catch (error) {
-        console.error('Error cleaning up old data:', error)
+        captureException(error)
     }
 }
 
@@ -130,7 +133,7 @@ export function saveRoom(room: Room): void {
             now,
         )
     } catch (error) {
-        console.error('Error saving room:', error)
+        captureException(error)
     }
 }
 
@@ -168,7 +171,7 @@ export function loadRoom(roomId: RoomId): Room | undefined {
         }
         return loadRoomRow(row)
     } catch (error) {
-        console.error('Error loading room:', error)
+        captureException(error)
         return undefined
     }
 }
@@ -179,7 +182,7 @@ export function loadAllRooms(): Room[] {
         const rows = stmt.all() as any[]
         return rows.map(loadRoomRow)
     } catch (error) {
-        console.error('Error loading all rooms:', error)
+        captureException(error)
         return []
     }
 }
@@ -189,7 +192,7 @@ export function deleteRoom(roomId: RoomId): void {
         const stmt = db.prepare('DELETE FROM rooms WHERE id = ?')
         stmt.run(roomId)
     } catch (error) {
-        console.error('Error deleting room:', error)
+        captureException(error)
     }
 }
 
@@ -210,7 +213,7 @@ export function saveGameState(gameState: GameState): void {
         const serializedGameState = serializeGameState(gameState)
         stmt.run(gameState.gameId, JSON.stringify(serializedGameState), now, now)
     } catch (error) {
-        console.error('Error saving game state:', error)
+        captureException(error)
     }
 }
 
@@ -231,7 +234,7 @@ export function loadGameState(gameId: GameId): GameState | undefined {
 
         return gameStateFromRow(row)
     } catch (error) {
-        console.error('Error loading game state:', error)
+        captureException(error)
         return undefined
     }
 }
@@ -242,7 +245,7 @@ export function loadAllGameStates(): GameState[] {
         const rows = stmt.all() as GameStateRow[]
         return rows.map(gameStateFromRow)
     } catch (error) {
-        console.error('Error loading all game states:', error)
+        captureException(error)
         return []
     }
 }
@@ -252,7 +255,7 @@ export function deleteGameState(gameId: GameId): void {
         const stmt = db.prepare('DELETE FROM game_states WHERE gameId = ?')
         stmt.run(gameId)
     } catch (error) {
-        console.error('Error deleting game state:', error)
+        captureException(error)
     }
 }
 
@@ -260,12 +263,10 @@ export function deleteGameState(gameId: GameId): void {
  * Restore all persisted data
  */
 export function loadPersistedData(): { rooms: Room[]; gameStates: GameState[] } {
-    console.log('Restoring persisted data...')
-
     const gameStates = loadAllGameStates()
     const rooms = loadAllRooms()
 
-    console.log(`Restored ${rooms.length} rooms and ${gameStates.length} game states`)
+    logger.info(`Restored ${rooms.length} rooms and ${gameStates.length} game states`)
 
     return { rooms, gameStates }
 }

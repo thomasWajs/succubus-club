@@ -4,16 +4,16 @@ import { App } from 'vue'
 import { Pinia } from 'pinia'
 import { useCoreStore } from '@/client/store/core.ts'
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
-import { serializeHistory } from '@/shared/serialization.ts'
-import { useHistoryStore } from '@/client/store/history.ts'
-import { HistoryStore } from '@/shared/state/history.ts'
+
+const isProd = import.meta.env.PROD
+const sentryEnv = import.meta.env.VITE_SENTRY_ENV ?? (isProd ? 'production' : 'development')
 
 export function initSentry(app: App) {
     Sentry.init({
         app,
         dsn: import.meta.env.VITE_SENTRY_DSN,
-        enabled: true, // import.meta.env.PROD,
-        environment: import.meta.env.PROD ? 'production' : 'development',
+        enabled: isProd,
+        environment: sentryEnv,
         tunnel: '/api/sentryTunnel',
         normalizeDepth: 4,
 
@@ -58,10 +58,14 @@ export function initSentryPiniaPlugin(pinia: Pinia) {
                 }
 
                 // Serialized history is a much more compact representation
+                // Disabled because this was causing performance issues
+                // ( constant serialization/deserialization of the history )
+                /*
                 transformedState.gameHistory = serializeHistory(
                     useHistoryStore().$state as HistoryStore,
                     true,
                 )
+                 */
 
                 return transformedState
             },
@@ -70,7 +74,7 @@ export function initSentryPiniaPlugin(pinia: Pinia) {
 }
 
 export function captureException(exception: unknown) {
-    if (import.meta.env.PROD) {
+    if (isProd) {
         Sentry.captureException(exception)
     } else {
         throw exception
@@ -78,7 +82,7 @@ export function captureException(exception: unknown) {
 }
 
 export function captureMessage(message: string, captureContext?: SeverityLevel) {
-    if (import.meta.env.PROD) {
+    if (isProd) {
         Sentry.captureMessage(message, captureContext)
     } else {
         /* eslint-disable no-console */

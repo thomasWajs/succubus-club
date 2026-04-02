@@ -11,10 +11,10 @@ The project is built with modern web technologies and features real-time multipl
 
 - **Browser-Based**: No downloads required - play directly in your web browser
 - **No Account Required**: No registration required, no login required
-- **Multiplayer**: Peer2Peer communication, no central server.
+- **Multiplayer**: Either direct Peer2Peer communication, or central authoritative server
 - **Trainbot**: Rudimentary automaton to test the card flow of your decks
 - **Always up-to-date**: New cards and preconstructed are added without user intervention
-- **No Anti-Cheat**: Nothing prevent anyone from cheating. Please be fair.
+- **Optionnal Anti-Cheat**: Authoritative server ensure players cannot know hidden cards
 
 ## 🚀 Getting Started
 
