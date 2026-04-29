@@ -221,7 +221,10 @@ export abstract class Card extends BaseModel implements PropertiesInPlay {
                 new RegExp(`during(.)*their(.)*${phase} phase`, 'i').test(this.text)) ||
             // Match "during your [...] phase"
             (this.controller == gameState.activePlayer &&
-                new RegExp(`during your ${phase} phase`, 'i').test(this.text))
+                new RegExp(`during your ${phase} phase`, 'i').test(this.text)) ||
+            // Match "during this [...] phase"
+            (this.controller == gameState.activePlayer &&
+                new RegExp(`during this(.)*${phase} phase`, 'i').test(this.text))
         )
     }
 }
