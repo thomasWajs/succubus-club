@@ -1030,6 +1030,15 @@ class Reveal extends GameMutation<RevealParams> {
         return `${VersioningTarget.Reveal}-${this.params.target.oid}`
     }
 
+    getValidity() {
+        // Only the owner of the stack/cards can reveal it
+        if (this.params.target.owner?.oid != this.author.oid) {
+            return Invalid(`Only the owner of the cards can reveal them`)
+        }
+
+        return VALID
+    }
+
     protected updateGameState(gameState: GameState) {
         this.previousState.viewer = this.params.viewer
 
