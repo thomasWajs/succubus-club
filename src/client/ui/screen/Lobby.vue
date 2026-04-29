@@ -20,7 +20,10 @@
             </button>
         </div>
 
-        <div class="lobby-content">
+        <div
+            class="lobby-content"
+            :class="{ 'has-banner': showReconnectSuggestion }"
+        >
             <!-- Players Online Sidebar -->
             <div class="players-panel">
                 <h3 class="panel-title">
@@ -437,6 +440,10 @@ if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
     padding: 1.5rem;
     gap: 1.5rem;
     min-height: calc(100vh - $topbar-height - 4rem);
+
+    &.has-banner {
+        min-height: calc(100vh - $topbar-height - 8rem);
+    }
 }
 
 .panel-title {
