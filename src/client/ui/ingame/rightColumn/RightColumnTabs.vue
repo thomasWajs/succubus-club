@@ -244,21 +244,26 @@ const displayedLogEntries = computed(() => {
 
 function scrollLog() {
     nextTick(() => {
-        if (logLines.value) {
-            const scrollContainer = logLines.value
-            const isAtBottom =
-                scrollContainer.scrollHeight -
-                    scrollContainer.scrollTop -
-                    scrollContainer.clientHeight <
-                60
-
-            if (isAtBottom) {
-                scrollContainer.scrollTop = scrollContainer.scrollHeight
-            }
+        const scrollContainer = logLines.value
+        if (!scrollContainer) {
+            return
         }
+        scrollContainer.scrollTop = scrollContainer.scrollHeight
     })
 }
-watch(() => history.logEntries.length, scrollLog)
+function scrollLogIfAtBottom() {
+    const scrollContainer = logLines.value
+    if (!scrollContainer) {
+        return
+    }
+    const isAtBottom =
+        scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight < 80
+    if (isAtBottom) {
+        scrollLog()
+    }
+}
+
+watch(() => history.logEntries.length, scrollLogIfAtBottom)
 watch(activeTab, scrollLog)
 
 const chatMessageText = ref('')
