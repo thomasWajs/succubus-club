@@ -1,3 +1,13 @@
+## [0.7.0] - 2026-05-04
+
+Features:
+- Succubus Club Server, Finally !
+- Only the owner of a stack can reveal it
+
+Bugfix:
+- Archive history to improve performances in late game
+- Fix log auto-scroll
+
 ## [0.6.3] - 2026-03-30
 
 Bugfix:
