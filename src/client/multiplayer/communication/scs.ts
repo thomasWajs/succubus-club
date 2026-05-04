@@ -21,6 +21,7 @@ import { applyGameResync, ensureClock, receiveRejectedMutation } from '@/client/
 import { useCoreStore } from '@/client/store/core.ts'
 import { useBusStore } from '@/client/store/bus.ts'
 import { waitUntil } from '@/shared/utils.ts'
+import router, { ROUTES } from '@/client/ui/router.ts'
 
 interface ScsCommunication extends Communication {
     announce(): void
@@ -101,7 +102,10 @@ export const scsCommunication: ScsCommunication = {
         // If we're still disconnected after 1 seconds, show an alert
         setTimeout(async () => {
             const multiplayer = useMultiplayerStore()
-            if (multiplayer.scsStatus == ScsStatus.Disconnected) {
+            if (
+                multiplayer.scsStatus == ScsStatus.Disconnected &&
+                router.currentRoute.value.name != ROUTES.MainMenu
+            ) {
                 useBusStore().alertError('Connection lost with SCS. Trying to reconnect...')
 
                 await waitUntil(() => multiplayer.scsStatus == ScsStatus.Connected, 300)
