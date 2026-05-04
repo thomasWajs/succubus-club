@@ -66,7 +66,7 @@ export class Conductor {
         this.turnInitDone = false
     }
 
-    _applyBotDecision(decisionCallback: () => void) {
+    _applyBotDecision(decisionCallback: VoidFunction) {
         setTimeout(() => {
             try {
                 decisionCallback()

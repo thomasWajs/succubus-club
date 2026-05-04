@@ -7,6 +7,7 @@ import {
     ScsLaunchGameMessage,
     ScsMutationRejectedMessage,
     ScsShuffleCardRegionMessage,
+    ScsStatus,
     VersioningTarget,
 } from '@/shared/types/multiplayer.ts'
 import { Key } from '@/client/multiplayer/encryption.ts'
@@ -19,9 +20,11 @@ import { useGameStateStore } from '@/client/store/gameState.ts'
 import { applyGameResync, ensureClock, receiveRejectedMutation } from '@/client/multiplayer/sync.ts'
 import { useCoreStore } from '@/client/store/core.ts'
 import { useBusStore } from '@/client/store/bus.ts'
+import { waitUntil } from '@/shared/utils.ts'
 
 interface ScsCommunication extends Communication {
     announce(): void
+    handleDisconnect(): void
     setUser(): void
 }
 
@@ -92,6 +95,19 @@ export const scsCommunication: ScsCommunication = {
             scsCommunication.joinRoom(currentRoomId, currentKey)
             scsCommunication.sendDeck()
         }
+    },
+
+    handleDisconnect() {
+        // If we're still disconnected after 1 seconds, show an alert
+        setTimeout(async () => {
+            const multiplayer = useMultiplayerStore()
+            if (multiplayer.scsStatus == ScsStatus.Disconnected) {
+                useBusStore().alertError('Connection lost with SCS. Trying to reconnect...')
+
+                await waitUntil(() => multiplayer.scsStatus == ScsStatus.Connected, 300)
+                useBusStore().alertSuccess("Connection with SCS restored. You're back online.")
+            }
+        }, 1000)
     },
 
     setUser() {

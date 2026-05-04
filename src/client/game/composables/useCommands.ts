@@ -24,7 +24,7 @@ export type Command = {
     defaultRepr: string // The default repr
     keyCodes: number[] // Array of Phaser.Input.Keyboard.KeyCodes
     isDisabled: () => boolean
-    trigger: () => void
+    trigger: VoidFunction
     cardAction: (card: Card) => void
 }
 type Commands = Record<string, Command>

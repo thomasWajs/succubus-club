@@ -49,7 +49,8 @@ const SCS_URL = import.meta.env.VITE_SCS_URL
 
 export class ScsClient {
     private ws: Websocket
-    private openHandler: (() => void) | null = null
+    private openHandler: VoidFunction | null = null
+    private closeHandler: VoidFunction | null = null
     private messageHandlers = new Map<MultiplayerMessageType, Set<MessageHandler>>()
 
     public connect() {
@@ -61,10 +62,10 @@ export class ScsClient {
             .onOpen(() => {
                 multiplayer.scsStatus = ScsStatus.Connected
                 this.openHandler?.()
-                console.warn('SCS connection established')
             })
             .onClose(() => {
                 multiplayer.scsStatus = ScsStatus.Disconnected
+                this.closeHandler?.()
             })
             .onMessage((_ws, event) => {
                 try {
@@ -105,8 +106,12 @@ export class ScsClient {
         }
     }
 
-    onOpen(openHandler: () => void) {
+    onOpen(openHandler: VoidFunction) {
         this.openHandler = openHandler
+    }
+
+    onClose(closeHandler: VoidFunction) {
+        this.closeHandler = closeHandler
     }
 
     on<T = unknown>(type: MultiplayerMessageType, handler: MessageHandler<T>) {

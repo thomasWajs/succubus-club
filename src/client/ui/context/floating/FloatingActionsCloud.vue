@@ -56,7 +56,7 @@ type FloatingActionData = {
     left: number
     translate?: string
     disabled?: boolean
-    onClick: () => void
+    onClick: VoidFunction
 }
 
 const floatingActions = computed(() => {

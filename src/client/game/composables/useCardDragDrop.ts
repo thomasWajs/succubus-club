@@ -25,7 +25,7 @@ import Rectangle = Phaser.Geom.Rectangle
 export function useCardDragDrop(
     cardRef: Ref<Card>,
     cardAttrsRef: ComputedRef<CardAttrs>,
-    bringToTop: () => void,
+    bringToTop: VoidFunction,
 ) {
     const gameState = useGameStateStore()
     const gameBus = useGameBusStore()

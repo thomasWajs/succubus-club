@@ -41,7 +41,7 @@ const dontShowAgain = ref(false)
 const LOCAL_STORAGE_KEY = 'train-bot-disclaimer-dismissed'
 
 // Store the resolve function for the current promise
-let currentResolve: (() => void) | null = null
+let currentResolve: VoidFunction | null = null
 
 function checkShouldShowDisclaimer(): boolean {
     // Check if user has dismissed the disclaimer before

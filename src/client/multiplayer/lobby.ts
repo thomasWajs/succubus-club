@@ -49,6 +49,7 @@ async function connectLobby() {
 
     const scsClient = getScsClient()
     scsClient.onOpen(scsCommunication.announce)
+    scsClient.onClose(scsCommunication.handleDisconnect)
     scsClient.connect()
 
     return {

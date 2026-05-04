@@ -4,7 +4,7 @@ export function waitUntil(
     isTrue: () => boolean,
     interval: number,
     maxTry: number = 0,
-    whenFalse?: () => void,
+    whenFalse?: VoidFunction,
 ) {
     let attempts = 0
 
@@ -38,8 +38,8 @@ export function shuffleArray<T>(array: T[]) {
 export class Mutex {
     private queue: Promise<void> = Promise.resolve()
 
-    lock(): Promise<() => void> {
-        let unlockNext: () => void
+    lock(): Promise<VoidFunction> {
+        let unlockNext: VoidFunction
         const willLock = new Promise<void>(resolve => {
             unlockNext = () => resolve()
         })
