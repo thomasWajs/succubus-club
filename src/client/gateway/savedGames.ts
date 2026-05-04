@@ -3,8 +3,9 @@ import { db } from '@/client/gateway/db.ts'
 import { serializeGame } from '@/client/gateway/serialization.ts'
 import { useCoreStore } from '@/client/store/core.ts'
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
-import { useGameBusStore } from '@/client/store/bus.ts'
+import { useBusStore, useGameBusStore } from '@/client/store/bus.ts'
 import { CommunicationMode, EMPTY_SEATING } from '@/shared/types/multiplayer.ts'
+import { GameType } from '@/shared/types/state.ts'
 
 const MAX_AUTO_SAVED_GAMES = 5
 const AUTO_SAVE_INTERVAL = 1000 * 60 * 2 // 1000 miliseconds * 60 seconds * 2 = 2 minutes
@@ -19,14 +20,28 @@ export enum SavingState {
     Done = 'Done',
 }
 
+export function isScsGame() {
+    return (
+        useCoreStore().gameType == GameType.Multiplayer &&
+        useMultiplayerStore().currentGameRoom?.communication == CommunicationMode.SCS
+    )
+}
+
 export async function saveGame(isAutoSave: boolean) {
     const core = useCoreStore()
+    const bus = useBusStore()
     const gameBus = useGameBusStore()
     const multiplayer = useMultiplayerStore()
     const date = new Date()
 
     // A save is already in progress, do nothing
     if (gameBus.savingState != SavingState.None) {
+        return
+    }
+
+    // Disable saving on SCS for now
+    if (isScsGame()) {
+        bus.alertWarning('Saving is currently disabled with SCS')
         return
     }
 
@@ -100,6 +115,10 @@ async function autoSaveGame() {
 let intervalId: ReturnType<typeof setInterval> | null = null
 
 export function initAutoSaveGame() {
+    // Disable saving on SCS for now
+    if (isScsGame()) {
+        return
+    }
     intervalId = setInterval(autoSaveGame, AUTO_SAVE_INTERVAL)
 }
 
