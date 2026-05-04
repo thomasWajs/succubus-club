@@ -1,4 +1,4 @@
-import { gameMutations } from '@/shared/state/gameMutations.ts'
+import { CardMovement, gameMutations } from '@/shared/state/gameMutations.ts'
 import { MinionAction, MinionActionNames, MinionActionType } from '@/shared/types/state.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
@@ -7,7 +7,15 @@ import { Card, Minion } from '@/shared/model/Card.ts'
 import { GRID_SIZE, PLAY_AREA_WIDTH } from '@/shared/const/game.ts'
 import { selfSecureName } from '@/client/state/self.ts'
 
-export function playCardFromHand(card: Card, actingMinion?: Minion) {
+export function playCardFromHand({
+    card,
+    actingMinion,
+    movement,
+}: {
+    card: Card
+    actingMinion?: Minion
+    movement?: CardMovement
+}) {
     const player = card.controller
 
     if (card.region != player.hand) {
@@ -18,8 +26,8 @@ export function playCardFromHand(card: Card, actingMinion?: Minion) {
         card,
         fromCardRegion: player.hand,
         toCardRegion: player.ready,
-        x: actingMinion ? actingMinion.x : PLAY_AREA_WIDTH / 2 - 4 * GRID_SIZE,
-        y: actingMinion ? actingMinion.y - 12 * GRID_SIZE : 8 * GRID_SIZE,
+        x: movement?.x ?? (actingMinion ? actingMinion.x : PLAY_AREA_WIDTH / 2 - 4 * GRID_SIZE),
+        y: movement?.y ?? (actingMinion ? actingMinion.y - 12 * GRID_SIZE : 8 * GRID_SIZE),
     })
 }
 
@@ -60,7 +68,7 @@ export function declareAction(action: MinionAction, player?: Player) {
     }
 
     if (action.type == MinionActionType.ActionCardFromHand && !player.isBot) {
-        playCardFromHand(action.card, action.actingMinion)
+        playCardFromHand({ card: action.card, actingMinion: action.actingMinion })
     }
 }
 

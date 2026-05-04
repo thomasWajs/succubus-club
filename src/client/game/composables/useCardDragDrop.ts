@@ -18,6 +18,7 @@ import { ALIGNMENT_GUIDE_THRESHOLD, GRID_SIZE } from '@/shared/const/game.ts'
 import { AnyCardRegion } from '@/shared/types/model.ts'
 import { Snap } from '@/shared/utils.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
+import { playCardFromHand } from '@/client/game/declaration.ts'
 import Pointer = Phaser.Input.Pointer
 import Rectangle = Phaser.Geom.Rectangle
 
@@ -359,11 +360,18 @@ export function useCardDragDrop(
         }
         // We change region
         else {
-            gameMutations.moveCardToRegion.actSelf({
-                fromCardRegion: card.region,
-                toCardRegion: targetCardRegion,
-                ...movement,
-            })
+            // Special case for cards played from hand
+            if (card.region == card.controller.hand && targetCardRegion == card.controller.ready) {
+                playCardFromHand({ card, movement })
+            }
+            // standard case, for other movements
+            else {
+                gameMutations.moveCardToRegion.actSelf({
+                    fromCardRegion: card.region,
+                    toCardRegion: targetCardRegion,
+                    ...movement,
+                })
+            }
         }
     }
 

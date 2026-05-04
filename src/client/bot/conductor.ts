@@ -27,7 +27,7 @@ export class Conductor {
     constructor(public bot: Bot) {}
 
     playCard(card: LibraryCard, actingMinion?: Minion) {
-        playCardFromHand(card, actingMinion)
+        playCardFromHand({ card, actingMinion })
 
         // Draw to replace the action card
         // This won't handle the "do not replace until..." card text

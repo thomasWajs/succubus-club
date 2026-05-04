@@ -203,7 +203,7 @@ function overlayClick(command: (card: Card) => void) {
 }
 
 function playCard(card: Card) {
-    playCardFromHand(card, gameState.action?.minionAction.actingMinion)
+    playCardFromHand({ card, actingMinion: gameState.action?.minionAction.actingMinion })
 }
 
 /**
