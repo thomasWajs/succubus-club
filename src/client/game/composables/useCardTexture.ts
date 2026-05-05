@@ -1,9 +1,8 @@
 import { computed } from 'vue'
 import { Card } from '@/shared/model/Card.ts'
-import { ATLAS_FREQUENT } from '@/client/resources/cards.ts'
 import { selfCanSee } from '@/client/state/self.ts'
 import {
-    getFrequentCards,
+    getAtlasForCard,
     isTextureLoaded,
     loadTexture,
     Texture,
@@ -11,8 +10,6 @@ import {
 import { getTabletopScene } from '@/client/game/camera.ts'
 
 export function useCardTexture(card: Card) {
-    const frequentCards = getFrequentCards()
-
     const backTexture = {
         textureName: card.isCrypt ? Texture.CardbackCrypt : Texture.CardbackLibrary,
         frameName: undefined,
@@ -34,9 +31,10 @@ export function useCardTexture(card: Card) {
             return backTextureLoading
         }
 
-        if (frequentCards.includes(imageName)) {
+        const atlasName = getAtlasForCard(imageName)
+        if (atlasName) {
             return {
-                textureName: ATLAS_FREQUENT,
+                textureName: atlasName,
                 frameName: imageName,
             }
         } else {

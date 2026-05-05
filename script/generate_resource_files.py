@@ -10,12 +10,30 @@ from PIL import Image
 from const import CARD_WIDTH, CARD_HEIGHT, IMAGE_MODE, INPUT_CARDBASE_LIB_PATH, \
     INPUT_CARDBASE_CRYPT_PATH, \
     CRYPT_KEYS, LIB_KEYS, OUTPUT_CARDBASE_PATH, OUTPUT_ATLAS_DIR, INPUT_CARDS_DIR
-from script.const import FREQUENT_CARDS_ATLAS_SIZE, TWD_DECKS_PATH, TWD_DATE_CUTOFF
+from script.const import FREQUENT_CARDS_ATLAS_SIZE, TWD_DECKS_PATH, TWD_DATE_CUTOFF, NB_ATLAS_FILE, \
+    RECENT_CARDS_DATE_CUTOFF, SETS_AND_PRECONS_PATH
 
 
 def is_crypt(card_dict):
     # Crypt card's id begins by 2, lib cards begin by 1
     return str(card_dict['id'])[0] == '2'
+
+
+def get_recent_sets(sets_and_precons):
+    """Return the set of set codes whose release date is strictly after RECENT_CARDS_DATE_CUTOFF."""
+    return {
+        set_code
+        for set_code, set_data in sets_and_precons.items()
+        if set_data.get('date', '') > RECENT_CARDS_DATE_CUTOFF
+    }
+
+
+def is_recent_card(card_dict, recent_sets):
+    """Return True if the card exists only in sets that are newer than the cutoff."""
+    card_sets = card_dict.get('set', {})
+    if not card_sets:
+        return False
+    return all(s in recent_sets for s in card_sets)
 
 
 def get_card_image_name(card_dict):
@@ -85,10 +103,12 @@ def generate_resource_files():
         open(INPUT_CARDBASE_LIB_PATH, 'r') as cardbase_lib_file,
         open(INPUT_CARDBASE_CRYPT_PATH, 'r') as cardbase_crypt_file,
         open(TWD_DECKS_PATH, 'r', encoding="utf-8") as twd_decks_file,
+        open(SETS_AND_PRECONS_PATH, 'r', encoding="utf-8") as sets_and_precons_file,
     ):
         cardbase_lib = json.load(cardbase_lib_file)
         cardbase_crypt = json.load(cardbase_crypt_file)
         twd_decks = json.load(twd_decks_file)
+        sets_and_precons = json.load(sets_and_precons_file)
 
     seen_cards = Counter()
     for deck in twd_decks.values():
@@ -96,11 +116,17 @@ def generate_resource_files():
         if deck['creation_date'] >= TWD_DATE_CUTOFF:
             seen_cards.update(deck['cards'].keys())
 
+    recent_sets = get_recent_sets(sets_and_precons)
+    recent_card_ids = []
+
     cardbase = {}
 
     for card_id, card_dict in itertools.chain(cardbase_crypt.items(), cardbase_lib.items()):
 
         card_dict['imageName'] = get_card_image_name(card_dict)
+
+        if is_recent_card(card_dict, recent_sets):
+            recent_card_ids.append(card_id)
 
         if is_crypt(card_dict):
             card_dict = {key: card_dict[key] for key in CRYPT_KEYS}
@@ -112,8 +138,16 @@ def generate_resource_files():
     with open(OUTPUT_CARDBASE_PATH, 'w') as output_cardbase_file:
         json.dump(cardbase, output_cardbase_file)
 
-    generate_atlas_files(
-        list(dict(seen_cards.most_common(FREQUENT_CARDS_ATLAS_SIZE)).keys()),
-        cardbase,
-        'frequent'
-    )
+    # Exclude recent cards from the frequent pool to avoid overlap
+    for card_id in recent_card_ids:
+        del seen_cards[card_id]
+
+    frequent_cards = list(dict(seen_cards.most_common(FREQUENT_CARDS_ATLAS_SIZE * NB_ATLAS_FILE)).keys())
+    for i in range(NB_ATLAS_FILE):
+        generate_atlas_files(
+            frequent_cards[i * FREQUENT_CARDS_ATLAS_SIZE:(i + 1) * FREQUENT_CARDS_ATLAS_SIZE],
+            cardbase,
+            f'frequent_{i}'
+        )
+
+    generate_atlas_files(recent_card_ids, cardbase, 'recent')

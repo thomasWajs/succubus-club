@@ -26,17 +26,24 @@ function hashFile(filePath: string): string {
     return createHash('md5').update(content).digest('hex').substring(0, 8)
 }
 
-// Generate texture hashes
-const atlasTextureHash = hashFile('public/assets/atlas/frequent.webp')
-const atlasJsonHash = hashFile('public/assets/atlas/frequent.json')
+// Generate texture hashes for all atlases
+const ATLAS_NAMES = ['recent', 'frequent_0', 'frequent_1', 'frequent_2'] as const
+const atlasHashes = Object.fromEntries(
+    ATLAS_NAMES.map(name => [
+        name,
+        {
+            texture: hashFile(`public/assets/atlas/${name}.webp`),
+            json: hashFile(`public/assets/atlas/${name}.json`),
+        },
+    ]),
+)
 
 // https://vitejs.dev/config/
 export default defineConfig({
     base: '/',
     plugins: [vue(), cache_plugin],
     define: {
-        ATLAS_TEXTURE_HASH: JSON.stringify(atlasTextureHash),
-        ATLAS_JSON_HASH: JSON.stringify(atlasJsonHash),
+        ATLAS_HASHES: JSON.stringify(atlasHashes),
     },
 
     resolve: {

@@ -2,8 +2,8 @@ import { reactive } from 'vue'
 import Phaser from 'phaser'
 import {
     ASSETS_URL,
-    ATLAS_FREQUENT,
-    atlasTextureUrl,
+    ATLASES,
+    atlasUrls,
     CARDS_PATH,
 } from '@/client/resources/cards.ts'
 import { fetchWithRetry } from '@/client/resources/index.ts'
@@ -21,9 +21,11 @@ export enum Texture {
     TheEdgeTeal = 'theEdgeTeal',
 }
 
+// Atlas textures loaded before the game starts, keyed by atlas name
+export const preloadedAtlasTextures: Record<string, HTMLImageElement> = {}
+
 // Textures loaded before the game starts
 export const preloadedTextures = {
-    atlasTexture: {} as HTMLImageElement,
     ...Object.values(Texture).reduce(
         (acc, textureName) => {
             acc[textureName] = {} as HTMLImageElement
@@ -36,18 +38,15 @@ export const preloadedTextures = {
 // All loaded textures, either preloaded or dynamically loaded
 export const loadedTextures = reactive(new Set<string>())
 
-async function preloadTexture(textureUrl: string, destination: keyof typeof preloadedTextures) {
-    const textureResponse = await fetchWithRetry(textureUrl)
-
-    // Create and store the image
+async function preloadTexture(url: string, store: (img: HTMLImageElement) => void): Promise<void> {
+    const textureResponse = await fetchWithRetry(url)
     const imageBlob = await textureResponse.blob()
     const imageUrl = URL.createObjectURL(imageBlob)
-
     return new Promise<void>(resolve => {
         const img = new Image()
         img.onload = () => {
-            preloadedTextures[destination] = img
-            URL.revokeObjectURL(imageUrl) // Clean up the blob URL
+            store(img)
+            URL.revokeObjectURL(imageUrl)
             resolve()
         }
         img.src = imageUrl
@@ -56,10 +55,14 @@ async function preloadTexture(textureUrl: string, destination: keyof typeof prel
 
 // Preload texture to speed up game loading
 export function preloadAllTextures() {
-    const promises = [preloadTexture(atlasTextureUrl, 'atlasTexture')]
+    const promises: Promise<void>[] = ATLASES.map(name =>
+        preloadTexture(atlasUrls[name].texture, img => (preloadedAtlasTextures[name] = img)),
+    )
 
     for (const textureName of Object.values(Texture)) {
-        promises.push(preloadTexture(`${ASSETS_URL}/${textureName}.webp`, textureName))
+        promises.push(
+            preloadTexture(`${ASSETS_URL}/${textureName}.webp`, img => (preloadedTextures[textureName] = img)),
+        )
     }
     return promises
 }
@@ -86,6 +89,17 @@ export function loadTexture(scene: Phaser.Scene, cardName: string) {
     }
 }
 
-export function getFrequentCards() {
-    return useCoreStore().phaserGame.textures.get(ATLAS_FREQUENT).getFrameNames()
+export function getFrequentCards(): string[] {
+    const textures = useCoreStore().phaserGame.textures
+    return ATLASES.flatMap(name => textures.get(name).getFrameNames())
+}
+
+export function getAtlasForCard(cardName: string): string | undefined {
+    const textures = useCoreStore().phaserGame.textures
+    for (const name of ATLASES) {
+        if (textures.get(name).has(cardName)) {
+            return name
+        }
+    }
+    return undefined
 }

@@ -19,6 +19,8 @@ INPUT_CARDS_DIR = ASSETS_DIR + '/cards/en-EN'
 OUTPUT_CARDBASE_PATH = ASSETS_DIR + '/cardbase.json'
 OUTPUT_ATLAS_DIR = ASSETS_DIR + '/atlas'
 
+SETS_AND_PRECONS_PATH = ASSETS_DIR + '/' + SETS_AND_PRECONS_FILE_NAME
+
 ##########
 # Url
 ##########
@@ -55,9 +57,11 @@ FILES_TO_DOWNLOAD = [
 # Atlas
 ##########
 
+NB_ATLAS_FILE = 3
 # Nb cards in the Atlas. Use a square number to optimize space in the atlas
-FREQUENT_CARDS_ATLAS_SIZE = 13 ** 2
-TWD_DATE_CUTOFF = '2015-01-01'
+FREQUENT_CARDS_ATLAS_SIZE = 14 ** 2
+TWD_DATE_CUTOFF = '2016-01-01'
+RECENT_CARDS_DATE_CUTOFF = '2020-01-01'
 
 CARD_HEIGHT = 500
 CARD_WIDTH = 358

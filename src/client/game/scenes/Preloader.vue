@@ -11,10 +11,11 @@
 import Phaser from 'phaser'
 import { Scene } from 'phavuer'
 import { useGameStateStore } from '@/client/store/gameState.ts'
-import { ATLAS_FREQUENT } from '@/client/resources/cards.ts'
+import { ATLASES } from '@/client/resources/cards.ts'
 import {
     enqueueTextureLoading,
     getFrequentCards,
+    preloadedAtlasTextures,
     preloadedTextures,
     setupTextureListener,
     Texture,
@@ -33,7 +34,13 @@ function preload(scene: Phaser.Scene) {
         )
     }
 
-    scene.textures.addAtlas(ATLAS_FREQUENT, preloadedTextures.atlasTexture, gameResources.atlasJson)
+    for (const atlasName of ATLASES) {
+        scene.textures.addAtlas(
+            atlasName,
+            preloadedAtlasTextures[atlasName],
+            gameResources.atlasJsons[atlasName],
+        )
+    }
     const frequentCards = getFrequentCards()
 
     const knownCardsInGame = new Set<string>()

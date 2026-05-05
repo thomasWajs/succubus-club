@@ -19,7 +19,7 @@ export const gameResources = {
     cardbase: {} as Record<KrcgId, CardResource>,
     preconDecks: {} as Record<setName, Record<deckName, DeckList>>,
     setsAndPrecons: {} as Record<setName, SetAndPrecons>,
-    atlasJson: {} as Record<string, never>,
+    atlasJsons: {} as Record<string, Record<string, never>>,
 }
 
 export function setGameResources<K extends keyof typeof gameResources>(
