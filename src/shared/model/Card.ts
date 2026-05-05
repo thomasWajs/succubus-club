@@ -47,9 +47,9 @@ export type PropertiesInPlay = {
     markers: string[]
 }
 
-export function isCryptId(krcgId: KrcgId) {
+export function isCryptId(krcgId: KrcgId | number) {
     // Krcg id of crypt card begins by 2, library begins by 1
-    return krcgId[0] == '2'
+    return krcgId.toString()[0] == '2'
 }
 
 export abstract class Card extends BaseModel implements PropertiesInPlay {

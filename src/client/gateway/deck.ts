@@ -1,10 +1,10 @@
 import { db, DbDeck, DeckSource } from '@/client/gateway/db.ts'
 import { useCoreStore } from '@/client/store/core.ts'
-import { convertFromText, fetchAmaranth, fetchVdb } from '@/client/resources/krcg.ts'
+import { fetchAmaranth, fetchVdb } from '@/client/resources/krcg.ts'
 import { MAX_LIB_SIZE, MIN_CRYPT_SIZE, MIN_LIB_SIZE } from '@/shared/const/model.ts'
 import { Deck, DeckList } from '@/shared/types/gateway.ts'
-
 import { isCryptId } from '@/shared/model/Card.ts'
+import { importTextDeck } from '@/client/gateway/importTextDeck.ts'
 
 export async function getOrImportDeck(
     source: DeckSource,
@@ -57,7 +57,7 @@ export async function getOrImportAmaranth(amaranthDeckUrl: string) {
 }
 
 export async function getOrImportText(deckText: string) {
-    const dbDeck = await getOrImportDeck(DeckSource.Text, deckText, () => convertFromText(deckText))
+    const dbDeck = await getOrImportDeck(DeckSource.Text, deckText, () => importTextDeck(deckText))
     await selectDeck(dbDeck)
 }
 
