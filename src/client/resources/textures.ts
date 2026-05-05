@@ -1,11 +1,6 @@
 import { reactive } from 'vue'
 import Phaser from 'phaser'
-import {
-    ASSETS_URL,
-    ATLASES,
-    atlasUrls,
-    CARDS_PATH,
-} from '@/client/resources/cards.ts'
+import { ASSETS_URL, ATLASES, atlasUrls, CARDS_PATH } from '@/client/resources/cards.ts'
 import { fetchWithRetry } from '@/client/resources/index.ts'
 import { useCoreStore } from '@/client/store/core.ts'
 
@@ -61,7 +56,10 @@ export function preloadAllTextures() {
 
     for (const textureName of Object.values(Texture)) {
         promises.push(
-            preloadTexture(`${ASSETS_URL}/${textureName}.webp`, img => (preloadedTextures[textureName] = img)),
+            preloadTexture(
+                `${ASSETS_URL}/${textureName}.webp`,
+                img => (preloadedTextures[textureName] = img),
+            ),
         )
     }
     return promises
