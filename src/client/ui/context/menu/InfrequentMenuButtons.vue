@@ -25,6 +25,7 @@
     >
         <template
             v-if="
+                singleCard &&
                 (firstCard.isIn.library || firstCard.isIn.crypt) &&
                 firstCard == firstCard.region.firstCard
             "
