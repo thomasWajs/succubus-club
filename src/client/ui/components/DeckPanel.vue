@@ -565,7 +565,9 @@ const allPreconSets = computed(() => {
 })
 
 function loadFromPrecon(setId: string, preconId: string, name: string) {
-    loadDeck(() => getOrImportPrecon(name, gameResources.preconDecks[setId][preconId]))
+    loadDeck(() =>
+        getOrImportPrecon(`${setId}-${preconId}`, name, gameResources.preconDecks[setId][preconId]),
+    )
 }
 
 /** View Deck **/

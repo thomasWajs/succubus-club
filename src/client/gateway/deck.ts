@@ -61,8 +61,8 @@ export async function getOrImportText(deckText: string) {
     await selectDeck(dbDeck)
 }
 
-export async function getOrImportPrecon(name: string, cards: DeckList) {
-    const dbDeck = await getOrImportDeck(DeckSource.Precon, name, () =>
+export async function getOrImportPrecon(fullPreconId: string, name: string, cards: DeckList) {
+    const dbDeck = await getOrImportDeck(DeckSource.Precon, fullPreconId, () =>
         Promise.resolve({ name, cards }),
     )
     await selectDeck(dbDeck)
