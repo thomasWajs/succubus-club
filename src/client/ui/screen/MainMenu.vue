@@ -164,7 +164,7 @@ const showMobileMessage = !screenBigEnough && !isCrawler()
     font-size: 1.05rem;
     font-weight: 500;
     line-height: 1.4;
-    z-index: 1000;
+    z-index: 850;
     max-width: 750px;
 }
 
