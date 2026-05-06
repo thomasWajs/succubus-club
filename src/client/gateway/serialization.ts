@@ -2,7 +2,7 @@ import { useGameStateStore } from '@/client/store/gameState.ts'
 
 import { useHistoryStore } from '@/client/store/history.ts'
 import { useCoreStore } from '@/client/store/core.ts'
-import { CborDecoderBase, CborEncoder } from '@jsonjoy.com/json-pack/lib/cbor'
+import { Decoder as CborDecoder, Encoder as CborEncoder } from 'cbor-x'
 import { SerializedGame, SerializedMultiplayerGame } from '@/shared/types/multiplayer.ts'
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import { GAME_STATE_VERSION } from '@/shared/const/multiplayer.ts'
@@ -63,5 +63,5 @@ export function loadGame(serializedGame: SerializedGame) {
  * CBOR Encoding
  */
 
-export const cborEncoder = new CborEncoder()
-export const cborDecoder = new CborDecoderBase()
+export const cborEncoder = new CborEncoder({ pack: true, bundleStrings: true })
+export const cborDecoder = new CborDecoder({ bundleStrings: true })

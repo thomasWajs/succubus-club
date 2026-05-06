@@ -10,8 +10,8 @@ import {
     GameMutationMessage,
     MutationSyncMode,
     PermanentId,
-    ScsMutationRejectedMessage,
     ScsGameStateMessage,
+    ScsMutationRejectedMessage,
     SerializedChatMessage,
     SerializedGame,
     SerializedMultiplayerGame,
@@ -557,10 +557,6 @@ export async function applyGameResync(syncMessage: AblyGameStateMessage | ScsGam
 
             if ('gameStateId' in syncMessage) {
                 serializedGame = await fetchGameState(syncMessage.gameStateId)
-
-                if (!serializedGame) {
-                    throw new Error(`Failed to fetch game state from ${syncMessage.gameStateId}`)
-                }
             } else {
                 serializedGame = syncMessage.serializedGame
             }

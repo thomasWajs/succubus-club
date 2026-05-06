@@ -3,9 +3,9 @@
     "private": true,
     "type": "module",
     "dependencies": {
-        "@jsonjoy.com/json-pack": "^1.21.0",
         "@sentry/vue": "^9.46.0",
         "ably": "^2.14.0",
+        "cbor-x": "^1.6.4",
         "dexie": "^4.2.1",
         "firebase": "^12.4.0",
         "idle-js": "^1.2.0",

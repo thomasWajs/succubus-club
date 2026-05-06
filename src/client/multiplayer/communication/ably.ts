@@ -168,9 +168,6 @@ export const ablyCommunication: Communication = {
     async onReceiveLaunchGame(message: AblyLaunchGameMessage) {
         const { gameStateId } = message
         const serializedGame = await fetchGameState(gameStateId)
-        if (!serializedGame) {
-            throw new Error(`Could not find game state at ${gameStateId} in Firestore.`)
-        }
         await receiveLaunchGame(serializedGame)
     },
 

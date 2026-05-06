@@ -12,6 +12,8 @@ import { useCoreStore } from '@/client/store/core.ts'
 import { cborDecoder, cborEncoder } from '@/client/gateway/serialization.ts'
 import { SerializedMultiplayerGame } from '@/shared/types/multiplayer.ts'
 import { hashObject } from '@/shared/serialization.ts'
+import * as logging from '@/client/logging.ts'
+import { useBusStore } from '@/client/store/bus.ts'
 
 type GameStateDoc = {
     encodedGame: fsBytes
@@ -67,20 +69,28 @@ export async function storeGameState(serializedGame: SerializedMultiplayerGame) 
      */
 }
 
-export async function fetchGameState(
-    gameStateId: string,
-): Promise<SerializedMultiplayerGame | null> {
+export async function fetchGameState(gameStateId: string): Promise<SerializedMultiplayerGame> {
     const gameStateDoc = fsDoc(gameStateCollection, gameStateId)
     const snapshot = await fsGetDoc(gameStateDoc)
 
+    let serializedGame = null
     if (snapshot.exists()) {
-        const gameStateDoc = snapshot.data() as GameStateDoc
-        return cborDecoder.decode(
-            gameStateDoc.encodedGame.toUint8Array(),
-        ) as SerializedMultiplayerGame
-    } else {
-        return null
+        try {
+            const gameStateDoc = snapshot.data() as GameStateDoc
+            serializedGame = cborDecoder.decode(
+                gameStateDoc.encodedGame.toUint8Array(),
+            ) as SerializedMultiplayerGame
+        } catch (error) {
+            logging.captureException(error)
+        }
     }
+
+    if (!serializedGame) {
+        useBusStore().alertError('An error occurred while retreiving the game state')
+        throw new Error(`Failed to fetch game state ${gameStateId}`)
+    }
+
+    return serializedGame
 
     // UInt8Array.fromBase64 is not widespread enough for now,
     // and I don't want to setup a polyfill just for this.
