@@ -78,7 +78,9 @@ export async function fetchGameState(gameStateId: string): Promise<SerializedMul
         try {
             const gameStateDoc = snapshot.data() as GameStateDoc
             serializedGame = cborDecoder.decode(
-                gameStateDoc.encodedGame.toUint8Array(),
+                // Firestore returns a view with a byteOffset > 0
+                // .slice() with no args always returns a fresh, offset-0 copy
+                gameStateDoc.encodedGame.toUint8Array().slice(),
             ) as SerializedMultiplayerGame
         } catch (error) {
             logging.captureException(error)
