@@ -17,6 +17,12 @@ import * as logging from '@/client/logging.ts'
 import { declareAction, playCardFromHand } from '@/client/game/declaration.ts'
 import { BOT_PAUSE_TIME, NEXT_PHASE, NEXT_TURN } from '@/shared/const/bot.ts'
 import { applyMutationLocally } from '@/client/state/gameMutations.ts'
+import { CardOid } from '@/shared/types/model.ts'
+
+export type ConductorState = {
+    turnInitDone: boolean
+    cardsPlayed: CardOid[]
+}
 
 export class Conductor {
     turnInitDone = false
@@ -25,6 +31,22 @@ export class Conductor {
     cardsPlayed = [] as LibraryCard[]
 
     constructor(public bot: Bot) {}
+
+    getConductorState() {
+        return {
+            turnInitDone: this.turnInitDone,
+            cardsPlayed: this.cardsPlayed.map(c => c.oid),
+        }
+    }
+
+    setConductorState(conductorState: ConductorState) {
+        const gameState = useGameStateStore()
+
+        this.turnInitDone = conductorState.turnInitDone
+        this.cardsPlayed = conductorState.cardsPlayed.map(
+            cardOid => gameState.cards[cardOid] as LibraryCard,
+        )
+    }
 
     playCard(card: LibraryCard, actingMinion?: Minion) {
         playCardFromHand({ card, actingMinion })

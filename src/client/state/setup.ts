@@ -116,8 +116,13 @@ export function setupSavedGame(savedGame: DbSavedGame) {
             throw new Error(`Bot player not found`)
         }
 
+        if (!savedGame.conductorState) {
+            throw new Error(`Saved Game has no conductor state`)
+        }
+
         const bot = new GovernBot(botPlayer)
         core.conductor = new Conductor(bot)
+        core.conductor.setConductorState(savedGame.conductorState)
     }
 }
 

@@ -80,6 +80,7 @@ export async function saveGame(isAutoSave: boolean) {
             allowSpectators: gameRoom?.allowSpectators ? 1 : 0,
             seating: toRaw(gameRoom?.seating) ?? EMPTY_SEATING,
             game: serializeGame(),
+            conductorState: core.conductor?.getConductorState(),
         }
 
         await db.savedGames.add(savedGame)

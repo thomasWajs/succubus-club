@@ -9,7 +9,8 @@ import {
     Seating,
     SerializedGame,
 } from '@/shared/types/multiplayer.ts'
-import { AvatarId, Deck, DeckList } from '@/shared/types/gateway.ts' // If you know, you know ;-)
+import { AvatarId, Deck, DeckList } from '@/shared/types/gateway.ts'
+import { ConductorState } from '@/client/bot/conductor.ts' // If you know, you know ;-)
 
 // If you know, you know ;-)
 const DEFAULT_PLAYER_NAME = 'The Unnamed'
@@ -141,6 +142,7 @@ export class DbSavedGame extends Entity<SuccubusDb> {
     allowSpectators: number // We cannot index boolean with Dexie, so fallback on 0=false / 1=true
     seating: Seating
     game: SerializedGame
+    conductorState?: ConductorState
 }
 
 export class SuccubusDb extends Dexie {
