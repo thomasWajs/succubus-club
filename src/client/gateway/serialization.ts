@@ -63,5 +63,5 @@ export function loadGame(serializedGame: SerializedGame) {
  * CBOR Encoding
  */
 
-export const cborEncoder = new CborEncoder({ pack: true, bundleStrings: true })
-export const cborDecoder = new CborDecoder({ bundleStrings: true })
+export const cborEncoder = new CborEncoder({ pack: true })
+export const cborDecoder = new CborDecoder({ pack: true })
