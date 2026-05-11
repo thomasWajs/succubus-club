@@ -33,6 +33,7 @@ import { CardRegion } from '@/shared/model/CardRegion.ts'
 
 export class GameState {
     gameId: GameId = ''
+    isStrictGame: boolean = false
 
     /** Main objects **/
     players: Record<PlayerOid, Player> = {}

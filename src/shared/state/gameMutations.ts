@@ -130,8 +130,22 @@ export abstract class GameMutation<ParamsType extends GameMutationParams> {
                 )
             }
         }
+
+        if (this.gameState.isStrictGame) {
+            const strictValidity = this.getStrictValidity(this.gameState)
+            if (strictValidity != VALID) {
+                strictValidity.reason = `[Strict game] ${strictValidity.reason}`
+                return strictValidity
+            }
+        }
+
         // Mutation-specific validation
         return this.getValidity(this.gameState)
+    }
+
+    // To be overrided by subclasses with mutation-specific strict validation
+    protected getStrictValidity(_gameState: GameState): Validity {
+        return VALID
     }
 
     // To be overrided by subclasses with mutation-specific validation
@@ -416,6 +430,14 @@ class ChangePool extends GameMutation<ChangePoolParams> {
         // Cannot get a negative pool amount
         if (this.params.player.pool + this.params.amount < 0) {
             return Invalid(`${this.params.player.name} : Cannot go below 0 pool`)
+        }
+
+        return VALID
+    }
+
+    protected getStrictValidity(_gameState: GameState): Validity {
+        if (this.params.player.oid != this.author.oid) {
+            return Invalid(`Players can only change their own pool`)
         }
 
         return VALID
@@ -716,6 +738,14 @@ class Influence extends ChangeCounterMutation {
         return VALID
     }
 
+    protected getStrictValidity(_gameState: GameState): Validity {
+        if (this.params.card.owner?.oid != this.author.oid) {
+            return Invalid(`Players can only influence their own cards`)
+        }
+
+        return VALID
+    }
+
     protected updateGameState(gameState: GameState) {
         const card = this.params.card
         card.changeBlood(this.params.amount)
@@ -756,6 +786,14 @@ class MoveCard extends GameMutation<MoveCardParams> {
 
     getValidity() {
         return validateCardMovement(this.params, this.params.card.region)
+    }
+
+    protected getStrictValidity(_gameState: GameState): Validity {
+        if (!this.params.card.isIn.play && this.params.card.owner?.oid != this.author.oid) {
+            return Invalid(`Players can only reorder their own cards`)
+        }
+
+        return VALID
     }
 
     protected updateGameState() {
@@ -975,6 +1013,14 @@ class PlayFaceDown extends CardMutation {
         return `${VersioningTarget.Card}-${this.params.card.oid}`
     }
 
+    protected getStrictValidity(_gameState: GameState): Validity {
+        if (this.params.card.owner?.oid != this.author.oid) {
+            return Invalid(`Players can only play face down their own cards`)
+        }
+
+        return VALID
+    }
+
     protected updateGameState(gameState: GameState) {
         const card = this.params.card
 
@@ -1030,10 +1076,9 @@ class Reveal extends GameMutation<RevealParams> {
         return `${VersioningTarget.Reveal}-${this.params.target.oid}`
     }
 
-    getValidity() {
-        // Only the owner of the stack/cards can reveal it
+    protected getStrictValidity(_gameState: GameState): Validity {
         if (this.params.target.owner?.oid != this.author.oid) {
-            return Invalid(`Only the owner of the cards can reveal them`)
+            return Invalid(`Players can only reveal their own cards`)
         }
 
         return VALID
@@ -1107,6 +1152,14 @@ class SetFlip extends ChangeCardBoolMutation {
         return this.params.card.isIn.controlled ?
                 VALID
             :   Invalid(`Cannot flip in ${this.params.card.region.name}`)
+    }
+
+    protected getStrictValidity(_gameState: GameState): Validity {
+        if (this.params.card.owner?.oid != this.author.oid) {
+            return Invalid(`Players can only flip their own cards`)
+        }
+
+        return VALID
     }
 
     protected updateGameState() {
@@ -1183,6 +1236,14 @@ export class Shuffle extends GameMutation<ShuffleParams> {
 
     protected get _versioningId(): VersioningId {
         return `${VersioningTarget.Shuffle}-${this.params.cardRegion.oid}`
+    }
+
+    protected getStrictValidity(_gameState: GameState): Validity {
+        if (this.params.cardRegion.owner?.oid != this.author.oid) {
+            return Invalid(`Players can only shuffle their own cards`)
+        }
+
+        return VALID
     }
 
     protected updateGameState(gameState: GameState) {

@@ -74,6 +74,8 @@ export function createGameState(room: Room): GameState {
     }
 
     const gameState = new GameState()
+    // Games are strict In SCS, that's the whole point
+    gameState.isStrictGame = true
     const seatedUsers = room.seating.map(permId => getUser(permId))
     setupMultiplayerGameState(gameState, seatedUsers, room.userDecks)
     persistence.saveGameState(gameState)
