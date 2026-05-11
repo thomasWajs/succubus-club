@@ -513,6 +513,16 @@ function createCommands(): Commands {
             },
         }),
 
+        FocusMode: createCommand({
+            name: 'FocusMode',
+            label: 'Focus',
+            repr: 'F8',
+            keyCodes: [KeyCodes.F8],
+            trigger: () => {
+                gameBus.toggleFocusMode()
+            },
+        }),
+
         IncreaseScale: createCommand({
             trigger: () => {
                 if (!players.selfPlayer) {

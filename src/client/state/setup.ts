@@ -67,7 +67,7 @@ export function setupTrainGame() {
         const botPlayer = gameState.createPlayer(
             `${BOT_NAME}${i + 1}`,
             ORDERED_PLAYER_COLORS[i + 1],
-            BOT_PERM_ID + i,
+            `${BOT_PERM_ID}${i + 1}`,
         )
         const bot = new GovernBot(botPlayer)
         if (i == 0) {

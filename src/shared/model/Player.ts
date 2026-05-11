@@ -1,10 +1,6 @@
 import { BaseModel } from '@/shared/model/BaseModel.ts'
 import { CardRegion } from '@/shared/model/CardRegion.ts'
-import {
-    CardRegionVisibility,
-    PLAYER_NAME_LEGIBLE_LENGTH,
-    RegionName,
-} from '@/shared/const/model.ts'
+import { CardRegionVisibility, PLAYER_NAME_LEGIBLE_LENGTH, RegionName, } from '@/shared/const/model.ts'
 import { CryptCard, LibraryCard, Minion, Vampire } from '@/shared/model/Card.ts'
 import { PermanentId } from '@/shared/types/multiplayer.ts'
 import {
@@ -15,13 +11,7 @@ import {
 import { GameState } from '@/shared/state/gameState.ts'
 import { generateCardRegionOid } from '@/shared/state/ids.ts'
 import { BOT_PERM_ID } from '@/shared/const/bot.ts'
-import {
-    AnyCardRegion,
-    GameId,
-    PlayerCardRegions,
-    PlayerOid,
-    Separators,
-} from '@/shared/types/model.ts'
+import { AnyCardRegion, GameId, PlayerCardRegions, PlayerOid, Separators, } from '@/shared/types/model.ts'
 
 export class Player extends BaseModel {
     shortName: string
@@ -151,6 +141,9 @@ export class Player extends BaseModel {
 
     get prey(): Player | undefined {
         const gameState = this.gameState
+        if (gameState.competingPlayers.length <= 1) {
+            return undefined
+        }
         return gameState.competingPlayers[
             (gameState.competingPlayers.indexOf(this) + 1) % gameState.competingPlayers.length
         ]
@@ -158,6 +151,9 @@ export class Player extends BaseModel {
 
     get predator(): Player | undefined {
         const gameState = this.gameState
+        if (gameState.competingPlayers.length <= 1) {
+            return undefined
+        }
         // + gameState.turnOrder.length is here to fix js modulo bug
         return gameState.competingPlayers[
             (gameState.competingPlayers.indexOf(this) - 1 + gameState.competingPlayers.length) %

@@ -104,6 +104,9 @@ export const BOTTOM_PLAYERS_Y = WORLD_HEIGHT * 0.4 + OTHER_PLAYERS_VERTICAL_GUTT
 
 export const TWO_PLAYERS_HORIZONTAL_GUTTER = (WORLD_WIDTH - PLAY_AREA_WIDTH * 2) / 4
 
+export const FOCUS_MODE_SCALE = 0.89
+export const FOCUS_MODE_TOP_PADDING = 40
+
 /**
  * Play Area Colors
  */

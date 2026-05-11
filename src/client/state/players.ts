@@ -3,6 +3,7 @@ import { useCoreStore } from '@/client/store/core.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { PlayerOid } from '@/shared/types/model.ts'
+import { useGameBusStore } from '@/client/store/bus.ts'
 
 export const usePlayersStore = defineStore('players', {
     state: () => ({
@@ -63,10 +64,14 @@ export const usePlayersStore = defineStore('players', {
          * Seating
          */
 
-        // If user is a player, returns self player.
-        // If user is a spectator, arbitrarily use the first player
+        // In focus mode, the central player is the active player
+        // In standard mode, the central player is self player
+        // For spectators, arbitrarily use the first player
         centralPlayer(): Player {
-            return this.selfPlayer ? this.selfPlayer : this.orderedPlayers[0]
+            const player = useGameBusStore().focusMode ? this.activePlayer : this.selfPlayer
+            return player ?? this.orderedPlayers[0]
+
+            // return this.selfPlayer ? this.selfPlayer : this.orderedPlayers[0]
         },
 
         centralPlayerSeatingIndex(): number {

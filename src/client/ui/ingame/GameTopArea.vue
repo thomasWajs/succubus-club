@@ -428,6 +428,7 @@
             v-if="players.isPlayer"
             class="game-mutations"
         >
+            <CommandButton :command="commands.FocusMode"> Focus </CommandButton>
             <div>
                 <CommandButton :command="commands.DecreaseScale"> - </CommandButton>
                 {{ `${Math.round(((players.selfPlayer?.scale ?? 0) * 100) / 10) * 10}%` }}

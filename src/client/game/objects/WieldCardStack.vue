@@ -179,11 +179,13 @@ const INDICATOR_TEXT_STYLE = {
 
 const actionsStyle = computed(() => {
     let right, top
+
+    const rightBase = gameBus.focusMode ? 0 : RIGHT_COLUMN_WIDTH
     if (worldAlignment.value == WorldAlignment.TopRight) {
-        right = RIGHT_COLUMN_WIDTH + display.horizontalPadding * display.scale
+        right = rightBase + display.horizontalPadding * display.scale
         top = 0
     } else {
-        right = RIGHT_COLUMN_WIDTH + display.horizontalSpaceAvailable / 2
+        right = rightBase + display.horizontalSpaceAvailable / 2
         top = display.verticalSpaceAvailable / 2
     }
 

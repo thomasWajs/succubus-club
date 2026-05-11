@@ -24,6 +24,9 @@ export type AlertMessage = {
     blockInteraction: boolean
 }
 
+let transitionTimer: ReturnType<typeof setTimeout> | null = null
+let columnTimer: ReturnType<typeof setTimeout> | null = null
+
 export const useBusStore = defineStore('bus', {
     state: () => ({
         alert: null as AlertMessage | null,
@@ -68,6 +71,10 @@ export const useBusStore = defineStore('bus', {
 
 export const useGameBusStore = defineStore('gameBus', {
     state: () => ({
+        /** Focus Mode **/
+        focusMode: false,
+        focusModeTransitioning: false,
+
         /** Close-up card **/
         closeUpCard: {
             card: null as Card | null,
@@ -287,6 +294,25 @@ export const useGameBusStore = defineStore('gameBus', {
             setTimeout(() => {
                 this.pingedCards = this.pingedCards.filter(c => c != cardOid)
             }, CARD_PING_DURATION * 2)
+        },
+
+        toggleFocusMode() {
+            if (transitionTimer) {
+                clearTimeout(transitionTimer)
+            }
+            if (columnTimer) {
+                clearTimeout(columnTimer)
+            }
+            const newFocusMode = !this.focusMode
+            this.focusModeTransitioning = true
+            transitionTimer = setTimeout(() => {
+                this.focusModeTransitioning = false
+                transitionTimer = null
+            }, 600)
+            columnTimer = setTimeout(() => {
+                this.focusMode = newFocusMode
+                columnTimer = null
+            }, 250)
         },
     },
 })

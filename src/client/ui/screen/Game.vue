@@ -27,8 +27,14 @@
     >
         <!-- <TopBar /> -->
         <Play />
-        <GameGameRightColumn />
+        <GameGameRightColumn v-show="display.rightColumnVisible" />
         <GameTopArea />
+        <Transition name="focus-overlay">
+            <div
+                v-if="gameBus.focusModeTransitioning"
+                class="focus-overlay"
+            />
+        </Transition>
     </div>
 </template>
 
@@ -37,8 +43,11 @@ import Play from '@/client/game/Play.vue'
 import GameGameRightColumn from '@/client/ui/ingame/rightColumn/GameRightColumn.vue'
 import GameTopArea from '@/client/ui/ingame/GameTopArea.vue'
 import { useCoreStore } from '@/client/store/core.ts'
+import { useGameBusStore } from '@/client/store/bus.ts'
+import { display } from '@/client/game/display.ts'
 
 const core = useCoreStore()
+const gameBus = useGameBusStore()
 </script>
 
 <style lang="scss" scoped>
@@ -131,6 +140,25 @@ const core = useCoreStore()
             0 0 30px rgba($ghost-white, 0.8),
             2px 2px 4px rgba(black, 0.8);
     }
+}
+
+.focus-overlay {
+    position: absolute;
+    inset: 0;
+    background: #808080;
+    opacity: 1;
+    z-index: 1500;
+    pointer-events: none;
+}
+
+.focus-overlay-enter-active,
+.focus-overlay-leave-active {
+    transition: opacity 0.2s ease;
+}
+
+.focus-overlay-enter-from,
+.focus-overlay-leave-to {
+    opacity: 0;
 }
 
 @keyframes ellipsis-fade {

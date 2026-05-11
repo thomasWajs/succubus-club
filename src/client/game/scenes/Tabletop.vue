@@ -13,63 +13,17 @@
             key="Hand"
         />
 
-        <!-- Play areas for 3+ players, with a central player at the center of the screen -->
-        <PlayAreaGO
-            v-if="playerSeats.bottomLeft"
-            key="PlayAreaBottomLeft"
-            :player="playerSeats.bottomLeft"
-            :scale="OTHER_PLAYERS_SCALE"
-            :x="0"
-            :y="BOTTOM_PLAYERS_Y"
-        />
-        <PlayAreaGO
-            v-if="playerSeats.topLeft"
-            key="PlayAreaTopLeft"
-            :player="playerSeats.topLeft"
-            :scale="OTHER_PLAYERS_SCALE"
-            :x="0"
-            :y="0"
-        />
-        <PlayAreaGO
-            v-if="playerSeats.topRight"
-            key="PlayAreaBottomRight"
-            :player="playerSeats.topRight"
-            :scale="OTHER_PLAYERS_SCALE"
-            :x="RIGHT_PLAYERS_X"
-            :y="0"
-        />
-
-        <PlayAreaGO
-            v-if="playerSeats.bottomRight"
-            key="PlayAreaTopRight"
-            :player="playerSeats.bottomRight"
-            :scale="OTHER_PLAYERS_SCALE"
-            :x="RIGHT_PLAYERS_X"
-            :y="BOTTOM_PLAYERS_Y"
-        />
-
-        <!-- Special layout for 2 players -->
-        <PlayAreaGO
-            v-if="playerSeats.opponent2P"
-            key="PlayAreaLeft"
-            :player="playerSeats.opponent2P"
-            :x="TWO_PLAYERS_HORIZONTAL_GUTTER"
-            :y="PLAY_AREA_Y"
-        />
-
-        <!--
-        Play area of the "central player".
-        If the user is a player, it's the self player.
-        If the user is a spectator, it's the first player.
-        In a 2 player game, the "central" player is actually on the right of the screen.
-        -->
-        <PlayAreaGO
-            v-if="playerSeats.central"
-            key="PlayAreaCenter"
-            :player="playerSeats.central"
-            :x="playerSeats.centralX"
-            :y="PLAY_AREA_Y"
-        />
+        <template
+            v-for="playerSeat in playerSeats"
+            :key="playerSeat.player?.oid ?? ''"
+        >
+            <PlayAreaGO
+                :player="playerSeat.player"
+                :scale="playerSeat.scale"
+                :x="playerSeat.x"
+                :y="playerSeat.y"
+            />
+        </template>
 
         <!-- Menus -->
         <template v-if="players.isPlayer">
@@ -104,9 +58,13 @@ import { useGameStateStore } from '@/client/store/gameState.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
 import {
     BOTTOM_PLAYERS_Y,
+    GRID_SIZE,
+    HD_WIDTH,
     OTHER_PLAYERS_SCALE,
+    PLAY_AREA_WIDTH,
     PLAY_AREA_X,
     PLAY_AREA_Y,
+    RIGHT_COLUMN_WIDTH,
     RIGHT_PLAYERS_X,
     TWO_PLAYERS_HORIZONTAL_GUTTER,
     WORLD_WIDTH,
@@ -127,6 +85,8 @@ import HandGO from '@/client/game/objects/HandGO.vue'
 import SelectionArea from '@/client/game/objects/SelectionArea.vue'
 import FloatingActionsCloud from '@/client/ui/context/floating/FloatingActionsCloud.vue'
 import { CardOid, PlayerOid, Point2D } from '@/shared/types/model.ts'
+import { setupDisplayWatcher } from '@/client/game/display.ts'
+import { Player } from '@/shared/model/Player.ts'
 
 const core = useCoreStore()
 const gameState = useGameStateStore()
@@ -141,6 +101,7 @@ function init(_scene: Phaser.Scene) {
     setupCamera(scene)
     setupPointerHandlers(scene)
     setupKeyboardHandlers(scene)
+    setupDisplayWatcher()
 }
 
 let firstUpdate = true
@@ -156,34 +117,186 @@ function update() {
  * Player seating
  */
 
+type PlayerSeat = {
+    player: Player
+    scale: number
+    x: number
+    y: number
+}
+
+const FOCUS_MODE_PLAY_AREA_WIDTH = PLAY_AREA_WIDTH - GRID_SIZE // 630 px
+const FOCUS_MODE_GUTTER = (HD_WIDTH - 3 * FOCUS_MODE_PLAY_AREA_WIDTH) / 2 // 15px
+const FOCUS_MODE_SCALE = FOCUS_MODE_PLAY_AREA_WIDTH / PLAY_AREA_WIDTH // About 0.985
+const FOCUS_MODE_FARAWAY_PLAYER_SCALE = 0.45
+
+function playerSeatsNormalMode(visiblePlayers: Player[]): PlayerSeat[] {
+    const seats: PlayerSeat[] = []
+
+    // Bottom left ( if 4+ visible players )
+    if (visiblePlayers.length >= 4) {
+        seats.push({
+            player: visiblePlayers[1],
+            scale: OTHER_PLAYERS_SCALE,
+            x: 0,
+            y: BOTTOM_PLAYERS_Y,
+        })
+    }
+
+    if (visiblePlayers.length >= 3) {
+        // Top Left
+        seats.push({
+            player: visiblePlayers.length == 3 ? visiblePlayers[1] : visiblePlayers[2],
+            scale: gameBus.focusMode ? FOCUS_MODE_SCALE : OTHER_PLAYERS_SCALE,
+            x: 0,
+            y: 0,
+        })
+
+        // Top Right
+        seats.push({
+            player: visiblePlayers.length == 3 ? visiblePlayers[2] : visiblePlayers[3],
+            scale: gameBus.focusMode ? FOCUS_MODE_SCALE : OTHER_PLAYERS_SCALE,
+            x: RIGHT_PLAYERS_X,
+            y: 0,
+        })
+    }
+
+    // Bottom right ( if 5 visible players )
+    if (visiblePlayers.length == 5) {
+        seats.push({
+            player: visiblePlayers[4],
+            scale: OTHER_PLAYERS_SCALE,
+            x: RIGHT_PLAYERS_X,
+            y: BOTTOM_PLAYERS_Y,
+        })
+    }
+
+    // End with the central player
+    if (visiblePlayers.length >= 1) {
+        seats.push({
+            player: visiblePlayers[0],
+            scale: 1,
+            x: PLAY_AREA_X,
+            y: PLAY_AREA_Y,
+        })
+    }
+
+    return seats
+}
+
+function playerSeatsFocusMode(): PlayerSeat[] {
+    const seats: PlayerSeat[] = []
+
+    // Center ( Active player )
+    seats.push({
+        player: players.centralPlayer,
+        scale: FOCUS_MODE_SCALE,
+        x: PLAY_AREA_X + FOCUS_MODE_GUTTER / 2,
+        y: PLAY_AREA_Y,
+    })
+
+    // Left ( Prey )
+    if (players.centralPlayer.prey) {
+        seats.push({
+            player: players.centralPlayer.prey,
+            scale: FOCUS_MODE_SCALE,
+            x: -RIGHT_COLUMN_WIDTH / 2 + FOCUS_MODE_GUTTER / 2,
+            y: PLAY_AREA_Y,
+        })
+    }
+
+    // Right ( Predator )
+    if (
+        players.centralPlayer.predator &&
+        players.centralPlayer.predator != players.centralPlayer.prey
+    ) {
+        seats.push({
+            player: players.centralPlayer.predator,
+            scale: FOCUS_MODE_SCALE,
+            x: RIGHT_PLAYERS_X,
+            y: PLAY_AREA_Y,
+        })
+    }
+
+    // 4th player
+    if (players.competingPlayers.length >= 4 && players.centralPlayer.prey?.prey) {
+        seats.push({
+            player: players.centralPlayer.prey.prey,
+            scale: FOCUS_MODE_FARAWAY_PLAYER_SCALE,
+            x: -RIGHT_COLUMN_WIDTH / 2 + FOCUS_MODE_GUTTER / 2,
+            y: 0,
+        })
+    }
+
+    // 5th player
+    if (players.competingPlayers.length >= 5 && players.centralPlayer.predator?.predator) {
+        seats.push({
+            player: players.centralPlayer.predator.predator,
+            scale: FOCUS_MODE_FARAWAY_PLAYER_SCALE,
+            x: RIGHT_PLAYERS_X,
+            y: 0,
+        })
+    }
+
+    return seats
+}
+
+function playerSeatsDuel(visiblePlayers: Player[]): PlayerSeat[] {
+    // Try to anchor selfPLayer on the right to align its hand in TrainBot mode
+    const [leftPlayer, rightPlayer] =
+        players.selfPlayer == visiblePlayers[0] ?
+            [visiblePlayers[1], visiblePlayers[0]]
+        :   [visiblePlayers[0], visiblePlayers[1]]
+
+    return [
+        {
+            player: leftPlayer,
+            scale: 1,
+            x: TWO_PLAYERS_HORIZONTAL_GUTTER,
+            y: PLAY_AREA_Y,
+        },
+        {
+            player: rightPlayer,
+            scale: 1,
+            x: WORLD_WIDTH / 2 + TWO_PLAYERS_HORIZONTAL_GUTTER,
+            y: PLAY_AREA_Y,
+        },
+    ]
+}
+
 const playerSeats = computed(() => {
-    // Special layout for 2 players
-    if (players.is2pGame) {
-        return {
-            central: players.centralPlayer,
-            // In a 2 player game, the "central" player is actually on the right of the screen.
-            centralX: WORLD_WIDTH / 2 + TWO_PLAYERS_HORIZONTAL_GUTTER,
-            opponent2P: players.getNthNeighbour(1),
+    if (!players.centralPlayer) {
+        return []
+    }
+
+    // All visible players, starting with the central player
+    let visiblePlayers: Player[] = []
+
+    // Focus Mode
+    if (gameBus.focusMode) {
+        // Use the duel display, even in focus mode
+        if (players.competingPlayers.length == 2) {
+            visiblePlayers = players.competingPlayers
+        } else {
+            return playerSeatsFocusMode()
         }
     }
-    // Normal layout for 3+ players
+    // Non focus mode
     else {
-        return {
-            central: players.centralPlayer,
-            centralX: PLAY_AREA_X,
-            bottomLeft: gameState.orderedPlayers.length >= 4 ? players.getNthNeighbour(1) : null,
-            topLeft:
-                gameState.orderedPlayers.length == 2 || gameState.orderedPlayers.length == 3 ?
-                    players.getNthNeighbour(1)
-                : gameState.orderedPlayers.length > 3 ? players.getNthNeighbour(2)
-                : null,
-            topRight:
-                gameState.orderedPlayers.length == 3 ? players.getNthNeighbour(2)
-                : gameState.orderedPlayers.length >= 4 ? players.getNthNeighbour(3)
-                : null,
-            bottomRight: gameState.orderedPlayers.length >= 5 ? players.getNthNeighbour(4) : null,
+        for (let i = 0; i < gameState.orderedPlayers.length; i++) {
+            const player = players.getNthNeighbour(i)
+            if (!players.hiddenPlayers.has(player.oid)) {
+                visiblePlayers.push(player)
+            }
         }
     }
+
+    // Special layout for 2 players
+    if (visiblePlayers.length == 2) {
+        return playerSeatsDuel(visiblePlayers)
+    }
+
+    // Normal layout for 3+ players
+    return playerSeatsNormalMode(visiblePlayers)
 })
 
 /**
