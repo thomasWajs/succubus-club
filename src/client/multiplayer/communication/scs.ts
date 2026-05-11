@@ -99,7 +99,7 @@ export const scsCommunication: ScsCommunication = {
     },
 
     handleDisconnect() {
-        // If we're still disconnected after 1 seconds, show an alert
+        // If we're still disconnected after 2 seconds, show an alert
         setTimeout(async () => {
             const multiplayer = useMultiplayerStore()
             if (
@@ -111,7 +111,7 @@ export const scsCommunication: ScsCommunication = {
                 await waitUntil(() => multiplayer.scsStatus == ScsStatus.Connected, 300)
                 useBusStore().alertSuccess("Connection with SCS restored. You're back online.")
             }
-        }, 1000)
+        }, 2000)
     },
 
     setUser() {
