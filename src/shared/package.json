@@ -3,6 +3,7 @@
     "private": true,
     "type": "module",
     "dependencies": {
+        "lz-string": "^1.5.0",
         "nanoid": "^5.1.6",
         "safe-stable-stringify": "^2.5.0",
         "vue": "^3.5.17",

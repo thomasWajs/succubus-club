@@ -6,7 +6,7 @@ export function captureException(exception: unknown) {
     if (process.env.NODE_ENV === 'production') {
         Sentry.captureException(exception)
     } else {
-        throw exception
+        console.error(exception)
     }
 }
 

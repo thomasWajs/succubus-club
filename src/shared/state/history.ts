@@ -9,6 +9,7 @@ import {
 import { getAuthorColorRgba } from '@/shared/colors.ts'
 import { SerializedHistory } from '@/shared/types/multiplayer.ts'
 import { GameId, PlayerOid } from '@/shared/types/model.ts'
+import LZString from 'lz-string'
 
 const HISTORY_ARCHIVE_THRESHOLD = 150
 const HISTORY_KEEP_RECENT = 100
@@ -24,7 +25,7 @@ export class HistoryStore {
     logEntries: LogEntry[] = []
     // Don't store GameMutations directly, there's too much overhead and leads to memory ballooning
     gameMutations: MutationHistoryEntry[] = []
-    // Archive old history as a gigantic serialized json
+    // Archive old history as a gigantic compacted ( lz-string ) serialized json
     archive = ''
 
     // Getters
@@ -114,13 +115,24 @@ export class HistoryStore {
         })
     }
 
-    archiveOldHistory(gameId: GameId) {
-        // 1. Deserialize existing archive
+    setArchiveHistory(archivedHistory: HistoryStore) {
+        const serializedArchive = serializeHistory(archivedHistory, false)
+        this.archive = LZString.compress(JSON.stringify(serializedArchive))
+    }
+
+    getArchivedHistory(gameId: GameId): HistoryStore {
         const archivedHistory: HistoryStore = new HistoryStore()
         if (this.archive !== '') {
-            const serializedArchive: SerializedHistory = JSON.parse(this.archive)
+            const decompressedArchive = LZString.decompress(this.archive)
+            const serializedArchive: SerializedHistory = JSON.parse(decompressedArchive)
             deserializeHistory(gameId, serializedArchive, archivedHistory)
         }
+        return archivedHistory
+    }
+
+    archiveOldHistory(gameId: GameId) {
+        // 1. Deserialize existing archive
+        const archivedHistory = this.getArchivedHistory(gameId)
 
         // 2. Append older entries to archive
         const logEntriesToArchive = this.logEntries.slice(
@@ -136,7 +148,7 @@ export class HistoryStore {
         archivedHistory.gameMutations.push(...gameMutationsToArchive)
 
         // 3. Re-serialize archive with the new entries, and without embedding our own archive
-        this.archive = JSON.stringify(serializeHistory(archivedHistory, false))
+        this.setArchiveHistory(archivedHistory)
 
         // 4. Remove older entries from active history
         this.logEntries = this.logEntries.slice(-HISTORY_KEEP_RECENT)

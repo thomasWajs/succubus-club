@@ -187,9 +187,6 @@ import UserManual from '@/client/ui/ingame/rightColumn/UserManual.vue'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import LogLine from '@/client/ui/ingame/rightColumn/LogLine.vue'
 import { leaveGame } from '@/client/state/setup.ts'
-import { deserializeHistory } from '@/shared/serialization.ts'
-import { HistoryStore } from '@/shared/state/history.ts'
-import { SerializedHistory } from '@/shared/types/multiplayer.ts'
 
 const core = useCoreStore()
 const gameState = useGameStateStore()
@@ -229,10 +226,7 @@ const archivedLogEntries = computed(() => {
     if (!showArchive.value || !history.archive) {
         return []
     }
-    const serializedArchive: SerializedHistory = JSON.parse(history.archive)
-    const archivedHistory = new HistoryStore()
-    deserializeHistory(gameState.gameId, serializedArchive, archivedHistory)
-    return archivedHistory.logEntries
+    return history.getArchivedHistory(gameState.gameId).logEntries
 })
 
 const displayedLogEntries = computed(() => {
