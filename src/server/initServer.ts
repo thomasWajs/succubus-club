@@ -1,13 +1,15 @@
 // Register server code into shared functions
-import { registerGameState, setGameResources } from '@/shared/registries.ts'
+import { registerGameState, registerLogger, setGameResources } from '@/shared/registries.ts'
 import { initWasmHasher } from '@/shared/serialization.ts'
 import { readFileSync } from 'fs'
 import { resolve } from 'path'
 import { initTables, loadPersistedData } from './persistence.ts'
 import { restoreRooms } from './rooms.ts'
 import logger from './logger.ts'
+import { captureException, captureMessage } from './logging.ts'
 
 export async function initServer() {
+    registerLogger({ captureException, captureMessage })
     await initWasmHasher()
     loadCardbase()
     initTables()

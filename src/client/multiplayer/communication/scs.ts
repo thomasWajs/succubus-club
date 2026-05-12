@@ -1,4 +1,5 @@
 import {
+    CommunicationMode,
     ErrorMessage,
     GameMutationMessage,
     MultiplayerMessageType,
@@ -104,7 +105,9 @@ export const scsCommunication: ScsCommunication = {
             const multiplayer = useMultiplayerStore()
             if (
                 multiplayer.scsStatus == ScsStatus.Disconnected &&
-                router.currentRoute.value.name != ROUTES.MainMenu
+                // Show alerts only when currently in a SCS Game
+                router.currentRoute.value.name == ROUTES.Game &&
+                multiplayer.currentGameRoom?.communication == CommunicationMode.SCS
             ) {
                 useBusStore().alertError('Connection lost with SCS. Trying to reconnect...')
 
