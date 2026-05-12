@@ -12,6 +12,25 @@ import { Player } from '@/shared/model/Player.ts'
 import { Validity } from '@/shared/types/state.ts'
 
 /**
+ * Logging
+ */
+
+export type SeverityLevel = 'fatal' | 'error' | 'warning' | 'log' | 'info' | 'debug'
+export type Logger = {
+    captureException: (exception: unknown) => void
+    captureMessage: (message: string, captureContext?: SeverityLevel) => void
+}
+let logger: Logger | null = null
+
+export function registerLogger(newLogger: Logger) {
+    logger = newLogger
+}
+export function getLogger() {
+    if (!logger) throw new Error('No logger registered. Did you forget to call registerLogger() ?')
+    return logger
+}
+
+/**
  * Game Resources
  */
 

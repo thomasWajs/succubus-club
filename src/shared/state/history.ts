@@ -10,6 +10,7 @@ import { getAuthorColorRgba } from '@/shared/colors.ts'
 import { SerializedHistory } from '@/shared/types/multiplayer.ts'
 import { GameId, PlayerOid } from '@/shared/types/model.ts'
 import LZString from 'lz-string'
+import { getLogger } from '@/shared/registries.ts'
 
 const HISTORY_ARCHIVE_THRESHOLD = 150
 const HISTORY_KEEP_RECENT = 100
@@ -116,21 +117,28 @@ export class HistoryStore {
     }
 
     setArchiveHistory(archivedHistory: HistoryStore) {
-        const serializedArchive = serializeHistory(archivedHistory, false)
-        this.archive = LZString.compress(JSON.stringify(serializedArchive))
+        try {
+            const serializedArchive = serializeHistory(archivedHistory, false)
+            this.archive = LZString.compress(JSON.stringify(serializedArchive))
+        } catch (error) {
+            getLogger().captureException(error)
+        }
     }
 
     getArchivedHistory(gameId: GameId): HistoryStore {
         const archivedHistory: HistoryStore = new HistoryStore()
-        if (this.archive !== '') {
-            const decompressedArchive = LZString.decompress(this.archive)
-            if (decompressedArchive) {
+        try {
+            if (this.archive !== '') {
+                const decompressedArchive = LZString.decompress(this.archive)
                 const serializedArchive: SerializedHistory = JSON.parse(decompressedArchive)
                 if (serializedArchive) {
                     deserializeHistory(gameId, serializedArchive, archivedHistory)
                 }
             }
+        } catch (error) {
+            getLogger().captureException(error)
         }
+
         return archivedHistory
     }
 
