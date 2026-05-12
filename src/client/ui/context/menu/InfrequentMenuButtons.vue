@@ -49,10 +49,10 @@
         :closeOnClick="true"
         :cardAction="
             (card: Card) =>
-                gameState.selfPlayer ?
+                players.selfPlayer ?
                     gameMutations.moveToBottom.actSelf({
                         card: card,
-                        toCardRegion: gameState.selfPlayer.library,
+                        toCardRegion: players.selfPlayer.library,
                     })
                 :   null
         "
@@ -65,10 +65,10 @@
         :closeOnClick="true"
         :cardAction="
             (card: Card) =>
-                gameState.selfPlayer ?
+                players.selfPlayer ?
                     gameMutations.moveToBottom.actSelf({
                         card: card,
-                        toCardRegion: gameState.selfPlayer.crypt,
+                        toCardRegion: players.selfPlayer.crypt,
                     })
                 :   null
         "
@@ -106,7 +106,7 @@ import { useContextSelection } from '@/client/ui/context/menu/useContextSelectio
 import CommandContextMenuButton from '@/client/ui/context/menu/CommandContextMenuButton.vue'
 import ContextMenuButton from '@/client/ui/context/menu/ContextMenuButton.vue'
 
-const { gameState, commands, firstCard, singleCard } = useContextSelection()
+const { players, commands, firstCard, singleCard } = useContextSelection()
 </script>
 
 <style lang="scss"></style>

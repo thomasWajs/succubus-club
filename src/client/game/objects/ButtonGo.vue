@@ -13,6 +13,7 @@
         :strokeColor="borderColor.color"
         :fillColor="bgColor.color"
         :fillAlpha="bgColor.alphaGL"
+        :depth="depth"
         @create="onRectangleCreate"
         @pointerover="onPointerOver"
         @pointerout="onPointerOut"
@@ -27,6 +28,7 @@
         :origin="0.5"
         :x="x"
         :y="y"
+        :depth="depth"
     />
 
     <slot />
@@ -38,6 +40,7 @@ import Phaser, { GameObjects } from 'phaser'
 import { Rectangle, refObj, Text } from 'phavuer'
 import { Colors } from '@/client/colors.ts'
 import { BUTTON_BORDER_WIDTH, BUTTON_TEXT_STYLE } from '@/shared/const/game.ts'
+import { PhaserDataKey } from '@/client/game/types.ts'
 import Color = Phaser.Display.Color
 import Pointer = Phaser.Input.Pointer
 
@@ -60,6 +63,7 @@ const {
     origin?: number
     originX?: number
     originY?: number
+    depth?: number
 }>()
 
 const buttonRectangle = refObj<GameObjects.Rectangle>()
@@ -97,6 +101,12 @@ function bringToTop() {
     const container = buttonRectangle.value.parentContainer
     container.bringToTop(buttonRectangle.value)
     if (buttonText.value) container.bringToTop(buttonText.value)
+
+    // If the player is ousted, the ousted overlay always takes precedence
+    if (name != 'hidePLayAreaButton') {
+        const bringOustedToTop = container.getData(PhaserDataKey.BringOustedToTop)
+        bringOustedToTop?.()
+    }
 }
 
 /**

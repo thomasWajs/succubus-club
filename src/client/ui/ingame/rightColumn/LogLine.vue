@@ -56,13 +56,13 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useHistoryStore } from '@/client/store/history.ts'
-import { useGameStateStore } from '@/client/store/gameState.ts'
+import { usePlayersStore } from '@/client/state/players.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { CARD_LOG_PLACEHOLDER } from '@/shared/const/game.ts'
 import { LogEntry } from '@/shared/types/history.ts'
 import { cancelMutation } from '@/client/state/gameMutations.ts'
 
-const gameState = useGameStateStore()
+const players = usePlayersStore()
 const gameBus = useGameBusStore()
 const history = useHistoryStore()
 
@@ -76,7 +76,7 @@ const selfHasVision = computed(() => {
     if (!logEntry.card || !vision) {
         return false
     }
-    return vision.public || (gameState.selfPlayerOid && vision[gameState.selfPlayerOid])
+    return vision.public || (players.selfPlayerOid && vision[players.selfPlayerOid])
 })
 
 const mutationLogHtml = computed(() => {

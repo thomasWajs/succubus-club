@@ -31,7 +31,7 @@ import Phaser, { GameObjects } from 'phaser'
 import { Container, Rectangle, useScene } from 'phavuer'
 
 import CardInHandGO from '@/client/game/objects/CardInHandGO.vue'
-import { useGameStateStore } from '@/client/store/gameState.ts'
+import { usePlayersStore } from '@/client/state/players.ts'
 import { computed, nextTick, ref } from 'vue'
 import { Colors } from '@/client/colors.ts'
 import { HAND_HEIGHT, HAND_WIDTH, HAND_X, HAND_Y } from '@/shared/const/game.ts'
@@ -43,12 +43,12 @@ import { display } from '@/client/game/display.ts'
 import { CardOid } from '@/shared/types/model.ts'
 import Pointer = Phaser.Input.Pointer
 
-const gameState = useGameStateStore()
+const players = usePlayersStore()
 const gameBus = useGameBusStore()
 const isDraggedOver = ref(false)
 
 // Can't link directly to selfPlayer.hand because resync will change the object
-const hand = computed(() => gameState.selfPlayer?.hand)
+const hand = computed(() => players.selfPlayer?.hand)
 
 /**
  * Vue DOES NOT guarantee iterating order on ref arrays ( https://vuejs.org/guide/essentials/template-refs#refs-inside-v-for ).

@@ -157,6 +157,7 @@ export const useGameBusStore = defineStore('gameBus', {
     }),
 
     getters: {
+        /** Card selection **/
         selectionAreaRect(state) {
             if (
                 !state.selectionArea.show ||
@@ -183,6 +184,8 @@ export const useGameBusStore = defineStore('gameBus', {
         selectedCardsInGame(state): CardInGame[] {
             return state.selectedCards.map(c => state.cardsInGame[c.oid]).filter(c => c)
         },
+
+        /** Card groups **/
         cardGroupsByCard(state): Record<CardOid, CardGroup> {
             const result: Record<CardOid, CardGroup> = {}
             for (const group of state.cardGroups) {

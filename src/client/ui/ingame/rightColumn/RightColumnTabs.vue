@@ -25,7 +25,7 @@
         </div>
 
         <div
-            v-if="gameState.isPlayer"
+            v-if="players.isPlayer"
             class="chat-box"
         >
             <input
@@ -185,11 +185,13 @@ import { useCoreStore } from '@/client/store/core.ts'
 import { broadcastChatMessage, requestResyncGameState } from '@/client/multiplayer/room.ts'
 import UserManual from '@/client/ui/ingame/rightColumn/UserManual.vue'
 import { useGameStateStore } from '@/client/store/gameState.ts'
+import { usePlayersStore } from '@/client/state/players.ts'
 import LogLine from '@/client/ui/ingame/rightColumn/LogLine.vue'
 import { leaveGame } from '@/client/state/setup.ts'
 
 const core = useCoreStore()
 const gameState = useGameStateStore()
+const players = usePlayersStore()
 const bus = useBusStore()
 const gameBus = useGameBusStore()
 const history = useHistoryStore()
@@ -265,13 +267,13 @@ const chatInput = ref<HTMLInputElement>()
 
 function sendChatMessage() {
     // No message to send...
-    if (!chatMessageText.value || !gameState.selfPlayer) {
+    if (!chatMessageText.value || !players.selfPlayer) {
         return
     }
     const chatMessage = {
         text: chatMessageText.value,
         timestamp: new Date(),
-        player: gameState.selfPlayer,
+        player: players.selfPlayer,
     }
     chatMessageText.value = ''
     chatInput.value?.blur()

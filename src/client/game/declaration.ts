@@ -1,7 +1,7 @@
 import { CardMovement, gameMutations } from '@/shared/state/gameMutations.ts'
 import { MinionAction, MinionActionNames, MinionActionType } from '@/shared/types/state.ts'
 import { Player } from '@/shared/model/Player.ts'
-import { useGameStateStore } from '@/client/store/gameState.ts'
+import { usePlayersStore } from '@/client/state/players.ts'
 import { useBusStore, useGameBusStore } from '@/client/store/bus.ts'
 import { Card, Minion } from '@/shared/model/Card.ts'
 import { GRID_SIZE, PLAY_AREA_WIDTH } from '@/shared/const/game.ts'
@@ -44,13 +44,13 @@ export function resetDeclaration() {
 }
 
 export function declareAction(action: MinionAction, player?: Player) {
-    const gameState = useGameStateStore()
+    const players = usePlayersStore()
 
     if (!player) {
-        if (!gameState.selfPlayer) {
+        if (!players.selfPlayer) {
             return
         }
-        player = gameState.selfPlayer
+        player = players.selfPlayer
     }
 
     resetDeclaration()

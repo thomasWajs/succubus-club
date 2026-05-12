@@ -11,7 +11,7 @@ import {
     getCardRectangleAt,
     getCardScale,
 } from '@/client/game/utils.ts'
-import { useGameStateStore } from '@/client/store/gameState.ts'
+import { usePlayersStore } from '@/client/state/players.ts'
 import { CardAttrs, CardGroup, DragAttrs, RegionCategory } from '@/client/game/types.ts'
 import { AlignmentGuide, GUIDE_HORIZONTAL, GUIDE_VERTICAL } from '@/shared/types/state.ts'
 import { ALIGNMENT_GUIDE_THRESHOLD, GRID_SIZE } from '@/shared/const/game.ts'
@@ -27,7 +27,7 @@ export function useCardDragDrop(
     cardAttrsRef: ComputedRef<CardAttrs>,
     bringToTop: VoidFunction,
 ) {
-    const gameState = useGameStateStore()
+    const players = usePlayersStore()
     const gameBus = useGameBusStore()
 
     /**
@@ -109,7 +109,7 @@ export function useCardDragDrop(
         if (
             !cardGroupingEnabled.value ||
             !cardRegion.owner ||
-            cardRegion.owner.oid != gameState.selfPlayer?.oid ||
+            cardRegion.owner.oid != players.selfPlayer?.oid ||
             !cardRegion.is.ready ||
             gameBus.selectedCards.length > 1 ||
             card.oid in gameBus.cardGroupsByCard ||
@@ -162,7 +162,7 @@ export function useCardDragDrop(
 
     function onDragStart(originCard?: Card) {
         // Spectators can't interact with the game
-        if (gameState.isSpectator) {
+        if (players.isSpectator) {
             return
         }
 
@@ -192,7 +192,7 @@ export function useCardDragDrop(
         const cardAttrs = cardAttrsRef.value
 
         // Spectators can't interact with the game
-        if (!dragAttrs.isDragging || gameState.isSpectator || !gameBus.dragOver) {
+        if (!dragAttrs.isDragging || players.isSpectator || !gameBus.dragOver) {
             return
         }
 

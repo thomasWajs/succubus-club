@@ -9,7 +9,7 @@
         <!-- Order of declaration is important here :
         Hand MUST come before the rest for drag alpha -->
         <HandGO
-            v-if="gameState.selfPlayer"
+            v-if="players.selfPlayer"
             key="Hand"
         />
 
@@ -72,7 +72,7 @@
         />
 
         <!-- Menus -->
-        <template v-if="gameState.isPlayer">
+        <template v-if="players.isPlayer">
             <ChangePoolMenu v-show="sceneReady" />
             <ContextMenu v-show="sceneReady" />
             <ContextSubmenu v-show="sceneReady" />
@@ -101,6 +101,7 @@
 import Phaser from 'phaser'
 import { Scene } from 'phavuer'
 import { useGameStateStore } from '@/client/store/gameState.ts'
+import { usePlayersStore } from '@/client/state/players.ts'
 import {
     BOTTOM_PLAYERS_Y,
     OTHER_PLAYERS_SCALE,
@@ -130,6 +131,7 @@ import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
 
 const core = useCoreStore()
 const gameState = useGameStateStore()
+const players = usePlayersStore()
 const gameBus = useGameBusStore()
 
 const sceneReady = ref(false)
@@ -159,30 +161,30 @@ const { actionDeclarationEnabled } = useUIFeatures()
 
 const playerSeats = computed(() => {
     // Special layout for 2 players
-    if (gameState.is2pGame) {
+    if (players.is2pGame) {
         return {
-            central: gameState.centralPlayer,
+            central: players.centralPlayer,
             // In a 2 player game, the "central" player is actually on the right of the screen.
             centralX: WORLD_WIDTH / 2 + TWO_PLAYERS_HORIZONTAL_GUTTER,
-            opponent2P: gameState.getNthNeighbour(1),
+            opponent2P: players.getNthNeighbour(1),
         }
     }
     // Normal layout for 3+ players
     else {
         return {
-            central: gameState.centralPlayer,
+            central: players.centralPlayer,
             centralX: PLAY_AREA_X,
-            bottomLeft: gameState.orderedPlayers.length >= 4 ? gameState.getNthNeighbour(1) : null,
+            bottomLeft: gameState.orderedPlayers.length >= 4 ? players.getNthNeighbour(1) : null,
             topLeft:
                 gameState.orderedPlayers.length == 2 || gameState.orderedPlayers.length == 3 ?
-                    gameState.getNthNeighbour(1)
-                : gameState.orderedPlayers.length > 3 ? gameState.getNthNeighbour(2)
+                    players.getNthNeighbour(1)
+                : gameState.orderedPlayers.length > 3 ? players.getNthNeighbour(2)
                 : null,
             topRight:
-                gameState.orderedPlayers.length == 3 ? gameState.getNthNeighbour(2)
-                : gameState.orderedPlayers.length >= 4 ? gameState.getNthNeighbour(3)
+                gameState.orderedPlayers.length == 3 ? players.getNthNeighbour(2)
+                : gameState.orderedPlayers.length >= 4 ? players.getNthNeighbour(3)
                 : null,
-            bottomRight: gameState.orderedPlayers.length >= 5 ? gameState.getNthNeighbour(4) : null,
+            bottomRight: gameState.orderedPlayers.length >= 5 ? players.getNthNeighbour(4) : null,
         }
     }
 })

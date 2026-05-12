@@ -29,7 +29,7 @@
 
     <!-- Minus Pool -->
     <ButtonGo
-        v-if="gameState.isPlayer"
+        v-if="players.isPlayer"
         :x="x + width / 2 - 35"
         :y="y + height / 2"
         :width="25"
@@ -69,7 +69,7 @@
 
     <!-- Plus Pool -->
     <ButtonGo
-        v-if="gameState.isPlayer"
+        v-if="players.isPlayer"
         :x="x + width / 2 + 35"
         :y="y + height / 2"
         :width="25"
@@ -119,6 +119,7 @@ import { Image, Polygon, Rectangle, refObj, Text } from 'phavuer'
 import { Colors } from '@/client/colors.ts'
 import { COUNTER_OUTLINE_THICKNESS, COUNTER_TEXT_STYLE } from '@/shared/const/game.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
+import { usePlayersStore } from '@/client/state/players.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import ButtonGo from '@/client/game/objects/ButtonGo.vue'
@@ -137,6 +138,7 @@ const { x, y, width, height, color, player } = defineProps<{
 }>()
 
 const gameState = useGameStateStore()
+const players = usePlayersStore()
 const gameBus = useGameBusStore()
 
 const playerColor = getPlayerColor(player).darken(20).desaturate(60)
@@ -175,7 +177,7 @@ function onTheEdgeCreate(theEdge: GameObjects.Image) {
 }
 
 function onPoolDiamondPointerDown() {
-    if (gameState.isPlayer && !gameBus.declaringTargetOrigin) {
+    if (players.isPlayer && !gameBus.declaringTargetOrigin) {
         gameBus.changePool = { show: true, player }
     }
 }

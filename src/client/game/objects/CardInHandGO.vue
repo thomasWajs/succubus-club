@@ -92,7 +92,7 @@ import {
 } from '@/shared/const/game.ts'
 import { Card, LibraryCard } from '@/shared/model/Card.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
-import { useGameStateStore } from '@/client/store/gameState.ts'
+import { usePlayersStore } from '@/client/state/players.ts'
 import { useCommands } from '@/client/game/composables/useCommands.ts'
 import { CardAttrs, PhaserDataKey, RegionCategory } from '@/client/game/types.ts'
 import { useCardDragDrop } from '@/client/game/composables/useCardDragDrop.ts'
@@ -104,13 +104,15 @@ import { playCardFromHand } from '@/client/game/declaration.ts'
 import { selfCanPlay } from '@/client/state/self.ts'
 import { useCardTexture } from '@/client/game/composables/useCardTexture.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
+import { useGameStateStore } from '@/client/store/gameState.ts'
 
 const { card } = defineProps<{
     card: LibraryCard
 }>()
 
-const gameState = useGameStateStore()
+const players = usePlayersStore()
 const gameBus = useGameBusStore()
+const gameState = useGameStateStore()
 const commands = useCommands()
 const { displayedTexture } = useCardTexture(card)
 const image = refObj<GameObjects.Image>()
@@ -122,7 +124,7 @@ const key = computed(() => `hand${card.oid.toString()}`)
 
 const cardAttrs = computed((): CardAttrs => {
     const category = RegionCategory.Hand
-    const hand = gameState.selfPlayer?.hand
+    const hand = players.selfPlayer?.hand
     let x = 0
 
     if (hand) {
@@ -139,7 +141,7 @@ const cardAttrs = computed((): CardAttrs => {
             maxSpacing,
         )
         const totalWidth = spacing * (handLength - 1) + CARD_WIDTH * CARD_IN_HAND_SCALE
-        const offsetX = gameState.is2pGame ? HAND_WIDTH - totalWidth : (HAND_WIDTH - totalWidth) / 2
+        const offsetX = players.is2pGame ? HAND_WIDTH - totalWidth : (HAND_WIDTH - totalWidth) / 2
         x = offsetX + spacing * cardIndex
     }
 
@@ -246,10 +248,10 @@ const { dragAttrs, onDragStart, onDrag, onDragEnd, onDrop } = useCardDragDrop(
 )
 
 function onDragStartFromHand() {
-    if (!gameState.selfPlayer) {
+    if (!players.selfPlayer) {
         return
     }
-    gameBus.draggedHandCardPosition = gameState.selfPlayer.hand.indexOf(card)
+    gameBus.draggedHandCardPosition = players.selfPlayer.hand.indexOf(card)
     onDragStart()
 }
 

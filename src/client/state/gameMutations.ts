@@ -15,7 +15,7 @@ import {
     ResolveBlock,
 } from '@/shared/state/gameMutations.ts'
 import { useHistoryStore } from '@/client/store/history.ts'
-import { useGameStateStore } from '@/client/store/gameState.ts'
+import { usePlayersStore } from '@/client/state/players.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { MutationHistoryEntry } from '@/shared/types/history.ts'
 import { deserializeGameMutation } from '@/shared/serialization.ts'
@@ -100,15 +100,15 @@ export function actSelf<
     ParamsType extends GameMutationParams,
     GMClass extends GameMutation<ParamsType>,
 >(gameMutationClass: GameMutationClassType<ParamsType, GMClass>, params: ParamsType): Validity {
-    const gameState = useGameStateStore()
+    const players = usePlayersStore()
     // spectators can't act on the game
-    if (gameState.isSpectator) {
+    if (players.isSpectator) {
         return Invalid("Spectators can't act on the game")
     }
-    if (!gameState.selfPlayer) {
+    if (!players.selfPlayer) {
         throw new Error('Cannot act without a self player defined')
     }
-    return act(gameMutationClass, gameState.selfPlayer, params)
+    return act(gameMutationClass, players.selfPlayer, params)
 }
 
 /**
@@ -129,16 +129,16 @@ export function cancelMutation(mutationEntry: MutationHistoryEntry) {
 
 export async function shuffleCardRegion(cardRegion: AnyCardRegion) {
     const core = useCoreStore()
-    const gameState = useGameStateStore()
+    const players = usePlayersStore()
     const history = useHistoryStore()
     const multiplayer = useMultiplayerStore()
 
-    if (!gameState.selfPlayer) {
+    if (!players.selfPlayer) {
         return
     }
 
     // Prevent multiple shuffle
-    const lastMutation = history.getLastMutationForPlayer(gameState.selfPlayer.oid)
+    const lastMutation = history.getLastMutationForPlayer(players.selfPlayer.oid)
     if (lastMutation && lastMutation.serializedMutation.name == 'shuffle') {
         useBusStore().alertWarning(`This stack is already shuffled.`)
         return

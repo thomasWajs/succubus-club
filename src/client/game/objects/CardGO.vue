@@ -57,7 +57,7 @@
 
     <!-- Card Outline -->
     <Rectangle
-        v-if="gameState.isPlayer"
+        v-if="players.isPlayer"
         ref="cardOutline"
         :key="key + 'cardOutline'"
         :visible="!!getCardOutlineColor"
@@ -153,7 +153,7 @@
         <!-- Influence -->
         <ButtonGo
             v-if="
-                card.isIn.uncontrolled && card.isMinion() && card.controller == gameState.selfPlayer
+                card.isIn.uncontrolled && card.isMinion() && card.controller == players.selfPlayer
             "
             ref="influenceButton"
             name="cardButton"
@@ -256,6 +256,7 @@ import { getCardScale, getOverlappingCards, getRegionScale } from '@/client/game
 import ButtonGo from '@/client/game/objects/ButtonGo.vue'
 import { useCommands } from '@/client/game/composables/useCommands.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
+import { usePlayersStore } from '@/client/state/players.ts'
 import { useCardDragDrop } from '@/client/game/composables/useCardDragDrop.ts'
 import { useCoreStore } from '@/client/store/core.ts'
 import PingCardFX from '@/client/game/objects/PingCardFX.vue'
@@ -271,6 +272,7 @@ const key = computed(() => regionName + card.oid.toString())
 
 const core = useCoreStore()
 const gameState = useGameStateStore()
+const players = usePlayersStore()
 const gameBus = useGameBusStore()
 const commands = useCommands()
 const { displayedTexture } = useCardTexture(card)
@@ -401,6 +403,10 @@ function bringToTop() {
     markersTexts.forEach(text => {
         if (text) container.bringToTop(text)
     })
+
+    // If the player is ousted, the ousted overlay always takes precedence
+    const bringOustedToTop = container.getData(PhaserDataKey.BringOustedToTop)
+    bringOustedToTop?.()
 }
 
 /**
@@ -411,7 +417,7 @@ const showOverlay = computed(() => {
     return (
         isHovered.value &&
         gameBus.selectedCards.length <= 1 &&
-        gameState.isPlayer &&
+        players.isPlayer &&
         !dragAttrs.isDragging &&
         !isTweening.value
     )

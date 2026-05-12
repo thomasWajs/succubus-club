@@ -20,6 +20,7 @@ import FloatingAction from '@/client/ui/context/floating/FloatingAction.vue'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { getCardRectangle, getScreenPoint } from '@/client/game/utils.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
+import { usePlayersStore } from '@/client/state/players.ts'
 import { display } from '@/client/game/display.ts'
 import { MinionActionType } from '@/shared/types/state.ts'
 import { declareAction, startTargetDeclaration } from '@/client/game/declaration.ts'
@@ -27,6 +28,7 @@ import { ACTION_TYPES } from '@/shared/const/model.ts'
 
 const gameBus = useGameBusStore()
 const gameState = useGameStateStore()
+const players = usePlayersStore()
 
 const selectedCard = computed(() => {
     if (
@@ -35,14 +37,14 @@ const selectedCard = computed(() => {
         gameBus.dragAttrs ||
         gameState.action ||
         gameState.combat ||
-        gameState.activePlayer != gameState.selfPlayer
+        gameState.activePlayer != players.selfPlayer
     ) {
         return
     }
     const card = gameBus.selectedCards.length == 1 && gameBus.selectedCards[0]
     return (
             card &&
-                [gameState.selfPlayer?.ready, gameState.selfPlayer?.torpor].includes(card.region) &&
+                [players.selfPlayer?.ready, players.selfPlayer?.torpor].includes(card.region) &&
                 !card.isLocked &&
                 card.isMinion()
         ) ?

@@ -149,12 +149,22 @@ export class GameState {
         return owners
     }
 
-    /**
-     * Cards with an effect in the current phase
-     */
+    // Cards with an effect in the current phase
     get cardsDuringCurrentPhase(): Card[] {
         return Object.values(this.cards).filter(card => card.isDuringCurrentPhase())
     }
+
+    get turnPhase() {
+        return TurnSequence[this.turnPhaseIndex]
+    }
+
+    get theEdgeController(): Player | undefined {
+        return this.theEdgeControllerOid ? this.players[this.theEdgeControllerOid] : undefined
+    }
+
+    /**
+     * Players getters
+     */
 
     // Not impacted by ousted players
     get orderedPlayers(): Player[] {
@@ -166,24 +176,13 @@ export class GameState {
         return this.orderedPlayers.filter(player => !player.isOusted)
     }
 
-    get turnPhase() {
-        return TurnSequence[this.turnPhaseIndex]
-    }
-
     get activePlayer(): Player | undefined {
         return this.competingPlayers[this.activePlayerIndex]
     }
 
-    get theEdgeController(): Player | undefined {
-        return this.theEdgeControllerOid ? this.players[this.theEdgeControllerOid] : undefined
-    }
-
-    // Trigger special layout for 2-players games
-    get is2pGame(): boolean {
-        return Object.keys(this.players).length == 2
-    }
-
-    // Methods
+    /**
+     * Methods / store actions
+     */
 
     createPlayer(name: string, rgbaColor: string, permId: PermanentId): Player {
         const player = new Player(
@@ -265,7 +264,7 @@ export class GameState {
             const delta = newTurnNumber - this.turnNumber
             this.turnNumber = newTurnNumber
             this.activePlayerIndex =
-                (this.activePlayerIndex + delta + this.competingPlayers.length) %
+                (this.activePlayerIndex + delta + this.orderedPlayers.length) %
                 this.competingPlayers.length
 
             // Forward

@@ -33,7 +33,7 @@
     />
 
     <Rectangle
-        v-if="gameState.isPlayer"
+        v-if="players.isPlayer"
         ref="cardOutline"
         :key="key + 'cardOutline'"
         :visible="!dragAttrs.isDragging && !!getCardOutlineColor"
@@ -68,7 +68,7 @@ import { useCardClick } from '@/client/game/composables/useCardClick.ts'
 import { useCardOutline } from '@/client/game/composables/useCardOutline.ts'
 import { useCardDragDrop } from '@/client/game/composables/useCardDragDrop.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
-import { useGameStateStore } from '@/client/store/gameState.ts'
+import { usePlayersStore } from '@/client/state/players.ts'
 import { getCardScale, reorderCardIndex } from '@/client/game/utils.ts'
 import { useCardTexture } from '@/client/game/composables/useCardTexture.ts'
 import { AnyCardRegion } from '@/shared/types/model.ts'
@@ -82,7 +82,7 @@ const { card, cardRegion, displayIndex } = defineProps<{
 }>()
 
 const gameBus = useGameBusStore()
-const gameState = useGameStateStore()
+const players = usePlayersStore()
 const { displayedTexture } = useCardTexture(card)
 
 const image = refObj<GameObjects.Image>()

@@ -3,6 +3,7 @@ import { gameMutations } from '@/shared/state/gameMutations.ts'
 import Phaser from 'phaser'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
+import { usePlayersStore } from '@/client/state/players.ts'
 import { TurnSequence } from '@/shared/const/model.ts'
 import { Card } from '@/shared/model/Card.ts'
 import { resetCamera } from '@/client/game/camera.ts'
@@ -35,6 +36,7 @@ function createCommands(): Commands {
     const core = useCoreStore()
     const gameBus = useGameBusStore()
     const gameState = useGameStateStore()
+    const players = usePlayersStore()
 
     // Initialize shortcuts object if it doesn't exist
     if (!core.userProfile.preferences.keyBindings) {
@@ -160,13 +162,13 @@ function createCommands(): Commands {
             repr: 'C',
             keyCodes: [KeyCodes.C],
             isDisabled: () => {
-                return gameState.selfPlayer?.crypt.isEmpty ?? true
+                return players.selfPlayer?.crypt.isEmpty ?? true
             },
             trigger: () => {
-                if (!gameState.selfPlayer) {
+                if (!players.selfPlayer) {
                     return
                 }
-                gameMutations.drawCrypt.actSelf({ player: gameState.selfPlayer })
+                gameMutations.drawCrypt.actSelf({ player: players.selfPlayer })
             },
         }),
         DrawLib: createCommand({
@@ -175,13 +177,13 @@ function createCommands(): Commands {
             repr: 'D',
             keyCodes: [KeyCodes.D],
             isDisabled: () => {
-                return gameState.selfPlayer?.library.isEmpty ?? true
+                return players.selfPlayer?.library.isEmpty ?? true
             },
             trigger: () => {
-                if (!gameState.selfPlayer) {
+                if (!players.selfPlayer) {
                     return
                 }
-                gameMutations.drawLibrary.actSelf({ player: gameState.selfPlayer })
+                gameMutations.drawLibrary.actSelf({ player: players.selfPlayer })
             },
         }),
 
@@ -296,11 +298,11 @@ function createCommands(): Commands {
             repr: 'U',
             keyCodes: [KeyCodes.U],
             trigger: () => {
-                if (!gameState.selfPlayer) {
+                if (!players.selfPlayer) {
                     return
                 }
                 gameMutations.unlockAll.actSelf({
-                    player: gameState.selfPlayer,
+                    player: players.selfPlayer,
                 })
             },
         }),
@@ -311,14 +313,14 @@ function createCommands(): Commands {
             repr: 'R',
             keyCodes: [KeyCodes.R],
             isDisabled: () => {
-                return gameState.selfPlayer?.hand.isEmpty ?? true
+                return players.selfPlayer?.hand.isEmpty ?? true
             },
             trigger: () => {
-                if (!gameState.selfPlayer) {
+                if (!players.selfPlayer) {
                     return
                 }
                 gameMutations.discardAtRandom.actSelf({
-                    card: gameState.selfPlayer.hand.getRandomCard(),
+                    card: players.selfPlayer.hand.getRandomCard(),
                 })
             },
         }),
@@ -425,24 +427,24 @@ function createCommands(): Commands {
 
         DecreaseScale: createCommand({
             trigger: () => {
-                if (!gameState.selfPlayer) {
+                if (!players.selfPlayer) {
                     return
                 }
                 gameMutations.UI_changeScale.actSelf({
-                    player: gameState.selfPlayer,
-                    scale: gameState.selfPlayer.scale - 0.1,
+                    player: players.selfPlayer,
+                    scale: players.selfPlayer.scale - 0.1,
                 })
             },
         }),
 
         IncreaseScale: createCommand({
             trigger: () => {
-                if (!gameState.selfPlayer) {
+                if (!players.selfPlayer) {
                     return
                 }
                 gameMutations.UI_changeScale.actSelf({
-                    player: gameState.selfPlayer,
-                    scale: gameState.selfPlayer.scale + 0.1,
+                    player: players.selfPlayer,
+                    scale: players.selfPlayer.scale + 0.1,
                 })
             },
         }),

@@ -37,6 +37,13 @@
                 </span>
 
                 <span
+                    class="visibility-icon"
+                    :title="players.hiddenPlayers.has(player.oid) ? 'Hidden' : 'Visible'"
+                    @click="players.toggleHidden(player.oid)"
+                    >{{ players.hiddenPlayers.has(player.oid) ? '🙈' : '👁️' }}</span
+                >
+
+                <span
                     v-if="player.isBot"
                     class="role-icon"
                 >
@@ -79,10 +86,12 @@ import { computed, ref } from 'vue'
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import { GameType } from '@/shared/types/state.ts'
 import { useCoreStore } from '@/client/store/core.ts'
+import { usePlayersStore } from '@/client/state/players.ts'
 
 const core = useCoreStore()
 const gameState = useGameStateStore()
 const multiplayer = useMultiplayerStore()
+const players = usePlayersStore()
 
 const isCollapsed = ref(true)
 
@@ -191,6 +200,12 @@ $window-right: 340px;
             white-space: nowrap;
             min-width: 0; /* Important for ellipsis to work */
             flex-grow: 1;
+        }
+
+        .visibility-icon {
+            flex-shrink: 0;
+            font-size: 12px;
+            cursor: pointer;
         }
 
         .role-icon {

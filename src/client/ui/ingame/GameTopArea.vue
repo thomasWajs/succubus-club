@@ -17,7 +17,7 @@
         <div class="turn-controls">
             <div class="turn">
                 <CommandButton
-                    v-if="gameState.isPlayer"
+                    v-if="players.isPlayer"
                     :command="commands.BackTurn"
                 >
                     &lt;
@@ -32,7 +32,7 @@
                 </span>
 
                 <CommandButton
-                    v-if="gameState.isPlayer"
+                    v-if="players.isPlayer"
                     :command="commands.AdvanceTurn"
                 >
                     &gt;
@@ -58,7 +58,7 @@
 
             <div class="phases">
                 <CommandButton
-                    v-if="gameState.isPlayer"
+                    v-if="players.isPlayer"
                     :command="commands.BackTurnPhase"
                 />
 
@@ -83,7 +83,7 @@
                 </template>
 
                 <CommandButton
-                    v-if="gameState.isPlayer"
+                    v-if="players.isPlayer"
                     :command="commands.AdvanceTurnPhase"
                 />
             </div>
@@ -425,12 +425,12 @@
 
         <!-- Permanent Mutations -->
         <div
-            v-if="gameState.isPlayer"
+            v-if="players.isPlayer"
             class="game-mutations"
         >
             <div>
                 <CommandButton :command="commands.DecreaseScale"> - </CommandButton>
-                {{ `${Math.round(((gameState.selfPlayer?.scale ?? 0) * 100) / 10) * 10}%` }}
+                {{ `${Math.round(((players.selfPlayer?.scale ?? 0) * 100) / 10) * 10}%` }}
                 <CommandButton :command="commands.IncreaseScale"> + </CommandButton>
             </div>
             <CommandButton :command="commands.UnlockAll"> Unlock All </CommandButton>
@@ -451,6 +451,7 @@
 import { computed } from 'vue'
 import { useBusStore, useGameBusStore } from '@/client/store/bus.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
+import { usePlayersStore } from '@/client/state/players.ts'
 import { TOP_AREA_HEIGHT, TOP_AREA_WIDTH, TOP_AREA_X, WORLD_WIDTH } from '@/shared/const/game.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
 import { ActionVerb, TurnPhase, TurnSequence } from '@/shared/const/model.ts'
@@ -476,6 +477,7 @@ import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
 
 const core = useCoreStore()
 const gameState = useGameStateStore()
+const players = usePlayersStore()
 const history = useHistoryStore()
 const bus = useBusStore()
 const gameBus = useGameBusStore()
@@ -520,7 +522,7 @@ const centralContent = computed(() => ({
     action: !!gameState.action,
     declarationHint: !!gameBus.actionDeclaration.type,
     timer: multiplayer.selfIsHost && !timer.timerChosen.value && gameState.timerStartTime === null,
-    nextTurn: gameState.turnPhase == TurnPhase.Discard && gameState.selfIsActive,
+    nextTurn: gameState.turnPhase == TurnPhase.Discard && players.selfIsActive,
     theEdge:
         gameState.turnPhase == TurnPhase.Unlock &&
         gameState.theEdgeController &&
@@ -531,7 +533,7 @@ const centralContent = computed(() => ({
  * Minion Action
  */
 
-const selfHasImpulse = computed(() => gameState.action?.impulsePlayer == gameState.selfPlayer)
+const selfHasImpulse = computed(() => gameState.action?.impulsePlayer == players.selfPlayer)
 
 /**
  * Timer

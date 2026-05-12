@@ -4,6 +4,7 @@ import Phaser, { GameObjects } from 'phaser'
 import { DRAG_DISTANCE_THRESHOLD } from '@/shared/const/game.ts'
 import { useCommands } from '@/client/game/composables/useCommands.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
+import { usePlayersStore } from '@/client/state/players.ts'
 import { PhaserDataKey, RegionCategory } from '@/client/game/types.ts'
 import { getCardDragged, getCardRegionDraggedOver, getWorldPoint } from '@/client/game/utils.ts'
 import { resetDeclaration, validateTargetDeclaration } from '@/client/game/declaration.ts'
@@ -35,10 +36,10 @@ function resetSelectionArea() {
 
 function onPointerDown(pointer: Pointer, gameObjects: GameObjects.GameObject[]) {
     const gameBus = useGameBusStore()
-    const gameState = useGameStateStore()
+    const players = usePlayersStore()
 
     // Spectators can't interact with the game
-    if (gameState.isSpectator) {
+    if (players.isSpectator) {
         return
     }
 
@@ -77,7 +78,7 @@ function onPointerDown(pointer: Pointer, gameObjects: GameObjects.GameObject[]) 
         pointer.leftButtonDown()
     ) {
         const player = gameObject?.parentContainer?.getData(PhaserDataKey.Player)
-        if (player && player != gameState.selfPlayer) {
+        if (player && player != players.selfPlayer) {
             validateTargetDeclaration(player)
         }
     } else if (gameObjects.length == 0 || type != 'Image') {
@@ -163,14 +164,14 @@ function onDragEnd() {
  */
 
 export function setupKeyboardHandlers(scene: Phaser.Scene) {
-    const gameState = useGameStateStore()
+    const players = usePlayersStore()
     const commands = useCommands()
 
     if (!scene.input.keyboard) {
         return
     }
     // Spectators can't interact with the game
-    if (gameState.isSpectator) {
+    if (players.isSpectator) {
         return
     }
 

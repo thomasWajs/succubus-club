@@ -9,7 +9,7 @@
         </div>
 
         <input
-            v-if="gameState.isPlayer"
+            v-if="players.isPlayer"
             v-model="gameBus.wieldCardStack.searchString"
             class="search-input"
             placeholder="Search for a card..."
@@ -17,14 +17,14 @@
         />
 
         <button
-            v-if="gameState.isPlayer"
+            v-if="players.isPlayer"
             class="game-button shuffle-button"
             @click="shuffleCardRegion(cardRegion)"
         >
             Shuffle
         </button>
 
-        <div v-if="gameState.isPlayer">
+        <div v-if="players.isPlayer">
             Reveal
             <template v-if="gameBus.selectedCards.length > 0">
                 {{ gameBus.selectedCards.length }} Card(s)
@@ -42,8 +42,8 @@
                 />
 
                 <RevelationButton
-                    v-if="gameState.selfPlayer"
-                    :viewer="gameState.selfPlayer"
+                    v-if="players.selfPlayer"
+                    :viewer="players.selfPlayer"
                     :cardRegion="cardRegion"
                 />
 
@@ -52,7 +52,7 @@
                     :key="i"
                 >
                     <RevelationButton
-                        :viewer="gameState.getNthNeighbour(i)"
+                        :viewer="players.getNthNeighbour(i)"
                         :cardRegion="cardRegion"
                     />
                 </template>
@@ -66,6 +66,7 @@ import { ALL_PLAYERS } from '@/shared/types/state.ts'
 import RevelationButton from '@/client/ui/ingame/RevelationButton.vue'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
+import { usePlayersStore } from '@/client/state/players.ts'
 import { CSSProperties } from 'vue'
 import { AnyCardRegion } from '@/shared/types/model.ts'
 import { shuffleCardRegion } from '@/client/state/gameMutations.ts'
@@ -76,6 +77,7 @@ defineProps<{
 }>()
 
 const gameState = useGameStateStore()
+const players = usePlayersStore()
 const gameBus = useGameBusStore()
 </script>
 

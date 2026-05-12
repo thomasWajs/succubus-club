@@ -16,7 +16,7 @@ import { ensureGameRoom, receiveLaunchGame } from '@/client/multiplayer/room.ts'
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import { Communication } from '@/client/multiplayer/communication/index.ts'
 import { AnyCardRegion } from '@/shared/types/model.ts'
-import { useGameStateStore } from '@/client/store/gameState.ts'
+import { usePlayersStore } from '@/client/state/players.ts'
 import { applyGameResync, ensureClock, receiveRejectedMutation } from '@/client/multiplayer/sync.ts'
 import { useCoreStore } from '@/client/store/core.ts'
 import { useBusStore } from '@/client/store/bus.ts'
@@ -59,10 +59,10 @@ export async function onReceiveGameSync(message: ScsGameStateMessage) {
  */
 export async function sendShuffleRequest(cardRegion: AnyCardRegion) {
     const core = useCoreStore()
-    const gameState = useGameStateStore()
+    const players = usePlayersStore()
     const multiplayer = useMultiplayerStore()
 
-    if (!gameState.selfPlayer) {
+    if (!players.selfPlayer) {
         throw new Error('Cannot shuffle without a self player defined')
     }
 

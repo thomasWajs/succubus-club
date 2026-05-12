@@ -1,5 +1,6 @@
 <template>
     <Container
+        v-if="!players.hiddenPlayers.has(player.oid)"
         ref="playArea"
         @create="onContainerCreate"
     >
@@ -44,7 +45,7 @@
 
         <!-- Vertical separator line -->
         <Rectangle
-            v-if="player == gameState.selfPlayer"
+            v-if="player == players.selfPlayer"
             :key="'verticalSeparatorKey' + verticalSeparatorKey"
             :origin="0"
             :x="separators.vertical.dragX ? separators.vertical.dragX : player.separators.verticalX"
@@ -61,7 +62,7 @@
 
         <!-- Horizontal separator line -->
         <Rectangle
-            v-if="player == gameState.selfPlayer"
+            v-if="player == players.selfPlayer"
             key="horizontalSeparator"
             :origin="0"
             :x="0"
@@ -99,7 +100,7 @@
             :color="playerColor"
             :cardRegion="player.library"
             :showTopCard="true"
-            :draw="player == gameState.selfPlayer ? 'library' : undefined"
+            :draw="player == players.selfPlayer ? 'library' : undefined"
         />
         <CardStackRegionGO
             key="Crypt"
@@ -110,7 +111,7 @@
             :color="playerColor"
             :cardRegion="player.crypt"
             :showTopCard="true"
-            :draw="player == gameState.selfPlayer ? 'crypt' : undefined"
+            :draw="player == players.selfPlayer ? 'crypt' : undefined"
         />
         <CardStackRegionGO
             key="Removed"
@@ -133,19 +134,44 @@
             :showTopCard="false"
         />
 
+        <Rectangle
+            v-if="player.isOusted"
+            ref="oustedOverlay"
+            :origin="0"
+            :x="0"
+            :y="0"
+            :width="PLAY_AREA_WIDTH"
+            :height="PLAY_AREA_HEIGHT"
+            :fillColor="0x808080"
+            :alpha="0.5"
+        />
+
         <Text
             v-if="player.isOusted"
-            key="Ousted"
+            ref="oustedText"
             :originY="0.4"
             :originX="0.5"
             :x="PLAY_AREA_WIDTH / 2"
-            :y="CONTROLLED_ZONE_HEIGHT / 2"
+            :y="CONTROLLED_ZONE_HEIGHT / 2 - 40"
             text="OUSTED"
             :style="{
                 color: '#a63446',
                 fontSize: '52px',
                 fontStyle: 'bold',
             }"
+        />
+
+        <ButtonGo
+            v-if="player.isOusted"
+            ref="hidePLayAreaButton"
+            name="hidePLayAreaButton"
+            :x="PLAY_AREA_WIDTH / 2"
+            :y="CONTROLLED_ZONE_HEIGHT / 2 + 40"
+            :width="200"
+            :height="50"
+            text="Hide Play Area"
+            :textStyle="{ fontSize: '20px' }"
+            @click="players.toggleHidden(player.oid)"
         />
 
         <Rectangle
@@ -174,14 +200,14 @@
             :strokeColor="Colors.ALIGNMENT_GUIDE.color"
         />
 
-        <CardGroupGO v-if="player == gameState.selfPlayer" />
+        <CardGroupGO v-if="player == players.selfPlayer" />
     </Container>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import Phaser, { GameObjects } from 'phaser'
-import { Container, Line, Rectangle, Text } from 'phavuer'
+import { Container, Line, Rectangle, refObj, Text } from 'phavuer'
 import { Colors } from '@/client/colors.ts'
 import {
     ALIGNMENT_GUIDE_OVERSHOOT,
@@ -204,25 +230,43 @@ import {
 import RegionGO from '@/client/game/objects/RegionGO.vue'
 import CardStackRegionGO from '@/client/game/objects/CardStackRegionGO.vue'
 import { Player } from '@/shared/model/Player.ts'
-import { useGameStateStore } from '@/client/store/gameState.ts'
 import PlayerBarGo from '@/client/game/objects/PlayerBarGo.vue'
 import { PhaserDataKey } from '@/client/game/types.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
+import { usePlayersStore } from '@/client/state/players.ts'
 import { GUIDE_VERTICAL } from '@/shared/types/state.ts'
 import CardGroupGO from '@/client/game/objects/CardGroupGO.vue'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
 import { Snap } from '@/shared/utils.ts'
 import { getPlayerColor } from '@/client/game/utils.ts'
+import ButtonGo from '@/client/game/objects/ButtonGo.vue'
 
 const { player } = defineProps<{
     player: Player
 }>()
 
-const gameState = useGameStateStore()
 const gameBus = useGameBusStore()
+const players = usePlayersStore()
 
+const oustedOverlay = refObj<GameObjects.Rectangle>()
+const oustedText = refObj<GameObjects.Text>()
+const hidePLayAreaButton = ref<typeof ButtonGo>()
 function onContainerCreate(container: GameObjects.Container) {
     container.setData(PhaserDataKey.Player, player)
+
+    function bringOustedToTop() {
+        if (!player.isOusted) {
+            return
+        }
+        if (oustedOverlay.value) {
+            container.bringToTop(oustedOverlay.value)
+        }
+        if (oustedText.value) {
+            container.bringToTop(oustedText.value)
+        }
+        hidePLayAreaButton.value?.bringToTop()
+    }
+    container.setData(PhaserDataKey.BringOustedToTop, bringOustedToTop)
 }
 
 const isHovered = ref(false)
@@ -233,9 +277,7 @@ function onPointerOut() {
     isHovered.value = false
 }
 const playerIsOutlined = computed(() => {
-    return (
-        isHovered.value && gameBus.declaringTargetOrigin != null && player != gameState.selfPlayer
-    )
+    return isHovered.value && gameBus.declaringTargetOrigin != null && player != players.selfPlayer
 })
 
 const playerColor = getPlayerColor(player)
@@ -301,11 +343,11 @@ function onVerticalSeparatorDrag({}, dragX: number) {
 }
 
 function onVerticalSeparatorDragEnd() {
-    if (!gameState.selfPlayer) {
+    if (!players.selfPlayer) {
         return
     }
     gameMutations.UI_changeSeparators.actSelf({
-        player: gameState.selfPlayer,
+        player: players.selfPlayer,
         verticalX: separators.vertical.dragX,
     })
     separators.vertical.dragX = 0
@@ -335,11 +377,11 @@ function onHorizontalSeparatorDrag({}, {}, dragY: number) {
 }
 
 function onHorizontalSeparatorDragEnd() {
-    if (!gameState.selfPlayer) {
+    if (!players.selfPlayer) {
         return
     }
     gameMutations.UI_changeSeparators.actSelf({
-        player: gameState.selfPlayer,
+        player: players.selfPlayer,
         horizontalY: separators.horizontal.dragY,
     })
     separators.horizontal.dragY = 0

@@ -52,13 +52,13 @@ import Phaser, { GameObjects } from 'phaser'
 import { Rectangle, Text } from 'phavuer'
 import { Colors } from '@/client/colors.ts'
 import CardGO from '@/client/game/objects/CardGO.vue'
-import { useGameStateStore } from '@/client/store/gameState.ts'
+import { usePlayersStore } from '@/client/state/players.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { PhaserDataKey, RegionCategory } from '@/client/game/types.ts'
 import { AnyCardRegion } from '@/shared/types/model.ts'
 import Color = Phaser.Display.Color
 
-const gameState = useGameStateStore()
+const players = usePlayersStore()
 const gameBus = useGameBusStore()
 
 const { cardRegion } = defineProps<{
@@ -72,7 +72,7 @@ const { cardRegion } = defineProps<{
 
 const highlightDropZone = computed(() => {
     return (
-        gameState.isPlayer && // don't highlight for spectators
+        players.isPlayer && // don't highlight for spectators
         gameBus.dragOver && // A drag is in progress
         gameBus.dragOver.cardRegion?.oid == cardRegion.oid && // This region is dragged over
         gameBus.dragOver.card.region.oid != cardRegion.oid // THe dragged card is not already in this region

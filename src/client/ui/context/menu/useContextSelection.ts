@@ -2,12 +2,14 @@ import { useGameBusStore } from '@/client/store/bus.ts'
 import { computed } from 'vue'
 import { Minion } from '@/shared/model/Card.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
+import { usePlayersStore } from '@/client/state/players.ts'
 import { useCoreStore } from '@/client/store/core.ts'
 import { useCommands } from '@/client/game/composables/useCommands.ts'
 
 export function useContextSelection() {
     const core = useCoreStore()
     const gameState = useGameStateStore()
+    const players = usePlayersStore()
     const gameBus = useGameBusStore()
     const commands = useCommands()
 
@@ -22,6 +24,7 @@ export function useContextSelection() {
     return {
         core,
         gameState,
+        players,
         gameBus,
         commands,
         firstCard,

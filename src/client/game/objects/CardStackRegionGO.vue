@@ -108,7 +108,7 @@ import { Image, Rectangle, refObj, Text } from 'phavuer'
 import { Colors } from '@/client/colors.ts'
 import { CARD_IN_STACK_SCALE, CARD_OUTLINE_THICKNESS } from '@/shared/const/game.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
-import { useGameStateStore } from '@/client/store/gameState.ts'
+import { usePlayersStore } from '@/client/state/players.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { PhaserDataKey, RegionCategory } from '@/client/game/types.ts'
 import { positionContextMenu } from '@/client/game/utils.ts'
@@ -129,7 +129,7 @@ const { cardRegion, draw } = defineProps<{
     draw?: 'crypt' | 'library'
 }>()
 
-const gameState = useGameStateStore()
+const players = usePlayersStore()
 const gameBus = useGameBusStore()
 
 const image = refObj<GameObjects.Image>()
@@ -160,7 +160,7 @@ function onBoundariesCreate(boundaries: GameObjects.Rectangle) {
 
 const highlightDropZone = computed(() => {
     return (
-        gameState.isPlayer && // don't highlight for spectators
+        players.isPlayer && // don't highlight for spectators
         gameBus.dragOver && // A drag is in progress
         gameBus.dragOver.cardRegion?.oid == cardRegion.oid && // This region is dragged over
         gameBus.dragOver.card.region.oid != cardRegion.oid // THe dragged card is not already in this region
@@ -224,17 +224,17 @@ function onImageCreate(image: GameObjects.Image) {
  */
 
 function onImagePointerDown(pointer: Pointer) {
-    if (!gameState.selfPlayer) {
+    if (!players.selfPlayer) {
         return
     }
     if (pointer.leftButtonDown()) {
         if (draw == 'library') {
             gameMutations.drawLibrary.actSelf({
-                player: gameState.selfPlayer,
+                player: players.selfPlayer,
             })
         } else if (draw == 'crypt') {
             gameMutations.drawCrypt.actSelf({
-                player: gameState.selfPlayer,
+                player: players.selfPlayer,
             })
         }
     } else if (pointer.rightButtonDown() && topCard.value) {

@@ -12,6 +12,8 @@ export enum PhaserDataKey {
     CardRegionOid = 'cardRegion',
     RegionCategory = 'regionCategory',
     Player = 'player',
+
+    BringOustedToTop = 'bringOustedToTop',
 }
 
 export enum RegionCategory {

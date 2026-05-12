@@ -3,12 +3,12 @@ import { acceptHMRUpdate } from 'pinia'
 import { defineOptionStore } from 'pinia-class-transformer'
 import { HistoryStore } from '@/shared/state/history.ts'
 import { MutationHistoryEntry } from '@/shared/types/history.ts'
-import { useGameStateStore } from '@/client/store/gameState.ts'
+import { usePlayersStore } from '@/client/state/players.ts'
 import { AnyGameMutation } from '@/shared/state/gameMutations.ts'
 
 export class ClientHistoryStore extends HistoryStore {
     get nextCancellableMutation(): MutationHistoryEntry | null {
-        const gameState = useGameStateStore()
+        const players = usePlayersStore()
 
         // Search for the latest mutation that can be cancelled
         for (let i = this.gameMutations.length - 1; i >= 0; i--) {
@@ -32,7 +32,7 @@ export class ClientHistoryStore extends HistoryStore {
                 continue
             }
 
-            if (mutation.serializedMutation.authorOid != gameState.selfPlayer?.oid) {
+            if (mutation.serializedMutation.authorOid != players.selfPlayer?.oid) {
                 continue
             }
 
