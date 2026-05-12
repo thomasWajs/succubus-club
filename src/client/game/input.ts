@@ -180,7 +180,7 @@ export function setupKeyboardHandlers(scene: Phaser.Scene) {
 
     for (const command of Object.values(commands)) {
         for (const keyCode of command.keyCodes) {
-            const key = scene.input.keyboard.addKey(keyCode, false)
+            const key = scene.input.keyboard.addKey(keyCode, true)
             key.on('down', () => {
                 if (!command.isDisabled()) {
                     command.trigger()
