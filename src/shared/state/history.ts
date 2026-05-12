@@ -124,8 +124,12 @@ export class HistoryStore {
         const archivedHistory: HistoryStore = new HistoryStore()
         if (this.archive !== '') {
             const decompressedArchive = LZString.decompress(this.archive)
-            const serializedArchive: SerializedHistory = JSON.parse(decompressedArchive)
-            deserializeHistory(gameId, serializedArchive, archivedHistory)
+            if (decompressedArchive) {
+                const serializedArchive: SerializedHistory = JSON.parse(decompressedArchive)
+                if (serializedArchive) {
+                    deserializeHistory(gameId, serializedArchive, archivedHistory)
+                }
+            }
         }
         return archivedHistory
     }
