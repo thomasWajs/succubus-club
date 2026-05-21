@@ -5,16 +5,6 @@
         id="MainMenu"
         class="main-content"
     >
-        <div class="release-banner">
-            <p>
-                The latest update brings major internal changes with the arrival of the Succubus
-                Club Server (SCS).
-                <br /><br />
-                Because of the scale of these changes, you might encounter hiccups here and there.
-                If you run into anything weird, please report it!
-            </p>
-        </div>
-
         <div id="Beta">BETA</div>
 
         <img
@@ -154,20 +144,6 @@ const showMobileMessage = !screenBigEnough && !isCrawler()
 </script>
 
 <style lang="scss" scoped>
-.release-banner {
-    @include flex-center;
-    background: $shadow-teal;
-    border-bottom: 1px solid $lighter-teal;
-    padding: 0.5rem 1rem;
-    margin: 1rem 0;
-    color: $ghost-white;
-    font-size: 1.05rem;
-    font-weight: 500;
-    line-height: 1.4;
-    z-index: 850;
-    max-width: 750px;
-}
-
 #Beta {
     position: absolute;
     top: 80px;
