@@ -119,7 +119,8 @@ export class HistoryStore {
     setArchiveHistory(archivedHistory: HistoryStore) {
         try {
             const serializedArchive = serializeHistory(archivedHistory, false)
-            this.archive = LZString.compress(JSON.stringify(serializedArchive))
+            // Don't use LZString.compress, as the resulting string won't pass correctly on the network
+            this.archive = LZString.compressToUTF16(JSON.stringify(serializedArchive))
         } catch (error) {
             getLogger().captureException(error)
         }
@@ -127,13 +128,12 @@ export class HistoryStore {
 
     getArchivedHistory(gameId: GameId): HistoryStore {
         const archivedHistory: HistoryStore = new HistoryStore()
+
         try {
             if (this.archive !== '') {
-                const decompressedArchive = LZString.decompress(this.archive)
+                const decompressedArchive = LZString.decompressFromUTF16(this.archive)
                 const serializedArchive: SerializedHistory = JSON.parse(decompressedArchive)
-                if (serializedArchive) {
-                    deserializeHistory(gameId, serializedArchive, archivedHistory)
-                }
+                deserializeHistory(gameId, serializedArchive, archivedHistory)
             }
         } catch (error) {
             getLogger().captureException(error)
