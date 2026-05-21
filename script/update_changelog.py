@@ -52,8 +52,10 @@ def update_changelog_ts(changelog_data, ts_path):
     features_str = ',\n        '.join([f"'{escape_string(feat)}'" for feat in changelog_data['features']])
     bugfixes_str = ',\n        '.join([f"'{escape_string(bug)}'" for bug in changelog_data['bugfixes']])
 
-    ts_content = f"""export const latestChangelog = {{
-    version: '{changelog_data['version']}',
+    ts_content = f"""import {{ CURRENT_VERSION }} from '@/shared/version.mjs'
+
+export const latestChangelog = {{
+    version: CURRENT_VERSION,
     date: '{changelog_data['date']}',
     features: [
         {features_str}
@@ -68,9 +70,17 @@ def update_changelog_ts(changelog_data, ts_path):
         f.write(ts_content)
 
 
+def update_version_mjs(version, version_path):
+    """Update version.mjs with the new version"""
+    content = f"export const CURRENT_VERSION = '{escape_string(version)}'\n"
+    with open(version_path, 'w', encoding='utf-8') as f:
+        f.write(content)
+
+
 def main():
     changelog_path = '../CHANGELOG.md'
     ts_path = '../src/client/changelog.ts'
+    version_path = '../src/shared/version.mjs'
 
     # Parse the latest version from CHANGELOG.md
     changelog_data = parse_latest_version_from_changelog(changelog_path)
@@ -84,19 +94,23 @@ def main():
         print(f"Version {changelog_data['version']} has no features or bugfixes. Skipping update.")
         return
 
+    # Update version.mjs (shared source of truth for client + API)
+    update_version_mjs(changelog_data['version'], version_path)
+    print(f"✓ Updated version.mjs with version {changelog_data['version']}")
+
     # Update changelog.ts
     update_changelog_ts(changelog_data, ts_path)
     print(f"✓ Updated changelog.ts with version {changelog_data['version']}")
     print(f"  Features: {len(changelog_data['features'])}")
     print(f"  Bugfixes: {len(changelog_data['bugfixes'])}")
 
-    # Run Prettier on the generated file
+    # Run Prettier on the generated files
     try:
         subprocess.run(
-            f'npx prettier --write {ts_path}',
+            f'npx prettier --write {ts_path} {version_path}',
             check=True, capture_output=True, text=True, shell=True
         )
-        print("✓ Formatted changelog.ts with Prettier")
+        print("✓ Formatted generated files with Prettier")
     except subprocess.CalledProcessError as e:
         print(f"⚠ Warning: Failed to run Prettier: {e.stderr}", file=sys.stderr)
     except FileNotFoundError:

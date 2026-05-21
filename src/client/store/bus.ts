@@ -33,6 +33,7 @@ export const useBusStore = defineStore('bus', {
 
         isResyncing: false,
         hasBeenIdle: false,
+        updateAvailable: false,
     }),
     actions: {
         alertError(message: string, { dismissible = true, blockInteraction = false } = {}) {

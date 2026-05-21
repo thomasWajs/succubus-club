@@ -11,6 +11,7 @@ import router from '@/client/ui/router.ts'
 import { useBusStore } from '@/client/store/bus.ts'
 import { screenBigEnough } from '@/client/game/display.ts'
 import { startIdleMonitoring } from '@/client/multiplayer/idle.ts'
+import { startVersionMonitoring } from '@/client/versionCheck.ts'
 import { initClient } from '@/client/initClient.ts'
 
 const app = createApp(App)
@@ -51,6 +52,7 @@ initClient()
 app.mount('#mountMe')
 
 startIdleMonitoring()
+startVersionMonitoring()
 
 // Load resources in the background
 // Don't bother to pull in 5Mb of resources if the user is on mobile.
