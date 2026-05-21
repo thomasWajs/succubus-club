@@ -23,6 +23,7 @@ import { AnyCardRegion } from '@/shared/types/model.ts'
 import { CommunicationMode } from '@/shared/types/multiplayer.ts'
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import { sendShuffleRequest } from '@/client/multiplayer/communication/scs.ts'
+import { getLogger } from '@/shared/registries.ts'
 
 /**
  * Apply the mutation locally, if it's valid.
@@ -31,16 +32,21 @@ export function applyMutationIfValid(gameMutation: AnyGameMutation) {
     const validity = gameMutation.canApply()
     if (validity.isValid) {
         gameMutation.apply()
-        useHistoryStore().addGameMutation(gameMutation)
 
-        // Special handlings
-        if (gameMutation instanceof ResolveAction || gameMutation instanceof ResolveBlock) {
-            useCoreStore().conductor?.onActionResolve()
-        }
+        try {
+            useHistoryStore().addGameMutation(gameMutation)
 
-        if (gameMutation instanceof PingCard) {
-            // This one is kinda special : we update the game bus instead of the game state
-            useGameBusStore().pingCard(gameMutation.params.card.oid)
+            // Special handlings
+            if (gameMutation instanceof ResolveAction || gameMutation instanceof ResolveBlock) {
+                useCoreStore().conductor?.onActionResolve()
+            }
+
+            if (gameMutation instanceof PingCard) {
+                // This one is kinda special : we update the game bus instead of the game state
+                useGameBusStore().pingCard(gameMutation.params.card.oid)
+            }
+        } catch (error) {
+            getLogger().captureException(error)
         }
     }
 }
