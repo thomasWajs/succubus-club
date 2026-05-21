@@ -375,7 +375,7 @@ function resolveBleed(action: MinionAction): void {
 
     gameMutations.changePool.act(action.actingMinion.controller, {
         player: action.target,
-        amount: -gameState.action.bleed,
+        amount: -Math.min(gameState.action.bleed, action.target.pool),
     })
 
     if (action.actingMinion.controller.oid != gameState.theEdgeControllerOid) {
