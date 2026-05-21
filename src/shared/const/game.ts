@@ -162,6 +162,7 @@ export const COUNTER_TEXT_STYLE = {
 }
 export const BLOOD_COUNTER_FILL_COLOR = 'rgb(150,0,0)'
 export const GREEN_COUNTER_FILL_COLOR = 'rgb(0,150,0)'
+export const ORANGE_COUNTER_FILL_COLOR = 'rgb(200,150,0)'
 
 /**
  * Button

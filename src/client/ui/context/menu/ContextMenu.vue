@@ -32,20 +32,6 @@
 
         <CommandContextMenuButton
             v-if="firstCard.isIn.controlled"
-            :command="commands.GainGreenCounter"
-        >
-            +1 Green Counter
-        </CommandContextMenuButton>
-
-        <CommandContextMenuButton
-            v-if="firstCard.isIn.controlled"
-            :command="commands.BurnGreenCounter"
-        >
-            -1 Green Counter
-        </CommandContextMenuButton>
-
-        <CommandContextMenuButton
-            v-if="firstCard.isIn.controlled"
             :command="commands.InvertLock"
             :closeOnClick="true"
         />
@@ -82,6 +68,13 @@
 
         <SubmenuContextMenuButton
             v-if="firstCard.isIn.controlled"
+            :submenuComponent="CountersSubmenu"
+        >
+            Counters
+        </SubmenuContextMenuButton>
+
+        <SubmenuContextMenuButton
+            v-if="firstCard.isIn.controlled"
             :disabled="!singleCard"
             :submenuComponent="MarkersSubmenu"
         >
@@ -106,6 +99,7 @@ import ContextMenuButton from '@/client/ui/context/menu/ContextMenuButton.vue'
 import CommandContextMenuButton from '@/client/ui/context/menu/CommandContextMenuButton.vue'
 import SubmenuContextMenuButton from '@/client/ui/context/menu/SubmenuContextMenuButton.vue'
 import MarkersSubmenu from '@/client/ui/context/menu/MarkersSubmenu.vue'
+import CountersSubmenu from '@/client/ui/context/menu/CountersSubmenu.vue'
 import { selfCanAttemptBlock } from '@/shared/state/actionState.ts'
 import InfrequentMenuButtons from '@/client/ui/context/menu/InfrequentMenuButtons.vue'
 import { useContextSelection } from '@/client/ui/context/menu/useContextSelection.ts'

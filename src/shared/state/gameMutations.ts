@@ -361,6 +361,49 @@ class ChangeGreenCounter extends ChangeCounterMutation {
 }
 
 /**
+ * Change Orange counter
+ */
+
+class ChangeOrangeCounter extends ChangeCounterMutation {
+    readonly syncMode = MutationSyncMode.Merge
+
+    getValidity() {
+        // There's no counters outside of the play area
+        if (!this.params.card.isIn.play)
+            return Invalid(
+                `${secureName(this.params.card, this.author)} : Cannot change counter because it is not in play`,
+            )
+
+        // Cannot get a negative counter amount
+        if (this.params.card.orangeCounter + this.params.amount < 0) {
+            return Invalid(
+                `${secureName(this.params.card, this.author)} : Cannot go below 0 counter`,
+            )
+        }
+
+        return VALID
+    }
+
+    protected updateGameState() {
+        this.params.card.orangeCounter = Math.max(
+            0,
+            this.params.card.orangeCounter + this.params.amount,
+        )
+    }
+
+    formatForLog() {
+        return `${this.params.amount > 0 ? '+' : ''}${this.params.amount} orange counter on ${CARD_LOG_PLACEHOLDER}`
+    }
+
+    getCancelMutation(): AnyGameMutation {
+        return gameMutations.changeOrangeCounter.createCancelMutation(this, {
+            card: this.params.card,
+            amount: this.params.amount * -1,
+        })
+    }
+}
+
+/**
  * Change Marker
  */
 interface ChangeMarkerParams extends GameMutationParams {
@@ -878,12 +921,12 @@ class MoveCardToRegion extends GameMutation<MoveCardToRegionParams> {
     protected updateGameState(gameState: GameState) {
         const card = this.params.card
 
-        const { isLocked, isFlipped, blood, greenCounter, markers } = this.card
+        const { isLocked, isFlipped, blood, greenCounter, orangeCounter, markers } = this.card
         this.previousState = {
             position: card.position,
             x: card.x,
             y: card.y,
-            propsInPlay: { isLocked, isFlipped, blood, greenCounter, markers },
+            propsInPlay: { isLocked, isFlipped, blood, greenCounter, orangeCounter, markers },
         }
 
         gameState.moveCardToRegion(card, this.params.toCardRegion, this.params.position)
@@ -1990,6 +2033,7 @@ function defineMutation<
 export const gameMutations = {
     changeBlood: defineMutation(ChangeBlood),
     changeGreenCounter: defineMutation(ChangeGreenCounter),
+    changeOrangeCounter: defineMutation(ChangeOrangeCounter),
     changeMarker: defineMutation(ChangeMarker),
     changePool: defineMutation(ChangePool),
     changeTheEdgeControl: defineMutation(ChangeTheEdgeControl),

@@ -236,6 +236,7 @@ export class GameState {
                 isFlipped: false,
                 blood: 0,
                 greenCounter: 0,
+                orangeCounter: 0,
                 markers: [],
             })
         }

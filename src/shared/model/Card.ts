@@ -44,6 +44,7 @@ export type PropertiesInPlay = {
     isFlipped: boolean
     blood: number
     greenCounter: number
+    orangeCounter: number
     markers: string[]
 }
 
@@ -61,6 +62,7 @@ export abstract class Card extends BaseModel implements PropertiesInPlay {
 
     blood = 0
     greenCounter = 0
+    orangeCounter = 0
 
     markers = [] as string[]
 

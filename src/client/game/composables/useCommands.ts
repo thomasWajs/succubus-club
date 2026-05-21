@@ -248,6 +248,31 @@ function createCommands(): Commands {
             },
         }),
 
+        GainOrangeCounter: createCardCommand({
+            name: 'GainOrangeCounter',
+            label: 'Gain Orange Counter',
+            repr: 'O',
+            keyCodes: [KeyCodes.B],
+            cardAction: (card: Card) => {
+                gameMutations.changeOrangeCounter.actSelf({
+                    card,
+                    amount: 1,
+                })
+            },
+        }),
+        BurnOrangeCounter: createCardCommand({
+            name: 'BurnOrangeCounter',
+            label: 'Burn Orange Counter',
+            repr: 'P',
+            keyCodes: [KeyCodes.N],
+            cardAction: (card: Card) => {
+                gameMutations.changeOrangeCounter.actSelf({
+                    card,
+                    amount: -1,
+                })
+            },
+        }),
+
         Influence: createCardCommand({
             name: 'Influence',
             label: 'Influence',
