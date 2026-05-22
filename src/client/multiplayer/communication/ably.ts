@@ -53,11 +53,16 @@ export async function disconnectRoom() {
     }
 
     const ably = getAbly()
+
     // Detaching from the channel will also leave the presence
     await detachChannel(_roomChannel)
-    // Releasing from the channel will also unsubscribe all listeners
-    ably.channels.release(_roomChannel.name)
-    _roomChannel = null
+
+    // _roomChannel may now be null because detachChannel is async
+    if (_roomChannel) {
+        // Releasing from the channel will also unsubscribe all listeners
+        ably.channels.release(_roomChannel.name)
+        _roomChannel = null
+    }
 }
 
 function isInRoom() {
