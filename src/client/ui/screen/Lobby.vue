@@ -248,7 +248,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
-import { connectIntoGame, joinGameRoom } from '@/client/multiplayer/room.ts'
+import { connectIntoGame, joinGameRoom, NotConnected } from '@/client/multiplayer/room.ts'
 import TopBar from '@/client/ui/components/TopBar.vue'
 import { useCoreStore } from '@/client/store/core.ts'
 import { CommunicationMode, GameRoom, ScsStatus } from '@/shared/types/multiplayer.ts'
@@ -356,7 +356,9 @@ async function startConnectIntoGame(gameRoom?: any) {
             message = `${message}: ${error.message}`
         }
         bus.alertError(message)
-        logging.captureException(error)
+        if (!(error instanceof NotConnected)) {
+            logging.captureException(error)
+        }
     } finally {
         isConnecting.value = false
     }

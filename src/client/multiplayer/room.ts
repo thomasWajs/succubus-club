@@ -48,6 +48,13 @@ import {
     scsCommunication,
 } from '@/client/multiplayer/communication/scs.ts'
 
+export class NotConnected extends Error {
+    constructor(message?: string) {
+        super(message)
+        this.name = 'NotConnected'
+    }
+}
+
 export function getCommunication(gameRoom?: GameRoom): Communication {
     if (!gameRoom) {
         const multiplayer = useMultiplayerStore()
@@ -55,7 +62,7 @@ export function getCommunication(gameRoom?: GameRoom): Communication {
     }
 
     if (!gameRoom) {
-        throw new Error(`Not connected to a game room`)
+        throw new NotConnected(`Not connected to a game room`)
     }
 
     if (gameRoom.communication == CommunicationMode.Ably) {
@@ -70,7 +77,7 @@ export function ensureGameRoom(): GameRoom {
     const comm = getCommunication()
 
     if (!comm.isInRoom() || !multiplayer.currentGameRoom) {
-        throw new Error(`Not in a game room`)
+        throw new NotConnected(`Not in a game room`)
     }
 
     return multiplayer.currentGameRoom
