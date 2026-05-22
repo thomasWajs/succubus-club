@@ -225,7 +225,12 @@ export async function detachChannel(channel: Ably.RealtimeChannel) {
         await channel.detach()
     } catch (error) {
         if (error instanceof Error && error.message !== 'Connection closed') {
-            logging.captureException(error)
+            if (
+                error.message !== 'Connection closed' &&
+                error.message !== 'Connection to server unavailable'
+            ) {
+                logging.captureException(error)
+            }
         }
     }
 }
