@@ -76,7 +76,14 @@ export class ScsClient {
                 }
             })
             .onError((_ws, event) => {
-                logging.captureMessage(`${event}`)
+                const error = event as ErrorEvent
+                logging.captureMessage(
+                    `SCS Websocket Error : ${JSON.stringify({
+                        type: error.type,
+                        message: error.message ?? 'No message',
+                        error: error.error?.toString(),
+                    })}`,
+                )
             })
             .build()
     }
