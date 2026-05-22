@@ -105,7 +105,9 @@ export class ScsClient {
     send(message: ScsClientMessage) {
         // Capture all errors on senders
         try {
-            this.ws.send(JSON.stringify(message))
+            if (this.ws) {
+                this.ws.send(JSON.stringify(message))
+            }
         } catch (e) {
             const bus = useBusStore()
             logging.captureException(e)
