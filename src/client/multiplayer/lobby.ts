@@ -80,8 +80,8 @@ export async function joinLobby() {
         multiplayer.userDecks[multiplayer.selfUser.permId] = multiplayer.selfDeck
     }
 
-    const { rtdb, lobbyChannel } = await useLobby()
     try {
+        const { rtdb, lobbyChannel } = await useLobby()
         if (lobbyChannel.state != 'attached') {
             return
         }
