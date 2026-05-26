@@ -151,7 +151,7 @@ export enum DisciplineLevel {
 }
 
 export const INITIAL_HAND_SIZE = 7
-export const INITIAL_CRYPT_SIZE = 4
+export const INITIAL_UNCONTROLLED_SIZE = 4
 export const INITIAL_POOL = 30
 
 export const MIN_LIB_SIZE = 60

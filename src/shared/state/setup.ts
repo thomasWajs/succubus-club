@@ -1,6 +1,6 @@
 import { Player } from '@/shared/model/Player.ts'
 import { DeckList } from '@/shared/types/gateway.ts'
-import { INITIAL_CRYPT_SIZE, INITIAL_HAND_SIZE } from '@/shared/const/model.ts'
+import { INITIAL_HAND_SIZE, INITIAL_UNCONTROLLED_SIZE } from '@/shared/const/model.ts'
 import {
     GRID_SIZE,
     ORDERED_PLAYER_COLORS,
@@ -30,6 +30,13 @@ function loadDeck(gameState: GameState, player: Player, deckList: DeckList) {
 export function setupPlayArea(gameState: GameState, player: Player, deckList: DeckList) {
     loadDeck(gameState, player, deckList)
 
+    if (player.library.length < INITIAL_HAND_SIZE) {
+        throw new Error(`Library must contains at least ${INITIAL_HAND_SIZE} cards`)
+    }
+    if (player.crypt.length < INITIAL_UNCONTROLLED_SIZE) {
+        throw new Error(`Crypt must contains at least ${INITIAL_UNCONTROLLED_SIZE} cards`)
+    }
+
     player.crypt.shuffle()
     player.library.shuffle()
 
@@ -39,7 +46,7 @@ export function setupPlayArea(gameState: GameState, player: Player, deckList: De
         gameState.moveCardToRegion(card, player.hand, i)
     }
     // Draw 4 crypt cards
-    for (let i = 0; i < INITIAL_CRYPT_SIZE; i++) {
+    for (let i = 0; i < INITIAL_UNCONTROLLED_SIZE; i++) {
         const card = player.crypt.firstCard
         card.x = VERTICAL_SEPARATOR_DEFAULT_X + 9 * GRID_SIZE * i
         card.y = TORPOR_ZONE_Y
