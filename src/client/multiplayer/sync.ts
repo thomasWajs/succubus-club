@@ -295,11 +295,11 @@ function applyPeerMutation(gameMutation: AnyGameMutation, remoteVersion?: Vector
     if (!validity.isValid) {
         logging.captureMessage(
             `Received an invalid game mutation : ${validity.reason} | ${JSON.stringify(gameMutation)}`,
-            'warning',
+            'debug',
         )
 
-        // TODO: this can happen when screwing up the game state due to concurrency/conflict. Force a state resync ?
-        // In the meantime, update the clock state to prevent further conflicts
+        // This can happen when screwing up the game state due to concurrency/conflict. Generally, it's not meaningful.
+        // Update the clock state to prevent further conflicts
         if (gameMutation.syncMode == MutationSyncMode.Ordered && remoteVersion) {
             multiplayer.objectClocks[gameMutation.versioningId].merge(remoteVersion)
             pruneConflictWindow(gameMutation.versioningId, remoteVersion)
