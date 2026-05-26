@@ -207,7 +207,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import Phaser, { GameObjects } from 'phaser'
-import { Container, Line, Rectangle, refObj, Text } from 'phavuer'
+import { Container, Line, Rectangle, refPhaserInstance, Text } from 'phavuer'
 import { Colors } from '@/client/colors.ts'
 import {
     ALIGNMENT_GUIDE_OVERSHOOT,
@@ -248,8 +248,8 @@ const { player } = defineProps<{
 const gameBus = useGameBusStore()
 const players = usePlayersStore()
 
-const oustedOverlay = refObj<GameObjects.Rectangle>()
-const oustedText = refObj<GameObjects.Text>()
+const oustedOverlay = refPhaserInstance<GameObjects.Rectangle>(null)
+const oustedText = refPhaserInstance<GameObjects.Text>(null)
 const hidePLayAreaButton = ref<typeof ButtonGo>()
 function onContainerCreate(container: GameObjects.Container) {
     container.setData(PhaserDataKey.Player, player)

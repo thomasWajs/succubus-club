@@ -75,7 +75,7 @@
 <script setup lang="ts">
 import { computed, ref, toRef } from 'vue'
 import { GameObjects } from 'phaser'
-import { FxGlow, Image, Rectangle, refObj } from 'phavuer'
+import { FxGlow, Image, Rectangle, refPhaserInstance } from 'phavuer'
 
 import { Colors } from '@/client/colors.ts'
 import {
@@ -115,8 +115,8 @@ const gameBus = useGameBusStore()
 const gameState = useGameStateStore()
 const commands = useCommands()
 const { displayedTexture } = useCardTexture(card)
-const image = refObj<GameObjects.Image>()
-const cardOutline = refObj<GameObjects.Rectangle>()
+const image = refPhaserInstance<GameObjects.Image>(null)
+const cardOutline = refPhaserInstance<GameObjects.Rectangle>(null)
 const playButton = ref<typeof ButtonGo>()
 const discardButton = ref<typeof ButtonGo>()
 
