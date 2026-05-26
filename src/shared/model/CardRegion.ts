@@ -25,7 +25,9 @@ export class CardRegion<CardType extends Card> extends BaseModel {
     }
 
     get cards(): CardType[] {
-        return this.cardsOid.map(cardOid => this.gameState.cards[cardOid]) as CardType[]
+        return this.cardsOid
+            .map(cardOid => this.gameState.cards[cardOid])
+            .filter((card): card is CardType => card !== undefined)
     }
 
     get firstCard() {
