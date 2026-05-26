@@ -134,7 +134,7 @@ export class Conductor {
     }
 
     invalidDecision(reason: string, decision: BotDecision) {
-        logging.captureMessage(`INVALID BOT DECISION !!! : ${reason}\n${decision}`)
+        logging.captureMessage(`INVALID BOT DECISION !!! : ${reason}\n${JSON.stringify(decision)}`)
     }
 
     mustStopPlaying() {
