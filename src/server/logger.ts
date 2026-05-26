@@ -33,6 +33,17 @@ const fileTransport = {
 const transport = isProd ? { targets: [consoleTransport, fileTransport] } : prettyConsoleTransport
 
 // @ts-ignore
-const logger = pino({ level: process.env.LOG_LEVEL ?? 'info' }, pino.transport(transport))
+const logger = pino(
+    {
+        level: process.env.LOG_LEVEL ?? 'info',
+        base: undefined, // ← removes pid & hostname
+        timestamp: pino.stdTimeFunctions.isoTime, // ← human-readable time
+        formatters: {
+            level: label => ({ level: label }), // ← "info" instead of 30
+        },
+    },
+    // @ts-ignore
+    pino.transport(transport),
+)
 
 export default logger
