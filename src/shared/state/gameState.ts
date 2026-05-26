@@ -265,7 +265,7 @@ export class GameState {
             const delta = newTurnNumber - this.turnNumber
             this.turnNumber = newTurnNumber
             this.activePlayerIndex =
-                (this.activePlayerIndex + delta + this.orderedPlayers.length) %
+                (this.activePlayerIndex + delta + this.competingPlayers.length) %
                 this.competingPlayers.length
 
             // Forward
