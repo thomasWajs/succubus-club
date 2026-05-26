@@ -36,7 +36,15 @@ export async function handleSetUser(connection: ConnectionInfo, message: SetUser
     }
 
     if (connection.permId == '' && (users.has(permId) || userConnections.has(permId))) {
-        throw new Error(`User ${permId} already exists`)
+        const oldConnectionInfo = userConnections.get(permId)
+        // Remote adresses are the same, assume the user were not correctly disconnected and is connecting back.
+        if (connection.remoteAddress == oldConnectionInfo?.remoteAddress) {
+            // Clean the old state
+            removeUser(permId)
+        } else {
+            // Remote adresses differs, that seems suspicious, reject the connection
+            throw new Error(`User ${permId} already exists`)
+        }
     }
 
     const user = { permId, name, isReady, avatarId: null }

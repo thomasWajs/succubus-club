@@ -20,6 +20,7 @@ export type ClientId = string
 export type ConnectionInfo = {
     clientId: ClientId
     webSocket: WebSocket
+    remoteAddress: string
     permId: PermanentId
     roomId: RoomId | null
 }

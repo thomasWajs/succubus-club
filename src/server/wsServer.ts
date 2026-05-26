@@ -37,7 +37,12 @@ export let wsServer = new WebSocketServer({ noServer: true })
  * Handle new client connections
  */
 wsServer.on('connection', (webSocket: WebSocket, req) => {
-    logger.info('New client connected : ' + req.socket.remoteAddress)
+    const remoteAddress =
+        (req.headers['x-real-ip'] as string) ??
+        req.headers['x-forwarded-for']?.toString().split(',')[0].trim() ??
+        req.socket.remoteAddress
+
+    logger.info('New client connected : ' + remoteAddress)
 
     const clientId = generateClientOid()
 
@@ -45,6 +50,7 @@ wsServer.on('connection', (webSocket: WebSocket, req) => {
     connections.set(clientId, {
         clientId,
         webSocket,
+        remoteAddress,
         permId: '', // Will be set on setUser
         roomId: null, // Will be set on joinRoom
     })
