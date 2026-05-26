@@ -39,6 +39,8 @@ import { ClockCompare, VectorClock } from '@/shared/multiplayer/clock.ts'
 const RATE_LIMIT_WINDOW = 1000 // 1 second
 const RATE_LIMIT_MAX = 50 // Max mutations per window
 
+export class UserNotIdentified extends Error {}
+
 /**
  * Track rate limits for each user
  */
@@ -147,6 +149,11 @@ export function getSerializedGame(
  * Validate before applying in-game messages ( mutations, shuffle, resync )
  */
 function validateBeforeGameMessage(connection: ConnectionInfo) {
+    // Check the user is identified
+    if (!connection.permId) {
+        throw new UserNotIdentified('User is not identified')
+    }
+
     // Check rate limit
     if (!checkRateLimit(connection.permId)) {
         logger.warn(`Rate limit exceeded for user ${connection.permId}`)
@@ -176,7 +183,6 @@ export async function handleGameMutation(
         let { room, gameState } = validateBeforeGameMessage(connection)
 
         const mutation = unpackGameMutation(message.gameMutation)
-
         // Verify mutation author matches sender
         if (mutation.author.permId !== connection.permId) {
             logger.warn(

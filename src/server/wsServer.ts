@@ -10,7 +10,12 @@ import {
     leaveRoom,
     RoomNotFound,
 } from './rooms'
-import { handleGameMutation, handleRequestResync, handleShuffleCardRegion } from './gameState.ts'
+import {
+    handleGameMutation,
+    handleRequestResync,
+    handleShuffleCardRegion,
+    UserNotIdentified,
+} from './gameState.ts'
 import {
     ErrorMessage,
     MultiplayerMessageType,
@@ -98,10 +103,12 @@ wsServer.on('connection', (webSocket: WebSocket, req) => {
                     sendError(webSocket, `Unknown message type: ${(message as any).type}`)
             }
         } catch (error) {
-            captureException(error)
             if (error instanceof RoomNotFound) {
                 sendError(webSocket, 'Not in a game room')
+            } else if (error instanceof UserNotIdentified) {
+                sendError(webSocket, 'User is not identified')
             } else {
+                captureException(error)
                 sendError(webSocket, `${error}`)
             }
         }
