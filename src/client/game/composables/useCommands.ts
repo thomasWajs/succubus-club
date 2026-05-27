@@ -251,7 +251,7 @@ function createCommands(): Commands {
         GainOrangeCounter: createCardCommand({
             name: 'GainOrangeCounter',
             label: 'Gain Orange Counter',
-            repr: 'O',
+            repr: 'B',
             keyCodes: [KeyCodes.B],
             cardAction: (card: Card) => {
                 gameMutations.changeOrangeCounter.actSelf({
@@ -263,7 +263,7 @@ function createCommands(): Commands {
         BurnOrangeCounter: createCardCommand({
             name: 'BurnOrangeCounter',
             label: 'Burn Orange Counter',
-            repr: 'P',
+            repr: 'N',
             keyCodes: [KeyCodes.N],
             cardAction: (card: Card) => {
                 gameMutations.changeOrangeCounter.actSelf({
