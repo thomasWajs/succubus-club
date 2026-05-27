@@ -50,6 +50,8 @@
             :color="Colors.CARD_GLOW.color"
             :outerStrength="CARD_IN_PLAY_GLOW_OUTER_STRENGTH"
             :innerStrength="CARD_IN_PLAY_GLOW_INNER_STRENGTH"
+            :scale="CARD_IN_PLAY_GLOW_SCALE"
+            @create="onGlowCreate"
         />
 
         <PingCardFX v-if="gameBus.pingedCards.includes(card.oid)" />
@@ -258,6 +260,7 @@ import {
     CARD_IN_PLAY_BASE_SCALE,
     CARD_IN_PLAY_GLOW_INNER_STRENGTH,
     CARD_IN_PLAY_GLOW_OUTER_STRENGTH,
+    CARD_IN_PLAY_GLOW_SCALE,
     CARD_OUTLINE_THICKNESS,
     CARD_WIDTH,
     COUNTER_HOVER_OFFSET_MULTIPLIER,
@@ -366,6 +369,14 @@ watch(cardAttrs, (newAttrs, oldAttrs) => {
 function onImageCreate(image: GameObjects.Image) {
     image.setData(PhaserDataKey.CardOid, card.oid)
     image.setData(PhaserDataKey.CardAttrs, cardAttrs)
+}
+
+/**
+ * Card Glow
+ */
+
+function onGlowCreate(glowFx: Phaser.Filters.Controller) {
+    glowFx.setPaddingOverride(-50, -50, 50, 50)
 }
 
 /**
