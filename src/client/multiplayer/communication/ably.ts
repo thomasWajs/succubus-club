@@ -11,7 +11,7 @@ import { Key } from '@/client/multiplayer/encryption.ts'
 import {
     ablyPublish,
     ablySubscribe,
-    detachChannel,
+    detachAndReleaseChannel,
     getAbly,
     MessageHandler,
 } from '@/client/gateway/realtime.ts'
@@ -52,16 +52,7 @@ export async function disconnectRoom() {
         return
     }
 
-    const ably = getAbly()
-
-    const channelName = _roomChannel.name
-    // The channel will transition to detached state when completing detachChannel()
-    _roomChannel.on('detached', () => {
-        ably.channels.release(channelName)
-    })
-
-    // Detaching from the channel will also leave the presence
-    await detachChannel(_roomChannel)
+    await detachAndReleaseChannel(_roomChannel)
 
     _roomChannel = null
 }
@@ -97,8 +88,7 @@ async function requestResyncGameState() {
     await ablySubscribe(syncChannel, MultiplayerMessageType.GameState, onReceiveResyncGameState)
     // Leave the resync channel after 30 seconds
     setTimeout(async () => {
-        await detachChannel(syncChannel)
-        ably.channels.release(syncChannelName)
+        await detachAndReleaseChannel(syncChannel)
     }, 1000 * 30)
 
     // Ask everyone, and use the more recent state ( according to global clock )

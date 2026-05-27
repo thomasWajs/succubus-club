@@ -1,7 +1,7 @@
 import { watch, WatchHandle } from 'vue'
 import {
     DataSnapshot,
-    detachChannel,
+    detachAndReleaseChannel,
     getAbly,
     getRtdb,
     getScsClient,
@@ -104,17 +104,17 @@ export async function joinLobby() {
 }
 
 export async function leaveLobby() {
-    const { ably, lobbyChannel } = await useLobby()
+    const { lobbyChannel } = await useLobby()
 
     unwatchSelfUser?.()
     unwatchSelfUser = null
     unwatchSelfDeck?.()
     unwatchSelfDeck = null
 
-    // Detaching from the channel will also leave the presence
-    await detachChannel(lobbyChannel)
     // Releasing from the channel will also unsubscribe all listeners
-    ably.channels.release(LOBBY_CHANNEL_NAME)
+    // Detaching from the channel will also leave the presence
+    await detachAndReleaseChannel(lobbyChannel)
+
     _lobby = null
 
     // Disconnect websocket to SCS

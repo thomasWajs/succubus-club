@@ -220,7 +220,18 @@ export async function ablyPublish(
     }
 }
 
-export async function detachChannel(channel: Ably.RealtimeChannel) {
+export async function detachAndReleaseChannel(channel: Ably.RealtimeChannel) {
+    const channelName = channel.name
+
+    // The channel will transition to detached state when completing detachChannel()
+    channel.on('detached', () => {
+        try {
+            getAbly().channels.release(channelName)
+        } catch (error) {
+            logging.captureException(error)
+        }
+    })
+
     try {
         await channel.detach()
     } catch (error) {
