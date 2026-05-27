@@ -130,7 +130,7 @@ async function startTrainGame() {
 }
 
 if (import.meta.env.VITE_FAST_TRACK_TRAIN_GAME) {
-    waitUntil(() => core.resourcesAreReady, 1000).then(() => {
+    waitUntil(() => core.resourcesAreReady, 500).then(() => {
         startTrainGame()
     })
 }

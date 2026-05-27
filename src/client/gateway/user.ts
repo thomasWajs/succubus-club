@@ -11,7 +11,8 @@ import { User } from '@/shared/types/multiplayer.ts'
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import { DbUserProfile } from '@/client/gateway/db.ts'
 import { AvatarDoc } from '@/shared/types/gateway.ts'
-import { hash } from '@/shared/serialization.ts'
+import { hash, isHasherReady } from '@/shared/serialization.ts'
+import { waitUntil } from '@/shared/utils.ts'
 
 const avatarCollection = fsCollection(getFirestore(), 'avatars')
 
@@ -19,6 +20,9 @@ export async function storeAvatar(profile: DbUserProfile) {
     if (!profile.avatar) {
         return
     }
+
+    // Wait for the hasher to be ready
+    await waitUntil(isHasherReady, 200, 25)
 
     const avatarId = `${profile.permanentId}-${hash(profile.avatar)}`
 

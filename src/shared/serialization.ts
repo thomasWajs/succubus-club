@@ -36,6 +36,10 @@ export async function initWasmHasher() {
     wasmHasher = await xxhash()
 }
 
+export function isHasherReady(): boolean {
+    return !!wasmHasher
+}
+
 export function hash(content: string) {
     if (!wasmHasher) {
         throw new Error('hasher not initialized')
