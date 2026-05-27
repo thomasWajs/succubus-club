@@ -98,11 +98,11 @@ export async function joinGameRoom(gameRoom: GameRoom, key?: Key) {
             return
         }
 
-        multiplayer.selfIsReady = false
-        multiplayer.currentGameRoomId = gameRoom.id
-
         // Leave any previous room
         await leaveGameRoom()
+
+        multiplayer.selfIsReady = false
+        multiplayer.currentGameRoomId = gameRoom.id
 
         // We'll always need an ably room, for presence and non-gameState messages
         await ablyCommunication.joinRoom(gameRoom.id, key)
