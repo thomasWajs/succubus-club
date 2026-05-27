@@ -48,10 +48,10 @@ import {
     scsCommunication,
 } from '@/client/multiplayer/communication/scs.ts'
 
-export class NotConnected extends Error {
+export class NotInAGameRoom extends Error {
     constructor(message?: string) {
         super(message)
-        this.name = 'NotConnected'
+        this.name = 'NotInAGameRoom'
     }
 }
 
@@ -62,7 +62,7 @@ export function getCommunication(gameRoom?: GameRoom): Communication {
     }
 
     if (!gameRoom) {
-        throw new NotConnected(`Not connected to a game room`)
+        throw new NotInAGameRoom(`Not connected to a game room`)
     }
 
     if (gameRoom.communication == CommunicationMode.Ably) {
@@ -77,7 +77,7 @@ export function ensureGameRoom(): GameRoom {
     const comm = getCommunication()
 
     if (!comm.isInRoom() || !multiplayer.currentGameRoom) {
-        throw new NotConnected(`Not in a game room`)
+        throw new NotInAGameRoom(`Not in a game room`)
     }
 
     return multiplayer.currentGameRoom
@@ -534,12 +534,21 @@ export async function broadcastGameMutation(gameMutation: AnyGameMutation) {
 }
 
 export async function receiveGameMutation(gameMutationMessage: GameMutationMessage) {
-    const gameRoom = ensureGameRoom()
-    // Cannot receive mutations if the game is not started
-    if (!gameRoom.isStarted) {
-        return
+    try {
+        const gameRoom = ensureGameRoom()
+        // Cannot receive mutations if the game is not started
+        if (!gameRoom.isStarted) {
+            return
+        }
+        await receiveMutationMessage(gameMutationMessage)
+    } catch (error) {
+        if (error instanceof NotInAGameRoom) {
+            useBusStore().alertError(
+                "Oops, looks like you've been disconnected. Refresh the page to reconnect.",
+            )
+        }
+        throw error
     }
-    await receiveMutationMessage(gameMutationMessage)
 }
 
 /** State Sync Messages */

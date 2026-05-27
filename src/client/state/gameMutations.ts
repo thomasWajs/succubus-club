@@ -1,7 +1,7 @@
 import { useCoreStore } from '@/client/store/core.ts'
 import { useBusStore, useGameBusStore } from '@/client/store/bus.ts'
 import { GameType, Invalid, VALID, Validity } from '@/shared/types/state.ts'
-import { broadcastGameMutation } from '@/client/multiplayer/room.ts'
+import { broadcastGameMutation, NotInAGameRoom } from '@/client/multiplayer/room.ts'
 import { enqueueBotMutation } from '@/client/bot/mutationQueue.ts'
 import {
     AnyGameMutation,
@@ -24,6 +24,7 @@ import { CommunicationMode } from '@/shared/types/multiplayer.ts'
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import { sendShuffleRequest } from '@/client/multiplayer/communication/scs.ts'
 import { getLogger } from '@/shared/registries.ts'
+import * as logging from '@/client/logging.ts'
 
 /**
  * Apply the mutation locally, if it's valid.
@@ -69,16 +70,30 @@ export function applyMutationLocally(gameMutation: AnyGameMutation) {
  */
 export function dispatchMutation(gameMutation: AnyGameMutation) {
     const core = useCoreStore()
+    const bus = useBusStore()
 
     const validity = gameMutation.canApply()
     if (!validity.isValid) {
-        useBusStore().alertWarning(validity.reason)
+        bus.alertWarning(validity.reason)
         return validity
     }
 
     applyMutationLocally(gameMutation)
+
     if (core.gameType == GameType.Multiplayer) {
-        broadcastGameMutation(gameMutation)
+        try {
+            broadcastGameMutation(gameMutation)
+        } catch (error) {
+            if (error instanceof NotInAGameRoom) {
+                bus.alertError(
+                    "Oops, looks like you've been disconnected. Refresh the page to reconnect.",
+                )
+            } else {
+                logging.captureException(error)
+            }
+
+            throw error
+        }
     }
 
     return VALID
