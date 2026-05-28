@@ -103,6 +103,7 @@ export async function joinGameRoom(gameRoom: GameRoom, key?: Key) {
 
         multiplayer.selfIsReady = false
         multiplayer.currentGameRoomId = gameRoom.id
+        multiplayer.snapshotCurrentGameRoom()
 
         // We'll always need an ably room, for presence and non-gameState messages
         await ablyCommunication.joinRoom(gameRoom.id, key)
@@ -181,6 +182,8 @@ export async function joinGameRoom(gameRoom: GameRoom, key?: Key) {
 
 export async function leaveGameRoom() {
     const multiplayer = useMultiplayerStore()
+    multiplayer.currentGameRoomFallback = null
+
     const gameRoom = multiplayer.currentGameRoom
     if (!gameRoom) {
         return
@@ -225,6 +228,12 @@ export function setupGameRoomWatcher() {
     unwatchGameRoom = watch(
         () => multiplayer.currentGameRoom,
         gameRoom => {
+            // Snapshot only if not already reading currentGameRoomFallback,
+            // else we would end up in a recursive loop
+            if (gameRoom != multiplayer.currentGameRoomFallback) {
+                multiplayer.snapshotCurrentGameRoom()
+            }
+
             if (gameRoom && multiplayer.selfIsHost) {
                 broadcastGameRoom(gameRoom)
             }

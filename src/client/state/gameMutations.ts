@@ -81,9 +81,7 @@ export function dispatchMutation(gameMutation: AnyGameMutation) {
     applyMutationLocally(gameMutation)
 
     if (core.gameType == GameType.Multiplayer) {
-        try {
-            broadcastGameMutation(gameMutation)
-        } catch (error) {
+        broadcastGameMutation(gameMutation).catch(error => {
             if (error instanceof NotInAGameRoom) {
                 bus.alertError(
                     "Oops, looks like you've been disconnected. Refresh the page to reconnect.",
@@ -91,9 +89,7 @@ export function dispatchMutation(gameMutation: AnyGameMutation) {
             } else {
                 logging.captureException(error)
             }
-
-            throw error
-        }
+        })
     }
 
     return VALID

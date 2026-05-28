@@ -41,6 +41,10 @@ export const useMultiplayerStore = defineStore('multiplayer', {
         // The id of the current game room we're connected at
         currentGameRoomId: null as RoomId | null,
 
+        // Fallback in case the room is deleted in the lobby,
+        // but the user is still playing
+        currentGameRoomFallback: null as GameRoom | null,
+
         selfIsReady: false,
 
         password: '',
@@ -83,8 +87,11 @@ export const useMultiplayerStore = defineStore('multiplayer', {
             return Object.values(state.gameRooms).map(room => room.name)
         },
 
-        currentGameRoom: (state): GameRoom | undefined =>
-            state.currentGameRoomId ? state.gameRooms[state.currentGameRoomId] : undefined,
+        currentGameRoom(state): GameRoom | undefined {
+            const gameRoom =
+                state.currentGameRoomId ? state.gameRooms[state.currentGameRoomId] : undefined
+            return gameRoom ?? state.currentGameRoomFallback ?? undefined
+        },
 
         isHostConnected(): boolean {
             return this.currentGameRoom?.players?.includes(this.currentGameRoom?.hostId) ?? false
@@ -143,6 +150,12 @@ export const useMultiplayerStore = defineStore('multiplayer', {
 
         upsertGameRoom(room: GameRoom) {
             this.gameRooms[room.id] = room
+        },
+
+        snapshotCurrentGameRoom() {
+            if (this.currentGameRoom) {
+                this.currentGameRoomFallback = { ...this.currentGameRoom }
+            }
         },
 
         upsertGameRoomPlayer(user: User) {
