@@ -5,6 +5,19 @@
         id="MainMenu"
         class="main-content"
     >
+        <div
+            v-if="showWebGLBanner"
+            class="webgl-banner"
+        >
+            <p>
+                WebGL is disabled in this browser. The game can still run, but you will experience
+                degraded performances.
+                <br /><br />
+                It is highly recommanded to enable hardware acceleration and WebGL to enjoy Succubus
+                Club.
+            </p>
+        </div>
+
         <div id="Beta">BETA</div>
 
         <img
@@ -84,6 +97,7 @@ import IdleModal from '@/client/ui/components/IdleModal.vue'
 import { ref } from 'vue'
 import * as logging from '@/client/logging.ts'
 import { isCrawler, screenBigEnough } from '@/client/game/display.ts'
+import { hasWebGL } from '@/client/initClient.ts'
 
 const core = useCoreStore()
 const bus = useBusStore()
@@ -136,6 +150,15 @@ if (import.meta.env.VITE_FAST_TRACK_TRAIN_GAME) {
 }
 
 /**
+ *  WebGL Message
+ */
+
+const showWebGLBanner = ref(false)
+setTimeout(() => {
+    showWebGLBanner.value = !hasWebGL()
+})
+
+/**
  *  Mobile Message
  */
 
@@ -144,6 +167,20 @@ const showMobileMessage = !screenBigEnough && !isCrawler()
 </script>
 
 <style lang="scss" scoped>
+.webgl-banner {
+    @include flex-center;
+    background: $wine-crimson;
+    border-bottom: 1px solid $warm-coral;
+    padding: 0.5rem 1rem;
+    margin: 1rem 0;
+    color: $ghost-white;
+    font-size: 1.05rem;
+    font-weight: 500;
+    line-height: 1.4;
+    z-index: 850;
+    max-width: 750px;
+}
+
 #Beta {
     position: absolute;
     top: 80px;
