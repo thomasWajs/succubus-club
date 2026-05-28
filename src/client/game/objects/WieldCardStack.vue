@@ -280,10 +280,11 @@ function onCardsPanelCreate(cardsPanel_: GameObjects.Container) {
 
     // Add a mask to hide cards overflowing from the cards panel
     const graphics = scene.make.graphics()
+    graphics.fillStyle(0x000000)
     graphics.fillRect(WIELD_X, WIELD_Y, cardsPanelWidth, cardsPanelHeight)
     graphics.fillRect(WIELD_X, cardsPanelHeight, width, WORLD_HEIGHT)
-    const mask = new Phaser.Display.Masks.GeometryMask(scene, graphics)
-    cardsPanel.setMask(mask)
+    cardsPanel.enableFilters()
+    cardsPanel.filters?.external.addMask(graphics)
 
     cardsPanel.x = 0
     // Create scrollbar
