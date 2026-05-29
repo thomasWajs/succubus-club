@@ -50,7 +50,7 @@
 <script setup lang="ts">
 import { computed, toRef } from 'vue'
 import { GameObjects } from 'phaser'
-import { Image, Rectangle, refPhaserInstance } from 'phavuer'
+import { Image, Rectangle, refObj } from 'phavuer'
 
 import {
     CARD_DRAGGING_ALPHA,
@@ -85,9 +85,9 @@ const gameBus = useGameBusStore()
 const players = usePlayersStore()
 const { displayedTexture } = useCardTexture(card)
 
-const image = refPhaserInstance<GameObjects.Image>(null)
-const dragPlaceholder = refPhaserInstance<GameObjects.Image>(null)
-const cardOutline = refPhaserInstance<GameObjects.Rectangle>(null)
+const image = refObj<GameObjects.Image>()
+const dragPlaceholder = refObj<GameObjects.Image>()
+const cardOutline = refObj<GameObjects.Rectangle>()
 
 const key = computed(() => `wield${card.oid.toString()}`)
 

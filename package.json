@@ -17,6 +17,7 @@
     "homepage": "https://succubus-club.net/",
     "keywords": [
         "phaser",
+        "phaser3",
         "typescript",
         "vue",
         "vite"

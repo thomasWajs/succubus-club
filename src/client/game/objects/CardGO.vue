@@ -50,8 +50,6 @@
             :color="Colors.CARD_GLOW.color"
             :outerStrength="CARD_IN_PLAY_GLOW_OUTER_STRENGTH"
             :innerStrength="CARD_IN_PLAY_GLOW_INNER_STRENGTH"
-            :scale="CARD_IN_PLAY_GLOW_SCALE"
-            @create="onGlowCreate"
         />
 
         <PingCardFX v-if="gameBus.pingedCards.includes(card.oid)" />
@@ -252,7 +250,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, toRef, watch } from 'vue'
 import Phaser, { GameObjects } from 'phaser'
-import { Circle, FxGlow, Image, Rectangle, refPhaserInstance, Text } from 'phavuer'
+import { Circle, FxGlow, Image, Rectangle, refObj, Text } from 'phavuer'
 import { Colors } from '@/client/colors.ts'
 import {
     CARD_DRAGGING_ALPHA,
@@ -260,7 +258,6 @@ import {
     CARD_IN_PLAY_BASE_SCALE,
     CARD_IN_PLAY_GLOW_INNER_STRENGTH,
     CARD_IN_PLAY_GLOW_OUTER_STRENGTH,
-    CARD_IN_PLAY_GLOW_SCALE,
     CARD_OUTLINE_THICKNESS,
     CARD_WIDTH,
     COUNTER_HOVER_OFFSET_MULTIPLIER,
@@ -304,15 +301,15 @@ const gameBus = useGameBusStore()
 const commands = useCommands()
 const { displayedTexture } = useCardTexture(card)
 
-const image = refPhaserInstance<GameObjects.Image>(null)
-const dragPlaceholder = refPhaserInstance<GameObjects.Image>(null)
-const cardOutline = refPhaserInstance<GameObjects.Rectangle>(null)
-const bloodCounterCircle = refPhaserInstance<GameObjects.Arc>(null)
-const bloodCounterText = refPhaserInstance<GameObjects.Text>(null)
-const greenCounterCircle = refPhaserInstance<GameObjects.Arc>(null)
-const greenCounterText = refPhaserInstance<GameObjects.Text>(null)
-const orangeCounterCircle = refPhaserInstance<GameObjects.Arc>(null)
-const orangeCounterText = refPhaserInstance<GameObjects.Text>(null)
+const image = refObj<GameObjects.Image>()
+const dragPlaceholder = refObj<GameObjects.Image>()
+const cardOutline = refObj<GameObjects.Rectangle>()
+const bloodCounterCircle = refObj<GameObjects.Arc>()
+const bloodCounterText = refObj<GameObjects.Text>()
+const greenCounterCircle = refObj<GameObjects.Arc>()
+const greenCounterText = refObj<GameObjects.Text>()
+const orangeCounterCircle = refObj<GameObjects.Arc>()
+const orangeCounterText = refObj<GameObjects.Text>()
 const markersRectangles = [] as (GameObjects.Rectangle | null)[]
 const markersTexts = [] as (GameObjects.Text | null)[]
 
@@ -369,14 +366,6 @@ watch(cardAttrs, (newAttrs, oldAttrs) => {
 function onImageCreate(image: GameObjects.Image) {
     image.setData(PhaserDataKey.CardOid, card.oid)
     image.setData(PhaserDataKey.CardAttrs, cardAttrs)
-}
-
-/**
- * Card Glow
- */
-
-function onGlowCreate(glowFx: Phaser.Filters.Controller) {
-    glowFx.setPaddingOverride(-50, -50, 50, 50)
 }
 
 /**

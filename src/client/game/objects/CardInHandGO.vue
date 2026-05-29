@@ -24,8 +24,6 @@
             :color="Colors.CARD_GLOW.color"
             :outerStrength="CARD_IN_HAND_GLOW_OUTER_STRENGTH"
             :innerStrength="CARD_IN_HAND_GLOW_INNER_STRENGTH"
-            :scale="CARD_IN_HAND_GLOW_SCALE"
-            @create="onGlowCreate"
         />
     </Image>
 
@@ -76,8 +74,8 @@
 
 <script setup lang="ts">
 import { computed, ref, toRef } from 'vue'
-import Phaser, { GameObjects } from 'phaser'
-import { FxGlow, Image, Rectangle, refPhaserInstance } from 'phavuer'
+import { GameObjects } from 'phaser'
+import { FxGlow, Image, Rectangle, refObj } from 'phavuer'
 
 import { Colors } from '@/client/colors.ts'
 import {
@@ -85,7 +83,6 @@ import {
     CARD_HEIGHT,
     CARD_IN_HAND_GLOW_INNER_STRENGTH,
     CARD_IN_HAND_GLOW_OUTER_STRENGTH,
-    CARD_IN_HAND_GLOW_SCALE,
     CARD_IN_HAND_SCALE,
     CARD_OUTLINE_THICKNESS,
     CARD_WIDTH,
@@ -118,8 +115,8 @@ const gameBus = useGameBusStore()
 const gameState = useGameStateStore()
 const commands = useCommands()
 const { displayedTexture } = useCardTexture(card)
-const image = refPhaserInstance<GameObjects.Image>(null)
-const cardOutline = refPhaserInstance<GameObjects.Rectangle>(null)
+const image = refObj<GameObjects.Image>()
+const cardOutline = refObj<GameObjects.Rectangle>()
 const playButton = ref<typeof ButtonGo>()
 const discardButton = ref<typeof ButtonGo>()
 
@@ -158,14 +155,6 @@ const cardAttrs = computed((): CardAttrs => {
 function onImageCreate(image: GameObjects.Image) {
     image.setData(PhaserDataKey.CardOid, card.oid)
     image.setData(PhaserDataKey.CardAttrs, cardAttrs)
-}
-
-/**
- * Card Glow
- */
-
-function onGlowCreate(glowFx: Phaser.Filters.Controller) {
-    glowFx.setPaddingOverride(-50, -50, 50, 50)
 }
 
 /**

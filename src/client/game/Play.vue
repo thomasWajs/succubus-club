@@ -48,6 +48,14 @@ const gameConfig: Phaser.Types.Core.GameConfig = {
     transparent: true,
     scale: {
         mode: Phaser.Scale.RESIZE,
+        // !!! THIS IS VERY IMPORTANT !!!
+        // It fixes an awful bug in Phavuer where the ScaleManager try to resize the canvas while hidden,
+        // with a width/height of 0 and crashes the game.
+        // See : https://github.com/laineus/phavuer/issues/17
+        min: {
+            width: 1,
+            height: 1,
+        },
     },
     antialias: true,
     antialiasGL: true,
@@ -71,7 +79,7 @@ onBeforeUnmount(() => {
 })
 </script>
 
-<style lang="scss">
+<style lang="scss" scoped>
 #PhavuerGame {
     background-image: url('/assets/tabletopBackground.jpg');
     background-repeat: repeat;
@@ -79,14 +87,8 @@ onBeforeUnmount(() => {
     height: 100%;
     width: 100%;
     flex-grow: 1;
-
-    overflow: hidden;
-    display: flex;
-}
-
-div[data-phavuer-canvas] {
-    height: 100%;
-    width: 100%;
-    flex-grow: 1;
+    // Don't remove, see gameConfig.scale.min
+    min-height: 1px;
+    min-width: 1px;
 }
 </style>

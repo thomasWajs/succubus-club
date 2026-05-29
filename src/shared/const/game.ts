@@ -48,11 +48,9 @@ export const CARD_OUTLINE_COLOR_INDIRECT_HOVER = 'rgb(255, 228, 169)'
 
 export const CARD_GLOW_COLOR = 'rgb(180,90,40)'
 export const CARD_IN_HAND_GLOW_INNER_STRENGTH = 0
-export const CARD_IN_HAND_GLOW_OUTER_STRENGTH = 3
-export const CARD_IN_HAND_GLOW_SCALE = 3
+export const CARD_IN_HAND_GLOW_OUTER_STRENGTH = 2
 export const CARD_IN_PLAY_GLOW_INNER_STRENGTH = 0
 export const CARD_IN_PLAY_GLOW_OUTER_STRENGTH = 3
-export const CARD_IN_PLAY_GLOW_SCALE = 5
 
 export const CARD_PING_DURATION = 2000 // Total duration of the ping animation in ms
 export const CARD_PING_NB_BEATS = 4 // Number of ping beats

@@ -37,7 +37,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import Phaser, { GameObjects } from 'phaser'
-import { Rectangle, refPhaserInstance, Text } from 'phavuer'
+import { Rectangle, refObj, Text } from 'phavuer'
 import { Colors } from '@/client/colors.ts'
 import { BUTTON_BORDER_WIDTH, BUTTON_TEXT_STYLE } from '@/shared/const/game.ts'
 import { PhaserDataKey } from '@/client/game/types.ts'
@@ -66,8 +66,8 @@ const {
     depth?: number
 }>()
 
-const buttonRectangle = refPhaserInstance<GameObjects.Rectangle>(null)
-const buttonText = refPhaserInstance<GameObjects.Text>(null)
+const buttonRectangle = refObj<GameObjects.Rectangle>()
+const buttonText = refObj<GameObjects.Text>()
 const isHovered = ref(false)
 
 const mergedTextStyle = { ...BUTTON_TEXT_STYLE, ...textStyle }

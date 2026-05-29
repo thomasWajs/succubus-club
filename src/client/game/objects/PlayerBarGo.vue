@@ -115,7 +115,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted } from 'vue'
 import Phaser, { GameObjects } from 'phaser'
-import { Image, Polygon, Rectangle, refPhaserInstance, Text } from 'phavuer'
+import { Image, Polygon, Rectangle, refObj, Text } from 'phavuer'
 import { Colors } from '@/client/colors.ts'
 import { COUNTER_OUTLINE_THICKNESS, COUNTER_TEXT_STYLE } from '@/shared/const/game.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
@@ -143,7 +143,7 @@ const gameBus = useGameBusStore()
 
 const playerColor = getPlayerColor(player).darken(20).desaturate(60)
 
-const poolDiamond = refPhaserInstance<GameObjects.Polygon>(null)
+const poolDiamond = refObj<GameObjects.Polygon>()
 
 const diamondVertices = [
     [-19, 0],

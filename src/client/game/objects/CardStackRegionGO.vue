@@ -104,7 +104,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
 import Phaser, { GameObjects } from 'phaser'
-import { Image, Rectangle, refPhaserInstance, Text } from 'phavuer'
+import { Image, Rectangle, refObj, Text } from 'phavuer'
 import { Colors } from '@/client/colors.ts'
 import { CARD_IN_STACK_SCALE, CARD_OUTLINE_THICKNESS } from '@/shared/const/game.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
@@ -132,7 +132,7 @@ const { cardRegion, draw } = defineProps<{
 const players = usePlayersStore()
 const gameBus = useGameBusStore()
 
-const image = refPhaserInstance<GameObjects.Image>(null)
+const image = refObj<GameObjects.Image>()
 
 const topCard = computed(() => (cardRegion.length > 0 ? cardRegion.firstCard : null))
 const displayedTexture = computed(() => {
