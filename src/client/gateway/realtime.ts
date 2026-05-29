@@ -239,7 +239,8 @@ export async function detachAndReleaseChannel(channel: Ably.RealtimeChannel) {
             error instanceof Error &&
             error.message !== 'Connection closed' &&
             error.message !== 'Connection to server unavailable' &&
-            error.message !== 'Client configured authentication provider request failed'
+            error.message !== 'Client configured authentication provider request failed' &&
+            error.message !== 'Unable to connect (network unreachable)'
         ) {
             logging.captureException(error)
         }
