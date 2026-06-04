@@ -128,6 +128,17 @@ export function getSerializedGame(
     const knownCards = getKnownCards(gameState, permId)
     const userGameState = { ...gameState, knownCards } as GameState
     const serializedGameState = serializeGameState(userGameState)
+
+    // Hide minionAttrs and vampireAttrs to avoid leaking info on hidden cards to the players
+    for (const card of Object.values(serializedGameState.cards)) {
+        // When setting up the game, each users know only its own crypt and starting hand.
+        // When resyncing, he will know more.
+        if (!(card.oid in knownCards)) {
+            delete card.minionAttrs
+            delete card.vampireAttrs
+        }
+    }
+
     const objectClocks = Object.fromEntries(
         Object.entries(room.objectClocks).map(([versioningId, clock]) => [
             versioningId,

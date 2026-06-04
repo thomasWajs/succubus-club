@@ -20,6 +20,11 @@ import {
 import { gameResources } from '@/shared/registries.ts'
 import { Snap } from '@/shared/utils.ts'
 
+// Markers for hidden crypt cards in SCS mode :
+// Wwe know they are vampires, but can't know their attrs at init.
+export const UNKNOWN_MINION_ATTRS = 'UNKNOWN_MINION_ATTRS' as const
+export const UNKNOWN_VAMPIRE_ATTRS = 'UNKNOWN_VAMPIRE_ATTRS' as const
+
 class MinionAttributes {
     capacity = 0 // capacity for vampire, starting life for allies
     disciplines = {} as Disciplines // Some allies can play card as a vampire with a discipline
@@ -66,8 +71,8 @@ export abstract class Card extends BaseModel implements PropertiesInPlay {
 
     markers = [] as string[]
 
-    minionAttrs?: MinionAttributes
-    vampireAttrs?: VampireAttributes
+    minionAttrs?: MinionAttributes | typeof UNKNOWN_MINION_ATTRS
+    vampireAttrs?: VampireAttributes | typeof UNKNOWN_VAMPIRE_ATTRS
 
     protected constructor(
         public gameId: GameId,
@@ -120,6 +125,8 @@ export abstract class Card extends BaseModel implements PropertiesInPlay {
     get position(): number {
         return this.region.indexOf(this)
     }
+
+    abstract initMinionAttrs(): void
 
     updatePropertiesInPlay(props: PropertiesInPlay) {
         Object.assign(this, props)
@@ -232,8 +239,8 @@ export abstract class Card extends BaseModel implements PropertiesInPlay {
 }
 
 export class CryptCard extends Card {
-    minionAttrs: MinionAttributes
-    vampireAttrs: VampireAttributes
+    minionAttrs: MinionAttributes | typeof UNKNOWN_MINION_ATTRS
+    vampireAttrs: VampireAttributes | typeof UNKNOWN_VAMPIRE_ATTRS
     isCrypt = true
 
     constructor(
@@ -243,23 +250,15 @@ export class CryptCard extends Card {
     ) {
         super(gameId, oid, ownerOid)
 
-        this.minionAttrs = new MinionAttributes()
-        this.vampireAttrs = new VampireAttributes()
+        // Markers for hidden crypt cards in SCS mode :
+        // We know they are vampires, but can't know their attrs at init.
+        this.minionAttrs = UNKNOWN_MINION_ATTRS
+        this.vampireAttrs = UNKNOWN_VAMPIRE_ATTRS
 
-        // TODO : Finish the knownCards/resource
-        if (this.krcgId && this.resource) {
-            const cardResource = this.resource
-
-            this.minionAttrs.capacity = cardResource.capacity
-            this.minionAttrs.disciplines = { ...cardResource.disciplines } // Clone the disciplines object
-
-            this.vampireAttrs.clan = cardResource.clan
-            this.vampireAttrs.sect = cardResource.sect
-            this.vampireAttrs.title = cardResource.title
-
-            const implementation = CRYPT_CARD_IMPLEMENTATIONS[this.krcgId]
-            implementation?.adapt(this)
-        }
+        // SCS And Ably mode will know the resource from the start,
+        // so we can init at creation for them.
+        // Client in SCS mode will need to wait to know the card
+        this.initMinionAttrs()
     }
 
     get resource(): CryptCardResource | undefined {
@@ -271,6 +270,30 @@ export class CryptCard extends Card {
             throw new Error(`Crypt card ${this.krcgId} not found in Card Base`)
         }
         return resource as CryptCardResource
+    }
+
+    initMinionAttrs() {
+        if (!this.krcgId || !this.resource) {
+            return
+        }
+
+        const cardResource = this.resource
+
+        if (this.minionAttrs == UNKNOWN_MINION_ATTRS) {
+            this.minionAttrs = new MinionAttributes()
+            this.minionAttrs.capacity = cardResource.capacity
+            this.minionAttrs.disciplines = { ...cardResource.disciplines } // Clone the disciplines object
+        }
+
+        if (this.vampireAttrs == UNKNOWN_VAMPIRE_ATTRS) {
+            this.vampireAttrs = new VampireAttributes()
+            this.vampireAttrs.clan = cardResource.clan
+            this.vampireAttrs.sect = cardResource.sect
+            this.vampireAttrs.title = cardResource.title
+        }
+
+        const implementation = CRYPT_CARD_IMPLEMENTATIONS[this.krcgId]
+        implementation?.adapt(this)
     }
 }
 
@@ -284,10 +307,10 @@ export class LibraryCard extends Card {
     ) {
         super(gameId, oid, ownerOid)
 
-        // TODO : Finish the knownCards/resource
-        if (this.resource && this.resource.type == LibraryCardType.Ally) {
-            this.minionAttrs = new MinionAttributes()
-        }
+        // SCS And Ably mode will know the resource from the start,
+        // so we can init at creation for them.
+        // Client in SCS mode will need to wait to know the card
+        this.initMinionAttrs()
     }
 
     get resource(): LibraryCardResource | undefined {
@@ -323,6 +346,16 @@ export class LibraryCard extends Card {
 
     get disciplines(): string[] {
         return this.resource?.discipline.split('/') ?? []
+    }
+
+    initMinionAttrs() {
+        if (!this.resource) {
+            return
+        }
+
+        if (!this.minionAttrs && this.resource.type == LibraryCardType.Ally) {
+            this.minionAttrs = new MinionAttributes()
+        }
     }
 }
 

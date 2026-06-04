@@ -8,8 +8,15 @@ import { KnownCards } from '@/shared/types/state.ts'
 
 export class ClientGameState extends GameState {
     updateKnownCards(knownCards?: KnownCards) {
-        if (knownCards) {
-            this.knownCards = { ...this.knownCards, ...knownCards }
+        if (!knownCards) {
+            return
+        }
+
+        const newCardsOid = Object.keys(knownCards).filter(k => !(k in this.knownCards))
+        this.knownCards = { ...this.knownCards, ...knownCards }
+        // Init minionAttrs for cards we just revealed
+        for (const cardOid of newCardsOid) {
+            this.cards[cardOid].initMinionAttrs()
         }
     }
 
