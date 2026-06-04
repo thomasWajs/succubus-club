@@ -441,8 +441,6 @@ function _unsafeReceiveMutationMessage(gameMutationMessage: GameMutationMessage)
         flushPendingMutations()
     } catch (e) {
         logging.captureException(e)
-        // TODO : Should we resync on error ?
-        // requestResyncGameState()
         return
     }
 }

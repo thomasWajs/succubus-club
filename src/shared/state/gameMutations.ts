@@ -1714,7 +1714,6 @@ export class ResolveBlock extends GameMutation<EmptyParams> {
 
             /**
              * VERY TEMPORARY, handle combat as two hand strike for 1
-             * TODO: remove this
              */
             inflictDamage(gameState.combat.acting, 1)
             inflictDamage(gameState.combat.defending, 1)

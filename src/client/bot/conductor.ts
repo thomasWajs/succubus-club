@@ -285,7 +285,7 @@ export class Conductor {
                 }),
             )
         } else if (decision == NO_COMBAT) {
-            // TODO
+            // Combat implementation not done yet
         } else if (decision == NEXT_PHASE) {
             this.nextPhaseDecision()
         } else if (decision == NEXT_TURN) {

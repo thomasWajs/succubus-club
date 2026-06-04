@@ -356,7 +356,6 @@ export function resolve(action: MinionAction): void {
         return resolveHunt(action)
     }
 
-    // TODO: fizzle if cannot pay cost ( for action cards, rescue, become anarch )
     const behavior = getBehaviour(action)
     if (behavior) {
         behavior.resolve(action)

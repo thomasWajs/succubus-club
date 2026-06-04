@@ -146,7 +146,7 @@ export function validateActionCardDeclaration(card: Card) {
         type: gameBus.actionDeclaration.type,
         actingMinion: gameBus.actionDeclaration.actingMinion,
         card,
-        // TODO: usage declaration
+        // usage declaration TODO
         usage: {},
     } as MinionAction)
     resetDeclaration()
