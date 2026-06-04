@@ -4,6 +4,7 @@ import { App } from 'vue'
 import { Pinia } from 'pinia'
 import { useCoreStore } from '@/client/store/core.ts'
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
+import { useHistoryStore } from '@/client/store/history.ts'
 
 const isProd = import.meta.env.PROD
 const sentryEnv = import.meta.env.VITE_SENTRY_ENV ?? (isProd ? 'production' : 'development')
@@ -39,6 +40,7 @@ export function initSentryPiniaPlugin(pinia: Pinia) {
                 const multiplayer = transformedState.multiplayer as ReturnType<
                     typeof useMultiplayerStore
                 >
+                const history = transformedState.history as ReturnType<typeof useHistoryStore>
 
                 if (core.userProfile?.avatar) {
                     transformedState.core = {
@@ -57,15 +59,10 @@ export function initSentryPiniaPlugin(pinia: Pinia) {
                     }
                 }
 
-                // Serialized history is a much more compact representation
-                // Disabled because this was causing performance issues
-                // ( constant serialization/deserialization of the history )
-                /*
-                transformedState.gameHistory = serializeHistory(
-                    useHistoryStore().$state as HistoryStore,
-                    true,
-                )
-                 */
+                transformedState.history = {
+                    ...history,
+                    archive: '[stripped]',
+                }
 
                 return transformedState
             },

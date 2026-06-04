@@ -47,7 +47,7 @@ export class ClientHistoryStore extends HistoryStore {
     }
 }
 
-export const useHistoryStore = defineOptionStore('useHistoryStore', ClientHistoryStore)
+export const useHistoryStore = defineOptionStore('history', ClientHistoryStore)
 
 if (import.meta.hot) {
     import.meta.hot.accept(acceptHMRUpdate(useHistoryStore, import.meta.hot))
