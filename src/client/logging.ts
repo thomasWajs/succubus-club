@@ -25,6 +25,21 @@ export function initSentry(app: App) {
                 colorScheme: 'dark',
             }),
         ],
+
+        // Filter out internal Vue errors, they flood Sentry with useless reports
+        beforeSend(event) {
+            const frames = event.exception?.values?.[0]?.stacktrace?.frames
+            if (frames?.length) {
+                const lastFrame = frames[frames.length - 1]
+                if (
+                    lastFrame.filename?.includes('node_modules/@vue/runtime-core') ||
+                    lastFrame.filename?.includes('node_modules/@vue/runtime-dom')
+                ) {
+                    return null
+                }
+            }
+            return event
+        },
     })
 }
 
