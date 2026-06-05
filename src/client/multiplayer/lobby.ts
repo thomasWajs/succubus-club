@@ -223,7 +223,6 @@ async function syncGameRooms(snapshot: DataSnapshot) {
     const gameRooms: Record<RoomId, GameRoom> = {}
 
     if (storedGameRooms) {
-        // TODO : replace pruneChannels by a webhook to Vercel to clean on presence leave
         let activeChannels = []
         if (pruneChannels) {
             // @ts-expect-error - Ably request method type compatibility

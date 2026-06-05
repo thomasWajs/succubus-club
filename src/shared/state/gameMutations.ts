@@ -279,6 +279,72 @@ function validateCardMovement(movement: CardMovement, cardRegion: AnyCardRegion)
 }
 
 /**
+ * Become Minion / Vampire
+ */
+
+class BecomeMinion extends CardMutation {
+    readonly syncMode = MutationSyncMode.Merge
+
+    getValidity() {
+        // Cannot apply if already a minion
+        return this.params.card.isMinion() ? Invalid('Already an ally') : VALID
+    }
+
+    protected updateGameState() {
+        this.params.card.becomeMinion()
+    }
+
+    formatForLog() {
+        return `${CARD_LOG_PLACEHOLDER} become an ally`
+    }
+
+    getCancelMutation(): AnyGameMutation {
+        return gameMutations.becomeVampireInverse.createCancelMutation(this, {
+            card: this.params.card,
+        })
+    }
+}
+
+class BecomeVampire extends CardMutation {
+    readonly syncMode = MutationSyncMode.Merge
+
+    getValidity() {
+        // Cannot apply if already a minion
+        return this.params.card.isVampire() ? Invalid('Already a vampire') : VALID
+    }
+
+    protected updateGameState() {
+        this.params.card.becomeVampire()
+    }
+
+    formatForLog() {
+        return `${CARD_LOG_PLACEHOLDER} become a vampire`
+    }
+
+    getCancelMutation(): AnyGameMutation {
+        return gameMutations.becomeVampireInverse.createCancelMutation(this, {
+            card: this.params.card,
+        })
+    }
+}
+
+// This is only for cancel.
+// There's no existing mutation that can represent
+// the inverse of BecomeMinion / BecomeVampire
+class BecomeVampireInverse extends CardMutation {
+    readonly syncMode = MutationSyncMode.Merge
+
+    protected updateGameState() {
+        this.params.card.minionAttrs = undefined
+        this.params.card.vampireAttrs = undefined
+    }
+
+    formatForLog() {
+        return `${CARD_LOG_PLACEHOLDER} not a minion anymore`
+    }
+}
+
+/**
  * Change Blood/life
  */
 
@@ -2030,6 +2096,9 @@ function defineMutation<
  */
 
 export const gameMutations = {
+    becomeMinion: defineMutation(BecomeMinion),
+    becomeVampire: defineMutation(BecomeVampire),
+    becomeVampireInverse: defineMutation(BecomeVampireInverse),
     changeBlood: defineMutation(ChangeBlood),
     changeGreenCounter: defineMutation(ChangeGreenCounter),
     changeOrangeCounter: defineMutation(ChangeOrangeCounter),

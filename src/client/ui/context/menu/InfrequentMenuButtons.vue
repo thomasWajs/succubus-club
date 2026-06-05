@@ -79,7 +79,12 @@
     <ContextMenuButton
         v-if="singleCard && !singleCard.isVampire() && singleCard.isIn.ready"
         :closeOnClick="true"
-        :cardAction="(card: Card) => card.becomeVampire()"
+        :cardAction="
+            (card: Card) =>
+                gameMutations.becomeVampire.actSelf({
+                    card: card,
+                })
+        "
     >
         Become a vampire
     </ContextMenuButton>
@@ -87,7 +92,12 @@
     <ContextMenuButton
         v-if="singleCard && !singleCard.isMinion() && singleCard.isIn.ready"
         :closeOnClick="true"
-        :cardAction="(card: Card) => card.becomeMinion()"
+        :cardAction="
+            (card: Card) =>
+                gameMutations.becomeMinion.actSelf({
+                    card: card,
+                })
+        "
     >
         Become an ally
     </ContextMenuButton>
