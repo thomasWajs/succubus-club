@@ -216,37 +216,20 @@ function gameRoomRef(roomId: RoomId) {
     return rtdbRef(getRtdb(), `${GAME_ROOMS_KEY}/${roomId}`)
 }
 
-let pruneChannels = true
 async function syncGameRooms(snapshot: DataSnapshot) {
-    const { multiplayer, ably } = await useLobby()
+    const { multiplayer } = await useLobby()
     const storedGameRooms = snapshot.val() as Record<RoomId, GameRoom> | null
     const gameRooms: Record<RoomId, GameRoom> = {}
 
-    if (storedGameRooms) {
-        let activeChannels = []
-        if (pruneChannels) {
-            // @ts-expect-error - Ably request method type compatibility
-            const channelsResponse = await ably.request('GET', '/channels', { by: 'value' })
-            activeChannels = channelsResponse.items
-                .filter(channel => channel.status?.occupancy?.metrics?.connections ?? 0 > 0)
-                .map(channel => channel.name)
+    for (const [roomId, gameRoom] of Object.entries(storedGameRooms ?? {})) {
+        // rtdb removes empty arrays, which breaks typescript assumptions, which sucks
+        if (!gameRoom.spectators) {
+            gameRoom.spectators = []
         }
-
-        for (const [roomId, gameRoom] of Object.entries(storedGameRooms)) {
-            if (pruneChannels && !activeChannels.includes(roomId)) {
-                await deleteGameRoom(roomId)
-            } else {
-                // rtdb removes empty arrays, which breaks typescript assumptions, which sucks
-                if (!gameRoom.spectators) {
-                    gameRoom.spectators = []
-                }
-                gameRooms[roomId] = gameRoom
-            }
-        }
+        gameRooms[roomId] = gameRoom
     }
 
     multiplayer.gameRooms = gameRooms
-    pruneChannels = false
 }
 
 export async function createGameRoom(
