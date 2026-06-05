@@ -236,6 +236,11 @@ export abstract class Card extends BaseModel implements PropertiesInPlay {
                 new RegExp(`during this(.)*${phase} phase`, 'i').test(this.text))
         )
     }
+
+    // Can this library card become a vampire by cardtext ( embrace-like )
+    isEmbraceLike() {
+        return new RegExp(`becomes a.*(\\d[ -]|same.*)capacity`, 'i').test(this.text)
+    }
 }
 
 export class CryptCard extends Card {

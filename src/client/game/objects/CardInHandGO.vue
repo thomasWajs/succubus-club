@@ -45,7 +45,7 @@
         <!-- Play -->
         <ButtonGo
             ref="playButton"
-            name="cardButton"
+            name="playButton"
             :x="overlays.play.x"
             :y="overlays.play.y"
             :width="60"
@@ -59,7 +59,7 @@
         <!-- Discard -->
         <ButtonGo
             ref="discardButton"
-            name="cardButton"
+            name="discardButton"
             :x="overlays.ashHeap.x"
             :y="overlays.ashHeap.y"
             :width="ASH_HEAP_BUTTON_SIZE"

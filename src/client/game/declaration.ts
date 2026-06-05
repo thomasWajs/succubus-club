@@ -16,6 +16,8 @@ export function playCardFromHand({
     actingMinion?: Minion
     movement?: CardMovement
 }) {
+    const players = usePlayersStore()
+    const gameBus = useGameBusStore()
     const player = card.controller
 
     if (card.region != player.hand) {
@@ -29,6 +31,10 @@ export function playCardFromHand({
         x: movement?.x ?? (actingMinion ? actingMinion.x : PLAY_AREA_WIDTH / 2 - 4 * GRID_SIZE),
         y: movement?.y ?? (actingMinion ? actingMinion.y - 12 * GRID_SIZE : 8 * GRID_SIZE),
     })
+
+    if (player.oid == players.selfPlayerOid) {
+        gameBus.selectedCards = [card]
+    }
 }
 
 export function resetDeclaration() {

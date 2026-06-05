@@ -25,10 +25,26 @@ import { display } from '@/client/game/display.ts'
 import { MinionActionType } from '@/shared/types/state.ts'
 import { declareAction, startTargetDeclaration } from '@/client/game/declaration.ts'
 import { ACTION_TYPES } from '@/shared/const/model.ts'
+import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
+import { Card, Minion } from '@/shared/model/Card.ts'
+import { gameMutations } from '@/shared/state/gameMutations.ts'
 
 const gameBus = useGameBusStore()
 const gameState = useGameStateStore()
 const players = usePlayersStore()
+const { actionDeclarationEnabled } = useUIFeatures()
+
+type FloatingActionData = {
+    label: string
+    top: number
+    left: number
+    translate?: string
+    disabled?: boolean
+    onClick: VoidFunction
+}
+
+const CARD_ACTION_GAP = 10
+const CARD_ACTION_HEIGHT = 45
 
 const selectedCard = computed(() => {
     if (
@@ -46,49 +62,84 @@ const selectedCard = computed(() => {
             card &&
                 [players.selfPlayer?.ready, players.selfPlayer?.torpor].includes(card.region) &&
                 !card.isLocked &&
-                card.isMinion()
+                (card.isMinion() || card.isEmbraceLike())
         ) ?
             card
         :   undefined
 })
 
-type FloatingActionData = {
-    label: string
-    top: number
-    left: number
-    translate?: string
-    disabled?: boolean
-    onClick: VoidFunction
-}
-
 const floatingActions = computed(() => {
-    const actingMinion = selectedCard.value
-    if (!actingMinion) {
+    const card = selectedCard.value
+    if (!card) {
         return []
     }
-    const actions: FloatingActionData[] = []
 
+    if (card.isMinion()) {
+        return getActingMinionActions(card)
+    } else if (card.isEmbraceLike()) {
+        return getEmbraceLikeActions(card)
+    }
+
+    return []
+})
+
+function getPositionning(card: Card) {
     const scale = display.scale
-    const CARD_ACTION_GAP = 10 * scale
-    const CARD_ACTION_HEIGHT = 45 * scale
+    const cardActionGap = CARD_ACTION_GAP * scale
+    const cardActionHeight = CARD_ACTION_HEIGHT * scale
 
     // World position of the center of the card
-    const worldPoint = gameBus.cardsInGame[actingMinion.oid]?.getWorldPosition()
+    const worldPoint = gameBus.cardsInGame[card.oid]?.getWorldPosition()
 
     if (!worldPoint) {
-        return []
+        return null
     }
 
     const { x, y } = getScreenPoint(worldPoint.x, worldPoint.y)
-    const rect = getCardRectangle(actingMinion)
+    const rect = getCardRectangle(card)
 
     const cardTop = y - (rect.height * scale) / 2
     const cardRight = x + (rect.width * scale) / 2
     const cardLeft = x - (rect.width * scale) / 2
 
-    const northActionsTop = cardTop - CARD_ACTION_HEIGHT - CARD_ACTION_GAP
-    const eastActionsLeft = cardRight + CARD_ACTION_GAP
-    const westActionsRight = cardLeft - CARD_ACTION_GAP
+    const northActionsTop = cardTop - cardActionHeight - cardActionGap
+    const eastActionsLeft = cardRight + cardActionGap
+    const westActionsRight = cardLeft - cardActionGap
+
+    return {
+        cardActionGap,
+        cardActionHeight,
+        x,
+        y,
+        cardTop,
+        cardRight,
+        cardLeft,
+        northActionsTop,
+        eastActionsLeft,
+        westActionsRight,
+    }
+}
+
+function getActingMinionActions(actingMinion: Minion) {
+    if (!actionDeclarationEnabled.value) {
+        return []
+    }
+
+    const positionning = getPositionning(actingMinion)
+    if (!positionning) {
+        return []
+    }
+
+    const actions: FloatingActionData[] = []
+    const {
+        cardActionGap,
+        cardActionHeight,
+        x,
+        cardTop,
+        northActionsTop,
+        eastActionsLeft,
+        westActionsRight,
+    } = positionning
 
     const prey = actingMinion.controller.prey
     const allVampiresInTorpor = Object.values(gameState.players).flatMap(
@@ -104,7 +155,7 @@ const floatingActions = computed(() => {
             actions.push({
                 label: 'Bleed',
                 left: eastActionsLeft,
-                top: cardTop + CARD_ACTION_HEIGHT + CARD_ACTION_GAP,
+                top: cardTop + cardActionHeight + cardActionGap,
                 onClick: () => {
                     declareAction({
                         type: MinionActionType.Bleed,
@@ -119,7 +170,7 @@ const floatingActions = computed(() => {
             actions.push({
                 label: 'Hunt',
                 left: westActionsRight,
-                top: cardTop + CARD_ACTION_HEIGHT + CARD_ACTION_GAP,
+                top: cardTop + cardActionHeight + cardActionGap,
                 translate: 'translateX(-100%)',
                 onClick: () => {
                     declareAction({
@@ -183,7 +234,7 @@ const floatingActions = computed(() => {
 
         actions.push({
             label: 'Card In Play',
-            left: x - CARD_ACTION_GAP,
+            left: x - cardActionGap,
             top: northActionsTop,
             translate: 'translateX(-100%)',
             onClick: () => {
@@ -215,7 +266,28 @@ const floatingActions = computed(() => {
     }
 
     return actions
-})
+}
+
+function getEmbraceLikeActions(embraceLike: Card) {
+    const positionning = getPositionning(embraceLike)
+    if (!positionning) {
+        return []
+    }
+    const { x, northActionsTop } = positionning
+    return [
+        {
+            label: 'Become Vampire',
+            left: x,
+            translate: 'translateX(-50%)',
+            top: northActionsTop,
+            onClick: () => {
+                gameMutations.becomeVampire.actSelf({
+                    card: embraceLike,
+                })
+            },
+        },
+    ]
+}
 </script>
 
 <style lang="scss">

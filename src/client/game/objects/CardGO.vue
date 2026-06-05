@@ -103,7 +103,7 @@
             <!-- Burn Blood -->
             <ButtonGo
                 ref="burnBloodButton"
-                name="cardButton"
+                name="burnBloodButton"
                 :x="overlays.burnBlood.x"
                 :y="overlays.burnBlood.y"
                 :width="OVERLAY_BUTTON_SIZE"
@@ -118,7 +118,7 @@
             <!-- Gain Blood -->
             <ButtonGo
                 ref="gainBloodButton"
-                name="cardButton"
+                name="gainBloodButton"
                 :x="overlays.gainBlood.x"
                 :y="overlays.gainBlood.y"
                 :width="OVERLAY_BUTTON_SIZE"
@@ -138,7 +138,7 @@
         <ButtonGo
             v-if="card.isIn.controlled && !card.isMinion()"
             ref="ashHeapButton"
-            name="cardButton"
+            name="ashHeapButton"
             :x="overlays.ashHeap.x"
             :y="overlays.ashHeap.y"
             :width="OVERLAY_BUTTON_SIZE"
@@ -156,7 +156,7 @@
                 card.isIn.uncontrolled && card.isMinion() && card.controller == players.selfPlayer
             "
             ref="influenceButton"
-            name="cardButton"
+            name="influenceButton"
             :x="overlays.influence.x"
             :y="overlays.influence.y"
             :width="CARD_WIDTH * CARD_IN_PLAY_BASE_SCALE * 0.95"

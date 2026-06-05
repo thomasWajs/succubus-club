@@ -62,7 +62,7 @@ function onPointerDown(pointer: Pointer, gameObjects: GameObjects.GameObject[]) 
     const type = gameObject?.type
     const name = gameObject?.name
 
-    if (name == 'cardGroupIcon' || name == 'separator') {
+    if (name == 'cardGroupIcon' || name == 'separator' || name == 'playButton') {
         // nothing more to do, but prevent the default behavior of the click event.
         // This is more legible than a complex if condition
         return
