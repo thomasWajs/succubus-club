@@ -92,7 +92,4 @@ Follow the existing patterns in the codebase:
 - Export shared logic to `@/shared`.
 
 ---
-*Created for AI coding agents to maintain consistency in the Succubus Club repository.*
-
----
 *End of Document*
