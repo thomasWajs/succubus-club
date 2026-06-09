@@ -183,9 +183,17 @@ export function setupKeyboardHandlers(scene: Phaser.Scene) {
             const key = scene.input.keyboard.addKey(keyCode, true)
             key.on('down', () => {
                 if (!command.isDisabled()) {
-                    command.trigger()
+                    command.onKeyDown()
                 }
             })
+
+            if (command.onKeyUp) {
+                key.on('up', () => {
+                    if (!command.isDisabled()) {
+                        command.onKeyUp?.()
+                    }
+                })
+            }
         }
     }
 }

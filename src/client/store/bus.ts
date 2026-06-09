@@ -75,6 +75,12 @@ export const useGameBusStore = defineStore('gameBus', {
         focusMode: false,
         focusModeTransitioning: false,
 
+        /** Pointer **/
+        pointerPosition: null as Point2D | null, // Expressed in world coordinates
+        dragAttrs: null as DragAttrs | null,
+        hoveredCard: null as Card | null,
+        zoomHoveredCard: false,
+
         /** Close-up card **/
         closeUpCard: {
             card: null as Card | null,
@@ -85,11 +91,6 @@ export const useGameBusStore = defineStore('gameBus', {
             card: null as Card | null,
             canView: false,
         },
-
-        /** Pointer **/
-        pointerPosition: null as Point2D | null, // Expressed in world coordinates
-        hoveredCard: null as Card | null,
-        dragAttrs: null as DragAttrs | null,
 
         /** Game Objects **/
         cardsInGame: {} as Record<CardOid, CardInGame>,

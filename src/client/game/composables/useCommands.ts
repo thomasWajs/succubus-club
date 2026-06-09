@@ -28,6 +28,8 @@ export type Command = {
     isDisabled: () => boolean
     trigger: VoidFunction
     cardAction: (card: Card) => void
+    onKeyDown: VoidFunction
+    onKeyUp?: VoidFunction
 }
 type Commands = Record<string, Command>
 
@@ -65,6 +67,9 @@ function createCommands(): Commands {
             },
             cardAction: () => {
                 throw new Error('cardAction must be overridden')
+            },
+            onKeyDown: () => {
+                command.trigger?.()
             },
             ...command,
             ...custom,
@@ -544,6 +549,19 @@ function createCommands(): Commands {
                 gameMutations.UI_pingCard.actSelf({
                     card,
                 })
+            },
+        }),
+
+        ZoomCard: createCommand({
+            name: 'ZoomCard',
+            label: 'Zoom Card',
+            repr: 'Z',
+            keyCodes: [KeyCodes.Z],
+            onKeyDown: () => {
+                gameBus.zoomHoveredCard = true
+            },
+            onKeyUp: () => {
+                gameBus.zoomHoveredCard = false
             },
         }),
     })

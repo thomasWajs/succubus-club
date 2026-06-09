@@ -29,6 +29,7 @@
         <Play />
         <GameGameRightColumn v-show="display.rightColumnVisible" />
         <GameTopArea />
+        <ZoomedCard />
         <Transition name="focus-overlay">
             <div
                 v-if="gameBus.focusModeTransitioning"
@@ -45,6 +46,7 @@ import GameTopArea from '@/client/ui/ingame/GameTopArea.vue'
 import { useCoreStore } from '@/client/store/core.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { display } from '@/client/game/display.ts'
+import ZoomedCard from '@/client/ui/ingame/ZoomedCard.vue'
 
 const core = useCoreStore()
 const gameBus = useGameBusStore()
