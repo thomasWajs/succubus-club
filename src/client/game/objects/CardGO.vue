@@ -52,7 +52,7 @@
             :innerStrength="CARD_IN_PLAY_GLOW_INNER_STRENGTH"
         />
 
-        <PingCardFX v-if="gameBus.pingedCards.includes(card.oid)" />
+        <FxPingCard v-if="gameBus.pingedCards.includes(card.oid)" />
     </Image>
 
     <!-- Card Outline -->
@@ -283,7 +283,7 @@ import { useGameStateStore } from '@/client/store/gameState.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
 import { useCardDragDrop } from '@/client/game/composables/useCardDragDrop.ts'
 import { useCoreStore } from '@/client/store/core.ts'
-import PingCardFX from '@/client/game/objects/PingCardFX.vue'
+import FxPingCard from './FxPingCard.vue'
 import { useCardTexture } from '@/client/game/composables/useCardTexture.ts'
 import Pointer = Phaser.Input.Pointer
 

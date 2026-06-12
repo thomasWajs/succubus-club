@@ -9,11 +9,16 @@
             :y="0"
             :height="HAND_HEIGHT"
             :width="HAND_WIDTH"
-            :fillColor="Colors.REGION_BACKGROUND_DRAG_OVER.color"
-            :fillAlpha="isDraggedOver ? Colors.REGION_BACKGROUND_DRAG_OVER.alphaGL : 0"
+            :fillColor="Colors.REGION_BACKGROUND.color"
+            :fillAlpha="isDraggedOver ? 0.05 : 0"
             :dropZone="true"
             @create="onBoundariesCreate"
-        />
+        >
+            <FxHighlightRegionDrop
+                v-if="isDraggedOver"
+                :color="getPlayerColor(players.selfPlayer!)"
+            />
+        </Rectangle>
 
         <!-- @vue-ignore -->
         <CardInHandGO
@@ -38,9 +43,15 @@ import { HAND_HEIGHT, HAND_WIDTH, HAND_X, HAND_Y } from '@/shared/const/game.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { PhaserDataKey, RegionCategory } from '@/client/game/types.ts'
 
-import { dropCoordinates, getCardDragged, getWorldPoint } from '@/client/game/utils.ts'
+import {
+    dropCoordinates,
+    getCardDragged,
+    getPlayerColor,
+    getWorldPoint,
+} from '@/client/game/utils.ts'
 import { display } from '@/client/game/display.ts'
 import { CardOid } from '@/shared/types/model.ts'
+import FxHighlightRegionDrop from '@/client/game/objects/FxHighlightRegionDrop.vue'
 import Pointer = Phaser.Input.Pointer
 
 const players = usePlayersStore()

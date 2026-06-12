@@ -2,29 +2,26 @@
     <Rectangle
         ref="boundaries"
         :origin="0"
-        :x="x"
-        :y="y"
-        :width="width"
-        :height="height"
+        :x="x - (highlightDropZone ? 4 : 0)"
+        :y="y - (highlightDropZone ? 4 : 0)"
+        :width="width + (highlightDropZone ? 8 : 0)"
+        :height="height + (highlightDropZone ? 8 : 0)"
         :lineWidth="1"
         :strokeColor="color.color"
         :strokeAlpha="color.alphaGL"
-        :fillColor="
-            highlightDropZone || isRegionHovered ?
-                Colors.REGION_BACKGROUND_DRAG_OVER.color
-            :   Colors.REGION_BACKGROUND.color
-        "
-        :fillAlpha="
-            highlightDropZone || isRegionHovered ?
-                Colors.REGION_BACKGROUND_DRAG_OVER.alphaGL
-            :   Colors.REGION_BACKGROUND.alphaGL
-        "
+        :fillColor="Colors.REGION_BACKGROUND.color"
+        :fillAlpha="Colors.REGION_BACKGROUND.alphaGL"
         :dropZone="true"
         @create="onBoundariesCreate"
         @pointerover="onBoundariesPointerOver"
         @pointerout="onBoundariesPointerOut"
         @pointerdown="onBoundariesPointerDown"
-    />
+    >
+        <FxHighlightRegionDrop
+            v-if="highlightDropZone"
+            :color="color"
+        />
+    </Rectangle>
 
     <Text
         ref="cardCount"
@@ -43,7 +40,7 @@
         :visible="isRegionHovered"
         :texture="Texture.WieldCardStack"
         :origin="0.5"
-        :x="x + width - 50"
+        :x="x + width - 47"
         :y="y + 25"
         :displayWidth="40"
         :displayHeight="40"
@@ -115,6 +112,7 @@ import { positionContextMenu } from '@/client/game/utils.ts'
 import { Texture } from '@/client/resources/textures.ts'
 import { AnyCardRegion } from '@/shared/types/model.ts'
 import { useCardTexture } from '@/client/game/composables/useCardTexture.ts'
+import FxHighlightRegionDrop from './FxHighlightRegionDrop.vue'
 import Color = Phaser.Display.Color
 import Pointer = Phaser.Input.Pointer
 

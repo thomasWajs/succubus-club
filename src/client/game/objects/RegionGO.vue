@@ -10,19 +10,16 @@
         :lineWidth="1"
         :strokeColor="color.color"
         :strokeAlpha="color.alphaGL"
-        :fillColor="
-            highlightDropZone ?
-                Colors.REGION_BACKGROUND_DRAG_OVER.color
-            :   Colors.REGION_BACKGROUND.color
-        "
-        :fillAlpha="
-            highlightDropZone ?
-                Colors.REGION_BACKGROUND_DRAG_OVER.alphaGL
-            :   Colors.REGION_BACKGROUND.alphaGL
-        "
+        :fillColor="Colors.REGION_BACKGROUND.color"
+        :fillAlpha="Colors.REGION_BACKGROUND.alphaGL"
         :dropZone="true"
         @create="onBoundariesCreate"
-    />
+    >
+        <FxHighlightRegionDrop
+            v-if="highlightDropZone && cardRegion.name != RegionName.Ready"
+            :color="color"
+        />
+    </Rectangle>
 
     <!-- Region name displayed as text -->
     <Text
@@ -56,6 +53,8 @@ import { usePlayersStore } from '@/client/state/players.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { PhaserDataKey, RegionCategory } from '@/client/game/types.ts'
 import { AnyCardRegion } from '@/shared/types/model.ts'
+import FxHighlightRegionDrop from './FxHighlightRegionDrop.vue'
+import { RegionName } from '@/shared/const/model.ts'
 import Color = Phaser.Display.Color
 
 const players = usePlayersStore()

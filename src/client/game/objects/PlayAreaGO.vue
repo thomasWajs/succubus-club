@@ -28,7 +28,7 @@
             :x="0"
             :y="player.separators.horizontalY"
             :width="player.separators.verticalX"
-            :height="CARD_STACKS_Y - player.separators.horizontalY"
+            :height="TORPOR_ZONE_BOTTOM - player.separators.horizontalY"
             :color="playerColor"
             :cardRegion="player.torpor"
         />
@@ -38,7 +38,7 @@
             :x="player.separators.verticalX"
             :y="player.separators.horizontalY"
             :width="PLAY_AREA_WIDTH - player.separators.verticalX"
-            :height="CARD_STACKS_Y - player.separators.horizontalY"
+            :height="TORPOR_ZONE_BOTTOM - player.separators.horizontalY"
             :color="playerColor"
             :cardRegion="player.uncontrolled"
         />
@@ -51,7 +51,7 @@
             :x="separators.vertical.dragX ? separators.vertical.dragX : player.separators.verticalX"
             :y="player.separators.horizontalY"
             :width="1"
-            :height="CARD_STACKS_Y - player.separators.horizontalY"
+            :height="TORPOR_ZONE_BOTTOM - player.separators.horizontalY"
             :fillColor="separators.vertical.over ? Colors.WHITE.color : playerColor.color"
             @create="onVerticalSeparatorCreate"
             @pointerover="separators.vertical.over = true"
@@ -85,7 +85,7 @@
             key="AshHeap"
             :x="0"
             :y="CARD_STACKS_Y"
-            :width="(PLAY_AREA_WIDTH / 8) * 2"
+            :width="(PLAY_AREA_WIDTH / 8) * 2 - 8"
             :height="CARD_STACKS_HEIGHT"
             :color="playerColor"
             :cardRegion="player.ashHeap"
@@ -93,9 +93,9 @@
         />
         <CardStackRegionGO
             key="Library"
-            :x="(PLAY_AREA_WIDTH / 8) * 2"
+            :x="(PLAY_AREA_WIDTH / 8) * 2 + 2"
             :y="CARD_STACKS_Y"
-            :width="(PLAY_AREA_WIDTH / 8) * 2"
+            :width="(PLAY_AREA_WIDTH / 8) * 2 - 8"
             :height="CARD_STACKS_HEIGHT"
             :color="playerColor"
             :cardRegion="player.library"
@@ -104,9 +104,9 @@
         />
         <CardStackRegionGO
             key="Crypt"
-            :x="(PLAY_AREA_WIDTH / 8) * 4"
+            :x="(PLAY_AREA_WIDTH / 8) * 4 + 4"
             :y="CARD_STACKS_Y"
-            :width="(PLAY_AREA_WIDTH / 8) * 2"
+            :width="(PLAY_AREA_WIDTH / 8) * 2 - 8"
             :height="CARD_STACKS_HEIGHT"
             :color="playerColor"
             :cardRegion="player.crypt"
@@ -115,9 +115,9 @@
         />
         <CardStackRegionGO
             key="Removed"
-            :x="(PLAY_AREA_WIDTH / 8) * 6"
+            :x="(PLAY_AREA_WIDTH / 8) * 6 + 6"
             :y="CARD_STACKS_Y"
-            :width="PLAY_AREA_WIDTH / 8"
+            :width="PLAY_AREA_WIDTH / 8 - 8"
             :height="CARD_STACKS_HEIGHT"
             :color="playerColor"
             :cardRegion="player.removed"
@@ -125,9 +125,9 @@
         />
         <CardStackRegionGO
             key="Hand"
-            :x="(PLAY_AREA_WIDTH / 8) * 7"
+            :x="(PLAY_AREA_WIDTH / 8) * 7 + 8"
             :y="CARD_STACKS_Y"
-            :width="PLAY_AREA_WIDTH / 8"
+            :width="PLAY_AREA_WIDTH / 8 - 8"
             :height="CARD_STACKS_HEIGHT"
             :color="playerColor"
             :cardRegion="player.hand"
@@ -224,6 +224,7 @@ import {
     PLAY_AREA_HEIGHT,
     PLAY_AREA_WIDTH,
     PLAYER_BAR_HEIGHT,
+    TORPOR_ZONE_BOTTOM,
     VERTICAL_SEPARATOR_MAX_X,
     VERTICAL_SEPARATOR_MIN_X,
 } from '@/shared/const/game.ts'
