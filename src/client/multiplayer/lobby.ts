@@ -6,6 +6,7 @@ import {
     getRtdb,
     getScsClient,
     releaseScsClient,
+    rtdbGet,
     rtdbOnValue,
     rtdbRef,
     rtdbRemove,
@@ -93,6 +94,10 @@ export async function joinLobby() {
 
         // Game room list
         rtdbOnValue(rtdbRef(rtdb, GAME_ROOMS_KEY), syncGameRooms)
+
+        if (import.meta.env.DEV) {
+            await pruneAblyChannels()
+        }
     } catch (e) {
         logging.captureException(e)
         bus.alertError('Error joining lobby. Please try again')
@@ -286,4 +291,25 @@ export async function broadcastGameRoom(gameRoom: GameRoom) {
 
 export async function deleteGameRoom(roomId: RoomId) {
     rtdbRemove(gameRoomRef(roomId))
+}
+
+// This is only for dev, because Vercel ain't here to prune the channels
+async function pruneAblyChannels() {
+    const { ably } = await useLobby()
+    const rtdb = getRtdb()
+    const snapshot = await rtdbGet(rtdbRef(rtdb, GAME_ROOMS_KEY))
+    const storedGameRooms = snapshot.val() as Record<RoomId, GameRoom> | null
+
+    let activeChannels = []
+    // @ts-expect-error - Ably request method type compatibility
+    const channelsResponse = await ably.request('GET', '/channels', { by: 'value' })
+    activeChannels = channelsResponse.items.filter(
+        channel => channel.status?.occupancy?.metrics?.connections ?? 0 > 0,
+    )
+
+    for (const roomId of Object.keys(storedGameRooms ?? {})) {
+        if (!activeChannels.includes(roomId)) {
+            await deleteGameRoom(roomId)
+        }
+    }
 }

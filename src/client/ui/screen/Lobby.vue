@@ -163,7 +163,7 @@
 
                 <!-- Create Room -->
                 <div
-                    v-show="!multiplayer.currentGameRoomId"
+                    v-show="!multiplayer.currentGameRoom"
                     class="create-room-section"
                 >
                     <!-- First Row: Room Name | Password | Enable Aids | Allow Spectators -->
@@ -171,7 +171,7 @@
                         <input
                             v-model="roomName"
                             class="input-field room-name-input"
-                            :disabled="multiplayer.currentGameRoomId !== null"
+                            :disabled="!!multiplayer.currentGameRoom"
                             placeholder="Enter room name..."
                             @keydown.enter="onCreateGameRoom"
                         />
@@ -179,7 +179,7 @@
                             v-model="roomPassword"
                             type="text"
                             class="input-field room-password-input"
-                            :disabled="multiplayer.currentGameRoomId !== null"
+                            :disabled="!!multiplayer.currentGameRoom"
                             placeholder="Password (optional)..."
                         />
                         <label
@@ -189,7 +189,7 @@
                             <input
                                 v-model="enableAids"
                                 type="checkbox"
-                                :disabled="multiplayer.currentGameRoomId !== null"
+                                :disabled="!!multiplayer.currentGameRoom"
                             />
                             <span>Enable aids</span>
                         </label>
@@ -197,7 +197,7 @@
                             <input
                                 v-model="allowSpectators"
                                 type="checkbox"
-                                :disabled="multiplayer.currentGameRoomId !== null"
+                                :disabled="!!multiplayer.currentGameRoom"
                             />
                             <span>Allow spectators</span>
                         </label>
@@ -207,7 +207,7 @@
                     <div class="create-room-row-2">
                         <ToggleSwitch
                             v-model="communicationMode"
-                            :disabled="multiplayer.currentGameRoomId !== null"
+                            :disabled="!!multiplayer.currentGameRoom"
                             :options="[
                                 {
                                     value: CommunicationMode.Ably,
@@ -231,7 +231,7 @@
                     <div class="create-room-row-3">
                         <button
                             class="create-room-btn"
-                            :disabled="!roomName.trim() || multiplayer.currentGameRoomId !== null"
+                            :disabled="!roomName.trim() || !!multiplayer.currentGameRoom"
                             @click="onCreateGameRoom"
                         >
                             Create Room
