@@ -12,7 +12,7 @@ const ABLY_API_KEY = process.env.ABLY_API_KEY
 const rtdb = getDatabase(firebaseApp)
 const gameRoomsRef = rtdbRef(rtdb, GAME_ROOMS_KEY)
 
-export async function GET(request) {
+export async function POST(request) {
     const authHeader = request.headers.get('authorization')
 
     if (!process.env.ABLY_SECRET || authHeader !== `Bearer ${process.env.ABLY_SECRET}`) {
