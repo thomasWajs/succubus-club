@@ -22,6 +22,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useBusStore } from '@/client/store/bus.ts'
+import { checkServerVersion } from '@/client/versionCheck.ts'
 
 const busStore = useBusStore()
 const dialogRef = ref<HTMLDialogElement | null>(null)
@@ -29,6 +30,7 @@ const dialogRef = ref<HTMLDialogElement | null>(null)
 function closeModal() {
     busStore.hasBeenIdle = false
     dialogRef.value?.close()
+    checkServerVersion()
 }
 
 onMounted(() => {

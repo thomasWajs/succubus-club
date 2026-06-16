@@ -20,11 +20,11 @@ function onIdle() {
     const multiplayer = useMultiplayerStore()
     const bus = useBusStore()
 
+    bus.hasBeenIdle = true
+
     if (core.gameIsStarted) {
-        bus.hasBeenIdle = true
         leaveGame(true)
     } else if (multiplayer.hasJoinedLobby) {
-        bus.hasBeenIdle = true
         leaveMultiplayer()
         router.push({ name: ROUTES.MainMenu })
     }

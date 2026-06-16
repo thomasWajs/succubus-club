@@ -3,15 +3,17 @@ import { useBusStore } from '@/client/store/bus.ts'
 import router, { ROUTES } from '@/client/ui/router.ts'
 import * as logging from '@/client/logging.ts'
 
-const CHECK_INTERVAL = 5 * 60 * 1000 // 5 minutes
+const CHECK_INTERVAL = 5 * 60 * 1000 // 2 minutes
 
-async function checkServerVersion() {
-    if (router.currentRoute.value.name === ROUTES.Game || import.meta.env.DEV) {
-        return
-    }
-
+export async function checkServerVersion() {
     const bus = useBusStore()
-    if (bus.updateAvailable) {
+
+    if (
+        router.currentRoute.value.name === ROUTES.Game ||
+        import.meta.env.DEV ||
+        bus.updateAvailable ||
+        bus.hasBeenIdle
+    ) {
         return
     }
 
