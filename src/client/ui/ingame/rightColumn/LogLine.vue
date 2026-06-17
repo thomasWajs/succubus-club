@@ -13,7 +13,10 @@
         >
             ↩
         </span>
-        <span class="time">
+        <span
+            v-if="showTime"
+            class="time"
+        >
             [{{ logEntry.timestamp.getHours().toString().padStart(2, '0') }}:{{
                 logEntry.timestamp.getMinutes().toString().padStart(2, '0')
             }}]
@@ -66,9 +69,10 @@ const players = usePlayersStore()
 const gameBus = useGameBusStore()
 const history = useHistoryStore()
 
-const { logEntry, index } = defineProps<{
+const { logEntry, index, showTime } = defineProps<{
     logEntry: LogEntry
     index: number
+    showTime: boolean
 }>()
 
 const selfHasVision = computed(() => {

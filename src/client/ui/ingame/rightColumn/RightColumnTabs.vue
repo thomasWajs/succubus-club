@@ -4,24 +4,35 @@
         class="tab logs"
         :class="{ enlarged: isEnlarged }"
     >
-        <div
-            ref="logLines"
-            class="log-lines"
-        >
+        <div class="log-lines-container">
             <button
-                v-if="history.archive !== ''"
-                class="archive-button"
-                @click="openArchive"
+                class="toggle-time-button"
+                :title="showTime ? 'Hide timestamps' : 'Show timestamps'"
+                @click="toggleShowTime"
             >
-                {{ showArchive ? 'Showing full history' : 'View full history' }}
+                [HH:MM]
             </button>
 
-            <LogLine
-                v-for="(logEntry, index) in displayedLogEntries"
-                :key="'logEntry-' + index"
-                :logEntry="logEntry"
-                :index="index"
-            />
+            <div
+                ref="logLines"
+                class="log-lines"
+            >
+                <button
+                    v-if="history.archive !== ''"
+                    class="archive-button"
+                    @click="openArchive"
+                >
+                    {{ showArchive ? 'Showing full history' : 'View full history' }}
+                </button>
+
+                <LogLine
+                    v-for="(logEntry, index) in displayedLogEntries"
+                    :key="'logEntry-' + index"
+                    :logEntry="logEntry"
+                    :index="index"
+                    :showTime="showTime"
+                />
+            </div>
         </div>
 
         <div
@@ -202,6 +213,16 @@ const activeTab = ref('logs')
 const isEnlarged = ref(false)
 const showArchive = ref(false)
 
+/** Log time toggle **/
+
+const SHOW_TIME_STORAGE_KEY = 'log-show-time'
+const showTime = ref(localStorage.getItem(SHOW_TIME_STORAGE_KEY) !== 'false')
+
+function toggleShowTime() {
+    showTime.value = !showTime.value
+    localStorage.setItem(SHOW_TIME_STORAGE_KEY, String(showTime.value))
+}
+
 const tabs = [
     { id: 'logs', title: 'Logs' },
     { id: 'menu', title: 'Menu' },
@@ -371,11 +392,37 @@ function dismissManualHeadsUp() {
         }
     }
 
-    .log-lines {
+    .log-lines-container {
         flex-grow: 1;
-        overflow-x: auto;
-        overflow-y: scroll;
-        font-size: 15px;
+        overflow: hidden;
+        position: relative;
+
+        .toggle-time-button {
+            position: absolute;
+            top: 0;
+            right: 20px;
+            z-index: 10;
+            font-size: 11px;
+            padding: 2px;
+            cursor: pointer;
+            border: 2px solid $burgundy-red;
+            background: $midnight-purple;
+            color: $pearl-grey;
+            opacity: 0.6;
+            font-family: monospace;
+
+            &:hover {
+                opacity: 1;
+                color: $ghost-white;
+            }
+        }
+
+        .log-lines {
+            height: 100%;
+            overflow-x: auto;
+            overflow-y: scroll;
+            font-size: 15px;
+        }
     }
 
     &.enlarged {
