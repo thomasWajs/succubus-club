@@ -93,7 +93,7 @@ async function removeOldAutoSavedGames() {
     // Get all autosaves
     const autosaves = await db.savedGames.where({ isAutoSave: 1 }).toArray()
 
-    // If we have more than 9 autosaves (as we're about to add one more)
+    // If we have more than 5 autosaves (as we're about to add one more)
     if (autosaves.length > MAX_AUTO_SAVED_GAMES) {
         // Sort by date in ascending order (oldest first)
         const sortedAutosaves = autosaves.sort((a, b) => a.date.getTime() - b.date.getTime())
