@@ -292,10 +292,14 @@ function applyPeerMutation(gameMutation: AnyGameMutation, remoteVersion?: Vector
 
     const validity = gameMutation.canApply()
     if (!validity.isValid) {
+        // Disabling for now, too much invalid mutation that flood Sentry.
+        // TODO: Should we log something ?
+        /*
         logging.captureMessage(
             `Received an invalid game mutation : ${validity.reason} | ${JSON.stringify(gameMutation)}`,
             'debug',
         )
+         */
 
         // This can happen when screwing up the game state due to concurrency/conflict. Generally, it's not meaningful.
         // Update the clock state to prevent further conflicts
