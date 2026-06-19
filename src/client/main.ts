@@ -15,6 +15,7 @@ import { startVersionMonitoring } from '@/client/versionCheck.ts'
 import { initClient } from '@/client/initClient.ts'
 
 const app = createApp(App)
+logging.initGlobalErrorHandling()
 logging.initSentry(app)
 
 /**

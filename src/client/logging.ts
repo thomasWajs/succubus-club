@@ -5,9 +5,24 @@ import { Pinia } from 'pinia'
 import { useCoreStore } from '@/client/store/core.ts'
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import { useHistoryStore } from '@/client/store/history.ts'
+import { useBusStore } from '@/client/store/bus.ts'
+
+import { NotInAGameRoom } from '@/client/types.ts'
 
 const isProd = import.meta.env.PROD
 const sentryEnv = import.meta.env.VITE_SENTRY_ENV ?? (isProd ? 'production' : 'development')
+
+export function initGlobalErrorHandling() {
+    window.addEventListener('unhandledrejection', event => {
+        // Special handling for NotInAGameRoom errors
+        if (event.reason instanceof NotInAGameRoom) {
+            useBusStore().alertError(
+                "Oops, looks like you've been disconnected. Refresh the page to reconnect.",
+            )
+            event.preventDefault() // prevents default browser error logging
+        }
+    })
+}
 
 export function initSentry(app: App) {
     Sentry.init({
@@ -26,8 +41,8 @@ export function initSentry(app: App) {
             }),
         ],
 
-        // Filter out internal Vue errors, they flood Sentry with useless reports
         beforeSend(event) {
+            // Filter out internal Vue errors, they flood Sentry with useless reports
             const frames = event.exception?.values?.[0]?.stacktrace?.frames
             if (frames?.length) {
                 const lastFrame = frames[frames.length - 1]

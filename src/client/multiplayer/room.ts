@@ -47,18 +47,11 @@ import {
     onReceiveServerError,
     scsCommunication,
 } from '@/client/multiplayer/communication/scs.ts'
-
-export class NotInAGameRoom extends Error {
-    constructor(message?: string) {
-        super(message)
-        this.name = 'NotInAGameRoom'
-    }
-}
+import { NotInAGameRoom } from '@/client/types.ts'
 
 export function getCommunication(gameRoom?: GameRoom): Communication {
     if (!gameRoom) {
-        const multiplayer = useMultiplayerStore()
-        gameRoom = multiplayer.currentGameRoom
+        gameRoom = useMultiplayerStore().currentGameRoom
     }
 
     if (!gameRoom) {
@@ -555,21 +548,12 @@ export async function broadcastGameMutation(gameMutation: AnyGameMutation) {
 }
 
 export async function receiveGameMutation(gameMutationMessage: GameMutationMessage) {
-    try {
-        const gameRoom = ensureGameRoom()
-        // Cannot receive mutations if the game is not started
-        if (!gameRoom.isStarted) {
-            return
-        }
-        await receiveMutationMessage(gameMutationMessage)
-    } catch (error) {
-        if (error instanceof NotInAGameRoom) {
-            useBusStore().alertError(
-                "Oops, looks like you've been disconnected. Refresh the page to reconnect.",
-            )
-        }
-        throw error
+    const gameRoom = ensureGameRoom()
+    // Cannot receive mutations if the game is not started
+    if (!gameRoom.isStarted) {
+        return
     }
+    await receiveMutationMessage(gameMutationMessage)
 }
 
 /** State Sync Messages */
