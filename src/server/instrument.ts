@@ -15,7 +15,5 @@ Sentry.init({
     // - tracesSampleRate: 0 disables performance tracing
     // - httpIntegration: disables session tracking (autoSessionTracking was removed in v9+)
     tracesSampleRate: 0,
-    integrations: [
-        Sentry.httpIntegration({ trackIncomingRequestsAsSessions: false }),
-    ],
+    integrations: [Sentry.httpIntegration({ trackIncomingRequestsAsSessions: false })],
 })
