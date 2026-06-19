@@ -11,6 +11,11 @@ Sentry.init({
     enabled: NODE_ENV != 'development',
     environment: SENTRY_ENV,
     sendDefaultPii: true,
-    // disable the session/performance tracking that causes background traffic
+    // disable all background traffic that would prevent Railway serverless from sleeping:
+    // - tracesSampleRate: 0 disables performance tracing
+    // - httpIntegration: disables session tracking (autoSessionTracking was removed in v9+)
     tracesSampleRate: 0,
+    integrations: [
+        Sentry.httpIntegration({ trackIncomingRequestsAsSessions: false }),
+    ],
 })

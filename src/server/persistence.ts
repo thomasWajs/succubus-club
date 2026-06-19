@@ -36,18 +36,25 @@ type RoomRow = {
     history: string
 }
 
-/**
- * Initialize SQLite database
- */
-fs.mkdirSync(path.dirname(DB_PATH), { recursive: true })
-const db = new Database(DB_PATH)
-
-// Enable WAL mode for better concurrency
-db.pragma('journal_mode = WAL')
-
 const ONE_HOUR = 60 * 60 * 1000
 const ONE_DAY = 24 * ONE_HOUR
 const TWO_WEEKS = 14 * ONE_DAY
+
+/**
+ * Open the database, run a callback, then close it immediately.
+ * This prevents a persistent open connection that would keep Railway awake.
+ */
+function withDb<T>(fn: (db: Database.Database) => T): T {
+    fs.mkdirSync(path.dirname(DB_PATH), { recursive: true })
+    const db = new Database(DB_PATH)
+    // WAL mode: better concurrency, and WAL checkpoint flushes are isolated to this call
+    db.pragma('journal_mode = WAL')
+    try {
+        return fn(db)
+    } finally {
+        db.close()
+    }
+}
 
 /**
  * Cleanup old tables & rooms
@@ -55,14 +62,16 @@ const TWO_WEEKS = 14 * ONE_DAY
 
 export function cleanupOldGames() {
     try {
-        const twoWeeksAgo = Date.now() - TWO_WEEKS
+        withDb(db => {
+            const twoWeeksAgo = Date.now() - TWO_WEEKS
 
-        const deleteOldRooms = db.prepare('DELETE FROM rooms WHERE updatedAt < ?')
-        const deletedRooms = deleteOldRooms.run(twoWeeksAgo)
+            const deleteOldRooms = db.prepare('DELETE FROM rooms WHERE updatedAt < ?')
+            const deletedRooms = deleteOldRooms.run(twoWeeksAgo)
 
-        if (deletedRooms.changes > 0) {
-            logger.info(`Cleaned up ${deletedRooms.changes} old rooms`)
-        }
+            if (deletedRooms.changes > 0) {
+                logger.info(`Cleaned up ${deletedRooms.changes} old rooms`)
+            }
+        })
     } catch (error) {
         captureException(error)
     }
@@ -72,21 +81,23 @@ export function cleanupOldGames() {
  * Create tables if they don't exist
  */
 export function initTables() {
-    db.exec(`
-    CREATE TABLE IF NOT EXISTS rooms (
-        id TEXT PRIMARY KEY,
-        passwordHash TEXT NOT NULL,
-        userDecks TEXT NOT NULL,
-        seating TEXT NOT NULL,
-        gameId TEXT,
-        globalClock TEXT NOT NULL,
-        objectClocks TEXT NOT NULL,
-        gameState TEXT,
-        history TEXT NOT NULL,
-        createdAt INTEGER NOT NULL,
-        updatedAt INTEGER NOT NULL
-    )
-`)
+    withDb(db => {
+        db.exec(`
+        CREATE TABLE IF NOT EXISTS rooms (
+            id TEXT PRIMARY KEY,
+            passwordHash TEXT NOT NULL,
+            userDecks TEXT NOT NULL,
+            seating TEXT NOT NULL,
+            gameId TEXT,
+            globalClock TEXT NOT NULL,
+            objectClocks TEXT NOT NULL,
+            gameState TEXT,
+            history TEXT NOT NULL,
+            createdAt INTEGER NOT NULL,
+            updatedAt INTEGER NOT NULL
+        )
+    `)
+    })
 
     // A cron-job could call the cleanup periodically.
     // BUT : Railway is currently configured in serverless mode,
@@ -103,9 +114,11 @@ export function initTables() {
 
 export function hasRoom(id: string): boolean {
     try {
-        const stmt = db.prepare('SELECT 1 FROM rooms WHERE id = ?')
-        const row = stmt.get(id)
-        return !!row
+        return withDb(db => {
+            const stmt = db.prepare('SELECT 1 FROM rooms WHERE id = ?')
+            const row = stmt.get(id)
+            return !!row
+        })
     } catch (error) {
         captureException(error)
         return false
@@ -114,36 +127,38 @@ export function hasRoom(id: string): boolean {
 
 export function saveRoom(room: Room): void {
     try {
-        const now = Date.now()
-        const stmt = db.prepare(`
-            INSERT INTO rooms (id, passwordHash, userDecks, seating, gameId, globalClock, objectClocks, gameState, history, createdAt, updatedAt)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET
-                passwordHash = excluded.passwordHash,
-                userDecks = excluded.userDecks,
-                seating = excluded.seating,
-                gameId = excluded.gameId,
-                globalClock = excluded.globalClock,
-                objectClocks = excluded.objectClocks,
-                gameState = excluded.gameState,
-                history = excluded.history,
-                updatedAt = excluded.updatedAt
-        `)
-        const serializedGameState =
-            room.gameState ? JSON.stringify(serializeGameState(room.gameState)) : null
-        stmt.run(
-            room.id,
-            room.passwordHash,
-            JSON.stringify(room.userDecks),
-            JSON.stringify(room.seating),
-            room.gameId,
-            JSON.stringify(room.globalClock),
-            JSON.stringify(room.objectClocks),
-            serializedGameState,
-            JSON.stringify(serializeHistory(room.history, true)),
-            now,
-            now,
-        )
+        withDb(db => {
+            const now = Date.now()
+            const stmt = db.prepare(`
+                INSERT INTO rooms (id, passwordHash, userDecks, seating, gameId, globalClock, objectClocks, gameState, history, createdAt, updatedAt)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    passwordHash = excluded.passwordHash,
+                    userDecks = excluded.userDecks,
+                    seating = excluded.seating,
+                    gameId = excluded.gameId,
+                    globalClock = excluded.globalClock,
+                    objectClocks = excluded.objectClocks,
+                    gameState = excluded.gameState,
+                    history = excluded.history,
+                    updatedAt = excluded.updatedAt
+            `)
+            const serializedGameState =
+                room.gameState ? JSON.stringify(serializeGameState(room.gameState)) : null
+            stmt.run(
+                room.id,
+                room.passwordHash,
+                JSON.stringify(room.userDecks),
+                JSON.stringify(room.seating),
+                room.gameId,
+                JSON.stringify(room.globalClock),
+                JSON.stringify(room.objectClocks),
+                serializedGameState,
+                JSON.stringify(serializeHistory(room.history, true)),
+                now,
+                now,
+            )
+        })
     } catch (error) {
         captureException(error)
     }
@@ -182,12 +197,14 @@ function loadRoomRow(row: RoomRow): Room {
 
 export function loadRoom(roomId: RoomId): Room | undefined {
     try {
-        const stmt = db.prepare('SELECT * FROM rooms WHERE id = ?')
-        const row = stmt.get(roomId) as RoomRow
-        if (!row) {
-            return undefined
-        }
-        return loadRoomRow(row)
+        return withDb(db => {
+            const stmt = db.prepare('SELECT * FROM rooms WHERE id = ?')
+            const row = stmt.get(roomId) as RoomRow
+            if (!row) {
+                return undefined
+            }
+            return loadRoomRow(row)
+        })
     } catch (error) {
         captureException(error)
         return undefined
@@ -196,10 +213,12 @@ export function loadRoom(roomId: RoomId): Room | undefined {
 
 export function loadRecentRooms(): Room[] {
     try {
-        const sixHoursAgo = Date.now() - 6 * ONE_HOUR
-        const stmt = db.prepare('SELECT * FROM rooms WHERE updatedAt >= ?')
-        const rows = stmt.all(sixHoursAgo) as RoomRow[]
-        return rows.map(loadRoomRow)
+        return withDb(db => {
+            const sixHoursAgo = Date.now() - 6 * ONE_HOUR
+            const stmt = db.prepare('SELECT * FROM rooms WHERE updatedAt >= ?')
+            const rows = stmt.all(sixHoursAgo) as RoomRow[]
+            return rows.map(loadRoomRow)
+        })
     } catch (error) {
         captureException(error)
         return []
@@ -208,8 +227,10 @@ export function loadRecentRooms(): Room[] {
 
 export function deleteRoom(roomId: RoomId): void {
     try {
-        const stmt = db.prepare('DELETE FROM rooms WHERE id = ?')
-        stmt.run(roomId)
+        withDb(db => {
+            const stmt = db.prepare('DELETE FROM rooms WHERE id = ?')
+            stmt.run(roomId)
+        })
     } catch (error) {
         captureException(error)
     }
