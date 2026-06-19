@@ -73,7 +73,11 @@ export function declareAction(action: MinionAction, player?: Player) {
         })
     }
 
-    if (action.type == MinionActionType.ActionCardFromHand && !player.isBot) {
+    if (
+        action.type == MinionActionType.ActionCardFromHand &&
+        action.card.region == player.hand &&
+        !player.isBot
+    ) {
         playCardFromHand({ card: action.card, actingMinion: action.actingMinion })
     }
 }
