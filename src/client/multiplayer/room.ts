@@ -525,7 +525,7 @@ export async function receiveLaunchGame(serializedGame: SerializedMultiplayerGam
 export async function broadcastChatMessage(message: ChatMessage) {
     const gameRoom = ensureGameRoom()
     if (!gameRoom.isStarted) {
-        throw new Error(`Game is not started`)
+        return
     }
     const roomChannel = getRoomChannel()
     await ablyPublish(roomChannel, MultiplayerMessageType.Chat, serializeObject(message))
@@ -546,7 +546,7 @@ export async function onReceiveChatMessage(serializedMessage: SerializedChatMess
 export async function broadcastGameMutation(gameMutation: AnyGameMutation) {
     const gameRoom = ensureGameRoom()
     if (!gameRoom.isStarted) {
-        throw new Error(`Game is not started`)
+        return
     }
     const comm = getCommunication(gameRoom)
 
@@ -577,7 +577,7 @@ export async function receiveGameMutation(gameMutationMessage: GameMutationMessa
 export async function requestResyncGameState(isUserRequest: boolean = false) {
     const gameRoom = ensureGameRoom()
     if (!gameRoom.isStarted) {
-        throw new Error(`Game is not started`)
+        return
     }
     const comm = getCommunication(gameRoom)
 

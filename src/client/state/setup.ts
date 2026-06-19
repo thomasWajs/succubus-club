@@ -146,7 +146,7 @@ export function leaveGame(redirectToMenu: boolean = false) {
     const core = useCoreStore()
 
     if (!core.gameIsStarted) {
-        throw new Error(`Game is not started`)
+        return
     }
 
     stopClock()

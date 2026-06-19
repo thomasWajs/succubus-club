@@ -99,7 +99,7 @@ async function requestResyncGameState() {
 export async function onReceiveRequestResyncGameState(message: AblyRequestResyncMessage) {
     const gameRoom = ensureGameRoom()
     if (!gameRoom.isStarted) {
-        throw new Error(`Game is not started`)
+        return
     }
 
     const ably = getAbly()
