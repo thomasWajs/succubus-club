@@ -91,7 +91,9 @@ export async function saveGame(isAutoSave: boolean) {
 
 async function removeOldAutoSavedGames() {
     // Get all autosaves
-    const autosaves = await db.savedGames.where({ isAutoSave: 1 }).toArray()
+    let autosaves = await db.savedGames.where({ isAutoSave: 1 }).toArray()
+    // Remove null values that sometime pop into this array for whatever obscure reason
+    autosaves = autosaves.filter(s => s !== null)
 
     // If we have more than 5 autosaves (as we're about to add one more)
     if (autosaves.length > MAX_AUTO_SAVED_GAMES) {
