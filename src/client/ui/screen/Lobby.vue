@@ -128,7 +128,7 @@
                                     Game Started
                                 </span>
                                 <span class="player-count">
-                                    {{ gameRoom.players.length }}/5 Players
+                                    {{ gameRoom.players?.length ?? '?' }}/5 Players
                                 </span>
                                 <div
                                     v-if="gameRoom.hasPassword"
