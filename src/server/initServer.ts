@@ -1,5 +1,5 @@
 // Register server code into shared functions
-import { registerGameState, registerLogger, setGameResources } from '@/shared/registries.ts'
+import { registerLogger, setGameResources } from '@/shared/registries.ts'
 import { initWasmHasher } from '@/shared/serialization.ts'
 import { readFileSync } from 'fs'
 import { resolve } from 'path'
@@ -24,12 +24,7 @@ function loadCardbase() {
 }
 
 function restorePersistedData() {
-    const { rooms, gameStates } = loadPersistedData()
-
+    const { rooms } = loadPersistedData()
     restoreRooms(rooms)
-
-    // Register game states in the registry
-    for (const gameState of gameStates) {
-        registerGameState(gameState.gameId, gameState)
-    }
+    logger.info(`Restored ${rooms.length} rooms`)
 }

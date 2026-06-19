@@ -35,6 +35,7 @@ export enum CommunicationMode {
 
 export enum ScsStatus {
     Connecting = 'Connecting',
+    Disconnecting = 'Disconnecting',
     Connected = 'Connected',
     Disconnected = 'Disconnected',
 }
@@ -46,11 +47,13 @@ export type GameRoom = {
     hostId: PermanentId
     communication: CommunicationMode
     isStarted: boolean
+    isSavedGame: boolean
     hasPassword: boolean
     passwordHash: string
     enableAids: boolean
     allowSpectators: boolean
     players: PermanentId[] // permanentId in arbitrary order
+    competingPlayers: PermanentId[] // Non-ousted players, in the order of the turn
     seating?: Seating // permanentId in the order of the seating
     spectators: PermanentId[] // permanentId in arbitrary order
 }
@@ -199,6 +202,7 @@ export type SerializedGame = {
 }
 
 export type SerializedMultiplayerGame = SerializedGame & {
+    globalVersion: LamportClockVersion
     objectClocks: Record<VersioningId, VectorClockVersion>
     mutationVersions: Record<GameMutationId, VectorClockVersion>
 }
@@ -274,7 +278,6 @@ export type AblyRequestResyncMessage = {
 
 export type AblyGameStateMessage = {
     gameStateId: string
-    globalVersion: LamportClockVersion
     hash: number
 }
 
@@ -308,6 +311,7 @@ export type JoinRoomMessage = {
     type: MultiplayerMessageType.JoinRoom
     roomId: RoomId
     passwordHash: string
+    savedGameId?: GameId
 }
 
 export type LeaveRoomMessage = {
@@ -362,7 +366,6 @@ export type ScsLaunchGameMessage = {
 export type ScsGameStateMessage = {
     type: MultiplayerMessageType.GameState
     serializedGame: SerializedMultiplayerGame
-    globalVersion: LamportClockVersion
     hash: number
 }
 

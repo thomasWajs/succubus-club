@@ -4,7 +4,11 @@ function generateId() {
     return nanoid()
 }
 
-export function generateClientOid() {
+export function generateRoomId() {
+    return `room-${generateId()}`
+}
+
+export function generateClientId() {
     return `client-${generateId()}`
 }
 

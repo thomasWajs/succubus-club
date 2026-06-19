@@ -2,6 +2,7 @@ import {
     CommunicationMode,
     ErrorMessage,
     GameMutationMessage,
+    GameRoom,
     MultiplayerMessageType,
     RoomId,
     ScsGameStateMessage,
@@ -100,7 +101,7 @@ export const scsCommunication: ScsCommunication = {
     },
 
     handleDisconnect() {
-        // If we're still disconnected after 2 seconds, show an alert
+        // If we're still in game and disconnected after 2 seconds, show an alert
         setTimeout(async () => {
             const multiplayer = useMultiplayerStore()
             if (
@@ -129,10 +130,12 @@ export const scsCommunication: ScsCommunication = {
     },
 
     async joinRoom(roomId: RoomId, key?: Key) {
+        const multiplayer = useMultiplayerStore()
         getScsClient().send({
             type: MultiplayerMessageType.JoinRoom,
             roomId,
             passwordHash: key?.hash ?? '',
+            savedGameId: multiplayer.restoringSavedGame?.gameId,
         })
         currentRoomId = roomId
         currentKey = key
@@ -167,16 +170,13 @@ export const scsCommunication: ScsCommunication = {
         getScsClient().send({ type: MultiplayerMessageType.RollSeating })
     },
 
-    async launchGame() {
-        const gameRoom = ensureGameRoom()
-        if (!gameRoom.seating) {
-            throw new Error('Seating is not ready')
-        }
-
+    async launchGame(gameRoom: GameRoom) {
+        const multiplayer = useMultiplayerStore()
         getScsClient().send({
             type: MultiplayerMessageType.SetupGame,
         })
         gameRoom.isStarted = true
+        multiplayer.restoringSavedGame = null
     },
 
     async onReceiveLaunchGame(message: ScsLaunchGameMessage) {

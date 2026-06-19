@@ -10,13 +10,17 @@ import {
 import { send, sendError } from './wsServer.ts'
 import { ConnectionInfo, Room, SERVER_PERM_ID } from './types.ts'
 import logger from './logger.ts'
-import { createGameState, getSerializedGame } from './gameState.ts'
 import { getUser, getUserConnection } from './users.ts'
 import * as persistence from './persistence.ts'
+import { hasRoom, loadRoom } from './persistence.ts'
 import { DeckList } from '@/shared/types/gateway.ts'
 import { shuffleArray } from '@/shared/utils.ts'
 import { LamportClock } from '@/shared/multiplayer/clock.ts'
 import { HistoryStore } from '@/shared/state/history.ts'
+import { GameId } from '@/shared/types/model.ts'
+import { createGameState, getSerializedGame } from './gameState.ts'
+import { GameState } from '@/shared/state/gameState.ts'
+import { deleteGameState } from '@/shared/registries.ts'
 
 export class RoomNotFound extends Error {}
 
@@ -26,6 +30,7 @@ const rooms = new Map<RoomId, Room>()
 /**
  * Restore rooms from persistence
  */
+
 export function restoreRooms(persistedRooms: Room[]): void {
     for (const room of persistedRooms) {
         rooms.set(room.id, room)
@@ -35,11 +40,25 @@ export function restoreRooms(persistedRooms: Room[]): void {
 /**
  * Get room by ID
  */
+
 export function getRoom(roomId: RoomId | null): Room | undefined {
     if (!roomId) {
         return undefined
     }
     return rooms.get(roomId)
+}
+
+/**
+ * Get room by GameId
+ */
+
+export function getRoomByGameId(gameId: GameId | null): Room | undefined {
+    for (const room of rooms.values()) {
+        if (room.gameId == gameId) {
+            return room
+        }
+    }
+    return undefined
 }
 
 /**
@@ -59,6 +78,11 @@ export function ensureRoom(roomId: RoomId | null): Room {
 export function getOrCreateRoom(roomId: RoomId, passwordHash: string): Room {
     let room = rooms.get(roomId)
     if (!room) {
+        // This should not happen, except from malicious actor
+        if (hasRoom(roomId)) {
+            throw new Error('RoomId already in use, please generate another one')
+        }
+
         room = {
             id: roomId,
             players: new Set(),
@@ -68,12 +92,42 @@ export function getOrCreateRoom(roomId: RoomId, passwordHash: string): Room {
             userDecks: {},
             globalClock: new LamportClock(SERVER_PERM_ID),
             objectClocks: {},
+            gameState: null,
             history: new HistoryStore(),
+            isSavedGame: false,
         }
         rooms.set(roomId, room)
         persistence.saveRoom(room)
         logger.info(`Created room: ${roomId}`)
     }
+    return room
+}
+
+/**
+ * Load saved room from persistence
+ */
+export function loadSavedGameRoom(roomId: RoomId, gameId: GameId) {
+    let room = rooms.get(roomId)
+
+    // It's not in memory, but it's probably in cold storage
+    if (!room) {
+        room = loadRoom(roomId)
+    }
+
+    if (!room) {
+        throw new RoomNotFound(`Room ${roomId} not found`)
+    }
+
+    if (!room.gameState) {
+        throw new Error(`No game state in this room`)
+    }
+
+    if (room.gameId != gameId) {
+        throw new Error(`Incorrect game id ${gameId}`)
+    }
+
+    room.isSavedGame = true
+    rooms.set(roomId, room)
     return room
 }
 
@@ -90,21 +144,20 @@ export function leaveRoom(connection: ConnectionInfo): Room | undefined {
     room.players.delete(connection.permId)
     delete room.userDecks[connection.permId]
 
-    // If room is empty, delete it
+    // If room is empty, delete it from memory.
+    // Keep it in persistence in case players want to load it later
     if (room.players.size === 0) {
         if (room.gameId) {
-            persistence.deleteGameState(room.gameId)
+            deleteGameState(room.gameId)
         }
-        persistence.deleteRoom(room.id)
         rooms.delete(room.id)
         logger.info(`Deleted empty room: ${room.id}`)
     }
 }
 
 /**
- * Leave Room
+ * Get an edulcorated deck list, that is only the number of cards in each stack, without details
  */
-
 export function getEdulcoratedDeckList(deckList: DeckList) {
     const edulcoratedDeck: DeckList = {}
     for (const [cardId, quantity] of Object.entries(deckList)) {
@@ -129,9 +182,14 @@ export async function handleJoinRoom(connection: ConnectionInfo, message: JoinRo
     }
 
     const user = getUser(connection.permId)
-    const { roomId, passwordHash } = message
+    const { roomId, passwordHash, savedGameId } = message
 
-    const room = getOrCreateRoom(roomId, passwordHash)
+    let room: Room
+    if (savedGameId) {
+        room = loadSavedGameRoom(roomId, savedGameId)
+    } else {
+        room = getOrCreateRoom(roomId, passwordHash)
+    }
 
     // Ensure players knows the password when there's one
     if (room.passwordHash && room.passwordHash != passwordHash) {
@@ -213,23 +271,42 @@ export async function handleRollSeating(connection: ConnectionInfo) {
 /**
  * Handle game launching
  */
-export async function handleSetupGame(connection: ConnectionInfo) {
-    const room = ensureRoom(connection.roomId)
+function setupSavedGame(room: Room): GameState {
+    const gameState = room.gameState
 
+    if (!gameState) {
+        throw new Error(`No game state in this room`)
+    }
+
+    // Validate that all competing (non-ousted) players are connected
+    for (const player of gameState.competingPlayers) {
+        if (!room.players.has(player.permId)) {
+            throw new Error(`Competing player ${player.permId} is not in the room`)
+        }
+    }
+
+    return gameState
+}
+
+function setupNewGame(room: Room): GameState {
     // Enforce seating: only allow launching if seating is set and matches current players
     if (!room.seating || room.seating === EMPTY_SEATING) {
         throw new Error('Seating must be set before launching the game')
     }
 
     // Validate that all seated players are in the room
-    const seatingArray = Array.isArray(room.seating) ? room.seating : []
-    for (const permId of seatingArray) {
+    for (const permId of room.seating) {
         if (!room.players.has(permId)) {
             throw new Error(`Seated player ${permId} is not in the room`)
         }
     }
 
-    const gameState = createGameState(room)
+    return createGameState(room)
+}
+
+export async function handleSetupGame(connection: ConnectionInfo) {
+    const room = ensureRoom(connection.roomId)
+    const gameState = room.isSavedGame ? setupSavedGame(room) : setupNewGame(room)
 
     broadcastTailored(room.id, permId => ({
         type: MultiplayerMessageType.LaunchGame,

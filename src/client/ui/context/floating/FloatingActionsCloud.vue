@@ -120,7 +120,7 @@ function getPositionning(card: Card) {
     }
 }
 
-function getActingMinionActions(actingMinion: Minion) {
+function getActingMinionActions(actingMinion: Minion): FloatingActionData[] {
     if (!actionDeclarationEnabled.value) {
         return []
     }
@@ -268,7 +268,7 @@ function getActingMinionActions(actingMinion: Minion) {
     return actions
 }
 
-function getEmbraceLikeActions(embraceLike: Card) {
+function getEmbraceLikeActions(embraceLike: Card): FloatingActionData[] {
     const positionning = getPositionning(embraceLike)
     if (!positionning) {
         return []

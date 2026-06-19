@@ -10,7 +10,8 @@ import {
     SerializedGame,
 } from '@/shared/types/multiplayer.ts'
 import { AvatarId, Deck, DeckList } from '@/shared/types/gateway.ts'
-import { ConductorState } from '@/client/bot/conductor.ts' // If you know, you know ;-)
+import { ConductorState } from '@/client/bot/conductor.ts'
+import { GameId } from '@/shared/types/model.ts' // If you know, you know ;-)
 
 // If you know, you know ;-)
 const DEFAULT_PLAYER_NAME = 'The Unnamed'
@@ -135,12 +136,15 @@ export class DbSavedGame extends Entity<SuccubusDb> {
     name: string
     isAutoSave: number // We cannot index boolean with Dexie, so fallback on 0=false / 1=true
     gameType: GameType
+    roomId: RoomId
     roomName: string
     password: string
     communication: CommunicationMode
     enableAids: number // We cannot index boolean with Dexie, so fallback on 0=false / 1=true
     allowSpectators: number // We cannot index boolean with Dexie, so fallback on 0=false / 1=true
     seating: Seating
+    competingPlayers: PermanentId[]
+    gameId: GameId
     game: SerializedGame
     conductorState?: ConductorState
 }
@@ -148,7 +152,9 @@ export class DbSavedGame extends Entity<SuccubusDb> {
 export class SuccubusDb extends Dexie {
     userProfile: EntityTable<DbUserProfile, 'id'>
     decks: EntityTable<DbDeck, 'id'>
-    savedGames: EntityTable<DbSavedGame, 'id'>
+    // The exclamation mark is here to fix a known Dexie + TypeScript issue
+    // caused by Dexie's complex generic type chain.
+    savedGames!: EntityTable<DbSavedGame, 'id'>
 
     constructor() {
         super('SuccubusDb')

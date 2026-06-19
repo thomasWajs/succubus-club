@@ -122,6 +122,18 @@ select {
     background: $shadow-teal;
 }
 
+.red-secondary-badge {
+    @include secondary-badge;
+    color: $pale-grey;
+    background: $dark-blood;
+}
+
+.blue-secondary-badge {
+    @include secondary-badge;
+    color: $pearl-grey;
+    background: $twilight-blue;
+}
+
 .blood-list {
     padding-left: 1.5rem;
 

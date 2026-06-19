@@ -15,17 +15,12 @@ import {
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import * as logging from '@/client/logging.ts'
 import { useBusStore } from '@/client/store/bus.ts'
-import {
-    CommunicationMode,
-    GameRoom,
-    RoomId,
-    ScsStatus,
-    Seating,
-} from '@/shared/types/multiplayer.ts'
+import { CommunicationMode, GameRoom, RoomId, ScsStatus } from '@/shared/types/multiplayer.ts'
 import { getCommunication, joinGameRoom, leaveGameRoom } from '@/client/multiplayer/room.ts'
 import { computeKey } from '@/client/multiplayer/encryption.ts'
 import { scsCommunication } from '@/client/multiplayer/communication/scs.ts'
-import { hash } from '@/shared/serialization.ts'
+import { generateRoomId } from '@/shared/state/ids.ts'
+import { DbSavedGame } from '@/client/gateway/db.ts'
 
 let LOBBY_CHANNEL_NAME = 'Lobby'
 const GAME_ROOMS_KEY = 'gameRooms'
@@ -109,7 +104,11 @@ export async function joinLobby() {
 }
 
 export async function leaveLobby() {
-    const { lobbyChannel } = await useLobby()
+    if (!_lobby) {
+        return
+    }
+
+    const { lobbyChannel } = await _lobby
 
     unwatchSelfUser?.()
     unwatchSelfUser = null
@@ -243,8 +242,7 @@ export async function createGameRoom(
     communication: CommunicationMode = CommunicationMode.Ably,
     enableAids: boolean = true,
     allowSpectators: boolean = true,
-    seating: Seating = [],
-    isStarted: boolean = false,
+    savedGame?: DbSavedGame,
 ) {
     const { multiplayer } = await useLobby()
 
@@ -267,17 +265,19 @@ export async function createGameRoom(
     }
 
     const gameRoom = {
-        id: hash(roomName).toString(),
+        id: savedGame ? savedGame.roomId : generateRoomId(),
         name: roomName,
         hostId: multiplayer.selfUser.permId,
         communication,
-        isStarted,
+        isStarted: false,
+        isSavedGame: !!savedGame,
         hasPassword: password != '',
         passwordHash: key?.hash ?? '',
         enableAids,
         allowSpectators,
         players: [multiplayer.selfUser.permId],
-        seating,
+        competingPlayers: savedGame ? savedGame.competingPlayers : [],
+        seating: savedGame ? savedGame.seating : [],
         spectators: [],
     }
     multiplayer.upsertGameRoom(gameRoom)

@@ -13,7 +13,6 @@ import {
     ScsGameStateMessage,
     ScsMutationRejectedMessage,
     SerializedChatMessage,
-    SerializedGame,
     SerializedMultiplayerGame,
     VectorClockVersion,
     VersioningId,
@@ -471,22 +470,34 @@ function _unsafeReceiveRejectedMutation(message: ScsMutationRejectedMessage) {
 }
 
 /**
- * State Init
- */
-
-export async function applyInitialGameState(serializedGame: SerializedGame) {
-    return stateMutex.withLock(async () => {
-        resetState()
-        loadGame(serializedGame)
-        flushPendingMessages()
-    })
-}
-
-/**
- * State Resync
+ * State Init / Resync
  */
 
 let desyncDate: Date | null = null
+
+function syncClocks(serializedGame: SerializedMultiplayerGame) {
+    const multiplayer = useMultiplayerStore()
+
+    // Update the global clock
+    multiplayer.globalClock.update(serializedGame.globalVersion)
+
+    // Sync the object clocks
+    for (const [versioningId, clockVersion] of Object.entries(serializedGame.objectClocks)) {
+        multiplayer.objectClocks[versioningId] = new VectorClock(clockVersion)
+    }
+
+    // Sync the mutation versions
+    multiplayer.mutationVersions = serializedGame.mutationVersions
+}
+
+export async function applyInitialGameState(serializedGame: SerializedMultiplayerGame) {
+    return stateMutex.withLock(async () => {
+        resetState()
+        loadGame(serializedGame)
+        syncClocks(serializedGame)
+        flushPendingMessages()
+    })
+}
 
 export function startGameResync(isUserRequest: boolean) {
     const bus = useBusStore()
@@ -529,12 +540,8 @@ export function endGameResync() {
 
 export async function makeResyncGameStateMessage(): Promise<AblyGameStateMessage> {
     return stateMutex.withLock(async () => {
-        const multiplayer = useMultiplayerStore()
-        const core = useCoreStore()
-
         return {
             gameStateId: await storeGameState(serializeMultiplayerGame()),
-            globalVersion: multiplayer.globalClock.advance(core.userProfile.permanentId),
             hash: hashObject(useGameStateStore().$state),
         }
     })
@@ -545,12 +552,8 @@ export async function applyGameResync(syncMessage: AblyGameStateMessage | ScsGam
 
     // Protect access to global clock
     await stateMutex.withLock(async () => {
-        // Actually load game only if remote state is newer than ours,
-        // and only if hashes are different
-        if (
-            multiplayer.globalClock.compare(syncMessage.globalVersion) <= 0 &&
-            syncMessage.hash != hashObject(useGameStateStore().$state)
-        ) {
+        // Load game only if hashes are different
+        if (syncMessage.hash != hashObject(useGameStateStore().$state)) {
             let serializedGame: SerializedMultiplayerGame | undefined | null
 
             if ('gameStateId' in syncMessage) {
@@ -559,20 +562,14 @@ export async function applyGameResync(syncMessage: AblyGameStateMessage | ScsGam
                 serializedGame = syncMessage.serializedGame
             }
 
-            loadGame(serializedGame)
-
-            // Update the global clock
-            multiplayer.globalClock.update(syncMessage.globalVersion)
-
-            // Sync the object clocks
-            for (const [versioningId, clockVersion] of Object.entries(
-                serializedGame.objectClocks,
-            )) {
-                multiplayer.objectClocks[versioningId] = new VectorClock(clockVersion)
+            // Load game only if remote state is newer than ours
+            if (
+                serializedGame &&
+                multiplayer.globalClock.compare(serializedGame.globalVersion) <= 0
+            ) {
+                loadGame(serializedGame)
+                syncClocks(serializedGame)
             }
-
-            // Sync the mutation versions
-            multiplayer.mutationVersions = serializedGame.mutationVersions
         }
 
         endGameResync()

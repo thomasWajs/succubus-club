@@ -16,6 +16,7 @@ import { GameMutationId } from '@/shared/state/gameMutations.ts'
 import { fetchAvatar } from '@/client/gateway/user.ts'
 import { AvatarId, DeckList } from '@/shared/types/gateway.ts'
 import { MutationHistoryEntry } from '@/shared/types/history.ts'
+import { DbSavedGame } from '@/client/gateway/db.ts'
 
 export const useMultiplayerStore = defineStore('multiplayer', {
     state: () => ({
@@ -48,6 +49,9 @@ export const useMultiplayerStore = defineStore('multiplayer', {
         selfIsReady: false,
 
         password: '',
+
+        // The saved game being restored (cleared after the game is launched)
+        restoringSavedGame: null as DbSavedGame | null,
 
         /**
          *  Game state synchronization
@@ -122,18 +126,41 @@ export const useMultiplayerStore = defineStore('multiplayer', {
         },
 
         areAllUsersReady(): boolean {
+            const gameRoom = this.currentGameRoom
+            if (!gameRoom) {
+                return false
+            }
+            if (gameRoom.isSavedGame && gameRoom.competingPlayers) {
+                // For saved games, only competing players need to be ready
+                return gameRoom.competingPlayers.every(permId => {
+                    const user = this.users[permId]
+                    return user?.isReady ?? false
+                })
+            }
             return this.gameRoomUsers.every(user => user.isReady && this.userDecks[user.permId])
         },
-        isSeatingReady(): boolean {
-            if (
-                !this.currentGameRoom ||
-                !this.currentGameRoom.seating ||
-                this.currentGameRoom.seating == EMPTY_SEATING
-            ) {
+
+        missingSavedGamePlayers(): boolean {
+            const gameRoom = this.currentGameRoom
+            if (!gameRoom) {
+                return true
+            }
+            if (!gameRoom.isSavedGame || !gameRoom.competingPlayers) {
                 return false
             }
 
-            const seatingPermIds = [...this.currentGameRoom.seating].sort()
+            // Check that all competing players have joined the room
+            const playerPermIds = this.gameRoomUsers.map(user => user.permId)
+            return !gameRoom.competingPlayers.every(permId => playerPermIds.includes(permId))
+        },
+
+        isSeatingReady(): boolean {
+            const gameRoom = this.currentGameRoom
+            if (!gameRoom || !gameRoom.seating || gameRoom.seating == EMPTY_SEATING) {
+                return false
+            }
+
+            const seatingPermIds = [...gameRoom.seating].sort()
             const gameRoomPermIds = this.gameRoomUsers.map(user => user.permId).sort()
             return seatingPermIds.join('') == gameRoomPermIds.join('')
         },

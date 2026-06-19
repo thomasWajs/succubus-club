@@ -12,7 +12,6 @@ import {
     VectorClockVersion,
     VersioningId,
 } from '@/shared/types/multiplayer.ts'
-import { GameId } from '@/shared/types/model.ts'
 import { GameState } from '@/shared/state/gameState.ts'
 import {
     deserializeGameState,
@@ -33,12 +32,8 @@ type RoomRow = {
     gameId: string
     globalClock: string
     objectClocks: string
+    gameState: string
     history: string
-}
-
-type GameStateRow = {
-    gameId: string
-    state: string
 }
 
 /**
@@ -49,6 +44,29 @@ const db = new Database(DB_PATH)
 
 // Enable WAL mode for better concurrency
 db.pragma('journal_mode = WAL')
+
+const ONE_HOUR = 60 * 60 * 1000
+const ONE_DAY = 24 * ONE_HOUR
+const TWO_WEEKS = 14 * ONE_DAY
+
+/**
+ * Cleanup old tables & rooms
+ */
+
+export function cleanupOldGames() {
+    try {
+        const twoWeeksAgo = Date.now() - TWO_WEEKS
+
+        const deleteOldRooms = db.prepare('DELETE FROM rooms WHERE updatedAt < ?')
+        const deletedRooms = deleteOldRooms.run(twoWeeksAgo)
+
+        if (deletedRooms.changes > 0) {
+            logger.info(`Cleaned up ${deletedRooms.changes} old rooms`)
+        }
+    } catch (error) {
+        captureException(error)
+    }
+}
 
 /**
  * Create tables if they don't exist
@@ -63,53 +81,43 @@ export function initTables() {
         gameId TEXT,
         globalClock TEXT NOT NULL,
         objectClocks TEXT NOT NULL,
+        gameState TEXT,
         history TEXT NOT NULL,
         createdAt INTEGER NOT NULL,
         updatedAt INTEGER NOT NULL
     )
 `)
 
-    db.exec(`
-    CREATE TABLE IF NOT EXISTS game_states (
-        gameId TEXT PRIMARY KEY,
-        state TEXT NOT NULL,
-        createdAt INTEGER NOT NULL,
-        updatedAt INTEGER NOT NULL
-    )
-`)
+    // A cron-job could call the cleanup periodically.
+    // BUT : Railway is currently configured in serverless mode,
+    // which means it will shutdown and restart frequently, we'll run the cleanup just once at startup.
+    // In the same vein, no need to cleanup the games stored in memory, they will vanish on server shutdown.
+    cleanupOldGames()
 
     logger.info('Database tables initialized')
-
-    // Cleanup old data (older than 12 hours)
-    const twentyFourHoursAgo = Date.now() - 12 * 60 * 60 * 1000
-
-    try {
-        const deleteOldRooms = db.prepare('DELETE FROM rooms WHERE updatedAt < ?')
-        const deletedRooms = deleteOldRooms.run(twentyFourHoursAgo)
-
-        const deleteOldGameStates = db.prepare('DELETE FROM game_states WHERE updatedAt < ?')
-        const deletedGameStates = deleteOldGameStates.run(twentyFourHoursAgo)
-
-        if (deletedRooms.changes > 0 || deletedGameStates.changes > 0) {
-            logger.info(
-                `Cleaned up ${deletedRooms.changes} old rooms and ${deletedGameStates.changes} old game states`,
-            )
-        }
-    } catch (error) {
-        captureException(error)
-    }
 }
 
 /**
  * Room persistence
  */
 
+export function hasRoom(id: string): boolean {
+    try {
+        const stmt = db.prepare('SELECT 1 FROM rooms WHERE id = ?')
+        const row = stmt.get(id)
+        return !!row
+    } catch (error) {
+        captureException(error)
+        return false
+    }
+}
+
 export function saveRoom(room: Room): void {
     try {
         const now = Date.now()
         const stmt = db.prepare(`
-            INSERT INTO rooms (id, passwordHash, userDecks, seating, gameId, globalClock, objectClocks, history, createdAt, updatedAt)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO rooms (id, passwordHash, userDecks, seating, gameId, globalClock, objectClocks, gameState, history, createdAt, updatedAt)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 passwordHash = excluded.passwordHash,
                 userDecks = excluded.userDecks,
@@ -117,9 +125,12 @@ export function saveRoom(room: Room): void {
                 gameId = excluded.gameId,
                 globalClock = excluded.globalClock,
                 objectClocks = excluded.objectClocks,
+                gameState = excluded.gameState,
                 history = excluded.history,
                 updatedAt = excluded.updatedAt
         `)
+        const serializedGameState =
+            room.gameState ? JSON.stringify(serializeGameState(room.gameState)) : null
         stmt.run(
             room.id,
             room.passwordHash,
@@ -128,6 +139,7 @@ export function saveRoom(room: Room): void {
             room.gameId,
             JSON.stringify(room.globalClock),
             JSON.stringify(room.objectClocks),
+            serializedGameState,
             JSON.stringify(serializeHistory(room.history, true)),
             now,
             now,
@@ -146,6 +158,10 @@ function loadRoomRow(row: RoomRow): Room {
         Object.entries(objectClocksData).map(([k, v]) => [k, new VectorClock(v)]),
     )
 
+    const serializedGameState = JSON.parse(row.gameState) as SerializedGameState
+    const gameState = new GameState()
+    deserializeGameState(serializedGameState, gameState)
+
     const history = new HistoryStore()
     deserializeHistory(row.gameId, JSON.parse(row.history), history)
 
@@ -158,7 +174,9 @@ function loadRoomRow(row: RoomRow): Room {
         gameId: row.gameId,
         globalClock,
         objectClocks,
+        gameState,
         history,
+        isSavedGame: false,
     }
 }
 
@@ -176,10 +194,11 @@ export function loadRoom(roomId: RoomId): Room | undefined {
     }
 }
 
-export function loadAllRooms(): Room[] {
+export function loadRecentRooms(): Room[] {
     try {
-        const stmt = db.prepare('SELECT * FROM rooms')
-        const rows = stmt.all() as any[]
+        const sixHoursAgo = Date.now() - 6 * ONE_HOUR
+        const stmt = db.prepare('SELECT * FROM rooms WHERE updatedAt >= ?')
+        const rows = stmt.all(sixHoursAgo) as RoomRow[]
         return rows.map(loadRoomRow)
     } catch (error) {
         captureException(error)
@@ -197,76 +216,9 @@ export function deleteRoom(roomId: RoomId): void {
 }
 
 /**
- * GameState persistence
+ * Restore recent persisted data
  */
-
-export function saveGameState(gameState: GameState): void {
-    try {
-        const now = Date.now()
-        const stmt = db.prepare(`
-            INSERT INTO game_states (gameId, state, createdAt, updatedAt)
-            VALUES (?, ?, ?, ?)
-            ON CONFLICT(gameId) DO UPDATE SET
-                state = excluded.state,
-                updatedAt = excluded.updatedAt
-        `)
-        const serializedGameState = serializeGameState(gameState)
-        stmt.run(gameState.gameId, JSON.stringify(serializedGameState), now, now)
-    } catch (error) {
-        captureException(error)
-    }
-}
-
-function gameStateFromRow(row: GameStateRow) {
-    const serializedGameState = JSON.parse(row.state) as SerializedGameState
-    const gameState = new GameState()
-    deserializeGameState(serializedGameState, gameState)
-    return gameState
-}
-
-export function loadGameState(gameId: GameId): GameState | undefined {
-    try {
-        const stmt = db.prepare('SELECT state FROM game_states WHERE gameId = ?')
-        const row = stmt.get(gameId) as GameStateRow
-        if (!row) {
-            return undefined
-        }
-
-        return gameStateFromRow(row)
-    } catch (error) {
-        captureException(error)
-        return undefined
-    }
-}
-
-export function loadAllGameStates(): GameState[] {
-    try {
-        const stmt = db.prepare('SELECT state FROM game_states')
-        const rows = stmt.all() as GameStateRow[]
-        return rows.map(gameStateFromRow)
-    } catch (error) {
-        captureException(error)
-        return []
-    }
-}
-
-export function deleteGameState(gameId: GameId): void {
-    try {
-        const stmt = db.prepare('DELETE FROM game_states WHERE gameId = ?')
-        stmt.run(gameId)
-    } catch (error) {
-        captureException(error)
-    }
-}
-
-/**
- * Restore all persisted data
- */
-export function loadPersistedData(): { rooms: Room[]; gameStates: GameState[] } {
-    const gameStates = loadAllGameStates()
-    const rooms = loadAllRooms()
-
-    logger.info(`Restored ${rooms.length} rooms and ${gameStates.length} game states`)
-
-    return { rooms, gameStates }
+export function loadPersistedData(): { rooms: Room[] } {
+    const rooms = loadRecentRooms()
+    return { rooms }
 }

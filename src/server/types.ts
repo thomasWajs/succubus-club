@@ -9,6 +9,7 @@ import { WebSocket } from 'ws'
 import { GameId } from '@/shared/types/model.ts'
 import { LamportClock, VectorClock } from '@/shared/multiplayer/clock.ts'
 import { HistoryStore } from '@/shared/state/history.ts'
+import { GameState } from '@/shared/state/gameState.ts'
 
 export const SERVER_PERM_ID = '0000_SCS'
 
@@ -37,8 +38,16 @@ export type Room = {
     gameId: GameId | null
     globalClock: LamportClock
     objectClocks: Record<VersioningId, VectorClock>
+    gameState: GameState | null
     history: HistoryStore
+    isSavedGame: boolean
 }
+
+export type StartedRoom = Room & {
+    gameId: GameId
+    gameState: GameState
+}
+
 /**
  * Rate limiting: Track mutations per player
  */

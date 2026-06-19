@@ -10,6 +10,7 @@ import {
     leaveRoom,
     RoomNotFound,
 } from './rooms'
+
 import {
     handleGameMutation,
     handleRequestResync,
@@ -23,7 +24,7 @@ import {
     ScsServerMessage,
 } from '@/shared/types/multiplayer.ts'
 import { ClientId, ConnectionInfo } from './types.ts'
-import { generateClientOid } from '@/shared/state/ids.ts'
+import { generateClientId } from '@/shared/state/ids.ts'
 import { getUser, handleSetUser, removeUser } from './users.ts'
 import { captureException } from './logging.ts'
 import logger from './logger.ts'
@@ -44,7 +45,7 @@ wsServer.on('connection', (webSocket: WebSocket, req) => {
 
     logger.info('New client connected : ' + remoteAddress)
 
-    const clientId = generateClientOid()
+    const clientId = generateClientId()
 
     // Initialize connection info
     connections.set(clientId, {

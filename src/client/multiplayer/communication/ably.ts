@@ -23,9 +23,10 @@ import { GameType } from '@/shared/types/state.ts'
 import { useCoreStore } from '@/client/store/core.ts'
 import { fetchGameState, storeGameState } from '@/client/gateway/gameState.ts'
 import { serializeMultiplayerGame } from '@/client/gateway/serialization.ts'
-import { setupMultiplayerGame, startGame } from '@/client/state/setup.ts'
+import { setupMultiplayerGame, setupSavedGame, startGame } from '@/client/state/setup.ts'
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import { applyGameResync, makeResyncGameStateMessage } from '@/client/multiplayer/sync.ts'
+import { DbSavedGame } from '@/client/gateway/db.ts'
 
 /**
  * Ably Room Management
@@ -149,10 +150,18 @@ export const ablyCommunication: Communication = {
 
     async launchGame(gameRoom: GameRoom) {
         const core = useCoreStore()
+        const multiplayer = useMultiplayerStore()
         const roomChannel = getRoomChannel()
         core.gameType = GameType.Multiplayer // Needed now to setup correctly the game state
 
-        setupMultiplayerGame(gameRoom)
+        const savedGame = multiplayer.restoringSavedGame
+        if (gameRoom.isSavedGame && savedGame) {
+            setupSavedGame(savedGame as unknown as DbSavedGame)
+            multiplayer.restoringSavedGame = null
+        } else {
+            setupMultiplayerGame(gameRoom)
+        }
+
         const serializedGame = serializeMultiplayerGame()
         const gameStateId = await storeGameState(serializedGame)
         await ablyPublish(roomChannel, MultiplayerMessageType.LaunchGame, { gameStateId })

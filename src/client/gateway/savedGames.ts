@@ -3,9 +3,10 @@ import { db } from '@/client/gateway/db.ts'
 import { serializeGame } from '@/client/gateway/serialization.ts'
 import { useCoreStore } from '@/client/store/core.ts'
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
-import { useBusStore, useGameBusStore } from '@/client/store/bus.ts'
+import { useGameBusStore } from '@/client/store/bus.ts'
 import { CommunicationMode, EMPTY_SEATING } from '@/shared/types/multiplayer.ts'
 import { GameType } from '@/shared/types/state.ts'
+import { useGameStateStore } from '@/client/store/gameState.ts'
 
 const MAX_AUTO_SAVED_GAMES = 5
 const AUTO_SAVE_INTERVAL = 1000 * 60 * 2 // 1000 miliseconds * 60 seconds * 2 = 2 minutes
@@ -29,19 +30,13 @@ export function isScsGame() {
 
 export async function saveGame(isAutoSave: boolean) {
     const core = useCoreStore()
-    const bus = useBusStore()
+    const gameState = useGameStateStore()
     const gameBus = useGameBusStore()
     const multiplayer = useMultiplayerStore()
     const date = new Date()
 
     // A save is already in progress, do nothing
     if (gameBus.savingState != SavingState.None) {
-        return
-    }
-
-    // Disable saving on SCS for now
-    if (isScsGame()) {
-        bus.alertWarning('Saving is currently disabled with SCS')
         return
     }
 
@@ -72,6 +67,7 @@ export async function saveGame(isAutoSave: boolean) {
             // We cannot index boolean in Dexie, so fallback on 0=false / 1=true
             isAutoSave: isAutoSave ? 1 : 0,
             gameType: core.gameType,
+            roomId: multiplayer.currentGameRoom?.id ?? '',
             roomName: multiplayer.currentGameRoom?.name ?? '',
             password: multiplayer.password,
             communication: gameRoom?.communication ?? CommunicationMode.Ably,
@@ -79,6 +75,8 @@ export async function saveGame(isAutoSave: boolean) {
             enableAids: gameRoom?.enableAids ? 1 : 0,
             allowSpectators: gameRoom?.allowSpectators ? 1 : 0,
             seating: toRaw(gameRoom?.seating) ?? EMPTY_SEATING,
+            competingPlayers: gameState.competingPlayers.map(p => p.permId),
+            gameId: gameState.gameId,
             game: serializeGame(),
             conductorState: core.conductor?.getConductorState(),
         }

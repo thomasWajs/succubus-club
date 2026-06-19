@@ -127,3 +127,12 @@
     font-weight: 500;
     border: 1px solid $bone-grey;
 }
+
+@mixin secondary-badge {
+    font-size: 0.7rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    padding: 0.2rem 0.5rem;
+    border-radius: 0.25rem;
+}

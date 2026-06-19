@@ -54,6 +54,11 @@ export class ScsClient {
     private messageHandlers = new Map<MultiplayerMessageType, Set<MessageHandler>>()
 
     public connect() {
+        // Prevent auto-reconnect when the user is exiting the tab with a refresh
+        window.addEventListener('beforeunload', () => {
+            this.disconnect()
+        })
+
         const multiplayer = useMultiplayerStore()
         multiplayer.scsStatus = ScsStatus.Connecting
         this.ws = new WebsocketBuilder(SCS_URL)
@@ -131,8 +136,20 @@ export class ScsClient {
     }
 
     disconnect() {
-        this.ws.close()
+        const multiplayer = useMultiplayerStore()
+
+        if (
+            multiplayer.scsStatus == ScsStatus.Disconnected ||
+            multiplayer.scsStatus == ScsStatus.Disconnecting
+        ) {
+            return
+        }
+
+        multiplayer.scsStatus = ScsStatus.Disconnecting
+        this.openHandler = null
+        this.closeHandler = null
         this.messageHandlers.clear()
+        this.ws.close()
     }
 }
 

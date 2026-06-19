@@ -98,6 +98,14 @@ export async function joinGameRoom(gameRoom: GameRoom, key?: Key) {
             return
         }
 
+        if (
+            gameRoom.isSavedGame &&
+            !gameRoom.competingPlayers.includes(multiplayer.selfUser.permId)
+        ) {
+            bus.alertError('Only players from the saved game can join the room')
+            return
+        }
+
         // Leave any previous room
         await leaveGameRoom()
 
@@ -490,6 +498,10 @@ export async function launchGame() {
     // Cannot launch a game that's already started
     if (gameRoom.isStarted || core.gameIsStarted) {
         throw new Error(`Game already started`)
+    }
+
+    if (!gameRoom.seating || gameRoom.seating == EMPTY_SEATING) {
+        throw new Error('Seating is not ready')
     }
 
     await comm.launchGame(gameRoom)

@@ -29,6 +29,7 @@ export function serializeGame(): SerializedGame {
 }
 
 export function serializeMultiplayerGame(): SerializedMultiplayerGame {
+    const core = useCoreStore()
     const multiplayer = useMultiplayerStore()
     const objectClocks = Object.fromEntries(
         Object.entries(multiplayer.objectClocks).map(([versioningId, clock]) => [
@@ -37,6 +38,7 @@ export function serializeMultiplayerGame(): SerializedMultiplayerGame {
         ]),
     )
     return {
+        globalVersion: multiplayer.globalClock.advance(core.userProfile.permanentId),
         objectClocks,
         mutationVersions: multiplayer.mutationVersions,
         ...serializeGame(),

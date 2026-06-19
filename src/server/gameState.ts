@@ -1,24 +1,22 @@
 import { send, sendError } from './wsServer.ts'
 import { captureException } from './logging.ts'
 import logger from './logger.ts'
-import { broadcastTailored, ensureRoom, getRoom } from './rooms.ts'
+import { broadcastTailored, ensureRoom } from './rooms.ts'
 import {
     EMPTY_SEATING,
     MultiplayerMessageType,
     MutationSyncMode,
     PermanentId,
-    RoomId,
     ScsGameMutationMessage,
     ScsGameStateMessage,
     ScsMutationRejectedMessage,
     ScsShuffleCardRegionMessage,
     SerializedMultiplayerGame,
 } from '@/shared/types/multiplayer.ts'
-import { ConnectionInfo, RateLimitInfo, Room, SERVER_PERM_ID } from './types.ts'
+import { ConnectionInfo, RateLimitInfo, Room, SERVER_PERM_ID, StartedRoom } from './types.ts'
 import { GameState } from '@/shared/state/gameState.ts'
 import { setupMultiplayerGameState } from '@/shared/state/setup.ts'
 import { getUser } from './users.ts'
-import { getGameState } from '@/shared/registries.ts'
 import { KnownCards } from '@/shared/types/state.ts'
 import { anyoneCanSee, canSeeOrPeek } from '@/shared/state/cardVisibility.ts'
 import {
@@ -80,24 +78,17 @@ export function createGameState(room: Room): GameState {
     gameState.isStrictGame = true
     const seatedUsers = room.seating.map(permId => getUser(permId))
     setupMultiplayerGameState(gameState, seatedUsers, room.userDecks)
-    persistence.saveGameState(gameState)
 
     room.gameId = gameState.gameId
+    room.gameState = gameState
     persistence.saveRoom(room)
 
     return gameState
 }
 
 /**
- * Get game state for a room (returns undefined if not found)
+ * Get player for a game state (returns undefined if not found)
  */
-export function getRoomGameState(roomId: RoomId): GameState | undefined {
-    const room = getRoom(roomId)
-    if (room && room.gameId) {
-        return getGameState(room.gameId)
-    }
-}
-
 export function getPlayer(gameState: GameState, permId: PermanentId) {
     const playerOid = gameState.usersToPlayer[permId]
     return playerOid ? gameState.players[playerOid] : undefined
@@ -150,6 +141,7 @@ export function getSerializedGame(
         version: GAME_STATE_VERSION,
         gameState: serializedGameState,
         history: serializeHistory(room.history, true),
+        globalVersion: room.globalClock.advance(SERVER_PERM_ID),
         objectClocks,
         // We don't need those in SCS mode
         mutationVersions: {},
@@ -159,7 +151,7 @@ export function getSerializedGame(
 /**
  * Validate before applying in-game messages ( mutations, shuffle, resync )
  */
-function validateBeforeGameMessage(connection: ConnectionInfo) {
+function validateBeforeGameMessage(connection: ConnectionInfo): StartedRoom {
     // Check the user is identified
     if (!connection.permId) {
         throw new UserNotIdentified('User is not identified')
@@ -174,13 +166,12 @@ function validateBeforeGameMessage(connection: ConnectionInfo) {
     // Get room and its game state
     const room = ensureRoom(connection.roomId)
 
-    if (!room.gameId) {
+    if (!room.gameId || !room.gameState) {
         logger.warn(`Game not launched for user ${connection.permId} in room ${room.id}`)
         throw new Error('Game not launched')
     }
 
-    const gameState = getGameState(room.gameId)
-    return { room, gameState }
+    return room as StartedRoom
 }
 
 /**
@@ -191,7 +182,7 @@ export async function handleGameMutation(
     message: ScsGameMutationMessage,
 ) {
     try {
-        let { room, gameState } = validateBeforeGameMessage(connection)
+        let room = validateBeforeGameMessage(connection)
 
         const mutation = unpackGameMutation(message.gameMutation)
         // Verify mutation author matches sender
@@ -242,13 +233,12 @@ export async function handleGameMutation(
 
         logger.debug(`Applied mutation ${mutation.name} to room ${room.id}`)
 
-        // Persist updated game state and room clocks
-        persistence.saveGameState(gameState)
+        // Persist updated game state, history, and room clocks
         persistence.saveRoom(room)
 
         // Broadcast mutation to all players in the room
         broadcastTailored(room.id, permId => {
-            const knownCards = getKnownCards(gameState, permId)
+            const knownCards = getKnownCards(room.gameState, permId)
             return { ...message, knownCards }
         })
     } catch (error) {
@@ -266,7 +256,8 @@ export async function handleShuffleCardRegion(
     message: ScsShuffleCardRegionMessage,
 ) {
     try {
-        const { room, gameState } = validateBeforeGameMessage(connection)
+        const room = validateBeforeGameMessage(connection)
+        const gameState = room.gameState
 
         const cardRegion = gameState.cardRegions[message.cardRegionOid]
         const player = getPlayer(gameState, connection.permId)
@@ -360,13 +351,12 @@ export async function handleShuffleCardRegion(
  */
 export function handleRequestResync(connection: ConnectionInfo): void {
     try {
-        const { room, gameState } = validateBeforeGameMessage(connection)
+        const room = validateBeforeGameMessage(connection)
 
         const mutationMessage: ScsGameStateMessage = {
             type: MultiplayerMessageType.GameState,
-            serializedGame: getSerializedGame(gameState, room, connection.permId),
-            globalVersion: room.globalClock.advance(SERVER_PERM_ID),
-            hash: hashObject(gameState),
+            serializedGame: getSerializedGame(room.gameState, room, connection.permId),
+            hash: hashObject(room.gameState),
         }
 
         send(connection.webSocket, mutationMessage)

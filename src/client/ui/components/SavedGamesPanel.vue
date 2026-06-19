@@ -54,6 +54,8 @@ import { createGameRoom, joinLobby } from '@/client/multiplayer/lobby.ts'
 import { setupSavedGame, startGame } from '@/client/state/setup.ts'
 import { db, DbSavedGame } from '@/client/gateway/db.ts'
 import * as logging from '@/client/logging.ts'
+import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
+import router, { ROUTES } from '@/client/ui/router.ts'
 
 const core = useCoreStore()
 const bus = useBusStore()
@@ -70,33 +72,41 @@ function continueSavedGame(savedGame: DbSavedGame) {
         throw new Error(`Game is already started`)
     }
 
-    try {
-        setupSavedGame(savedGame)
-        startGame(savedGame.gameType)
-    } catch (error) {
-        let message = 'An error occurred while starting the game'
-        if (error instanceof Error) {
-            message = `${message} : ${error.message}`
-        }
-        bus.alertError(message)
-        logging.captureException(error)
-        return
-    }
-
     bus.isSavedGamesPanelOpen = false
 
+    // Multiplayer
     if (savedGame.gameType === GameType.Multiplayer) {
         joinLobby()
+
+        const multiplayer = useMultiplayerStore()
+        // @ts-expect-error known Dexie + TypeScript issue
+        multiplayer.restoringSavedGame = savedGame
+
         createGameRoom(
             savedGame.roomName,
             savedGame.password,
             savedGame.communication,
             !!savedGame.enableAids,
             !!savedGame.allowSpectators,
-            savedGame.seating,
-            true,
+            savedGame,
         )
         core.userProfile.setLastMultiGame(savedGame.roomName)
+
+        router.push({ name: ROUTES.Lobby })
+    }
+    // Trainbot
+    else {
+        try {
+            setupSavedGame(savedGame)
+            startGame(savedGame.gameType)
+        } catch (error) {
+            let message = 'An error occurred while starting the game'
+            if (error instanceof Error) {
+                message = `${message} : ${error.message}`
+            }
+            bus.alertError(message)
+            logging.captureException(error)
+        }
     }
 }
 </script>

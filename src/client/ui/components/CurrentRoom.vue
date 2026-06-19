@@ -13,6 +13,12 @@
                         :   'SCS'
                     }}
                 </span>
+                <span
+                    v-if="isSavedGame"
+                    class="saved-game-badge"
+                >
+                    Saved Game
+                </span>
                 <h3 class="panel-title">
                     {{ multiplayer.currentGameRoom.name }} (
                     {{ multiplayer.currentGameRoom.players.length }} )
@@ -44,7 +50,14 @@
             </div>
 
             <span
-                v-show="multiplayer.isSeatingReady && !isPickSeatingMode"
+                v-if="isSavedGame && !multiplayer.currentGameRoom.isStarted"
+                class="saved-game-message"
+            >
+                💾 This is a saved game. All non-ousted players must join to start.
+            </span>
+
+            <span
+                v-else-if="multiplayer.isSeatingReady && !isPickSeatingMode"
                 class="seating-rolled-message"
             >
                 ✅ All players seated
@@ -206,8 +219,12 @@
                     <button
                         v-if="!multiplayer.selfIsReady"
                         class="ready-btn"
-                        :disabled="multiplayer.selfDeck == null"
-                        :title="multiplayer.selfDeck == null ? 'Select a deck to get ready' : ''"
+                        :disabled="!isSavedGame && multiplayer.selfDeck == null"
+                        :title="
+                            !isSavedGame && multiplayer.selfDeck == null ?
+                                'Select a deck to get ready'
+                            :   ''
+                        "
                         @click="multiplayer.selfIsReady = true"
                     >
                         ✔️ I'm Ready
@@ -221,7 +238,7 @@
                     </button>
 
                     <span
-                        v-if="!core.selfDeck"
+                        v-if="!isSavedGame && !core.selfDeck"
                         class="no-deck-message"
                     >
                         Select a deck through the top bar to get ready
@@ -259,33 +276,43 @@
                         v-if="multiplayer.selfIsHost"
                         class="game-controls-right"
                     >
-                        <button
-                            class="pick-seating-btn"
-                            :disabled="!multiplayer.areAllUsersReady"
-                            :title="
-                                !multiplayer.areAllUsersReady ?
-                                    'Wait for all players to be ready'
-                                :   ''
-                            "
-                            @click="startPickSeating()"
+                        <template v-if="!isSavedGame">
+                            <button
+                                class="pick-seating-btn"
+                                :disabled="!multiplayer.areAllUsersReady"
+                                :title="
+                                    !multiplayer.areAllUsersReady ?
+                                        'Wait for all players to be ready'
+                                    :   ''
+                                "
+                                @click="startPickSeating()"
+                            >
+                                Pick Seating
+                            </button>
+
+                            <button
+                                class="roll-seating-btn"
+                                :disabled="!multiplayer.areAllUsersReady"
+                                :title="
+                                    !multiplayer.areAllUsersReady ?
+                                        'Wait for all players to be ready'
+                                    :   ''
+                                "
+                                @click="rollSeating()"
+                            >
+                                Roll Seating
+                            </button>
+                        </template>
+
+                        <div
+                            v-if="multiplayer.missingSavedGamePlayers"
+                            class="wait-for-players"
                         >
-                            Pick Seating
-                        </button>
+                            Waiting for players from the saved game to join
+                        </div>
 
                         <button
-                            class="roll-seating-btn"
-                            :disabled="!multiplayer.areAllUsersReady"
-                            :title="
-                                !multiplayer.areAllUsersReady ?
-                                    'Wait for all players to be ready'
-                                :   ''
-                            "
-                            @click="rollSeating()"
-                        >
-                            Roll Seating
-                        </button>
-
-                        <button
+                            v-else
                             class="start-game-btn"
                             :disabled="!multiplayer.isRoomReady || isStartingGame"
                             :title="
@@ -337,6 +364,10 @@ import { MAX_LIB_SIZE, MIN_CRYPT_SIZE, MIN_LIB_SIZE } from '@/shared/const/model
 const core = useCoreStore()
 const multiplayer = useMultiplayerStore()
 const bus = useBusStore()
+
+const isSavedGame = computed(() => {
+    return multiplayer.currentGameRoom?.isSavedGame
+})
 
 const isPickSeatingMode = computed(() => {
     if (!multiplayer.currentGameRoom?.seating) {
@@ -534,20 +565,31 @@ async function startConnectIntoGame(gameRoom?: any) {
     gap: 1rem;
 }
 
-.seating-rolled-message {
+@mixin top-message {
     @include flex-center;
     font-size: 0.9rem;
-    color: $vibrant-emerald;
     font-weight: 500;
     font-style: italic;
     letter-spacing: 0.3px;
-    background: rgba($vibrant-emerald, 0.1);
-    border: 1px solid $vibrant-emerald;
     border-radius: 0.5rem;
     padding: 0.5rem 1rem;
     position: absolute;
     left: 50%;
     transform: translateX(-50%);
+}
+
+.seating-rolled-message {
+    @include top-message;
+    color: $vibrant-emerald;
+    background: rgba($vibrant-emerald, 0.1);
+    border: 1px solid $vibrant-emerald;
+}
+
+.saved-game-message {
+    @include top-message;
+    color: $pearl-grey;
+    background: rgba($azure-blue, 0.1);
+    border: 1px solid $azure-blue;
 }
 
 .leave-btn {
@@ -726,7 +768,8 @@ async function startConnectIntoGame(gameRoom?: any) {
 }
 
 .host-message,
-.spectate-disallowed {
+.spectate-disallowed,
+.wait-for-players {
     color: $pale-grey;
     font-style: italic;
     background: linear-gradient(135deg, rgba($shadow-purple, 0.3) 0%, rgba($deep-purple, 0.5) 100%);
@@ -743,6 +786,11 @@ async function startConnectIntoGame(gameRoom?: any) {
 .no-deck-message {
     @include inline-message;
     font-size: 0.9rem;
+}
+
+.saved-game-badge {
+    @extend .blue-secondary-badge;
+    margin-top: 0.2rem;
 }
 
 .game-started {

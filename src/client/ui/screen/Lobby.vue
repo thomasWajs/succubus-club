@@ -116,8 +116,14 @@
                             </div>
                             <div class="room-info-right">
                                 <span
+                                    v-if="gameRoom.isSavedGame && !gameRoom.isStarted"
+                                    class="blue-secondary-badge"
+                                >
+                                    Saved Game
+                                </span>
+                                <span
                                     v-if="gameRoom.isStarted"
-                                    class="room-game-started"
+                                    class="red-secondary-badge"
                                 >
                                     Game Started
                                 </span>
@@ -706,15 +712,9 @@ if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
         font-weight: 500;
     }
 
-    .room-game-started {
-        font-size: 0.7rem;
-        color: $pale-grey;
-        font-weight: 500;
-        text-transform: uppercase;
-        letter-spacing: 0.3px;
-        background: $dark-blood;
-        padding: 0.2rem 0.5rem;
-        border-radius: 0.25rem;
+    .game-started-badge,
+    .saved-game-badge {
+        @include secondary-badge;
     }
 
     .join-btn {
