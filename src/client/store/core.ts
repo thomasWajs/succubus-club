@@ -39,7 +39,7 @@ export const useCoreStore = defineStore('core', {
         conductor: null as Conductor | null,
     }),
     getters: {
-        phaserGame() {
+        phaserGame(): Phaser.Game {
             if (!phaserGame.value) {
                 throw new Error(
                     'Phaser game is not ready. Make sure to call setPhaserGame() before using it.',

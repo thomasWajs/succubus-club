@@ -73,7 +73,13 @@ const gameConfig: Phaser.Types.Core.GameConfig = {
 }
 
 onBeforeUnmount(() => {
-    core.phaserGame?.destroy(true)
+    let game
+    try {
+        game = core.phaserGame
+    } catch (_error) {
+        // noop
+    }
+    game?.destroy(true)
     setPhaserGame(null)
     resetState()
 })
