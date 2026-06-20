@@ -1,3 +1,17 @@
+## [0.7.2] - 2026-06-20
+
+Features:
+- Save/Reload games in SCS ( with anti-cheat )
+- Delete saved games. Alert on obsolete saved gamed.
+- Suggest become a vampire on embraces-like
+- Show/Hide hour in logs
+- Detect and warn when WebGL is unavailable
+
+Bugfix:
+- Correctly determine next player after an oust
+- Fix orange counter key binding display
+- Fix a lot of corner-case invisible bug
+
 ## [0.7.1] - 2026-05-21
 
 Features:

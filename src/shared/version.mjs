@@ -1,1 +1,1 @@
-export const CURRENT_VERSION = '0.7.1'
+export const CURRENT_VERSION = '0.7.2'
