@@ -12,6 +12,7 @@ import { useCoreStore } from '@/client/store/core.ts'
 import { ALL_PLAYERS } from '@/shared/types/state.ts'
 import { startTargetDeclaration } from '@/client/game/declaration.ts'
 import { cancelMutation } from '@/client/state/gameMutations.ts'
+import { GRID_SIZE } from '@/shared/const/game.ts'
 import KeyCodes = Phaser.Input.Keyboard.KeyCodes
 
 const KEYCODE_EQUALS_PLUS_FIREFOX = 61
@@ -79,6 +80,31 @@ function createCommands(): Commands {
             },
             trigger: () => {
                 gameBus.selectedCards.forEach(card => command.cardAction(card))
+            },
+            ...command,
+        })
+    }
+
+    function createMoveCommand(dx: number, dy: number, command: Partial<Command>): Command {
+        return createCommand({
+            isDisabled: () => !gameBus.selectedCards.some(card => card.isIn.play),
+            trigger: () => {
+                // Direct selection + group members, restricted to play-area cards
+                const groupCards = gameBus.indirectSelectedCards.map(oid => gameState.cards[oid])
+                const cards = [...gameBus.selectedCards, ...groupCards].filter(c => c?.isIn.play)
+
+                // Sort by movement direction so Card.setCoordinates() overlap-avoidance
+                // doesn't bump a card into a cell still occupied by an unmoved card.
+                // (Same heuristic as CardGO.vue dispatchDragEvent.)
+                cards.sort((a, b) => {
+                    const xDelta = (b.x - a.x) * (dx >= 0 ? 1 : -1)
+                    const yDelta = (b.y - a.y) * (dy >= 0 ? 1 : -1)
+                    return yDelta * 10000 + xDelta
+                })
+
+                for (const card of cards) {
+                    gameMutations.moveCard.actSelf({ card, x: card.x + dx, y: card.y + dy })
+                }
             },
             ...command,
         })
@@ -155,6 +181,31 @@ function createCommands(): Commands {
         GoToMinion: createGoToPhaseCommand([KeyCodes.THREE], 2),
         GoToInfluence: createGoToPhaseCommand([KeyCodes.FOUR], 3),
         GoToDiscard: createGoToPhaseCommand([KeyCodes.FIVE], 4),
+
+        MoveCardUp: createMoveCommand(0, -GRID_SIZE, {
+            name: 'MoveCardUp',
+            label: 'Move Card Up',
+            repr: 'Numpad8',
+            keyCodes: [KeyCodes.NUMPAD_EIGHT],
+        }),
+        MoveCardDown: createMoveCommand(0, GRID_SIZE, {
+            name: 'MoveCardDown',
+            label: 'Move Card Down',
+            repr: 'Numpad2',
+            keyCodes: [KeyCodes.NUMPAD_TWO],
+        }),
+        MoveCardLeft: createMoveCommand(-GRID_SIZE, 0, {
+            name: 'MoveCardLeft',
+            label: 'Move Card Left',
+            repr: 'Numpad4',
+            keyCodes: [KeyCodes.NUMPAD_FOUR],
+        }),
+        MoveCardRight: createMoveCommand(GRID_SIZE, 0, {
+            name: 'MoveCardRight',
+            label: 'Move Card Right',
+            repr: 'Numpad6',
+            keyCodes: [KeyCodes.NUMPAD_SIX],
+        }),
 
         DrawCrypt: createCommand({
             name: 'DrawCrypt',
