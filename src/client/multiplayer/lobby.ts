@@ -227,9 +227,11 @@ async function syncGameRooms(snapshot: DataSnapshot) {
 
     for (const [roomId, gameRoom] of Object.entries(storedGameRooms ?? {})) {
         // rtdb removes empty arrays, which breaks typescript assumptions, which sucks
-        if (!gameRoom.spectators) {
-            gameRoom.spectators = []
-        }
+        gameRoom.players ??= []
+        gameRoom.competingPlayers ??= []
+        gameRoom.seating ??= []
+        gameRoom.spectators ??= []
+
         gameRooms[roomId] = gameRoom
     }
 

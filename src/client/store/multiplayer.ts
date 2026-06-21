@@ -98,15 +98,14 @@ export const useMultiplayerStore = defineStore('multiplayer', {
         },
 
         isHostConnected(): boolean {
-            return this.currentGameRoom?.players?.includes(this.currentGameRoom?.hostId) ?? false
+            return this.currentGameRoom?.players.includes(this.currentGameRoom?.hostId) ?? false
         },
         selfIsHost(): boolean {
             return this.currentGameRoom?.hostId == this.selfUser.permId
         },
         gameRoomUsers(): User[] {
             return (
-                this.currentGameRoom?.players?.map(permId => this.users[permId]).filter(u => u) ??
-                []
+                this.currentGameRoom?.players.map(permId => this.users[permId]).filter(u => u) ?? []
             )
         },
         sortedGameRoomUsers(): User[] {
