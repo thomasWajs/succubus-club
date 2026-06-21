@@ -13,8 +13,17 @@ const server = http.createServer((req, res) => {
     if (req.method == 'GET' && req.url === '/logs') {
         return handleLogsRequest(req, res)
     }
-    res.writeHead(404).end()
+    // Explicitly close the connection for any other requests (like health checks)
+    // so they do not linger and prevent the server from sleeping.
+    res.writeHead(404, { 'Connection': 'close' }).end()
 })
+
+// Keep idle timeouts low to allow the server to sleep when there are no active clients.
+// This prevents lingering TCP connections (e.g. from health checks or port scanners)
+// from exchanging keep-alive packets that reset Railway's 10-minute inactivity timer.
+server.keepAliveTimeout = 2000 // 2 seconds
+server.headersTimeout = 5000 // 5 seconds
+server.requestTimeout = 10000 // 10 seconds
 
 /**
  * Delegate web sockets
