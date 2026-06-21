@@ -229,7 +229,6 @@ async function syncGameRooms(snapshot: DataSnapshot) {
         // rtdb removes empty arrays, which breaks typescript assumptions, which sucks
         gameRoom.players ??= []
         gameRoom.competingPlayers ??= []
-        gameRoom.seating ??= []
         gameRoom.spectators ??= []
 
         gameRooms[roomId] = gameRoom
@@ -266,7 +265,7 @@ export async function createGameRoom(
         key = await computeKey(password)
     }
 
-    const gameRoom = {
+    const gameRoom: GameRoom = {
         id: savedGame ? savedGame.roomId : generateRoomId(),
         name: roomName,
         hostId: multiplayer.selfUser.permId,
@@ -279,8 +278,12 @@ export async function createGameRoom(
         allowSpectators,
         players: [multiplayer.selfUser.permId],
         competingPlayers: savedGame ? savedGame.competingPlayers : [],
-        seating: savedGame ? savedGame.seating : [],
         spectators: [],
+    }
+    // Don't try to coalesce inline with 'seating: savedGame?.seating',
+    // as firebase refuse to receive undefined properties
+    if (savedGame?.seating) {
+        gameRoom.seating = savedGame.seating
     }
     multiplayer.upsertGameRoom(gameRoom)
     await joinGameRoom(gameRoom, key)
