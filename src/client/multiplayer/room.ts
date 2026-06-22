@@ -1,6 +1,6 @@
 import { watch, WatchHandle } from 'vue'
 import { PresenceMessage } from 'ably'
-import { ablyPublish, ablySubscribe } from '@/client/gateway/realtime.ts'
+import { ablyPublish, ablySubscribe, releaseScsClient } from '@/client/gateway/realtime.ts'
 import {
     CommunicationMode,
     DeckMessage,
@@ -498,6 +498,11 @@ export async function launchGame() {
     }
 
     await comm.launchGame(gameRoom)
+
+    // Disconnect from SCS websocket if we won't be using it
+    if (gameRoom.communication != CommunicationMode.SCS) {
+        releaseScsClient()
+    }
 }
 
 export async function receiveLaunchGame(serializedGame: SerializedMultiplayerGame) {
@@ -511,6 +516,11 @@ export async function receiveLaunchGame(serializedGame: SerializedMultiplayerGam
     await applyInitialGameState(serializedGame)
     startGame(GameType.Multiplayer)
     await core.userProfile.setLastMultiGame(gameRoom.id)
+
+    // Disconnect from SCS websocket if we won't be using it
+    if (gameRoom.communication != CommunicationMode.SCS) {
+        releaseScsClient()
+    }
 }
 
 /** Chat Messages */

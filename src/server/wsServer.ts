@@ -29,6 +29,8 @@ import { getUser, handleSetUser, removeUser } from './users.ts'
 import { captureException } from './logging.ts'
 import logger from './logger.ts'
 
+const SETUSER_TIMEOUT_MS = 30_000 // 30 seconds
+
 // Track all active connections
 const connections = new Map<ClientId, ConnectionInfo>()
 
@@ -56,6 +58,23 @@ wsServer.on('connection', (webSocket: WebSocket, req) => {
         roomId: null, // Will be set on joinRoom
     })
 
+    // Client must send a SetUser message promptly, or get disconnected
+    let setUserTimeout: ReturnType<typeof setTimeout> | null = null
+    setUserTimeout = setTimeout(() => {
+        const connection = connections.get(clientId)
+        if (connection && !connection.permId) {
+            logger.info(`Disconnecting client ${clientId} - no SetUser received within 30s`)
+
+            handleDisconnect(connection)
+
+            try {
+                webSocket.close(1002, 'SetUser timeout')
+            } catch {}
+
+            connections.delete(clientId)
+        }
+    }, SETUSER_TIMEOUT_MS).unref() // .unref() prevents keeping process alive
+
     /**
      * Handle incoming messages
      */
@@ -72,6 +91,12 @@ wsServer.on('connection', (webSocket: WebSocket, req) => {
 
             switch (message.type) {
                 case MultiplayerMessageType.SetUser:
+                    // Clear timeout - user identified!
+                    if (setUserTimeout) {
+                        clearTimeout(setUserTimeout)
+                        setUserTimeout = null
+                    }
+
                     await handleSetUser(connection, message)
                     break
 
@@ -125,6 +150,10 @@ wsServer.on('connection', (webSocket: WebSocket, req) => {
      * Handle client disconnection
      */
     webSocket.on('close', () => {
+        if (setUserTimeout) {
+            clearTimeout(setUserTimeout)
+        }
+
         const connection = connections.get(clientId)
         if (connection) {
             handleDisconnect(connection)

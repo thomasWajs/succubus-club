@@ -15,7 +15,7 @@ const server = http.createServer((req, res) => {
     }
     // Explicitly close the connection for any other requests (like health checks)
     // so they do not linger and prevent the server from sleeping.
-    res.writeHead(404, { 'Connection': 'close' }).end()
+    res.writeHead(404, { Connection: 'close' }).end()
 })
 
 // Keep idle timeouts low to allow the server to sleep when there are no active clients.
