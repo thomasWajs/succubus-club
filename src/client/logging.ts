@@ -47,8 +47,8 @@ export function initSentry(app: App) {
             if (frames?.length) {
                 const lastFrame = frames[frames.length - 1]
                 if (
-                    lastFrame.filename?.includes('node_modules/@vue/runtime-core') ||
-                    lastFrame.filename?.includes('node_modules/@vue/runtime-dom')
+                    lastFrame.filename?.includes('@vue/runtime-core') ||
+                    lastFrame.filename?.includes('@vue/runtime-dom')
                 ) {
                     return null
                 }
