@@ -80,16 +80,6 @@ export class ScsClient {
                     logging.captureMessage(`Failed to parse message: ${error}`, 'error')
                 }
             })
-            .onError((_ws, event) => {
-                const error = event as ErrorEvent
-                logging.captureMessage(
-                    `SCS Websocket Error : ${JSON.stringify({
-                        type: error.type,
-                        message: error.message ?? 'No message',
-                        error: error.error?.toString(),
-                    })}`,
-                )
-            })
             .build()
     }
 
