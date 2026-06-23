@@ -149,7 +149,7 @@ export class ScsClient {
         this.openHandler = null
         this.closeHandler = null
         this.messageHandlers.clear()
-        this.ws.close()
+        this.ws?.close()
     }
 }
 
