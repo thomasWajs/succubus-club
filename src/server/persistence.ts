@@ -217,7 +217,18 @@ export function loadRecentRooms(): Room[] {
             const sixHoursAgo = Date.now() - 6 * ONE_HOUR
             const stmt = db.prepare('SELECT * FROM rooms WHERE updatedAt >= ?')
             const rows = stmt.all(sixHoursAgo) as RoomRow[]
-            return rows.map(loadRoomRow)
+
+            const validRooms: Room[] = []
+            for (const row of rows) {
+                try {
+                    validRooms.push(loadRoomRow(row))
+                } catch (error) {
+                    logger.warn(`Failed to load room ${row.id}, skipping...`)
+                    captureException(error)
+                }
+            }
+
+            return validRooms
         })
     } catch (error) {
         captureException(error)
