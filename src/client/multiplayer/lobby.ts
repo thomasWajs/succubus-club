@@ -308,9 +308,9 @@ async function pruneAblyChannels() {
     let activeChannels = []
     // @ts-expect-error - Ably request method type compatibility
     const channelsResponse = await ably.request('GET', '/channels', { by: 'value' })
-    activeChannels = channelsResponse.items.filter(
-        channel => channel.status?.occupancy?.metrics?.connections ?? 0 > 0,
-    )
+    activeChannels = channelsResponse.items
+        .filter(channel => channel.status?.occupancy?.metrics?.connections ?? 0 > 0)
+        .map(channel => channel.name)
 
     for (const roomId of Object.keys(storedGameRooms ?? {})) {
         if (!activeChannels.includes(roomId)) {
