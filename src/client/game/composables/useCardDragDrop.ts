@@ -189,6 +189,7 @@ export function useCardDragDrop(
     }
 
     function onDrag(pointer: Pointer, dragX: number, dragY: number, originDragAttrs?: DragAttrs) {
+        const card = cardRef.value
         const cardAttrs = cardAttrsRef.value
 
         // Spectators can't interact with the game
@@ -235,7 +236,16 @@ export function useCardDragDrop(
 
             dragAttrs.cardScale =
                 getCardScale(gameBus.dragOver.regionCategory, cardRegion) * scaleRatio
+
             dragAttrs.scaleRatio = scaleRatio
+            if (
+                cardRegion.is.play &&
+                card.region.is.play &&
+                cardRegion.owner == card.region.owner
+            ) {
+                dragAttrs.scaleRatio =
+                    (dragAttrs.scaleRatio * dragAttrs.cardScale) / cardAttrs.scale
+            }
 
             // Position in the container referential
             let localX = posX

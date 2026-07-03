@@ -48,7 +48,7 @@ export function setupPlayArea(gameState: GameState, player: Player, deckList: De
     // Draw 4 crypt cards
     for (let i = 0; i < INITIAL_UNCONTROLLED_SIZE; i++) {
         const card = player.crypt.firstCard
-        card.x = VERTICAL_SEPARATOR_DEFAULT_X + 9 * GRID_SIZE * i
+        card.x = VERTICAL_SEPARATOR_DEFAULT_X + 8 * GRID_SIZE * i
         card.y = TORPOR_ZONE_Y
         gameState.moveCardToRegion(card, player.uncontrolled)
     }

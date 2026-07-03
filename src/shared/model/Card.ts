@@ -167,7 +167,7 @@ export abstract class Card extends BaseModel implements PropertiesInPlay {
             if (card.x == x && card.y == y && card.oid != this.oid) {
                 // In uncontrolled, only slide on the right
                 if (this.isIn.uncontrolled) {
-                    x += 9 * GRID_SIZE
+                    x += 8 * GRID_SIZE
                 }
                 // In other regions, slide on the corner
                 else {
