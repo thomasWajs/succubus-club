@@ -3,7 +3,6 @@
         <section class="manual-section">
             <h2 class="section-title">Good to Know</h2>
             <div class="info-list">
-                <div class="info-item">The Edge is near the VP count</div>
                 <div class="info-item">Logs won't reveal cards to other players</div>
                 <div class="info-item">Only you can see your uncontrolled zone</div>
                 <div class="info-item">UI features are configurables in the user preferences</div>

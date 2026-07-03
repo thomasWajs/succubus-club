@@ -18,8 +18,9 @@ export enum PhaserDataKey {
 
 export enum RegionCategory {
     Table = 'Table',
-    Hand = 'Hand',
     Stack = 'Stack',
+    Hand = 'Hand',
+    WieldCardStack = 'WieldCardStack',
 }
 
 export type PlayerInGame = {

@@ -83,21 +83,6 @@
         "
     />
 
-    <!-- The Edge -->
-    <Image
-        :texture="player == gameState.theEdgeController ? Texture.TheEdgeTeal : Texture.TheEdge"
-        :alpha="player == gameState.theEdgeController ? 1 : 0.4"
-        :origin="1"
-        :x="x + width - 60"
-        :y="y + 30"
-        @create="onTheEdgeCreate"
-        @pointerdown="
-            gameMutations.changeTheEdgeControl.actSelf({
-                theEdgeController: player == gameState.theEdgeController ? undefined : player,
-            })
-        "
-    />
-
     <!-- Victory Points -->
     <Text
         :text="player.victoryPoints + ' VP'"
@@ -115,16 +100,14 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted } from 'vue'
 import Phaser, { GameObjects } from 'phaser'
-import { Image, Polygon, Rectangle, refObj, Text } from 'phavuer'
+import { Polygon, Rectangle, refObj, Text } from 'phavuer'
 import { Colors } from '@/client/colors.ts'
 import { COUNTER_OUTLINE_THICKNESS, COUNTER_TEXT_STYLE } from '@/shared/const/game.ts'
-import { useGameStateStore } from '@/client/store/gameState.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import ButtonGo from '@/client/game/objects/ButtonGo.vue'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
-import { Texture } from '@/client/resources/textures.ts'
 import { getPlayerColor } from '@/client/game/utils.ts'
 import Color = Phaser.Display.Color
 
@@ -137,7 +120,6 @@ const { x, y, width, height, color, player } = defineProps<{
     player: Player
 }>()
 
-const gameState = useGameStateStore()
 const players = usePlayersStore()
 const gameBus = useGameBusStore()
 
@@ -166,12 +148,6 @@ function onPoolDiamondCreate(poolDiamond: GameObjects.Polygon) {
 
 function onPoolTextCreate(poolText: GameObjects.Text) {
     poolText.setInteractive({
-        cursor: 'pointer',
-    })
-}
-
-function onTheEdgeCreate(theEdge: GameObjects.Image) {
-    theEdge.setInteractive({
         cursor: 'pointer',
     })
 }

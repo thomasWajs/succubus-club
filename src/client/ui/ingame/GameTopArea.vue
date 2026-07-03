@@ -416,7 +416,7 @@
                 </span>
                 controls The Edge
                 <img
-                    src="/assets/theEdgeTeal.webp"
+                    src="/assets/theEdgeTealSmall.webp"
                     class="theEdgeImage"
                 />
                 and can gain 1 pool from the blood bank
@@ -457,13 +457,7 @@ import { TOP_AREA_HEIGHT, TOP_AREA_WIDTH, TOP_AREA_X, WORLD_WIDTH } from '@/shar
 import { gameMutations } from '@/shared/state/gameMutations.ts'
 import { ActionVerb, TurnPhase, TurnSequence } from '@/shared/const/model.ts'
 import { getBlockingMinion, selfCanAttemptBlock } from '@/shared/state/actionState.ts'
-import {
-    ActionProperty,
-    MinionActionNames,
-    MinionActionType,
-    NO_BLOCK,
-    NO_REACTION,
-} from '@/shared/types/state.ts'
+import { ActionProperty, MinionActionNames, MinionActionType, NO_BLOCK, NO_REACTION, } from '@/shared/types/state.ts'
 import { display } from '@/client/game/display.ts'
 import { useCommands } from '@/client/game/composables/useCommands.ts'
 import CommandButton from '@/client/ui/ingame/CommandButton.vue'

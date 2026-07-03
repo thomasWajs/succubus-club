@@ -224,6 +224,7 @@ export function useCardDragDrop(
             gameBus.dragOver.gameObjects.target &&
             gameBus.dragOver.cardRegion &&
             gameBus.dragOver.regionCategory &&
+            gameBus.dragOver.regionCategory != RegionCategory.WieldCardStack &&
             gameBus.dragOver.regionCategory != RegionCategory.Stack
         ) {
             const cardRegion = gameBus.dragOver.cardRegion

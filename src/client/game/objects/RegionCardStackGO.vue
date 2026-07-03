@@ -7,8 +7,8 @@
         :width="width + (highlightDropZone ? 8 : 0)"
         :height="height + (highlightDropZone ? 8 : 0)"
         :lineWidth="1"
-        :strokeColor="color.color"
-        :strokeAlpha="color.alphaGL"
+        :strokeColor="isRegionHovered ? regionhigHlightColor.color : color.color"
+        :strokeAlpha="isRegionHovered ? regionhigHlightColor.alphaGL : color.alphaGL"
         :fillColor="Colors.REGION_BACKGROUND.color"
         :fillAlpha="Colors.REGION_BACKGROUND.alphaGL"
         :dropZone="true"
@@ -23,27 +23,28 @@
         />
     </Rectangle>
 
+    <Rectangle
+        :width="stackSizeWidth"
+        :height="28"
+        :fillColor="Colors.REGION_STACK_SIZE_BACKGROUND.color"
+        :lineWidth="1"
+        :strokeColor="color.color"
+        :strokeAlpha="0.5"
+        :origin="0"
+        :x="x + width - stackSizeWidth"
+        :y="y"
+    />
+
     <Text
         ref="cardCount"
         :text="cardRegion.cards.length.toString()"
         :style="{
-            color: '#000',
-            fontStyle: 'Bold',
+            color: color.rgba,
+            fontSize: 22,
         }"
         :origin="1"
-        :x="x + width - 5"
-        :y="y + 20"
-    />
-
-    <Image
-        ref="wieldIcon"
-        :visible="isRegionHovered"
-        :texture="Texture.WieldCardStack"
-        :origin="0.5"
-        :x="x + width - 47"
+        :x="x + width - 3"
         :y="y + 25"
-        :displayWidth="40"
-        :displayHeight="40"
     />
 
     <Text
@@ -56,7 +57,7 @@
         :alpha="0.7"
         :origin="1"
         :x="x + width - 3"
-        :y="y + height - 3"
+        :y="y + height - 5"
     />
 
     <Image
@@ -109,14 +110,13 @@ import { usePlayersStore } from '@/client/state/players.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { PhaserDataKey, RegionCategory } from '@/client/game/types.ts'
 import { positionContextMenu } from '@/client/game/utils.ts'
-import { Texture } from '@/client/resources/textures.ts'
 import { AnyCardRegion } from '@/shared/types/model.ts'
 import { useCardTexture } from '@/client/game/composables/useCardTexture.ts'
 import FxHighlightRegionDrop from './FxHighlightRegionDrop.vue'
 import Color = Phaser.Display.Color
 import Pointer = Phaser.Input.Pointer
 
-const { cardRegion, draw } = defineProps<{
+const { color, cardRegion, draw } = defineProps<{
     x: number
     y: number
     width: number
@@ -140,28 +140,32 @@ const displayedTexture = computed(() => {
 })
 
 const isRegionHovered = ref(false)
+const regionhigHlightColor = computed(() => {
+    return color.clone().lighten(25).brighten(10)
+})
 
 /**
  * Boundaries
  */
 
+const WIELD_CARD_STACK_CURSOR = 'url(assets/wieldCardStack.png) 12 12, zoom-in'
 function onBoundariesCreate(boundaries: GameObjects.Rectangle) {
     boundaries.setData(PhaserDataKey.CardRegionOid, cardRegion.oid)
-    boundaries.setData(PhaserDataKey.RegionCategory, RegionCategory.Table)
+    boundaries.setData(PhaserDataKey.RegionCategory, RegionCategory.Stack)
 
     // boundaries is already interactive because it declare a dropZone
     // so we update its cursor property instead of using setInteractive()
-    if (boundaries.input?.cursor) {
-        boundaries.input.cursor = 'pointer'
+    if (boundaries.input) {
+        boundaries.input.cursor = WIELD_CARD_STACK_CURSOR
     }
 }
 
 const highlightDropZone = computed(() => {
     return (
-        players.isPlayer && // don't highlight for spectators
+        players.isPlayer && // don't highlight for spectator
         gameBus.dragOver && // A drag is in progress
         gameBus.dragOver.cardRegion?.oid == cardRegion.oid && // This region is dragged over
-        gameBus.dragOver.card.region.oid != cardRegion.oid // THe dragged card is not already in this region
+        gameBus.dragOver.card.region.oid != cardRegion.oid // The dragged card is not already in this region
     )
 })
 
@@ -174,6 +178,10 @@ function onBoundariesPointerOut() {
     isRegionHovered.value = false
     gameBus.assignPinnedCloseUpCard()
 }
+
+const stackSizeWidth = computed(() => {
+    return cardRegion.cards.length > 9 ? 32 : 24
+})
 
 /**
  * Wield card stack on click

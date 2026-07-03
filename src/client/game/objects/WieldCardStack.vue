@@ -265,7 +265,7 @@ function onCardsPanelCreate(cardsPanel_: GameObjects.Container) {
     cardsPanel = cardsPanel_
 
     cardsPanel.setData(PhaserDataKey.CardRegionOid, cardRegion.oid)
-    cardsPanel.setData(PhaserDataKey.RegionCategory, RegionCategory.Stack)
+    cardsPanel.setData(PhaserDataKey.RegionCategory, RegionCategory.WieldCardStack)
 
     // Set Interactive to listen to drop and wheel events
     cardsPanel.setInteractive({

@@ -189,12 +189,13 @@ export function getCardRegionDraggedOver(dragTarget: GameObjects.GameObject) {
 
 export function getRegionScale(cardRegion: AnyCardRegion) {
     return cardRegion?.owner?.scale ?? DEFAULT_PLAYER_SCALE
-    // return cardRegion?.is.ready ? cardRegion?.owner.scale : 1
+    /*return cardRegion?.is.ready ? (cardRegion?.owner?.scale ?? DEFAULT_PLAYER_SCALE) : 1*/
 }
 
 export function getCardScale(category: RegionCategory, cardRegion?: AnyCardRegion): number {
     switch (category) {
-        case RegionCategory.Table: {
+        case RegionCategory.Table:
+        case RegionCategory.Stack: {
             return (
                 CARD_IN_PLAY_BASE_SCALE *
                 (cardRegion ? getRegionScale(cardRegion) : DEFAULT_PLAYER_SCALE)
@@ -202,7 +203,7 @@ export function getCardScale(category: RegionCategory, cardRegion?: AnyCardRegio
         }
         case RegionCategory.Hand:
             return CARD_IN_HAND_SCALE
-        case RegionCategory.Stack:
+        case RegionCategory.WieldCardStack:
             return WIELD_CARD_SCALE
     }
 }

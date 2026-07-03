@@ -6,13 +6,6 @@
         @init="init"
         @update="update"
     >
-        <!-- Order of declaration is important here :
-        Hand MUST come before the rest for drag alpha -->
-        <HandGO
-            v-if="players.selfPlayer"
-            key="Hand"
-        />
-
         <template
             v-for="playerSeat in playerSeats"
             :key="playerSeat.player?.oid ?? ''"
@@ -24,6 +17,13 @@
                 :y="playerSeat.y"
             />
         </template>
+
+        <!-- Order of declaration is important here :
+        Hand MUST come after the other regions for drag alpha -->
+        <HandGO
+            v-if="players.selfPlayer"
+            key="Hand"
+        />
 
         <!-- Menus -->
         <template v-if="players.isPlayer">

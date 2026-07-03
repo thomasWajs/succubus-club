@@ -111,6 +111,7 @@ export const TWO_PLAYERS_HORIZONTAL_GUTTER = (WORLD_WIDTH - PLAY_AREA_WIDTH * 2)
 
 export const REGION_ALPHA = OPAQUE_ALPHA * 0.75
 export const REGION_BACKGROUND_COLOR = `rgba(128,128,128,${REGION_ALPHA / 255})`
+export const REGION_STACK_SIZE_BACKGROUND_COLOR = 'rgb(150, 150, 150)'
 
 export const PLAYER_COLORS = {
     purple: 'rgb(60,20,95)', // dark purple

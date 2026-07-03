@@ -104,11 +104,11 @@ const cardAttrs = computed((): CardAttrs => {
             )
 
     return {
-        category: RegionCategory.Stack,
+        category: RegionCategory.WieldCardStack,
         x: WIELD_X + index * WIELD_CARD_DISPLAY_WIDTH + WIELD_CARDS_OFFSET + WIELD_INDICATOR_WIDTH,
         y: STACK_CARD_Y,
         rotation: 0,
-        scale: getCardScale(RegionCategory.Stack),
+        scale: getCardScale(RegionCategory.WieldCardStack),
     }
 })
 

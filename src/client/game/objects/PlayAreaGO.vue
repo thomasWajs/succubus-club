@@ -81,57 +81,67 @@
             @dragend="onHorizontalSeparatorDragEnd"
         />
 
-        <CardStackRegionGO
+        <RegionCardStackGo
             key="AshHeap"
             :x="0"
             :y="CARD_STACKS_Y"
-            :width="(PLAY_AREA_WIDTH / 8) * 2 - 8"
+            :width="(PLAY_AREA_WIDTH / 9) * 2 - 8"
             :height="CARD_STACKS_HEIGHT"
             :color="playerColor"
             :cardRegion="player.ashHeap"
             :showTopCard="true"
         />
-        <CardStackRegionGO
+        <RegionCardStackGo
             key="Library"
-            :x="(PLAY_AREA_WIDTH / 8) * 2 + 2"
+            :x="(PLAY_AREA_WIDTH / 9) * 2 + 2"
             :y="CARD_STACKS_Y"
-            :width="(PLAY_AREA_WIDTH / 8) * 2 - 8"
+            :width="(PLAY_AREA_WIDTH / 9) * 2 - 8"
             :height="CARD_STACKS_HEIGHT"
             :color="playerColor"
             :cardRegion="player.library"
             :showTopCard="true"
             :draw="player == players.selfPlayer ? 'library' : undefined"
         />
-        <CardStackRegionGO
+        <RegionCardStackGo
             key="Crypt"
-            :x="(PLAY_AREA_WIDTH / 8) * 4 + 4"
+            :x="(PLAY_AREA_WIDTH / 9) * 4 + 4"
             :y="CARD_STACKS_Y"
-            :width="(PLAY_AREA_WIDTH / 8) * 2 - 8"
+            :width="(PLAY_AREA_WIDTH / 9) * 2 - 8"
             :height="CARD_STACKS_HEIGHT"
             :color="playerColor"
             :cardRegion="player.crypt"
             :showTopCard="true"
             :draw="player == players.selfPlayer ? 'crypt' : undefined"
         />
-        <CardStackRegionGO
+        <RegionCardStackGo
             key="Removed"
-            :x="(PLAY_AREA_WIDTH / 8) * 6 + 6"
+            :x="(PLAY_AREA_WIDTH / 9) * 6 + 6"
             :y="CARD_STACKS_Y"
-            :width="PLAY_AREA_WIDTH / 8 - 8"
+            :width="PLAY_AREA_WIDTH / 9 - 8"
             :height="CARD_STACKS_HEIGHT"
             :color="playerColor"
             :cardRegion="player.removed"
             :showTopCard="false"
         />
-        <CardStackRegionGO
+        <RegionCardStackGo
             key="Hand"
-            :x="(PLAY_AREA_WIDTH / 8) * 7 + 8"
+            :x="(PLAY_AREA_WIDTH / 9) * 7 + 8"
             :y="CARD_STACKS_Y"
-            :width="PLAY_AREA_WIDTH / 8 - 8"
+            :width="PLAY_AREA_WIDTH / 9 - 8"
             :height="CARD_STACKS_HEIGHT"
             :color="playerColor"
             :cardRegion="player.hand"
             :showTopCard="false"
+        />
+
+        <RegionTheEdgeGO
+            key="TheEdge"
+            :x="(PLAY_AREA_WIDTH / 9) * 8 + 8"
+            :y="CARD_STACKS_Y"
+            :width="PLAY_AREA_WIDTH / 9 - 8"
+            :height="CARD_STACKS_HEIGHT"
+            :color="playerColor"
+            :player="player"
         />
 
         <Rectangle
@@ -229,7 +239,7 @@ import {
     VERTICAL_SEPARATOR_MIN_X,
 } from '@/shared/const/game.ts'
 import RegionGO from '@/client/game/objects/RegionGO.vue'
-import CardStackRegionGO from '@/client/game/objects/CardStackRegionGO.vue'
+import RegionCardStackGo from './RegionCardStackGO.vue'
 import { Player } from '@/shared/model/Player.ts'
 import PlayerBarGo from '@/client/game/objects/PlayerBarGo.vue'
 import { PhaserDataKey } from '@/client/game/types.ts'
@@ -241,6 +251,7 @@ import { gameMutations } from '@/shared/state/gameMutations.ts'
 import { Snap } from '@/shared/utils.ts'
 import { getPlayerColor } from '@/client/game/utils.ts'
 import ButtonGo from '@/client/game/objects/ButtonGo.vue'
+import RegionTheEdgeGO from '@/client/game/objects/RegionTheEdgeGO.vue'
 
 const { player } = defineProps<{
     player: Player
