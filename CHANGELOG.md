@@ -1,3 +1,12 @@
+## [0.8.0] - 2026-07-06
+
+Features:
+- Add a new Focus Mode
+- Rearrange the stacks under the play area, and make the edge more visible
+- Reduce torpor / uncontrolled scale to gain some space
+- Rearrange GameTopArea buttons
+- Move cards/cardGroups with numpad keys
+
 ## [0.7.2] - 2026-06-20
 
 Features:

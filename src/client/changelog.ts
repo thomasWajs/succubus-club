@@ -2,17 +2,13 @@ import { CURRENT_VERSION } from '@/shared/version.mjs'
 
 export const latestChangelog = {
     version: CURRENT_VERSION,
-    date: '2026-06-20',
+    date: '2026-07-06',
     features: [
-        'Save/Reload games in SCS ( with anti-cheat )',
-        'Delete saved games. Alert on obsolete saved gamed.',
-        'Suggest become a vampire on embraces-like',
-        'Show/Hide hour in logs',
-        'Detect and warn when WebGL is unavailable',
+        'Add a new Focus Mode',
+        'Rearrange the stacks under the play area, and make the edge more visible',
+        'Reduce torpor / uncontrolled scale to gain some space',
+        'Rearrange GameTopArea buttons',
+        'Move cards/cardGroups with numpad keys',
     ],
-    bugfixes: [
-        'Correctly determine next player after an oust',
-        'Fix orange counter key binding display',
-        'Fix a lot of corner-case invisible bug',
-    ],
+    bugfixes: [],
 }
