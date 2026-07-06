@@ -520,7 +520,7 @@ function createCommands(): Commands {
 
         FocusMode: createCommand({
             name: 'FocusMode',
-            label: 'Focus',
+            label: 'Focus Mode',
             repr: 'F8',
             keyCodes: [KeyCodes.F8],
             trigger: () => {

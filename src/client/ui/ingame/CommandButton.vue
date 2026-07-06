@@ -4,8 +4,8 @@
         :disabled="command.isDisabled()"
         @click="command.trigger()"
     >
-        <kbd v-if="command.repr">{{ command.repr }}</kbd>
         <slot />
+        <kbd v-if="command.repr">{{ command.repr }}</kbd>
     </button>
 </template>
 

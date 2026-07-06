@@ -428,17 +428,39 @@
             v-if="players.isPlayer"
             class="game-mutations"
         >
-            <CommandButton :command="commands.FocusMode"> Focus </CommandButton>
-            <div>
-                <CommandButton :command="commands.DecreaseScale"> - </CommandButton>
-                {{ `${Math.round(((players.selfPlayer?.scale ?? 0) * 100) / 10) * 10}%` }}
-                <CommandButton :command="commands.IncreaseScale"> + </CommandButton>
+            <div class="left-menus">
+                <PopupMenu label="Display">
+                    <CommandButton
+                        :command="commands.FocusMode"
+                        class="align-center"
+                    >
+                        Focus Mode
+                    </CommandButton>
+                    <div class="scale-controls">
+                        <span class="scale-label">Card Scale</span>
+                        <div class="scale-buttons">
+                            <CommandButton :command="commands.DecreaseScale"> - </CommandButton>
+                            <span class="scale-text">{{
+                                `${Math.round(((players.selfPlayer?.scale ?? 0) * 100) / 10) * 10}%`
+                            }}</span>
+                            <CommandButton :command="commands.IncreaseScale"> + </CommandButton>
+                        </div>
+                    </div>
+                </PopupMenu>
+
+                <PopupMenu label="Game">
+                    <CommandButton :command="commands.UnlockAll"> Unlock All </CommandButton>
+                    <CommandButton :command="commands.DiscardAtRandom">
+                        Discard At Random
+                    </CommandButton>
+                    <CommandButton :command="commands.ClearDeclaredTargets">
+                        Clear Targets
+                    </CommandButton>
+                </PopupMenu>
             </div>
-            <CommandButton :command="commands.UnlockAll"> Unlock All </CommandButton>
-            <CommandButton :command="commands.DiscardAtRandom"> Discard At Random </CommandButton>
-            <CommandButton :command="commands.ClearDeclaredTargets"> Clear Targets </CommandButton>
+
             <CommandButton
-                class="is-danger"
+                class="is-danger cancel-button"
                 :command="commands.Cancel"
                 :disabled="!history.nextCancellableMutation"
             >
@@ -457,10 +479,17 @@ import { TOP_AREA_HEIGHT, TOP_AREA_WIDTH, TOP_AREA_X, WORLD_WIDTH } from '@/shar
 import { gameMutations } from '@/shared/state/gameMutations.ts'
 import { ActionVerb, TurnPhase, TurnSequence } from '@/shared/const/model.ts'
 import { getBlockingMinion, selfCanAttemptBlock } from '@/shared/state/actionState.ts'
-import { ActionProperty, MinionActionNames, MinionActionType, NO_BLOCK, NO_REACTION, } from '@/shared/types/state.ts'
+import {
+    ActionProperty,
+    MinionActionNames,
+    MinionActionType,
+    NO_BLOCK,
+    NO_REACTION,
+} from '@/shared/types/state.ts'
 import { display } from '@/client/game/display.ts'
 import { useCommands } from '@/client/game/composables/useCommands.ts'
 import CommandButton from '@/client/ui/ingame/CommandButton.vue'
+import PopupMenu from '@/client/ui/components/PopupMenu.vue'
 import { useHistoryStore } from '@/client/store/history.ts'
 import { useCoreStore } from '@/client/store/core.ts'
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
@@ -908,6 +937,25 @@ function forwardPointerEvent(event: PointerEvent) {
 .game-mutations {
     display: flex;
     justify-content: space-between;
+    align-items: stretch;
+
+    .left-menus {
+        display: flex;
+        gap: 10px;
+    }
+
+    .popup-menu-container {
+        display: flex;
+        align-items: stretch;
+
+        .popup-menu-trigger {
+            height: 100%;
+        }
+    }
+
+    .cancel-button {
+        height: 100%;
+    }
 
     .game-button {
         font-size: 12px;
@@ -922,6 +970,50 @@ function forwardPointerEvent(event: PointerEvent) {
         img {
             height: 22px;
             width: auto;
+        }
+    }
+
+    .popup-menu-panel .game-button {
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 15px;
+    }
+
+    .scale-controls {
+        background-color: $purple-grey;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 45px;
+        padding: 4px 5px;
+        color: white;
+        font-size: 12px;
+        font-weight: 600;
+        width: 190px;
+
+        .scale-label {
+            white-space: nowrap;
+        }
+
+        .scale-buttons {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex: 1;
+
+            .scale-text {
+                padding: 5px;
+                flex: 1;
+                text-align: center;
+            }
+
+            .game-button {
+                flex: 1;
+                min-width: 20px;
+                justify-content: center;
+            }
         }
     }
 }
