@@ -67,6 +67,10 @@
                     <span class="result">Next turn</span>
                 </div>
                 <div class="control-item">
+                    <span class="action"><kbd>Z</kbd></span>
+                    <span class="result">Zoom card</span>
+                </div>
+                <div class="control-item">
                     <span class="action"><kbd>D</kbd></span>
                     <span class="result">Draw lib</span>
                 </div>

@@ -36,6 +36,7 @@
                 class="focus-overlay"
             />
         </Transition>
+        <FocusModeDisclaimer ref="focusModeDisclaimerRef" />
     </div>
 </template>
 
@@ -47,9 +48,22 @@ import { useCoreStore } from '@/client/store/core.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { display } from '@/client/game/display.ts'
 import ZoomedCard from '@/client/ui/ingame/ZoomedCard.vue'
+import FocusModeDisclaimer from '@/client/ui/ingame/FocusModeDisclaimer.vue'
+import { watch, ref } from 'vue'
 
 const core = useCoreStore()
 const gameBus = useGameBusStore()
+
+const focusModeDisclaimerRef = ref<InstanceType<typeof FocusModeDisclaimer> | null>(null)
+
+watch(
+    () => gameBus.focusMode,
+    newVal => {
+        if (newVal) {
+            focusModeDisclaimerRef.value?.showDisclaimer()
+        }
+    },
+)
 </script>
 
 <style lang="scss" scoped>
