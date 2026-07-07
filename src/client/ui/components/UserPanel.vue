@@ -377,6 +377,7 @@ const preferences: Preference[] = [
     createCheckboxPreference('alignmentGuides', 'Show alignment guides'),
     createCheckboxPreference('cardGrouping', 'Enable card grouping'),
     createCheckboxPreference('actionDeclaration', 'Enable action declaration'),
+    createCheckboxPreference('turnNotification', 'Show new turn notification'),
 ]
 
 /** Keyboard shortcuts **/

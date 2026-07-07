@@ -22,5 +22,6 @@ export function useUIFeatures() {
         alignmentGuidesEnabled: computed(() => preferences.value.alignmentGuides ?? true),
         cardGroupingEnabled: computed(() => preferences.value.cardGrouping ?? true),
         actionDeclarationEnabled: computed(() => preferences.value.actionDeclaration ?? true),
+        turnNotificationEnabled: computed(() => (preferences.value.turnNotification ?? 1) === 1),
     }
 }

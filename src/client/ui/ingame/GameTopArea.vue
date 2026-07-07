@@ -463,12 +463,26 @@
                 />
                 and can gain 1 pool from the blood bank
             </div>
+
+            <!-- New Turn Notification -->
+            <div
+                v-if="centralContent.turnNotification"
+                class="turn-notification"
+            >
+                <span class="turn-notification-label">Turn #{{ gameState.turnNumber }}</span>
+                <span
+                    class="inline-player-name turn-notification-player"
+                    :style="{ backgroundColor: gameState.activePlayer?.rgbaColor }"
+                >
+                    {{ gameState.activePlayer?.name }}
+                </span>
+            </div>
         </div>
     </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import { useBusStore, useGameBusStore } from '@/client/store/bus.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
@@ -506,7 +520,7 @@ const multiplayer = useMultiplayerStore()
 const commands = useCommands()
 const timer = useTimer(gameState.gameId)
 
-const { aidsEnabled, worldAlignment, glowInPlayEnabled } = useUIFeatures()
+const { aidsEnabled, worldAlignment, glowInPlayEnabled, turnNotificationEnabled } = useUIFeatures()
 const blockingMinion = computed(() => getBlockingMinion(gameState))
 const fullDisplay = computed(
     () => gameState.action && gameState.action.minionAction.actingMinion.controller.isBot,
@@ -536,15 +550,52 @@ const style = computed(() => {
 })
 
 /**
+ * New turn notification
+ *
+ * When a new turn begins (turnNumber increases by 1), we briefly show an
+ * eye-catching notification with the new active player. While it's visible it
+ * takes over the central box, so timer-setup and TheEdgeHint are hidden.
+ */
+
+const TURN_NOTIFICATION_DURATION = 3500
+const turnNotificationVisible = ref(false)
+let turnNotificationTimeout: ReturnType<typeof setTimeout> | undefined
+
+watch(
+    () => gameState.turnNumber,
+    (newTurn, oldTurn) => {
+        // Only trigger when advancing to the next turn, not on rewind or resync jumps.
+        if (!turnNotificationEnabled.value || (oldTurn && newTurn !== oldTurn + 1)) {
+            return
+        }
+
+        turnNotificationVisible.value = true
+        clearTimeout(turnNotificationTimeout)
+        turnNotificationTimeout = setTimeout(() => {
+            turnNotificationVisible.value = false
+        }, TURN_NOTIFICATION_DURATION)
+    },
+    { immediate: true },
+)
+
+onUnmounted(() => clearTimeout(turnNotificationTimeout))
+
+/**
  * What is displayed in the central box ?
  */
 
 const centralContent = computed(() => ({
     action: !!gameState.action,
     declarationHint: !!gameBus.actionDeclaration.type,
-    timer: multiplayer.selfIsHost && !timer.timerChosen.value && gameState.timerStartTime === null,
+    turnNotification: turnNotificationVisible.value,
+    timer:
+        !turnNotificationVisible.value &&
+        multiplayer.selfIsHost &&
+        !timer.timerChosen.value &&
+        gameState.timerStartTime === null,
     nextTurn: gameState.turnPhase == TurnPhase.Discard && players.selfIsActive,
     theEdge:
+        !turnNotificationVisible.value &&
         gameState.turnPhase == TurnPhase.Unlock &&
         gameState.theEdgeController &&
         gameState.theEdgeController == gameState.activePlayer,
@@ -1002,6 +1053,59 @@ function forwardPointerEvent(event: PointerEvent) {
     }
     100% {
         background-color: $silver-grey;
+    }
+}
+
+.turn-notification {
+    align-self: center;
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 1rem 1.5rem;
+    border: solid 2px $light-teal;
+    border-radius: 4px;
+    background: rgba($pearl-grey, 0.85);
+    box-shadow: 0 0 12px rgba($light-teal, 0.9);
+    font-size: 26px;
+    font-weight: bold;
+    color: $shadow-grey;
+    white-space: nowrap;
+    animation: TurnNotificationAppear 0.5s ease-out;
+
+    .turn-notification-label {
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .turn-notification-player {
+        font-size: 22px;
+        padding: 2px 10px;
+        border-radius: 2px;
+        animation: TurnNotificationPulse 1s ease-in-out infinite;
+    }
+}
+
+@keyframes TurnNotificationAppear {
+    0% {
+        opacity: 0;
+        transform: scale(0.7);
+    }
+    60% {
+        transform: scale(1.08);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes TurnNotificationPulse {
+    0%,
+    100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.08);
     }
 }
 </style>
