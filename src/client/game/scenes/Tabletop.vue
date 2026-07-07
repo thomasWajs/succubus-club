@@ -222,7 +222,10 @@ function playerSeatsFocusMode(): PlayerSeat[] {
         seats.push({
             player: players.centralPlayer.prey.prey,
             scale: FOCUS_MODE_FARAWAY_PLAYER_SCALE,
-            x: -RIGHT_COLUMN_WIDTH / 2 + FOCUS_MODE_GUTTER / 2,
+            x:
+                PLAY_AREA_X -
+                PLAY_AREA_WIDTH * FOCUS_MODE_FARAWAY_PLAYER_SCALE -
+                FOCUS_MODE_GUTTER / 2,
             y: 0,
         })
     }
