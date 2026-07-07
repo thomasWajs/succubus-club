@@ -10,6 +10,7 @@ import {
     ScsGameMutationMessage,
     ScsGameStateMessage,
     ScsMutationRejectedMessage,
+    ScsRandomResultRequestMessage,
     ScsShuffleCardRegionMessage,
     SerializedMultiplayerGame,
 } from '@/shared/types/multiplayer.ts'
@@ -340,6 +341,49 @@ export async function handleShuffleCardRegion(
         await handleGameMutation(connection, mutationMessage)
     } catch (error) {
         logger.error(`Error shuffling card region: ${error}`)
+        captureException(error)
+        sendError(connection.webSocket, `${error}`)
+    }
+}
+
+/**
+ * Handle random result request from client (coin flip or d6 roll)
+ */
+export async function handleRandomResultRequest(
+    connection: ConnectionInfo,
+    message: ScsRandomResultRequestMessage,
+) {
+    try {
+        const room = validateBeforeGameMessage(connection)
+        const gameState = room.gameState
+
+        const player = getPlayer(gameState, connection.permId)
+        if (!player) {
+            throw new Error('Player not found')
+        }
+
+        const max = message.randomType === 'coin' ? 2 : 6
+        const result = Math.floor(Math.random() * max) + 1
+
+        logger.debug(`Random result for ${message.randomType}: ${result} in room ${room.id}`)
+
+        const randomResultMutation = gameMutations.randomResult.createMutation(player, {
+            randomType: message.randomType,
+            result,
+        })
+
+        const packedMutation = packGameMutation(randomResultMutation)
+
+        const mutationMessage: ScsGameMutationMessage = {
+            type: MultiplayerMessageType.GameMutation,
+            gameMutation: packedMutation,
+            gameMutationId: randomResultMutation.id,
+            globalVersion: message.globalVersion,
+        }
+
+        await handleGameMutation(connection, mutationMessage)
+    } catch (error) {
+        logger.error(`Error handling random result request: ${error}`)
         captureException(error)
         sendError(connection.webSocket, `${error}`)
     }

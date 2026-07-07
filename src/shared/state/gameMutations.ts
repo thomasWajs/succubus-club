@@ -2092,8 +2092,29 @@ function defineMutation<
 }
 
 /**
- * Register all mutations
+ * Random Result ( Coin Flip / Dice Roll )
  */
+
+export interface RandomResultParams extends GameMutationParams {
+    randomType: 'coin' | 'd6'
+    result: number
+}
+
+export class RandomResult extends GameMutation<RandomResultParams> {
+    readonly syncMode = MutationSyncMode.Merge
+
+    protected updateGameState(): void {
+        // No state change - this mutation only serves as a log/broadcast event
+    }
+
+    formatForLog() {
+        if (this.params.randomType === 'coin') {
+            const face = this.params.result === 1 ? 'Heads' : 'Tails'
+            return `${this.author.name} flips a coin: ${face}`
+        }
+        return `${this.author.name} rolls a d6: ${this.params.result}`
+    }
+}
 
 export const gameMutations = {
     becomeMinion: defineMutation(BecomeMinion),
@@ -2121,6 +2142,7 @@ export const gameMutations = {
     setFlip: defineMutation(SetFlip),
     setLock: defineMutation(SetLock),
     shuffle: defineMutation(Shuffle),
+    randomResult: defineMutation(RandomResult),
     unlockAll: defineMutation(UnlockAll),
     unlockAllInverse: defineMutation(UnlockAllInverse),
 

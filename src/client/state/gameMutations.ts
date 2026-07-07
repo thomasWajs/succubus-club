@@ -22,7 +22,10 @@ import { deserializeGameMutation } from '@/shared/serialization.ts'
 import { AnyCardRegion } from '@/shared/types/model.ts'
 import { CommunicationMode } from '@/shared/types/multiplayer.ts'
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
-import { sendShuffleRequest } from '@/client/multiplayer/communication/scs.ts'
+import {
+    sendRandomResultRequest,
+    sendShuffleRequest,
+} from '@/client/multiplayer/communication/scs.ts'
 import { getLogger } from '@/shared/registries.ts'
 
 /**
@@ -167,4 +170,27 @@ export async function shuffleCardRegion(cardRegion: AnyCardRegion) {
         cardsOrder: cardRegion.generateShuffledCardsOrder(),
         previousCardsOrder: [...cardRegion.cardsOid],
     })
+}
+
+/**
+ * Roll Random Result ( Coin Flip / D6 Roll )
+ */
+
+export function rollRandomResult(randomType: 'coin' | 'd6') {
+    const core = useCoreStore()
+    const multiplayer = useMultiplayerStore()
+
+    // For SCS mode, request server-side random result
+    if (core.gameType == GameType.Multiplayer) {
+        const gameRoom = multiplayer.currentGameRoom
+        if (gameRoom && gameRoom.communication == CommunicationMode.SCS) {
+            sendRandomResultRequest(randomType)
+            return
+        }
+    }
+
+    // For other modes, generate the result client-side
+    const max = randomType === 'coin' ? 2 : 6
+    const result = Math.floor(Math.random() * max) + 1
+    gameMutations.randomResult.actSelf({ randomType, result })
 }

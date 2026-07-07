@@ -13,6 +13,7 @@ import {
 
 import {
     handleGameMutation,
+    handleRandomResultRequest,
     handleRequestResync,
     handleShuffleCardRegion,
     UserNotIdentified,
@@ -126,6 +127,9 @@ wsServer.on('connection', (webSocket: WebSocket, req) => {
 
                 case MultiplayerMessageType.ShuffleCardRegion:
                     await handleShuffleCardRegion(connection, message)
+                    break
+                case MultiplayerMessageType.RandomResultRequest:
+                    await handleRandomResultRequest(connection, message)
                     break
                 case MultiplayerMessageType.RequestResync:
                     handleRequestResync(connection)

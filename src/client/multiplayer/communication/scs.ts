@@ -8,6 +8,7 @@ import {
     ScsGameStateMessage,
     ScsLaunchGameMessage,
     ScsMutationRejectedMessage,
+    ScsRandomResultRequestMessage,
     ScsShuffleCardRegionMessage,
     ScsStatus,
     VersioningTarget,
@@ -77,6 +78,20 @@ export async function sendShuffleRequest(cardRegion: AnyCardRegion) {
         cardRegionOid: cardRegion.oid,
         globalVersion: multiplayer.globalClock,
         version,
+    }
+    getScsClient().send(message)
+}
+
+/**
+ * Send random result request to server (coin flip or d6 roll)
+ */
+export function sendRandomResultRequest(randomType: 'coin' | 'd6') {
+    const multiplayer = useMultiplayerStore()
+
+    const message: ScsRandomResultRequestMessage = {
+        type: MultiplayerMessageType.RandomResultRequest,
+        randomType,
+        globalVersion: multiplayer.globalClock,
     }
     getScsClient().send(message)
 }

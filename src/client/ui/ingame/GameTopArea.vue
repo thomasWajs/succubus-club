@@ -130,6 +130,8 @@
                     <CommandButton :command="commands.ClearDeclaredTargets">
                         Clear Targets
                     </CommandButton>
+                    <CommandButton :command="commands.FlipCoin"> Flip A Coin </CommandButton>
+                    <CommandButton :command="commands.RollD6"> Roll A D6 </CommandButton>
                 </PopupMenu>
             </div>
 

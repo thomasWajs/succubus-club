@@ -229,6 +229,7 @@ export enum MultiplayerMessageType {
     MutationRejected = 'MutationRejected',
     GameMutation = 'GameMutation',
     ShuffleCardRegion = 'ShuffleCardRegion',
+    RandomResultRequest = 'RandomResultRequest',
     RequestResync = 'RequestResync',
     GameState = 'GameState', // Send a whole game state
 
@@ -337,6 +338,12 @@ export type ScsShuffleCardRegionMessage = {
     version: VectorClockVersion
 }
 
+export type ScsRandomResultRequestMessage = {
+    type: MultiplayerMessageType.RandomResultRequest
+    randomType: 'coin' | 'd6'
+    globalVersion: LamportClockVersion
+}
+
 export type ScsRequestResyncMessage = {
     type: MultiplayerMessageType.RequestResync
 }
@@ -350,6 +357,7 @@ export type ScsClientMessage =
     | ScsSetupGameMessage
     | ScsGameMutationMessage
     | ScsShuffleCardRegionMessage
+    | ScsRandomResultRequestMessage
     | ScsRequestResyncMessage
 
 // Server → Client messages
