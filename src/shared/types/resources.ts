@@ -50,10 +50,5 @@ export type SetAndPrecons = {
 
 export type KrcgDeck = {
     name: string
-    crypt: {
-        cards: Array<{ id: number; count: number }>
-    }
-    library: {
-        cards: Array<{ cards: Array<{ id: number; count: number }> }>
-    }
+    cards: Array<{ id: number; count: number }>
 }

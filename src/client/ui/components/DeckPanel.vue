@@ -146,6 +146,38 @@
                     </div>
                 </div>
 
+                <!-- VtesDeck Import Tab -->
+                <div
+                    v-if="activeTab === 'vtesdecks-import'"
+                    class="tab-content"
+                >
+                    <div
+                        v-if="isLoading"
+                        class="loading-message"
+                    >
+                        Loading from VTES Decks...
+                    </div>
+                    <div
+                        v-else
+                        class="import-form"
+                    >
+                        <div class="input-group">
+                            <label class="input-label">VTES Decks URL:</label>
+                            <input
+                                v-model="vtesdecksDeckUrl"
+                                class="input-field"
+                                placeholder="https://vtesdecks.com/deck/DECK_ID"
+                            />
+                        </div>
+                        <button
+                            class="action-btn primary"
+                            @click="loadFromVtesdecks"
+                        >
+                            Load from VTES Decks
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Amaranth Import Tab -->
                 <div
                     v-if="activeTab === 'amaranth-import'"
@@ -343,6 +375,7 @@ import {
     getOrImportPrecon,
     getOrImportText,
     getOrImportVdb,
+    getOrImportVtesdecks,
     selectDeck,
     validateDeckList,
 } from '@/client/gateway/deck.ts'
@@ -373,6 +406,7 @@ const activeTab = ref('history')
 const tabs = [
     { id: 'history', title: 'History' },
     { id: 'vdb-import', title: 'VDB Import' },
+    { id: 'vtesdecks-import', title: 'VTES Decks Import' },
     { id: 'amaranth-import', title: 'Amaranth Import' },
     { id: 'text', title: 'Text Import' },
     { id: 'preconstructed', title: 'Preconstructed' },
@@ -502,6 +536,14 @@ const vdbDeckUrl = ref('')
 
 function loadFromVdb() {
     loadDeck(() => getOrImportVdb(vdbDeckUrl.value))
+}
+
+/** VDB Import **/
+
+const vtesdecksDeckUrl = ref('')
+
+function loadFromVtesdecks() {
+    loadDeck(() => getOrImportVtesdecks(vtesdecksDeckUrl.value))
 }
 
 /** Amaranth Import **/

@@ -1,6 +1,6 @@
 import { db, DbDeck, DeckSource } from '@/client/gateway/db.ts'
 import { useCoreStore } from '@/client/store/core.ts'
-import { fetchAmaranth, fetchVdb } from '@/client/resources/krcg.ts'
+import { fetchFromDeckBuilder, KRCG_API_ENDPOINTS } from '@/client/resources/krcg.ts'
 import { MAX_LIB_SIZE, MIN_CRYPT_SIZE, MIN_LIB_SIZE } from '@/shared/const/model.ts'
 import { Deck, DeckList } from '@/shared/types/gateway.ts'
 import { isCryptId } from '@/shared/model/Card.ts'
@@ -36,24 +36,34 @@ export async function selectDeck(deck: DbDeck) {
     core.selfDeck = deck
 }
 
-export async function getOrImportVdb(vdbDeckUrl: string) {
+export async function getOrImportFromDeckBuilder(
+    deckSource: DeckSource,
+    krcgEndpoint: string,
+    url: string,
+) {
     const dbDeck = await getOrImportDeck(
-        DeckSource.Vdb,
-        vdbDeckUrl,
-        () => fetchVdb(vdbDeckUrl),
+        deckSource,
+        url,
+        () => fetchFromDeckBuilder(krcgEndpoint, url),
         true,
     )
     await selectDeck(dbDeck)
 }
 
-export async function getOrImportAmaranth(amaranthDeckUrl: string) {
-    const dbDeck = await getOrImportDeck(
-        DeckSource.Amaranth,
-        amaranthDeckUrl,
-        () => fetchAmaranth(amaranthDeckUrl),
-        true,
+export async function getOrImportVdb(vdbUrl: string) {
+    await getOrImportFromDeckBuilder(DeckSource.Vdb, KRCG_API_ENDPOINTS.vdb, vdbUrl)
+}
+
+export async function getOrImportVtesdecks(vtesdecksUrl: string) {
+    await getOrImportFromDeckBuilder(
+        DeckSource.VtesDecks,
+        KRCG_API_ENDPOINTS.vtesdecks,
+        vtesdecksUrl,
     )
-    await selectDeck(dbDeck)
+}
+
+export async function getOrImportAmaranth(amaranthUrl: string) {
+    await getOrImportFromDeckBuilder(DeckSource.Amaranth, KRCG_API_ENDPOINTS.amaranth, amaranthUrl)
 }
 
 export async function getOrImportText(deckText: string) {

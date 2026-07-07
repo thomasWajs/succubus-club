@@ -19,6 +19,7 @@ const DEFAULT_PLAYER_NAME = 'The Unnamed'
 export enum DeckSource {
     Precon = 'Precon',
     Vdb = 'VDB',
+    VtesDecks = 'VtesDecks',
     Amaranth = 'Amaranth',
     Text = 'Text',
 }

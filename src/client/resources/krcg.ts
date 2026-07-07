@@ -1,23 +1,18 @@
 import { Deck, DeckList } from '@/shared/types/gateway.ts'
 import { KrcgDeck } from '@/shared/types/resources.ts'
 
-const KRCG_API_ENDPOINTS = {
-    convert: 'https://api.krcg.org/convert/json',
-    vdb: 'https://api.krcg.org/vdb',
-    amaranth: 'https://api.krcg.org/amaranth',
+export const KRCG_API_ENDPOINTS = {
+    convert: 'https://v4.api.krcg.org/convert/json',
+    vdb: 'https://v4.api.krcg.org/vdb',
+    vtesdecks: 'https://v4.api.krcg.org/vtesdecks',
+    amaranth: 'https://v4.api.krcg.org/amaranth',
 }
 
 function convertKrcgToDeck(krcgDeck: KrcgDeck): Deck {
     const deckList = {} as DeckList
 
-    for (const cryptCard of krcgDeck.crypt.cards) {
-        deckList[cryptCard.id.toString()] = cryptCard.count
-    }
-
-    for (const cardGroup of krcgDeck.library.cards) {
-        for (const libCard of cardGroup.cards) {
-            deckList[libCard.id.toString()] = libCard.count
-        }
+    for (const card of krcgDeck.cards) {
+        deckList[card.id.toString()] = card.count
     }
 
     return {
@@ -35,29 +30,15 @@ async function checkKrcgResponse(response: Response): Promise<KrcgDeck> {
     }
 
     if (!krcgDeck) throw new Error('KRCG API returned an empty response.')
-    if (!krcgDeck.crypt) throw new Error('KRCG API returned an empty crypt')
-    if (!krcgDeck.library) throw new Error('KRCG API returned an empty library')
+    if (!krcgDeck.cards) throw new Error('KRCG API returned an empty deck')
 
     return krcgDeck as KrcgDeck
 }
 
-export async function fetchVdb(vdbDeckUrl: string): Promise<Deck> {
-    const response = await fetch(KRCG_API_ENDPOINTS.vdb, {
+export async function fetchFromDeckBuilder(endpoint: string, url: string): Promise<Deck> {
+    const response = await fetch(endpoint, {
         method: 'POST',
-        body: JSON.stringify({ url: vdbDeckUrl }),
-        headers: {
-            'Content-Type': 'application/json',
-        },
-    })
-
-    const krcgDeck = await checkKrcgResponse(response)
-    return convertKrcgToDeck(krcgDeck)
-}
-
-export async function fetchAmaranth(amaranthDeckUrl: string): Promise<Deck> {
-    const response = await fetch(KRCG_API_ENDPOINTS.amaranth, {
-        method: 'POST',
-        body: JSON.stringify({ url: amaranthDeckUrl }),
+        body: JSON.stringify({ url }),
         headers: {
             'Content-Type': 'application/json',
         },
