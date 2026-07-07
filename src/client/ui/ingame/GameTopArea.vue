@@ -89,17 +89,59 @@
             </div>
         </div>
 
-        <div
-            v-if="glowInPlayEnabled"
-            class="cards-during-current-phase"
-        >
-            <span
-                class="cards-count"
+        <div class="game-controls">
+            <!-- Permanent Mutations -->
+            <div
+                v-if="players.isPlayer"
+                class="game-mutations"
+            >
+                <CommandButton
+                    class="is-danger cancel-button"
+                    :command="commands.Cancel"
+                    :disabled="!history.nextCancellableMutation"
+                >
+                    Cancel
+                </CommandButton>
+
+                <PopupMenu label="Display">
+                    <div class="scale-controls">
+                        <span class="scale-label">Card Scale</span>
+                        <div class="scale-buttons">
+                            <CommandButton :command="commands.DecreaseScale"> - </CommandButton>
+                            <span class="scale-text">{{
+                                `${Math.round(((players.selfPlayer?.scale ?? 0) * 100) / 10) * 10}%`
+                            }}</span>
+                            <CommandButton :command="commands.IncreaseScale"> + </CommandButton>
+                        </div>
+                    </div>
+                    <CommandButton
+                        :command="commands.FocusMode"
+                        class="align-center"
+                    >
+                        Focus Mode
+                    </CommandButton>
+                </PopupMenu>
+
+                <PopupMenu label="Game">
+                    <CommandButton :command="commands.UnlockAll"> Unlock All </CommandButton>
+                    <CommandButton :command="commands.DiscardAtRandom">
+                        Discard At Random
+                    </CommandButton>
+                    <CommandButton :command="commands.ClearDeclaredTargets">
+                        Clear Targets
+                    </CommandButton>
+                </PopupMenu>
+            </div>
+
+            <!-- Cards with an effect -->
+            <div
+                v-if="glowInPlayEnabled"
+                class="cards-during-current-phase"
                 :class="{ 'has-effect': gameState.cardsDuringCurrentPhase.length > 0 }"
                 @click="pingCardsDuringCurrentPhase"
             >
                 {{ gameState.cardsDuringCurrentPhase.length }} cards with an effect
-            </span>
+            </div>
         </div>
 
         <div
@@ -422,51 +464,6 @@
                 and can gain 1 pool from the blood bank
             </div>
         </div>
-
-        <!-- Permanent Mutations -->
-        <div
-            v-if="players.isPlayer"
-            class="game-mutations"
-        >
-            <div class="left-menus">
-                <PopupMenu label="Display">
-                    <CommandButton
-                        :command="commands.FocusMode"
-                        class="align-center"
-                    >
-                        Focus Mode
-                    </CommandButton>
-                    <div class="scale-controls">
-                        <span class="scale-label">Card Scale</span>
-                        <div class="scale-buttons">
-                            <CommandButton :command="commands.DecreaseScale"> - </CommandButton>
-                            <span class="scale-text">{{
-                                `${Math.round(((players.selfPlayer?.scale ?? 0) * 100) / 10) * 10}%`
-                            }}</span>
-                            <CommandButton :command="commands.IncreaseScale"> + </CommandButton>
-                        </div>
-                    </div>
-                </PopupMenu>
-
-                <PopupMenu label="Game">
-                    <CommandButton :command="commands.UnlockAll"> Unlock All </CommandButton>
-                    <CommandButton :command="commands.DiscardAtRandom">
-                        Discard At Random
-                    </CommandButton>
-                    <CommandButton :command="commands.ClearDeclaredTargets">
-                        Clear Targets
-                    </CommandButton>
-                </PopupMenu>
-            </div>
-
-            <CommandButton
-                class="is-danger cancel-button"
-                :command="commands.Cancel"
-                :disabled="!history.nextCancellableMutation"
-            >
-                Cancel
-            </CommandButton>
-        </div>
     </div>
 </template>
 
@@ -682,6 +679,7 @@ function forwardPointerEvent(event: PointerEvent) {
 
     .turn {
         height: 35px;
+        width: 225px;
         justify-self: left;
         @include flex-center;
         align-items: stretch;
@@ -773,19 +771,92 @@ function forwardPointerEvent(event: PointerEvent) {
     }
 }
 
+.game-controls {
+    display: flex;
+    justify-content: space-between;
+    padding-top: 5px;
+}
+
 .cards-during-current-phase {
     display: flex;
-    justify-content: end;
-    padding-top: 5px;
+    align-items: center;
+    background-color: $pale-grey;
+    padding: 0 5px;
 
-    .cards-count {
-        background-color: $pale-grey;
-        padding: 3px 5px;
+    &.has-effect {
+        background-color: darken(desaturate(rgba(180, 90, 40, 0.8), 15%), 5%);
+        transition: background-color 0.4s linear;
+        cursor: pointer;
+    }
+}
 
-        &.has-effect {
-            background-color: darken(desaturate(rgba(180, 90, 40, 0.8), 15%), 5%);
-            transition: background-color 0.4s linear;
-            cursor: pointer;
+.game-mutations {
+    display: flex;
+    width: 225px;
+    justify-content: space-between;
+
+    .popup-menu-trigger,
+    .cancel-button {
+        height: 100%;
+    }
+
+    .game-button {
+        font-size: 12px;
+    }
+
+    .game-button:has(kbd):has(img) {
+        padding: 0 5px;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+
+        img {
+            height: 22px;
+            width: auto;
+        }
+    }
+
+    .popup-menu-panel .game-button {
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 15px;
+    }
+
+    .scale-controls {
+        background-color: $purple-grey;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 45px;
+        padding: 4px 5px;
+        color: white;
+        font-size: 12px;
+        font-weight: 600;
+        width: 190px;
+
+        .scale-label {
+            white-space: nowrap;
+        }
+
+        .scale-buttons {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex: 1;
+
+            .scale-text {
+                padding: 5px;
+                flex: 1;
+                text-align: center;
+            }
+
+            .game-button {
+                flex: 1;
+                min-width: 20px;
+                justify-content: center;
+            }
         }
     }
 }
@@ -931,90 +1002,6 @@ function forwardPointerEvent(event: PointerEvent) {
     }
     100% {
         background-color: $silver-grey;
-    }
-}
-
-.game-mutations {
-    display: flex;
-    justify-content: space-between;
-    align-items: stretch;
-
-    .left-menus {
-        display: flex;
-        gap: 10px;
-    }
-
-    .popup-menu-container {
-        display: flex;
-        align-items: stretch;
-
-        .popup-menu-trigger {
-            height: 100%;
-        }
-    }
-
-    .cancel-button {
-        height: 100%;
-    }
-
-    .game-button {
-        font-size: 12px;
-    }
-
-    .game-button:has(kbd):has(img) {
-        padding: 0 5px;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-
-        img {
-            height: 22px;
-            width: auto;
-        }
-    }
-
-    .popup-menu-panel .game-button {
-        width: 100%;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 15px;
-    }
-
-    .scale-controls {
-        background-color: $purple-grey;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 45px;
-        padding: 4px 5px;
-        color: white;
-        font-size: 12px;
-        font-weight: 600;
-        width: 190px;
-
-        .scale-label {
-            white-space: nowrap;
-        }
-
-        .scale-buttons {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            flex: 1;
-
-            .scale-text {
-                padding: 5px;
-                flex: 1;
-                text-align: center;
-            }
-
-            .game-button {
-                flex: 1;
-                min-width: 20px;
-                justify-content: center;
-            }
-        }
     }
 }
 </style>

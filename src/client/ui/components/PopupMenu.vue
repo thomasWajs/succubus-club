@@ -10,7 +10,7 @@
             <slot name="trigger">
                 {{ label }}
             </slot>
-            <span class="popup-caret">{{ isOpen ? '&#x25BC;' : '&#x25B2;' }}</span>
+            <span class="popup-caret">{{ isOpen ? '&#x25B2;' : '&#x25BC;' }}</span>
         </button>
 
         <div
@@ -70,9 +70,9 @@ onBeforeUnmount(() => {
 
 .popup-menu-panel {
     position: absolute;
-    bottom: 100%;
+    top: 100%;
     left: 0;
-    margin-bottom: 4px;
+    margin-top: 4px;
     min-width: 150px;
     white-space: nowrap;
 }
