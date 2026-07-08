@@ -71,7 +71,7 @@ import {
 } from '@/shared/const/game.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import PlayAreaGO from '@/client/game/objects/PlayAreaGO.vue'
-import { computed, ref } from 'vue'
+import { computed, ref, watch, watchEffect } from 'vue'
 import ContextMenu from '@/client/ui/context/menu/ContextMenu.vue'
 import ContextSubmenu from '@/client/ui/context/menu/ContextSubmenu.vue'
 import WieldCardStack from '@/client/game/objects/WieldCardStack.vue'
@@ -328,7 +328,8 @@ function getWorldPosition(objectId?: CardOid | PlayerOid): Point2D | null {
     return null
 }
 
-const arrows = computed(() => {
+const arrows = ref<Arrow[]>([])
+function computeArrows() {
     const _arrows = [
         // The current declarating target, if any
         {
@@ -346,6 +347,11 @@ const arrows = computed(() => {
             }
         }),
     ]
-    return _arrows.filter(arrow => arrow.from && arrow.to) as Arrow[]
-})
+    arrows.value = _arrows.filter(arrow => arrow.from && arrow.to) as Arrow[]
+}
+
+watchEffect(computeArrows)
+// watchEffect doesn't know it needs to recompute when focusMode changes the playArea positionning,
+// so we need a separate watcher
+watch(playerSeats, computeArrows, { deep: true })
 </script>
