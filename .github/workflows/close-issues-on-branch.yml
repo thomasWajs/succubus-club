@@ -1,3 +1,4 @@
+---
 name: Close Issues on Dev Push
 
 on:
@@ -19,27 +20,28 @@ jobs:
                 with:
                     github-token: ${{ secrets.GITHUB_TOKEN }}
                     script: |
-                        const commits = context.payload.commits;
-                        if (!commits) return;
+                            const commits = context.payload.commits
+                            if (!commits) return
 
-                        const regex = /(?:close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)\s+#(\d+)/gi;
+                            const regex = /(?:close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)\s+#(\d+)/gi
 
-                        for (const commit of commits) {
-                          let match;
-                          while ((match = regex.exec(commit.message)) !== null) {
-                            const issueNumber = parseInt(match[1], 10);
+                            for (const commit of commits) {
+                                let match
+                                while ((match = regex.exec(commit.message)) !== null) {
+                                    const issueNumber = parseInt(match[1], 10)
 
-                            console.log(`Closing issue #${issueNumber} from commit: "${commit.message}"`);
+                                    console.log(`Closing issue #${issueNumber} from commit: "${commit.message}"`)
 
-                            try {
-                              await github.rest.issues.update({
-                                owner: context.repo.owner,
-                                repo: context.repo.repo,
-                                issue_number: issueNumber,
-                                state: 'closed'
-                              });
-                            } catch (error) {
-                              console.error(`Failed to close issue #${issueNumber}:`, error.message);
+                                    try {
+                                        await github.rest.issues.update({
+                                            owner: context.repo.owner,
+                                            repo: context.repo.repo,
+                                            issue_number: issueNumber,
+                                            state: 'closed',
+                                        })
+                                    } catch (error) {
+                                        console.error(`Failed to close issue #${issueNumber}:`, error.message)
+                                    }
+                                }
                             }
-                          }
-                        }
+
