@@ -2,6 +2,7 @@
     <PhavuerGame
         v-if="core.resourcesAreReady"
         id="PhavuerGame"
+        :style="tabletopBackgroundStyle"
         :config="gameConfig"
         @create="onCreate"
     >
@@ -20,6 +21,7 @@ import { setPhaserGame, useCoreStore } from '@/client/store/core.ts'
 import { useBusStore } from '@/client/store/bus.ts'
 import { display } from '@/client/game/display.ts'
 import { resetState } from '@/client/state/setup.ts'
+import { tabletopBackgroundStyle } from '@/client/gateway/background.ts'
 
 const core = useCoreStore()
 const bus = useBusStore()

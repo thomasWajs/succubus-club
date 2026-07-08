@@ -124,7 +124,7 @@
                     </div>
                 </div>
 
-                <!-- User Profile Tab -->
+                <!-- Key bindings Tab -->
                 <div
                     v-if="activeTab === 'keyBindings'"
                     class="tab-content"
@@ -176,6 +176,62 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Tabletop Background Tab -->
+                <div
+                    v-if="activeTab === 'tabletopBackground'"
+                    class="tab-content"
+                >
+                    <div class="background-panel">
+                        <div class="label-container">
+                            <div class="input-label preference-label">
+                                Customize tabletop background :
+                            </div>
+                            <div
+                                v-if="savedFeedbacks.tabletopBackground.image"
+                                class="save-feedback success"
+                            >
+                                ✓ Saved
+                            </div>
+                        </div>
+
+                        <div
+                            class="background-dropzone"
+                            :class="{ 'drag-over': isDraggingBackground }"
+                            :style="{ backgroundImage: `url(${tabletopBackgroundUrl})` }"
+                            @click="triggerBackgroundUpload"
+                            @dragover.prevent="isDraggingBackground = true"
+                            @dragleave.prevent="isDraggingBackground = false"
+                            @drop.prevent="handleBackgroundDrop"
+                        >
+                            <div class="background-dropzone-overlay">
+                                <span>Click or drop an image here</span>
+                            </div>
+                        </div>
+
+                        <!-- Hidden file input -->
+                        <input
+                            ref="backgroundInput"
+                            type="file"
+                            accept="image/*"
+                            style="display: none"
+                            @change="handleBackgroundFileInput"
+                        />
+
+                        <div class="input-label builtin-label">Built-in backgrounds</div>
+                        <div class="builtin-backgrounds">
+                            <button
+                                v-for="name in BUILTIN_BACKGROUNDS"
+                                :key="name"
+                                class="builtin-thumbnail"
+                                :class="{ active: activeBuiltinBackground === name }"
+                                :style="{ backgroundImage: `url(${builtinBackgroundUrl(name)})` }"
+                                :title="name"
+                                @click="selectBuiltinBackground(name)"
+                            />
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </TopPanel>
@@ -191,6 +247,15 @@ import { storeAvatar } from '@/client/gateway/user.ts'
 import { DbUserProfile, UserPreferences, WorldAlignment } from '@/client/gateway/db.ts'
 import { updateCommands, useCommands } from '@/client/game/composables/useCommands.ts'
 import { setupKeyboardHandlers } from '@/client/game/input.ts'
+import {
+    activeBuiltinBackground,
+    BUILTIN_BACKGROUNDS,
+    BuiltinBackground,
+    builtinBackgroundUrl,
+    setBuiltinBackground,
+    setTabletopBackground,
+    tabletopBackgroundUrl,
+} from '@/client/gateway/background.ts'
 
 const core = useCoreStore()
 const bus = useBusStore()
@@ -203,6 +268,7 @@ const tabs = [
     { id: 'userProfile', title: 'User Profile' },
     { id: 'preferences', title: 'Preferences' },
     { id: 'keyBindings', title: 'Keyboard bindings' },
+    { id: 'tabletopBackground', title: 'Tabletop background' },
 ]
 
 /** Save Feedbacks **/
@@ -211,6 +277,7 @@ const savedFeedbacks = ref({
     userProfile: {} as Record<string, boolean>,
     preferences: {} as Record<string, boolean>,
     keyBindings: {} as Record<string, boolean>,
+    tabletopBackground: {} as Record<string, boolean>,
 })
 
 function showSaveFeedback(category: keyof typeof savedFeedbacks.value, name: string) {
@@ -300,6 +367,40 @@ function calculateCropDimensions(
     }
 
     return { sx, sy, sw, sh }
+}
+
+/** Tabletop Background **/
+
+const backgroundInput = ref<HTMLInputElement | null>(null)
+const isDraggingBackground = ref(false)
+
+function triggerBackgroundUpload() {
+    backgroundInput.value?.click()
+}
+
+async function applyBackgroundFile(file: File | null | undefined) {
+    if (!file || !file.type.startsWith('image/')) {
+        return
+    }
+    await setTabletopBackground(file)
+    showSaveFeedback('tabletopBackground', 'image')
+}
+
+async function handleBackgroundFileInput(event: Event) {
+    const target = event.target as HTMLInputElement
+    await applyBackgroundFile(target.files?.[0])
+    // Reset so selecting the same file again still triggers a change event
+    target.value = ''
+}
+
+async function handleBackgroundDrop(event: DragEvent) {
+    isDraggingBackground.value = false
+    await applyBackgroundFile(event.dataTransfer?.files?.[0])
+}
+
+async function selectBuiltinBackground(name: BuiltinBackground) {
+    await setBuiltinBackground(name)
+    showSaveFeedback('tabletopBackground', 'image')
 }
 
 /** Preferences **/
@@ -580,5 +681,86 @@ $max-width: 1200px;
     flex-direction: row;
     gap: 8px;
     align-items: center;
+}
+
+/** Tabletop Background **/
+
+.background-panel {
+    max-width: 550px;
+}
+
+.background-dropzone {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border: 2px dashed $bone-grey;
+    border-radius: 6px;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    cursor: pointer;
+    overflow: hidden;
+    transition: border-color 0.15s ease;
+
+    &:hover,
+    &.drag-over {
+        border-color: $vibrant-emerald;
+    }
+}
+
+.background-dropzone-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 1rem;
+    color: #fff;
+    background-color: rgba($shadow-grey, 0.55);
+    opacity: 0;
+    transition: opacity 0.15s ease;
+
+    .background-dropzone:hover &,
+    .background-dropzone.drag-over & {
+        opacity: 1;
+    }
+}
+
+.builtin-label {
+    display: block;
+    margin-top: 20px;
+    margin-bottom: 8px;
+}
+
+.builtin-backgrounds {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.builtin-thumbnail {
+    width: 80px;
+    height: 45px;
+    padding: 0;
+    border: 2px solid $bone-grey;
+    border-radius: 4px;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    cursor: pointer;
+    transition:
+        border-color 0.15s ease,
+        transform 0.15s ease;
+
+    &:hover {
+        transform: scale(1.05);
+        border-color: $vibrant-emerald;
+    }
+
+    &.active {
+        border-color: $vibrant-emerald;
+        box-shadow: 0 0 0 2px rgba($vibrant-emerald, 0.4);
+    }
 }
 </style>

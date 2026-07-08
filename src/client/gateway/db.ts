@@ -151,12 +151,22 @@ export class DbSavedGame extends Entity<SuccubusDb> {
     conductorState?: ConductorState
 }
 
+/**
+ * A generic key-value store, handy for binary blobs (e.g. the custom tabletop
+ * background) that don't belong in the frequently-saved user profile.
+ */
+export class DbSetting extends Entity<SuccubusDb> {
+    key: string
+    value: unknown
+}
+
 export class SuccubusDb extends Dexie {
     userProfile: EntityTable<DbUserProfile, 'id'>
     decks: EntityTable<DbDeck, 'id'>
     // The exclamation mark is here to fix a known Dexie + TypeScript issue
     // caused by Dexie's complex generic type chain.
     savedGames!: EntityTable<DbSavedGame, 'id'>
+    settings!: EntityTable<DbSetting, 'key'>
 
     constructor() {
         super('SuccubusDb')
@@ -165,9 +175,13 @@ export class SuccubusDb extends Dexie {
             decks: '++id, lastUsed',
             savedGames: '++id, isAutoSave, date',
         })
+        this.version(2).stores({
+            settings: 'key',
+        })
         this.userProfile.mapToClass(DbUserProfile)
         this.decks.mapToClass(DbDeck)
         this.savedGames.mapToClass(DbSavedGame)
+        this.settings.mapToClass(DbSetting)
     }
 }
 

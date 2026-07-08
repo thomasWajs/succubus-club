@@ -5,8 +5,13 @@ import { Conductor } from '@/client/bot/conductor.ts'
 import { DbDeck, DbUserProfile } from '@/client/gateway/db.ts'
 import { shallowRef } from 'vue'
 import { storeAvatar } from '@/client/gateway/user.ts'
+import { initTabletopBackground } from '@/client/gateway/background.ts'
 
 const userProfile = await DbUserProfile.get()
+
+// Load the custom tabletop background (if any) before the app renders, so both the
+// loading screen and the game show it right away.
+await initTabletopBackground()
 let lastDeck = null as DbDeck | null
 if (userProfile.lastDeckId) {
     lastDeck = await DbDeck.get(userProfile.lastDeckId)

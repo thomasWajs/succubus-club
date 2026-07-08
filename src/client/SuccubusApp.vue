@@ -8,6 +8,7 @@
     <div
         v-show="isLoading"
         id="LoadingBackground"
+        :style="tabletopBackgroundStyle"
     />
 
     <router-view />
@@ -23,6 +24,7 @@ import UpdateModal from '@/client/ui/components/UpdateModal.vue'
 import { useRoute } from 'vue-router'
 import { useCoreStore } from '@/client/store/core.ts'
 import { ROUTES } from '@/client/ui/router.ts'
+import { tabletopBackgroundStyle } from '@/client/gateway/background.ts'
 
 const core = useCoreStore()
 const route = useRoute()
