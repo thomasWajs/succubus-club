@@ -45,10 +45,60 @@
         :lineWidth="CARD_OUTLINE_THICKNESS"
         :strokeColor="getCardOutlineColor"
     />
+
+    <!-- Hovered buttons, stacked vertically over the bottom of the card -->
+    <template
+        v-if="cardRegion.is.ashHeap && players.isPlayer && isHovered && !dragAttrs.isDragging"
+    >
+        <!-- Move To Library -->
+        <ButtonGo
+            ref="moveToLibraryButton"
+            name="moveToLibraryButton"
+            :x="buttons.centerX"
+            :y="buttons.moveToLibraryY"
+            :width="buttons.width"
+            :height="BUTTON_HEIGHT"
+            text="Move To Library"
+            :textStyle="{ fontSize: '12px' }"
+            @pointerover="onPointerOver"
+            @pointerout="onPointerOut"
+            @click="overlayClick(moveToLibrary)"
+        />
+
+        <!-- Move To Hand -->
+        <ButtonGo
+            ref="moveToHandButton"
+            name="moveToHandButton"
+            :x="buttons.centerX"
+            :y="buttons.moveToHandY"
+            :width="buttons.width"
+            :height="BUTTON_HEIGHT"
+            text="Move To Hand"
+            :textStyle="{ fontSize: '12px' }"
+            @pointerover="onPointerOver"
+            @pointerout="onPointerOut"
+            @click="overlayClick(moveToHand)"
+        />
+
+        <!-- Move Into Play -->
+        <ButtonGo
+            ref="moveIntoPlayButton"
+            name="moveIntoPlayButton"
+            :x="buttons.centerX"
+            :y="buttons.moveIntoPlayY"
+            :width="buttons.width"
+            :height="BUTTON_HEIGHT"
+            text="Move Into Play"
+            :textStyle="{ fontSize: '12px' }"
+            @pointerover="onPointerOver"
+            @pointerout="onPointerOut"
+            @click="overlayClick(moveIntoPlay)"
+        />
+    </template>
 </template>
 
 <script setup lang="ts">
-import { computed, toRef } from 'vue'
+import { computed, ref, toRef } from 'vue'
 import { GameObjects } from 'phaser'
 import { Image, Rectangle, refObj } from 'phavuer'
 
@@ -72,8 +122,12 @@ import { usePlayersStore } from '@/client/state/players.ts'
 import { getCardScale, reorderCardIndex } from '@/client/game/utils.ts'
 import { useCardTexture } from '@/client/game/composables/useCardTexture.ts'
 import { AnyCardRegion } from '@/shared/types/model.ts'
+import { gameMutations } from '@/shared/state/gameMutations.ts'
+import ButtonGo from '@/client/game/objects/ButtonGo.vue'
+import { playCard } from '@/client/game/declaration.ts'
 
 const STACK_CARD_Y = 15
+const BUTTON_HEIGHT = 24
 
 const { card, cardRegion, displayIndex } = defineProps<{
     card: Card
@@ -88,6 +142,9 @@ const { displayedTexture } = useCardTexture(card)
 const image = refObj<GameObjects.Image>()
 const dragPlaceholder = refObj<GameObjects.Image>()
 const cardOutline = refObj<GameObjects.Rectangle>()
+const moveToLibraryButton = ref<typeof ButtonGo>()
+const moveToHandButton = ref<typeof ButtonGo>()
+const moveIntoPlayButton = ref<typeof ButtonGo>()
 
 const key = computed(() => `wield${card.oid.toString()}`)
 
@@ -111,6 +168,52 @@ const cardAttrs = computed((): CardAttrs => {
         scale: getCardScale(RegionCategory.WieldCardStack),
     }
 })
+
+/**
+ * Buttons, stacked vertically over the bottom of the card, taking its full width
+ */
+
+const buttons = computed(() => {
+    const width = CARD_WIDTH * cardAttrs.value.scale
+    const centerX = cardAttrs.value.x + width / 2
+    const bottomEdge = cardAttrs.value.y + CARD_HEIGHT * cardAttrs.value.scale
+
+    return {
+        width,
+        centerX,
+        moveToLibraryY: bottomEdge - BUTTON_HEIGHT * 2.5,
+        moveToHandY: bottomEdge - BUTTON_HEIGHT * 1.5,
+        moveIntoPlayY: bottomEdge - BUTTON_HEIGHT * 0.5,
+    }
+})
+
+function overlayClick(command: () => void) {
+    if (!gameBus.declaringTargetOrigin) {
+        command()
+    }
+}
+
+function moveToLibrary() {
+    gameMutations.moveCardToRegion.act(card.owner, {
+        card,
+        fromCardRegion: card.region,
+        toCardRegion: card.owner.library,
+        position: 0,
+    })
+}
+
+function moveToHand() {
+    gameMutations.moveCardToRegion.act(card.owner, {
+        card,
+        fromCardRegion: card.region,
+        toCardRegion: card.owner.hand,
+        position: 0,
+    })
+}
+
+function moveIntoPlay() {
+    playCard({ card })
+}
 
 /**
  * Save Card model on the Image Game Object
@@ -138,13 +241,16 @@ function bringToTop() {
     if (cardOutline.value) {
         container.bringToTop(cardOutline.value)
     }
+    for (const button of [moveToLibraryButton, moveToHandButton, moveIntoPlayButton]) {
+        button.value?.bringToTop()
+    }
 }
 
 /**
  * Outline on pointer over / selection area
  */
 
-const { onPointerOver, onPointerOut, getCardOutlineColor } = useCardOutline(
+const { isHovered, onPointerOver, onPointerOut, getCardOutlineColor } = useCardOutline(
     toRef(() => card),
     image,
     false,

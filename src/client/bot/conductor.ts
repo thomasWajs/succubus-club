@@ -14,7 +14,7 @@ import {
 import * as actions from '@/shared/state/minionActions.ts'
 import { LibraryCard, Minion } from '@/shared/model/Card.ts'
 import * as logging from '@/client/logging.ts'
-import { declareAction, playCardFromHand } from '@/client/game/declaration.ts'
+import { declareAction, playCard } from '@/client/game/declaration.ts'
 import { BOT_PAUSE_TIME, NEXT_PHASE, NEXT_TURN } from '@/shared/const/bot.ts'
 import { applyMutationLocally } from '@/client/state/gameMutations.ts'
 import { CardOid } from '@/shared/types/model.ts'
@@ -48,8 +48,8 @@ export class Conductor {
         )
     }
 
-    playCard(card: LibraryCard, actingMinion?: Minion) {
-        playCardFromHand({ card, actingMinion })
+    playCardFromHand(card: LibraryCard, actingMinion?: Minion) {
+        playCard({ card, actingMinion })
 
         // Draw to replace the action card
         // This won't handle the "do not replace until..." card text
@@ -120,7 +120,7 @@ export class Conductor {
             declareAction(action, this.bot.player)
 
             if (action.type == MinionActionType.ActionCardFromHand) {
-                this.playCard(action.card, action.actingMinion)
+                this.playCardFromHand(action.card, action.actingMinion)
             }
         })
     }
@@ -128,7 +128,7 @@ export class Conductor {
     applyActionModifier(actionModifier: ActionModifier) {
         this._applyBotDecision(() => {
             const gameState = useGameStateStore()
-            this.playCard(actionModifier.card, gameState.action?.minionAction.actingMinion)
+            this.playCardFromHand(actionModifier.card, gameState.action?.minionAction.actingMinion)
             actions.applyActionModifier(actionModifier)
         })
     }

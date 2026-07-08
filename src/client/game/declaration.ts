@@ -7,7 +7,7 @@ import { Card, Minion } from '@/shared/model/Card.ts'
 import { GRID_SIZE, PLAY_AREA_WIDTH } from '@/shared/const/game.ts'
 import { selfSecureName } from '@/client/state/self.ts'
 
-export function playCardFromHand({
+export function playCard({
     card,
     actingMinion,
     movement,
@@ -20,13 +20,9 @@ export function playCardFromHand({
     const gameBus = useGameBusStore()
     const player = card.controller
 
-    if (card.region != player.hand) {
-        throw Error('Card is not in hand')
-    }
-
     gameMutations.moveCardToRegion.act(player, {
         card,
-        fromCardRegion: player.hand,
+        fromCardRegion: card.region,
         toCardRegion: player.ready,
         x: movement?.x ?? (actingMinion ? actingMinion.x : PLAY_AREA_WIDTH / 2 - 4 * GRID_SIZE),
         y: movement?.y ?? (actingMinion ? actingMinion.y - 12 * GRID_SIZE : 8 * GRID_SIZE),
@@ -78,7 +74,7 @@ export function declareAction(action: MinionAction, player?: Player) {
         action.card.region == player.hand &&
         !player.isBot
     ) {
-        playCardFromHand({ card: action.card, actingMinion: action.actingMinion })
+        playCard({ card: action.card, actingMinion: action.actingMinion })
     }
 }
 

@@ -53,7 +53,7 @@
             text="Play"
             @pointerover="onPointerOver"
             @pointerout="onPointerOut"
-            @click="overlayClick(playCard)"
+            @click="overlayClick(playCardFromHand)"
         />
 
         <!-- Discard -->
@@ -100,7 +100,7 @@ import ButtonGo from '@/client/game/objects/ButtonGo.vue'
 import { useCardClick } from '@/client/game/composables/useCardClick.ts'
 import { useCardOutline } from '@/client/game/composables/useCardOutline.ts'
 import { getCardScale, reorderCardIndex } from '@/client/game/utils.ts'
-import { playCardFromHand } from '@/client/game/declaration.ts'
+import { playCard } from '@/client/game/declaration.ts'
 import { selfCanPlay } from '@/client/state/self.ts'
 import { useCardTexture } from '@/client/game/composables/useCardTexture.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
@@ -204,8 +204,8 @@ function overlayClick(command: (card: Card) => void) {
     }
 }
 
-function playCard(card: Card) {
-    playCardFromHand({ card, actingMinion: gameState.action?.minionAction.actingMinion })
+function playCardFromHand(card: Card) {
+    playCard({ card, actingMinion: gameState.action?.minionAction.actingMinion })
 }
 
 /**
