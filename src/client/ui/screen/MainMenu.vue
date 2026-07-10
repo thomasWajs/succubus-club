@@ -55,6 +55,13 @@
 
             <button
                 class="main-menu-button"
+                @click="startPuppeteerGame()"
+            >
+                Start a Puppeteer Game
+            </button>
+
+            <button
+                class="main-menu-button"
                 @click="bus.isSavedGamesPanelOpen = true"
             >
                 Load a saved game
@@ -78,13 +85,14 @@
     <ChangelogModal />
     <WelcomeModal />
     <TrainBotDisclaimer ref="trainBotDisclaimerRef" />
+    <PuppeteerModal ref="puppeteerModalRef" />
 </template>
 
 <script setup lang="ts">
 import { useCoreStore } from '@/client/store/core.ts'
 import { GameType } from '@/shared/types/state.ts'
 import { joinLobby } from '@/client/multiplayer/lobby.ts'
-import { setupTrainGame, startGame } from '@/client/state/setup.ts'
+import { setupPuppeteerGame, setupTrainGame, startGame } from '@/client/state/setup.ts'
 import { useRouter } from 'vue-router'
 import TopBar from '@/client/ui/components/TopBar.vue'
 import { waitUntil } from '@/shared/utils.ts'
@@ -93,6 +101,7 @@ import { ROUTES } from '@/client/ui/router.ts'
 import WelcomeModal from '@/client/ui/components/WelcomeModal.vue'
 import ChangelogModal from '@/client/ui/components/ChangelogModal.vue'
 import TrainBotDisclaimer from '@/client/ui/components/TrainBotDisclaimer.vue'
+import PuppeteerModal from '@/client/ui/components/PuppeteerModal.vue'
 import IdleModal from '@/client/ui/components/IdleModal.vue'
 import { ref } from 'vue'
 import * as logging from '@/client/logging.ts'
@@ -103,6 +112,7 @@ const core = useCoreStore()
 const bus = useBusStore()
 const router = useRouter()
 const trainBotDisclaimerRef = ref<InstanceType<typeof TrainBotDisclaimer> | null>(null)
+const puppeteerModalRef = ref<InstanceType<typeof PuppeteerModal> | null>(null)
 
 /**
  *  Menu
@@ -135,6 +145,29 @@ async function startTrainGame() {
         setTimeout(() => core.conductor?.runDecisionMaking(), 2000)
     } catch (error) {
         let message = 'An error occurred while starting the game'
+        if (error instanceof Error) {
+            message = `${message} : ${error.message}`
+        }
+        bus.alertError(message)
+        logging.captureException(error)
+    }
+}
+
+async function startPuppeteerGame() {
+    if (core.gameIsStarted) {
+        throw new Error(`Game is already started`)
+    }
+
+    const puppets = await puppeteerModalRef.value?.open()
+    if (!puppets) {
+        return
+    }
+
+    try {
+        setupPuppeteerGame(puppets)
+        startGame(GameType.Puppeteer)
+    } catch (error) {
+        let message = 'An error occurred while starting the Puppeteer game'
         if (error instanceof Error) {
             message = `${message} : ${error.message}`
         }

@@ -8,6 +8,7 @@ import { KrcgId } from '@/shared/types/gateway.ts'
 export enum GameType {
     TrainBot = 'TrainBot',
     Multiplayer = 'Multiplayer',
+    Puppeteer = 'Puppeteer',
 }
 
 /** Mutation validity **/

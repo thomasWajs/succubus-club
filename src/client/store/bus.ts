@@ -32,6 +32,7 @@ export const useBusStore = defineStore('bus', {
         alert: null as AlertMessage | null,
         isUserProfilePanelOpen: false,
         isDeckPanelOpen: false,
+        deckPanelInitialTab: 'history' as string,
         isSavedGamesPanelOpen: false,
 
         isResyncing: false,

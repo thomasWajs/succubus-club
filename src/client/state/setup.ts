@@ -20,6 +20,7 @@ import { hasGameState, registerGameState } from '@/shared/registries.ts'
 import { shuffleArray } from '@/shared/utils.ts'
 import { leaveMultiplayer } from '@/client/multiplayer/lobby.ts'
 import { setupMultiplayerGameState, setupPlayArea } from '@/shared/state/setup.ts'
+import { Puppet } from '@/client/types.ts'
 
 export function resetState() {
     const core = useCoreStore()
@@ -74,6 +75,42 @@ export function setupTrainGame() {
             core.conductor = new Conductor(bot)
         }
         setupPlayArea(gameState, botPlayer, GovernBot.deckList)
+    }
+
+    // Random starting order
+    // noinspection JSConstantReassignment
+    gameState.turnOrder = shuffleArray(gameState.turnOrder)
+
+    gameState.setNewTurnResources()
+
+    core.gameStateIsReady = true
+}
+
+export function setupPuppeteerGame(puppets: Puppet[]) {
+    const core = useCoreStore()
+    const gameState = useGameStateStore()
+
+    resetState()
+
+    // noinspection JSConstantReassignment
+    gameState.gameId = generateGameId()
+    registerGameState(gameState.gameId, gameState)
+
+    let firstPlayerOid: string | null = null
+
+    for (let i = 0; i < puppets.length; i++) {
+        const puppet = puppets[i]
+        const permId = i === 0 ? core.userProfile.permanentId : `puppeteer-${i}`
+        const player = gameState.createPlayer(puppet.name, ORDERED_PLAYER_COLORS[i], permId)
+        if (i === 0) {
+            firstPlayerOid = player.oid
+        }
+        setupPlayArea(gameState, player, puppet.deckList)
+    }
+
+    // Map user to first player so isPlayer = true (selfPlayer itself follows activePlayer in Puppeteer mode)
+    if (firstPlayerOid) {
+        gameState.usersToPlayer[core.userProfile.permanentId] = firstPlayerOid
     }
 
     // Random starting order

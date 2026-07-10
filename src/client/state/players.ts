@@ -4,6 +4,7 @@ import { useGameStateStore } from '@/client/store/gameState.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { PlayerOid } from '@/shared/types/model.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
+import { GameType } from '@/shared/types/state.ts'
 
 export const usePlayersStore = defineStore('players', {
     state: () => ({
@@ -41,12 +42,19 @@ export const usePlayersStore = defineStore('players', {
         },
 
         // May be undefined for spectators, or during temporary loading states
+        // In Puppeteer mode, always tracks the active player so the user manages each turn
         selfPlayer(): Player | undefined {
+            if (useCoreStore().gameType === GameType.Puppeteer) {
+                return this.activePlayer
+            }
             const gameState = useGameStateStore()
             return this.selfPlayerOid ? gameState.players[this.selfPlayerOid] : undefined
         },
 
         selfIsActive(): boolean {
+            if (useCoreStore().gameType === GameType.Puppeteer) {
+                return true
+            }
             return this.activePlayer && this.selfPlayerOid ?
                     this.selfPlayerOid == this.activePlayer.oid
                 :   false

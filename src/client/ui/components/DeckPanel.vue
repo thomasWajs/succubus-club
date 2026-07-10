@@ -2,7 +2,7 @@
     <TopPanel
         :isOpen="bus.isDeckPanelOpen"
         @close="bus.isDeckPanelOpen = false"
-        @open="activeTab = 'history'"
+        @open="onOpen"
     >
         <template #title>Deck Selection</template>
 
@@ -402,6 +402,11 @@ function clearError() {
 /** Tab Management **/
 
 const activeTab = ref('history')
+
+function onOpen() {
+    activeTab.value = bus.deckPanelInitialTab
+    bus.deckPanelInitialTab = 'history'
+}
 
 const tabs = [
     { id: 'history', title: 'History' },
