@@ -1,22 +1,22 @@
 <template>
     <Container
-        :x="HAND_X"
-        :y="HAND_Y"
+        :x="x"
+        :y="y"
     >
         <Rectangle
             :origin="0"
             :x="0"
             :y="0"
-            :height="HAND_HEIGHT"
-            :width="HAND_WIDTH"
+            :height="height"
+            :width="width"
             :fillColor="Colors.REGION_BACKGROUND.color"
             :fillAlpha="isDraggedOver ? 0.05 : 0"
-            :dropZone="true"
+            :dropZone="interactive"
             @create="onBoundariesCreate"
         >
             <FxHighlightRegionDrop
                 v-if="isDraggedOver"
-                :color="getPlayerColor(players.selfPlayer!)"
+                :color="getPlayerColor(handPlayer!)"
             />
         </Rectangle>
 
@@ -26,6 +26,8 @@
             :ref="registerCardInHandGO"
             :key="'Hand|' + index + '|' + card.oid"
             :card="card"
+            :handWidth="width"
+            :interactive="interactive"
             @reset-visibility="sortCardInHandsVisibility"
         />
     </Container>
@@ -52,14 +54,34 @@ import {
 import { display } from '@/client/game/display.ts'
 import { CardOid } from '@/shared/types/model.ts'
 import FxHighlightRegionDrop from '@/client/game/objects/FxHighlightRegionDrop.vue'
+import { Player } from '@/shared/model/Player.ts'
 import Pointer = Phaser.Input.Pointer
+
+interface Props {
+    player?: Player
+    x?: number
+    y?: number
+    width?: number
+    height?: number
+    interactive?: boolean
+}
+
+const props = withDefaults(defineProps<Props>(), {
+    player: undefined,
+    x: HAND_X,
+    y: HAND_Y,
+    width: HAND_WIDTH,
+    height: HAND_HEIGHT,
+    interactive: true,
+})
 
 const players = usePlayersStore()
 const gameBus = useGameBusStore()
 const isDraggedOver = ref(false)
 
-// Can't link directly to selfPlayer.hand because resync will change the object
-const hand = computed(() => players.selfPlayer?.hand)
+// Can't link directly to hand because resync will change the object
+const handPlayer = computed(() => props.player ?? players.selfPlayer)
+const hand = computed(() => handPlayer.value?.hand)
 
 /**
  * Vue DOES NOT guarantee iterating order on ref arrays ( https://vuejs.org/guide/essentials/template-refs#refs-inside-v-for ).
@@ -94,6 +116,10 @@ function sortCardInHandsVisibility() {
 function onBoundariesCreate(boundaries: GameObjects.Arc) {
     boundaries.setData(PhaserDataKey.CardRegionOid, hand.value?.oid)
     boundaries.setData(PhaserDataKey.RegionCategory, RegionCategory.Hand)
+
+    if (!props.interactive) {
+        return
+    }
 
     const scene = useScene()
     scene.input.on(Phaser.Input.Events.DRAG_START, () => {

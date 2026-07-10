@@ -20,8 +20,32 @@
 
         <!-- Order of declaration is important here :
         Hand MUST come after the other regions for drag alpha -->
+        <template v-if="core.gameType === GameType.Puppeteer">
+            <HandGO
+                v-for="hand in puppetsHands"
+                :key="'PuppetHand-' + hand.player?.oid"
+                :player="hand.player"
+                :x="hand.x"
+                :y="hand.y"
+                :width="hand.width"
+                :height="hand.height"
+                :interactive="hand.interactive"
+            />
+            <!-- Vertical delimiters between hand sections -->
+            <Rectangle
+                v-for="delimX in puppetsHandsDelimiters"
+                :key="'HandDelimiter-' + delimX"
+                :origin="0"
+                :x="delimX - PUPPET_HAND_PADDING"
+                :y="HAND_Y"
+                :width="PUPPET_HAND_PADDING / 2"
+                :height="HAND_HEIGHT"
+                :fillColor="Colors.BLACK.color"
+                :fillAlpha="0.8"
+            />
+        </template>
         <HandGO
-            v-if="players.selfPlayer"
+            v-else-if="players.selfPlayer"
             key="Hand"
         />
 
@@ -53,12 +77,16 @@
 
 <script setup lang="ts">
 import Phaser from 'phaser'
-import { Scene } from 'phavuer'
+import { Rectangle, Scene } from 'phavuer'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
 import {
     BOTTOM_PLAYERS_Y,
     GRID_SIZE,
+    HAND_HEIGHT,
+    HAND_WIDTH,
+    HAND_X,
+    HAND_Y,
     HD_WIDTH,
     OTHER_PLAYERS_SCALE,
     PLAY_AREA_WIDTH,
@@ -76,10 +104,10 @@ import ContextMenu from '@/client/ui/context/menu/ContextMenu.vue'
 import ContextSubmenu from '@/client/ui/context/menu/ContextSubmenu.vue'
 import WieldCardStack from '@/client/game/objects/WieldCardStack.vue'
 import { useCoreStore } from '@/client/store/core.ts'
+import { Arrow, GameType } from '@/shared/types/state.ts'
 import { setupKeyboardHandlers, setupPointerHandlers } from '@/client/game/input.ts'
 import { setupCamera } from '@/client/game/camera.ts'
 import ArrowGo from '@/client/game/objects/ArrowGo.vue'
-import { Arrow } from '@/shared/types/state.ts'
 import ChangePoolMenu from '@/client/ui/ingame/ChangePoolMenu.vue'
 import HandGO from '@/client/game/objects/HandGO.vue'
 import SelectionArea from '@/client/game/objects/SelectionArea.vue'
@@ -87,6 +115,7 @@ import FloatingActionsCloud from '@/client/ui/context/floating/FloatingActionsCl
 import { CardOid, PlayerOid, Point2D } from '@/shared/types/model.ts'
 import { setupDisplayWatcher } from '@/client/game/display.ts'
 import { Player } from '@/shared/model/Player.ts'
+import { Colors } from '@/client/colors.ts'
 
 const core = useCoreStore()
 const gameState = useGameStateStore()
@@ -301,6 +330,87 @@ const playerSeats = computed(() => {
     // Normal layout for 3+ players
     return playerSeatsNormalMode(visiblePlayers)
 })
+
+/**
+ * Puppeteer multi-hand sections
+ * Left = Prey, Center = active player, Right = Predator
+ */
+
+const PUPPET_HAND_PADDING = 12
+const puppetsHands = computed(() => {
+    if (!players.activePlayer) {
+        return []
+    }
+
+    const active = players.activePlayer
+    const count = playerSeats.value.length
+
+    if (count <= 1) {
+        return [
+            {
+                player: active,
+                x: HAND_X,
+                y: HAND_Y,
+                width: HAND_WIDTH,
+                height: HAND_HEIGHT,
+                interactive: true,
+            },
+        ]
+    }
+
+    if (count === 2) {
+        return [
+            {
+                player: active.prey,
+                x: 0,
+                y: HAND_Y,
+                width: WORLD_WIDTH / 2 - PUPPET_HAND_PADDING,
+                height: HAND_HEIGHT,
+                interactive: false,
+            },
+            {
+                player: active,
+                x: WORLD_WIDTH / 2 + PUPPET_HAND_PADDING / 2,
+                y: HAND_Y,
+                width: WORLD_WIDTH / 2 - PUPPET_HAND_PADDING,
+                height: HAND_HEIGHT,
+                interactive: true,
+            },
+        ]
+    }
+
+    // 3+ players: align sections with the three play-area columns
+    const rightX = PLAY_AREA_X + PLAY_AREA_WIDTH
+    return [
+        {
+            player: active.prey,
+            x: 0,
+            y: HAND_Y,
+            width: PLAY_AREA_X - PUPPET_HAND_PADDING,
+            height: HAND_HEIGHT,
+            interactive: false,
+        },
+        {
+            player: active,
+            x: PLAY_AREA_X + PUPPET_HAND_PADDING / 2,
+            y: HAND_Y,
+            width: PLAY_AREA_WIDTH - PUPPET_HAND_PADDING,
+            height: HAND_HEIGHT,
+            interactive: true,
+        },
+        {
+            player: active.predator,
+            x: rightX + PUPPET_HAND_PADDING,
+            y: HAND_Y,
+            width: PLAY_AREA_X - PUPPET_HAND_PADDING,
+            height: HAND_HEIGHT,
+            interactive: false,
+        },
+    ]
+})
+
+// Vertical delimiter X positions: the start X of every section after the first
+const puppetsHandsDelimiters = computed(() => puppetsHands.value.slice(1).map(s => s.x))
 
 /**
  * Arrows

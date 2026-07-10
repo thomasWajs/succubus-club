@@ -106,8 +106,10 @@ import { useCardTexture } from '@/client/game/composables/useCardTexture.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 
-const { card } = defineProps<{
+const { card, handWidth, interactive } = defineProps<{
     card: LibraryCard
+    handWidth: number
+    interactive: boolean
 }>()
 
 const players = usePlayersStore()
@@ -124,24 +126,29 @@ const key = computed(() => `hand${card.oid.toString()}`)
 
 const cardAttrs = computed((): CardAttrs => {
     const category = RegionCategory.Hand
-    const hand = players.selfPlayer?.hand
+    const hand = card.region
     let x = 0
 
     if (hand) {
         const { index: cardIndex, length: handLength } = reorderCardIndex(
             hand.indexOf(card),
             hand.length,
-            gameBus.handDropGapPosition,
-            gameBus.draggedHandCardPosition,
+            interactive ? gameBus.handDropGapPosition : null,
+            interactive ? gameBus.draggedHandCardPosition : null,
         )
 
         const maxSpacing = CARD_WIDTH * CARD_IN_HAND_SCALE + 10
         const spacing = Math.min(
-            (HAND_WIDTH - CARD_WIDTH * CARD_IN_HAND_SCALE) / (handLength - 1),
+            (handWidth - CARD_WIDTH * CARD_IN_HAND_SCALE) / (handLength - 1),
             maxSpacing,
         )
         const totalWidth = spacing * (handLength - 1) + CARD_WIDTH * CARD_IN_HAND_SCALE
-        const offsetX = players.is2pGame ? HAND_WIDTH - totalWidth : (HAND_WIDTH - totalWidth) / 2
+        // In the standard full-width 2p game, right-align cards to sit under the right play area.
+        // For Puppeteer hand sections (narrower width), always center.
+        const offsetX =
+            handWidth === HAND_WIDTH && players.is2pGame ?
+                handWidth - totalWidth
+            :   (handWidth - totalWidth) / 2
         x = offsetX + spacing * cardIndex
     }
 
@@ -251,7 +258,9 @@ function onDragStartFromHand() {
     if (!players.selfPlayer) {
         return
     }
-    gameBus.draggedHandCardPosition = players.selfPlayer.hand.indexOf(card)
+    if (interactive) {
+        gameBus.draggedHandCardPosition = players.selfPlayer.hand.indexOf(card)
+    }
     onDragStart()
 }
 
