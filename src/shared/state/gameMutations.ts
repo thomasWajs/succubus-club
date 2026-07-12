@@ -2102,6 +2102,7 @@ export interface RandomResultParams extends GameMutationParams {
 
 export class RandomResult extends GameMutation<RandomResultParams> {
     readonly syncMode = MutationSyncMode.Merge
+    isIgnoredForCancel = true
 
     protected updateGameState(): void {
         // No state change - this mutation only serves as a log/broadcast event
