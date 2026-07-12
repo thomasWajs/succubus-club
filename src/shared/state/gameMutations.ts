@@ -14,6 +14,7 @@ import {
     ALL_PLAYERS,
     CardRevelationTarget,
     CardRevelationViewer,
+    GameType,
     getViewerKey,
     Invalid,
     MinionAction,
@@ -46,6 +47,8 @@ import { GameState } from '@/shared/state/gameState.ts'
 import { AnyCardRegion, CardOid, GameId } from '@/shared/types/model.ts'
 import { getGameState, getMutationTrigger } from '@/shared/registries.ts'
 import { hashObject, rehydrateCard, serializeObject } from '@/shared/serialization.ts'
+import { useCoreStore } from '@/client/store/core.ts'
+import { usePlayersStore } from '@/client/state/players.ts'
 
 export type GameMutationId = number
 export interface GameMutationParams {
@@ -689,6 +692,11 @@ class DrawCrypt extends PlayerMutation {
     declare public previousState: CardParams
 
     get allowedPlayer() {
+        // Normally, players can only draw from their own stacks.
+        // But in Puppeteer mode, the user can make anyone draw
+        if (useCoreStore().gameType === GameType.Puppeteer) {
+            return usePlayersStore().selfPlayer
+        }
         return this.params.player
     }
 
@@ -728,6 +736,11 @@ class DrawLibrary extends PlayerMutation {
     declare public previousState: CardParams
 
     get allowedPlayer() {
+        // Normally, players can only draw from their own stacks.
+        // But in Puppeteer mode, the user can make anyone draw
+        if (useCoreStore().gameType === GameType.Puppeteer) {
+            return usePlayersStore().selfPlayer
+        }
         return this.params.player
     }
 

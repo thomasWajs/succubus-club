@@ -14,11 +14,6 @@
                     class="player-row"
                 >
                     <span class="player-label">Player {{ index + 1 }}</span>
-                    <input
-                        v-model="player.name"
-                        class="player-name-input"
-                        :placeholder="`Player ${index + 1}`"
-                    />
                     <select
                         :value="String(player.deckId ?? '')"
                         class="deck-select"
@@ -76,7 +71,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { db, DbDeck } from '@/client/gateway/db.ts'
-import { useCoreStore } from '@/client/store/core.ts'
 import { useBusStore } from '@/client/store/bus.ts'
 import { Puppet } from '@/client/types.ts'
 
@@ -84,7 +78,6 @@ const IMPORT_SENTINEL = '__import__'
 const DEFAULT_PLAYER_COUNT = 5
 
 type PuppetConfig = {
-    name: string
     deckId: number | null
 }
 
@@ -93,7 +86,6 @@ const availableDecks = ref<DbDeck[]>([])
 const puppetConfigs = ref<PuppetConfig[]>([])
 const pendingImportPlayerIndex = ref<number | null>(null)
 
-const core = useCoreStore()
 const bus = useBusStore()
 
 let currentResolve: ((value: Puppet[] | null) => void) | null = null
@@ -107,7 +99,6 @@ function removePlayer(index: number) {
 function onDeckChange(index: number, event: Event) {
     const value = (event.target as HTMLSelectElement).value
     if (value === IMPORT_SENTINEL) {
-        // Reset the select to its current deckId so it doesn't show the sentinel
         ;(event.target as HTMLSelectElement).value = String(puppetConfigs.value[index].deckId ?? '')
         triggerImport(index)
     } else {
@@ -159,12 +150,12 @@ function start() {
     dialogRef.value?.close()
     if (currentResolve) {
         const puppets: Puppet[] = []
-        for (const { name, deckId } of puppetConfigs.value) {
-            const deck = availableDecks.value.find(deck => deck.id === deckId)
+        for (const { deckId } of puppetConfigs.value) {
+            const deck = availableDecks.value.find(d => d.id === deckId)
             if (!deck) {
                 throw new Error('Deck not found')
             }
-            puppets.push({ name, deckList: deck.cards })
+            puppets.push({ name: deck.name, deckList: deck.cards })
         }
         currentResolve(puppets)
         currentResolve = null
@@ -176,7 +167,6 @@ defineExpose({
         availableDecks.value = await db.decks.orderBy('lastUsed').reverse().toArray()
 
         puppetConfigs.value = Array.from({ length: DEFAULT_PLAYER_COUNT }, (_, i) => ({
-            name: i === 0 ? core.userProfile.playerName : `Player ${i + 1}`,
             deckId: availableDecks.value[i]?.id ?? null,
         }))
 
@@ -192,7 +182,7 @@ defineExpose({
 .puppeteer-modal {
     border: none;
     padding: 0;
-    max-width: 700px;
+    max-width: 500px;
     width: 95%;
     z-index: 1200;
 
@@ -230,7 +220,7 @@ defineExpose({
 
 .player-row {
     display: grid;
-    grid-template-columns: 70px 1fr 1fr 32px;
+    grid-template-columns: 70px 1fr 32px;
     align-items: center;
     gap: 0.6rem;
 }
@@ -240,21 +230,6 @@ defineExpose({
     font-size: 0.9rem;
     font-weight: 600;
     white-space: nowrap;
-}
-
-.player-name-input {
-    background: $shadow-grey;
-    border: 1px solid $royal-purple;
-    color: $ghost-white;
-    padding: 0.4rem 0.6rem;
-    font-size: 0.9rem;
-    border-radius: 0.2rem;
-    width: 100%;
-
-    &:focus {
-        outline: none;
-        border-color: $neon-purple;
-    }
 }
 
 .deck-select {

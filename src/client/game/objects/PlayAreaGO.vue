@@ -100,7 +100,7 @@
             :color="playerColor"
             :cardRegion="player.library"
             :showTopCard="true"
-            :draw="player == players.selfPlayer ? 'library' : undefined"
+            draw="library"
         />
         <RegionCardStackGo
             key="Crypt"
@@ -111,7 +111,7 @@
             :color="playerColor"
             :cardRegion="player.crypt"
             :showTopCard="true"
-            :draw="player == players.selfPlayer ? 'crypt' : undefined"
+            draw="crypt"
         />
         <RegionCardStackGo
             key="Removed"

@@ -92,7 +92,7 @@
         class="tooltip"
         :style="{
             left: drawHoverAttrs.x - 40 + 'px',
-            top: drawHoverAttrs.y + 40 + 'px',
+            top: `${drawHoverAttrs.y + 40}px`,
         }"
     >
         Draw {{ draw }}
@@ -113,6 +113,8 @@ import { positionContextMenu } from '@/client/game/utils.ts'
 import { AnyCardRegion } from '@/shared/types/model.ts'
 import { useCardTexture } from '@/client/game/composables/useCardTexture.ts'
 import FxHighlightRegionDrop from './FxHighlightRegionDrop.vue'
+import { GameType } from '@/shared/types/state.ts'
+import { useCoreStore } from '@/client/store/core.ts'
 import Color = Phaser.Display.Color
 import Pointer = Phaser.Input.Pointer
 
@@ -127,6 +129,7 @@ const { color, cardRegion, draw } = defineProps<{
     draw?: 'crypt' | 'library'
 }>()
 
+const core = useCoreStore()
 const players = usePlayersStore()
 const gameBus = useGameBusStore()
 
@@ -203,7 +206,7 @@ const drawHoverAttrs = reactive({
 })
 
 function onImagePointerMove(pointer: Pointer) {
-    if (draw) {
+    if (canDraw.value) {
         drawHoverAttrs.isHovered = true
         drawHoverAttrs.x = pointer.x
         drawHoverAttrs.y = pointer.y
@@ -220,7 +223,7 @@ function onImagePointerOut() {
 }
 
 function onImageCreate(image: GameObjects.Image) {
-    if (draw) {
+    if (canDraw.value) {
         image.setInteractive({ draggable: false, cursor: 'pointer' })
     }
 }
@@ -229,21 +232,29 @@ function onImageCreate(image: GameObjects.Image) {
  * Draw card on click
  */
 
+// Normally, players can only draw from their own stacks.
+// But in Puppeteer mode, the user can make anyone draw
+const canDraw = computed(() => {
+    return draw && (cardRegion.owner == players.selfPlayer || core.gameType === GameType.Puppeteer)
+})
+
 function onImagePointerDown(pointer: Pointer) {
-    if (!players.selfPlayer) {
+    const stackOwner = cardRegion.owner
+    if (!canDraw.value || !stackOwner || !topCard.value) {
         return
     }
+
     if (pointer.leftButtonDown()) {
         if (draw == 'library') {
             gameMutations.drawLibrary.actSelf({
-                player: players.selfPlayer,
+                player: stackOwner,
             })
         } else if (draw == 'crypt') {
             gameMutations.drawCrypt.actSelf({
-                player: players.selfPlayer,
+                player: stackOwner,
             })
         }
-    } else if (pointer.rightButtonDown() && topCard.value) {
+    } else if (pointer.rightButtonDown()) {
         gameBus.selectedCards = [topCard.value]
         gameBus.contextMenu.cards = [topCard.value]
         gameBus.contextMenu.show = true
