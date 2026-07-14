@@ -1,3 +1,16 @@
+## [0.9.0] - 2026-07-14
+
+Features:
+- New Puppeteer mode : load 5 decks and manage each player in turn
+- Flip a coin & roll a d6 ( 👉 Malkav cards )
+- Quick move from Ash Heap ( 👉 Ashur Tablets )
+- Visual notification when passing turn
+- Configure a custom tabletop background
+- Support VTESDeck import
+
+Bugfix:
+- Arrows are redrawn properly when switching focus mode on/off
+
 ## [0.8.0] - 2026-07-06
 
 Features:
