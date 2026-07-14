@@ -11,7 +11,7 @@ import { useHistoryStore } from '@/client/store/history.ts'
 import { useCoreStore } from '@/client/store/core.ts'
 import { ALL_PLAYERS } from '@/shared/types/state.ts'
 import { startTargetDeclaration } from '@/client/game/declaration.ts'
-import { cancelMutation, rollRandomResult } from '@/client/state/gameMutations.ts'
+import { cancelMutation } from '@/client/state/gameMutations.ts'
 import { GRID_SIZE } from '@/shared/const/game.ts'
 import KeyCodes = Phaser.Input.Keyboard.KeyCodes
 
@@ -562,22 +562,6 @@ function createCommands(): Commands {
             },
             onKeyUp: () => {
                 gameBus.zoomHoveredCard = false
-            },
-        }),
-
-        FlipCoin: createCommand({
-            name: 'FlipCoin',
-            label: 'Flip Coin',
-            trigger: () => {
-                rollRandomResult('coin')
-            },
-        }),
-
-        RollD6: createCommand({
-            name: 'RollD6',
-            label: 'Roll D6',
-            trigger: () => {
-                rollRandomResult('d6')
             },
         }),
     })

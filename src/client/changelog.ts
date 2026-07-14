@@ -2,13 +2,14 @@ import { CURRENT_VERSION } from '@/shared/version.mjs'
 
 export const latestChangelog = {
     version: CURRENT_VERSION,
-    date: '2026-07-06',
+    date: '2026-07-14',
     features: [
-        'Add a new Focus Mode',
-        'Rearrange the stacks under the play area, and make the edge more visible',
-        'Reduce torpor / uncontrolled scale to gain some space',
-        'Rearrange GameTopArea buttons',
-        'Move cards/cardGroups with numpad keys',
+        'New Puppeteer mode : load 5 decks and manage each player in turn',
+        'Flip a coin & roll a d6 ( 👉 Malkav cards )',
+        'Quick move from Ash Heap ( 👉 Ashur Tablets )',
+        'Visual notification when passing turn',
+        'Configure a custom tabletop background',
+        'Support VTESDeck import',
     ],
-    bugfixes: [],
+    bugfixes: ['Arrows are redrawn properly when switching focus mode on/off'],
 }

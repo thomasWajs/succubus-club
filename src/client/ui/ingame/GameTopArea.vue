@@ -130,8 +130,18 @@
                     <CommandButton :command="commands.ClearDeclaredTargets">
                         Clear Targets
                     </CommandButton>
-                    <CommandButton :command="commands.FlipCoin"> Flip A Coin </CommandButton>
-                    <CommandButton :command="commands.RollD6"> Roll A D6 </CommandButton>
+                    <button
+                        class="game-button"
+                        @click="rollRandomResult('coin')"
+                    >
+                        Flip A Coin
+                    </button>
+                    <button
+                        class="game-button"
+                        @click="rollRandomResult('d6')"
+                    >
+                        Roll A D6
+                    </button>
                 </PopupMenu>
             </div>
 
@@ -511,6 +521,7 @@ import { WorldAlignment } from '@/client/gateway/db.ts'
 import * as actions from '@/shared/state/minionActions.ts'
 import { selfSecureName } from '@/client/state/self.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
+import { rollRandomResult } from '@/client/state/gameMutations.ts'
 
 const core = useCoreStore()
 const gameState = useGameStateStore()
