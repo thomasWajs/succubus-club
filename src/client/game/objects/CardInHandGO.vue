@@ -74,7 +74,7 @@
 
 <script setup lang="ts">
 import { computed, ref, toRef } from 'vue'
-import { GameObjects } from 'phaser'
+import { GameObjects, Geom, Input } from 'phaser'
 import { FxGlow, Image, Rectangle, refObj } from 'phavuer'
 
 import { Colors } from '@/client/colors.ts'
@@ -99,7 +99,12 @@ import { useCardDragDrop } from '@/client/game/composables/useCardDragDrop.ts'
 import ButtonGo from '@/client/game/objects/ButtonGo.vue'
 import { useCardClick } from '@/client/game/composables/useCardClick.ts'
 import { useCardOutline } from '@/client/game/composables/useCardOutline.ts'
-import { getCardScale, reorderCardIndex } from '@/client/game/utils.ts'
+import {
+    dilateRectangle,
+    getCardScale,
+    getWorldPoint,
+    reorderCardIndex,
+} from '@/client/game/utils.ts'
 import { playCard } from '@/client/game/declaration.ts'
 import { selfCanPlay } from '@/client/state/self.ts'
 import { useCardTexture } from '@/client/game/composables/useCardTexture.ts'
@@ -264,9 +269,46 @@ function onDragStartFromHand() {
     onDragStart()
 }
 
-function onDragEndFromHand() {
+/**
+ * Card Dropiing
+ */
+
+// Margin (px) around the hand area within which a drop is still considered "in hand".
+// A drop must land beyond this margin from the hand edge to play the card, so releasing
+// just outside the hand keeps the card in hand.
+const HAND_DROP_PLAY_MARGIN = 30
+
+function getHandWorldBounds(): Geom.Rectangle | null {
+    const boundaries = image.value?.parentContainer.list.find(
+        (obj): obj is GameObjects.Rectangle =>
+            obj instanceof GameObjects.Rectangle &&
+            obj.getData(PhaserDataKey.CardRegionOid) === card.region.oid,
+    )
+    return boundaries ? boundaries.getBounds() : null
+}
+
+function onDragEndFromHand(
+    pointer: Input.Pointer,
+    _dragX: number,
+    _dragY: number,
+    dropped: boolean,
+) {
     gameBus.draggedHandCardPosition = null
     onDragEnd()
+
+    // Dropped outside of any drop zone : play the card instead of leaving it in hand,
+    // unless the drop landed too close to the hand area (likely an accidental drag).
+    if (!dropped) {
+        const handBounds = getHandWorldBounds()
+        const dropPoint = getWorldPoint(pointer.x, pointer.y)
+
+        if (
+            handBounds &&
+            !dilateRectangle(handBounds, HAND_DROP_PLAY_MARGIN).contains(dropPoint.x, dropPoint.y)
+        ) {
+            playCardFromHand(card)
+        }
+    }
 }
 
 /**
