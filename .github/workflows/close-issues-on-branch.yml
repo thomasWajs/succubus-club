@@ -20,7 +20,7 @@ jobs:
             -   name: Parse Commit and Close Issue
                 uses: actions/github-script@v7
                 with:
-                    github-token: ${{ secrets.GITHUB_TOKEN }}
+                    github-token: ${{ secrets.ISSUE_CLOSER_PAT }}
                     script: |
                             const commits = context.payload.commits
                             if (!commits) return
