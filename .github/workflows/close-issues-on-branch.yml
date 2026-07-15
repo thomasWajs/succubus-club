@@ -9,6 +9,8 @@ on:
 jobs:
     close-issue:
         runs-on: ubuntu-latest
+        permissions:
+            issues: write
         steps:
             -   name: Check out code
                 uses: actions/checkout@v4
