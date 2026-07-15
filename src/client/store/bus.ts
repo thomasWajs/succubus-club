@@ -93,6 +93,9 @@ export const useGameBusStore = defineStore('gameBus', {
             canView: false,
         },
 
+        // Incremented to trigger a transient pin indicator on the close-up card
+        closeUpCardPinFlash: 0,
+
         /** Game Objects **/
         cardsInGame: {} as Record<CardOid, CardInGame>,
         playersInGame: {} as Record<PlayerOid, PlayerInGame>,
@@ -241,9 +244,11 @@ export const useGameBusStore = defineStore('gameBus', {
             {
                 canView,
                 pinned,
+                flash,
             }: {
                 canView?: boolean
                 pinned?: boolean
+                flash?: boolean
             } = {},
         ) {
             if (canView === undefined) {
@@ -252,6 +257,9 @@ export const useGameBusStore = defineStore('gameBus', {
             this.closeUpCard = { card, canView }
             if (pinned) {
                 this.pinnedCloseUpCard = { card, canView }
+                if (flash) {
+                    this.closeUpCardPinFlash++
+                }
             }
         },
 

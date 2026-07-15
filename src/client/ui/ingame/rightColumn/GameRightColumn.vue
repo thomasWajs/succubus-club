@@ -2,6 +2,15 @@
     <div id="GameRightColumn">
         <div class="card-close-up">
             <div
+                v-if="showPinFlash"
+                :key="pinFlashKey"
+                class="pin-flash"
+                @animationend="showPinFlash = false"
+            >
+                📌
+            </div>
+
+            <div
                 v-if="closeUpCardImage"
                 class="rulings-switch"
                 :class="{ active: showRuling }"
@@ -49,7 +58,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import RightColumnPlayers from '@/client/ui/ingame/rightColumn/RightColumnPlayers.vue'
 import RightColumnTabs from '@/client/ui/ingame/rightColumn/RightColumnTabs.vue'
@@ -77,6 +86,22 @@ const closeUpCardRulings = computed(() => {
     const closeUp = gameBus.closeUpCard
     return closeUp.card && closeUp.canView ? closeUp.card.rulings : []
 })
+
+/**
+ * Transient visual clue when a card gets pinned from a log line
+ */
+
+const showPinFlash = ref(false)
+// Changing the key restarts the animation when re-pinning during a flash
+const pinFlashKey = ref(0)
+
+watch(
+    () => gameBus.closeUpCardPinFlash,
+    () => {
+        pinFlashKey.value++
+        showPinFlash.value = true
+    },
+)
 </script>
 
 <style lang="scss" scoped>
@@ -104,6 +129,25 @@ $closeup-height: 478px;
     padding: 0;
     overflow: hidden;
     position: relative;
+
+    .pin-flash {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 48px;
+
+        background: rgba(white, 0.15);
+
+        animation: pinFlash 0.7s ease-out forwards;
+        pointer-events: none;
+        user-select: none;
+        z-index: 3;
+    }
 
     .rulings-switch {
         position: absolute;
@@ -160,6 +204,23 @@ $closeup-height: 478px;
         max-height: $closeup-height;
         min-width: $closeup-width;
         min-height: $closeup-height;
+    }
+}
+
+@keyframes pinFlash {
+    0% {
+        opacity: 1;
+        transform: scale(1.4);
+    }
+    30% {
+        transform: scale(1);
+    }
+    60% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+        transform: scale(1);
     }
 }
 </style>
