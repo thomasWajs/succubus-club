@@ -6,7 +6,6 @@ import { useGameBusStore } from '@/client/store/bus.ts'
 import {
     dilateRectangle,
     dropCoordinates,
-    dropCoordinatesSnapped,
     getCardRectangle,
     getCardRectangleAt,
     getCardScale,
@@ -216,6 +215,8 @@ export function useCardDragDrop(
         dragAttrs.cardScale = cardAttrs.scale
         dragAttrs.scaleRatio = 1
 
+        const regionCategory = gameBus.dragOver.regionCategory
+
         // Above a region :
         // - override with the scale of the region
         // - snap the position to the grid
@@ -224,46 +225,49 @@ export function useCardDragDrop(
         if (
             gameBus.dragOver.gameObjects.target &&
             gameBus.dragOver.cardRegion &&
-            gameBus.dragOver.regionCategory &&
-            gameBus.dragOver.regionCategory != RegionCategory.WieldCardStack &&
-            gameBus.dragOver.regionCategory != RegionCategory.Stack
+            regionCategory &&
+            regionCategory != RegionCategory.WieldCardStack
         ) {
             const cardRegion = gameBus.dragOver.cardRegion
-            const isOverPlayArea = gameBus.dragOver.regionCategory == RegionCategory.Table
             const fromContainer = gameBus.dragOver.gameObjects.cardImage.parentContainer
             const toContainer = gameBus.dragOver.gameObjects.target.parentContainer
+
+            const rawCardScale = getCardScale(regionCategory, cardRegion)
             const scaleRatio = toContainer.scale / fromContainer.scale
 
-            dragAttrs.cardScale =
-                getCardScale(gameBus.dragOver.regionCategory, cardRegion) * scaleRatio
+            dragAttrs.cardScale = rawCardScale * scaleRatio
 
-            dragAttrs.scaleRatio = scaleRatio
-            if (
-                cardRegion.is.play &&
-                card.region.is.play &&
-                cardRegion.owner == card.region.owner
-            ) {
-                dragAttrs.scaleRatio =
-                    (dragAttrs.scaleRatio * dragAttrs.cardScale) / cardAttrs.scale
-            }
+            // The preview image (CardGO) lives in the source container but must render at
+            // the destination size. It is drawn centered at
+            //   dragAttrs.x + cardAttrs.offsetX * scaleRatio
+            // where cardAttrs.offsetX is the SOURCE half-card. To land the DESTINATION
+            // half-card there ( keeping the card centered on the pointer ), the multiplier
+            // must be dest/source card scale, whatever the target region ( play area, hand,
+            // stack... ). cardScale already folds in the container ratio, so this is simply
+            // cardScale / source scale.
+            dragAttrs.scaleRatio = dragAttrs.cardScale / cardAttrs.scale
 
-            // Position in the container referential
-            let localX = posX
-            let localY = posY
+            // Position in the target container referential.
+            // Moving a table card within its own region : keep the grab offset so the
+            // card follows the pointer from where it was picked up (no jump). In every
+            // other case ( changing region, stacks, hand... ) center it on the pointer.
+            // Table and Stack regions additionally snap to the grid.
+            const isSameRegion = cardRegion.oid == card.region.oid
+            const snapToGrid =
+                regionCategory == RegionCategory.Table || regionCategory == RegionCategory.Stack
 
-            // The card is being dragged from another region.
-            if (fromContainer != toContainer) {
-                let dropCoord
-                // Over playArea from outside ( hand, stack, another playArea ).
-                if (isOverPlayArea) {
-                    // Find closest x/y coords centered around the pointer
-                    dropCoord = dropCoordinatesSnapped(pointer, toContainer)
-                }
-                // Over a non-playArea
-                else {
-                    dropCoord = dropCoordinates(pointer, toContainer)
-                }
-
+            let localX, localY
+            if (regionCategory == RegionCategory.Table && isSameRegion) {
+                localX = posX
+                localY = posY
+            } else {
+                const dropCoord = dropCoordinates(
+                    pointer,
+                    toContainer,
+                    rawCardScale,
+                    card.isLocked,
+                    snapToGrid,
+                )
                 localX = dropCoord.x
                 localY = dropCoord.y
             }
@@ -285,7 +289,7 @@ export function useCardDragDrop(
             // Always snap over the playArea.
             // If the card comes from another region or has been attracted by alignment,
             // it will already be snapped.
-            if (isOverPlayArea) {
+            if (regionCategory == RegionCategory.Table) {
                 localX = Snap.to(localX, GRID_SIZE)
                 localY = Snap.ceil(localY, GRID_SIZE)
             }
@@ -353,13 +357,13 @@ export function useCardDragDrop(
         let movement: CardMovement
         if (isHand || isWieldStack) {
             // position did not change, do nothing
-            if (position == card.position) {
+            if (position == card.position && targetCardRegion.oid == card.region.oid) {
                 return
             }
             movement = { card, position }
         } else {
             // coords did not change, do nothing
-            if (x == card.x && y == card.y) {
+            if (x == card.x && y == card.y && targetCardRegion.oid == card.region.oid) {
                 return
             }
             movement = { card, x, y }

@@ -2,6 +2,7 @@ import {
     CARD_HEIGHT,
     CARD_IN_HAND_SCALE,
     CARD_IN_PLAY_BASE_SCALE,
+    CARD_IN_STACK_SCALE,
     CARD_WIDTH,
     DEFAULT_PLAYER_SCALE,
     GRID_SIZE,
@@ -95,28 +96,34 @@ export function reorderCardIndex(
     return { index: cardIndex + offset, length }
 }
 
-export function dropCoordinates(pointer: Pointer, toContainer: GameObjects.Container) {
+export function dropCoordinates(
+    pointer: Pointer,
+    toContainer: GameObjects.Container,
+    centerWithScale?: number,
+    isLocked = false,
+    snap = false,
+) {
     if (!pointer || !toContainer) {
         return { x: 0, y: 0 }
     }
+
     const worldPoint = getWorldPoint(pointer.x, pointer.y)
-    return toContainer.getLocalPoint(worldPoint.x, worldPoint.y)
-}
+    let { x, y } = toContainer.getLocalPoint(worldPoint.x, worldPoint.y)
 
-export function dropCoordinatesSnapped(pointer: Pointer, toContainer: GameObjects.Container) {
-    const coord = dropCoordinates(pointer, toContainer)
-
-    // Snap the center of the card to the grid
-    return {
-        x: Snap.to(
-            coord.x - (CARD_WIDTH / 2) * CARD_IN_PLAY_BASE_SCALE * toContainer.scaleX,
-            GRID_SIZE,
-        ),
-        y: Snap.ceil(
-            coord.y - (CARD_HEIGHT / 2) * CARD_IN_PLAY_BASE_SCALE * toContainer.scaleY,
-            GRID_SIZE,
-        ),
+    // Keep the card centered on the pointer.
+    if (centerWithScale) {
+        const halfWidth = ((isLocked ? CARD_HEIGHT : CARD_WIDTH) / 2) * centerWithScale
+        const halfHeight = ((isLocked ? CARD_WIDTH : CARD_HEIGHT) / 2) * centerWithScale
+        x = x - halfWidth
+        y = y - halfHeight
     }
+
+    if (snap) {
+        x = Snap.to(x, GRID_SIZE)
+        y = Snap.to(y, GRID_SIZE)
+    }
+
+    return { x, y }
 }
 
 export function positionContextMenu(
@@ -195,12 +202,12 @@ export function getRegionScale(cardRegion: AnyCardRegion) {
 export function getCardScale(category: RegionCategory, cardRegion?: AnyCardRegion): number {
     switch (category) {
         case RegionCategory.Table:
-        case RegionCategory.Stack: {
             return (
                 CARD_IN_PLAY_BASE_SCALE *
                 (cardRegion ? getRegionScale(cardRegion) : DEFAULT_PLAYER_SCALE)
             )
-        }
+        case RegionCategory.Stack:
+            return CARD_IN_STACK_SCALE
         case RegionCategory.Hand:
             return CARD_IN_HAND_SCALE
         case RegionCategory.WieldCardStack:

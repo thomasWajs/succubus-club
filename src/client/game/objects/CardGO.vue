@@ -691,8 +691,46 @@ const dragDrop = useCardDragDrop(
 
 const dragAttrs = dragDrop.dragAttrs
 
+/**
+ * Raise the whole source play area above the others for the duration of the drag.
+ * The dragged card image stays parented to its source container, and bringToTop()
+ * only reorders within a container : it can't lift the card above the drop-highlight
+ * Fx of a target region that lives in another (higher) container. Temporarily moving
+ * the source container to the top of the scene display list fixes that, and we restore
+ * its exact original position on drag end so the natural stacking is preserved.
+ */
+let raisedContainer: GameObjects.Container | null = null
+let raisedContainerIndex = 0
+
+function raiseSourceContainer() {
+    const container = image.value?.parentContainer
+    const list = container?.displayList
+    if (!container || !list) {
+        return
+    }
+    raisedContainer = container
+    raisedContainerIndex = list.getIndex(container)
+    list.bringToTop(container)
+}
+
+function restoreSourceContainer() {
+    const list = raisedContainer?.displayList
+    if (raisedContainer && list) {
+        // Clamp : moveTo() throws on an out-of-bounds index, and the list may have
+        // shrunk during the drag (e.g. an arrow or player area was removed).
+        const index = Math.min(raisedContainerIndex, list.length - 1)
+        list.moveTo(raisedContainer, index)
+    }
+    raisedContainer = null
+}
+
 function onDragStart(event: CardDragEvent) {
     dragDrop.onDragStart(event.originCard)
+    // Only the drag initiator raises the container ; group members share it,
+    // so a single raise (and a single restore) keeps the display list consistent.
+    if (card === event.originCard) {
+        raiseSourceContainer()
+    }
 }
 
 function onDrag(event: CardDragEvent) {
@@ -703,6 +741,7 @@ function onDrag(event: CardDragEvent) {
 
 function onDragEnd() {
     dragDrop.onDragEnd()
+    restoreSourceContainer()
 }
 
 function onDrop() {
