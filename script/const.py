@@ -60,6 +60,9 @@ FILES_TO_DOWNLOAD = [
 NB_ATLAS_FILE = 3
 # Nb cards in the Atlas. Use a square number to optimize space in the atlas
 FREQUENT_CARDS_ATLAS_SIZE = 14 ** 2
+# Max nb cards per "recent" atlas. Capped to a 14x14 grid (5012x7000px) so every
+# atlas texture stays under the GPU MAX_TEXTURE_SIZE limit (8192px on many GPUs).
+RECENT_CARDS_ATLAS_SIZE = 14 ** 2
 TWD_DATE_CUTOFF = '2016-01-01'
 RECENT_CARDS_DATE_CUTOFF = '2020-01-01'
 

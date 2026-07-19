@@ -1,3 +1,4 @@
+import glob
 import itertools
 import json
 import math
@@ -10,8 +11,8 @@ from PIL import Image
 from const import CARD_WIDTH, CARD_HEIGHT, IMAGE_MODE, INPUT_CARDBASE_LIB_PATH, \
     INPUT_CARDBASE_CRYPT_PATH, \
     CRYPT_KEYS, LIB_KEYS, OUTPUT_CARDBASE_PATH, OUTPUT_ATLAS_DIR, INPUT_CARDS_DIR
-from script.const import FREQUENT_CARDS_ATLAS_SIZE, TWD_DECKS_PATH, TWD_DATE_CUTOFF, NB_ATLAS_FILE, \
-    RECENT_CARDS_DATE_CUTOFF, SETS_AND_PRECONS_PATH
+from script.const import FREQUENT_CARDS_ATLAS_SIZE, RECENT_CARDS_ATLAS_SIZE, TWD_DECKS_PATH, \
+    TWD_DATE_CUTOFF, NB_ATLAS_FILE, RECENT_CARDS_DATE_CUTOFF, SETS_AND_PRECONS_PATH
 
 
 def is_crypt(card_dict):
@@ -150,4 +151,17 @@ def generate_resource_files():
             f'frequent_{i}'
         )
 
-    generate_atlas_files(recent_card_ids, cardbase, 'recent')
+    # Remove stale recent atlas files: their count is dynamic and may shrink
+    # between builds, and an old single 'recent.webp' would otherwise linger.
+    for stale in glob.glob(f'{OUTPUT_ATLAS_DIR}/recent*.webp') + glob.glob(f'{OUTPUT_ATLAS_DIR}/recent*.json'):
+        os.remove(stale)
+
+    # Split recent cards across several atlases, each capped at RECENT_CARDS_ATLAS_SIZE,
+    # so no single atlas texture exceeds the GPU MAX_TEXTURE_SIZE limit.
+    nb_recent_atlas = math.ceil(len(recent_card_ids) / RECENT_CARDS_ATLAS_SIZE)
+    for i in range(nb_recent_atlas):
+        generate_atlas_files(
+            recent_card_ids[i * RECENT_CARDS_ATLAS_SIZE:(i + 1) * RECENT_CARDS_ATLAS_SIZE],
+            cardbase,
+            f'recent_{i}'
+        )

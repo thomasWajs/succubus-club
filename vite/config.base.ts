@@ -3,7 +3,7 @@ import vue from '@vitejs/plugin-vue'
 import { fileURLToPath, URL } from 'node:url'
 import { IncomingMessage, ServerResponse } from 'http'
 import { createHash } from 'crypto'
-import { readFileSync } from 'fs'
+import { readFileSync, readdirSync } from 'fs'
 import { resolve } from 'path'
 
 // Cache card images in the browser
@@ -26,14 +26,21 @@ function hashFile(filePath: string): string {
     return createHash('md5').update(content).digest('hex').substring(0, 8)
 }
 
+// Discover atlases from disk so a dynamic number of recent_N files is picked up
+// automatically (see generate_atlas_files in script/generate_resource_files.py).
+const ATLAS_DIR = 'public/assets/atlas'
+const ATLAS_NAMES = readdirSync(resolve(ATLAS_DIR))
+    .filter(file => file.endsWith('.webp'))
+    .map(file => file.replace(/\.webp$/, ''))
+    .sort()
+
 // Generate texture hashes for all atlases
-const ATLAS_NAMES = ['recent', 'frequent_0', 'frequent_1', 'frequent_2'] as const
 const atlasHashes = Object.fromEntries(
     ATLAS_NAMES.map(name => [
         name,
         {
-            texture: hashFile(`public/assets/atlas/${name}.webp`),
-            json: hashFile(`public/assets/atlas/${name}.json`),
+            texture: hashFile(`${ATLAS_DIR}/${name}.webp`),
+            json: hashFile(`${ATLAS_DIR}/${name}.json`),
         },
     ]),
 )

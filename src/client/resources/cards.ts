@@ -12,8 +12,10 @@ export const ASSETS_URL = `${BASE_URL}assets`
 export const CARDS_PATH = `${ASSETS_URL}/cards/en-EN`
 export const ATLAS_PATH = `${ASSETS_URL}/atlas`
 
-export const ATLASES = ['recent', 'frequent_0', 'frequent_1', 'frequent_2'] as const
-export type AtlasName = (typeof ATLASES)[number]
+// Derived from the atlases discovered at build time (see ATLAS_HASHES in the vite
+// config), so a dynamic number of recent_N atlases is picked up automatically.
+export type AtlasName = string
+export const ATLASES: AtlasName[] = Object.keys(ATLAS_HASHES)
 
 // Add hash for Cache-busting
 export const atlasUrls = Object.fromEntries(
