@@ -18,7 +18,6 @@ import {
     LibraryCardResource,
 } from '@/shared/types/resources.ts'
 import { gameResources } from '@/shared/registries.ts'
-import { Snap } from '@/shared/utils.ts'
 
 // Markers for hidden crypt cards in SCS mode :
 // Wwe know they are vampires, but can't know their attrs at init.
@@ -158,9 +157,6 @@ export abstract class Card extends BaseModel implements PropertiesInPlay {
     }
 
     setCoordinates(x: number, y: number) {
-        x = Snap.to(x, GRID_SIZE)
-        y = Snap.to(y, GRID_SIZE)
-
         // If we overlap another card
         for (let i = 0; i < this.region.cards.length; i++) {
             const card = this.region.cards[i]

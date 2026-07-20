@@ -33,6 +33,7 @@ export type UserPreferences = {
     worldAlignment?: WorldAlignment
     glowInHand?: number // We cannot index boolean with Dexie, so fallback on 0=false / 1=true
     glowInPlay?: number // We cannot index boolean with Dexie, so fallback on 0=false / 1=true
+    snapToGrid?: number // We cannot index boolean with Dexie, so fallback on 0=false / 1=true
     alignmentGuides?: number // We cannot index boolean with Dexie, so fallback on 0=false / 1=true
     cardGrouping?: number // We cannot index boolean with Dexie, so fallback on 0=false / 1=true
     actionDeclaration?: number // We cannot index boolean with Dexie, so fallback on 0=false / 1=true

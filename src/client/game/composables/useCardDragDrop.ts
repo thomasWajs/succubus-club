@@ -228,6 +228,7 @@ export function useCardDragDrop(
             regionCategory &&
             regionCategory != RegionCategory.WieldCardStack
         ) {
+            const ui = useUIFeatures()
             const cardRegion = gameBus.dragOver.cardRegion
             const fromContainer = gameBus.dragOver.gameObjects.cardImage.parentContainer
             const toContainer = gameBus.dragOver.gameObjects.target.parentContainer
@@ -254,7 +255,8 @@ export function useCardDragDrop(
             // Table and Stack regions additionally snap to the grid.
             const isSameRegion = cardRegion.oid == card.region.oid
             const snapToGrid =
-                regionCategory == RegionCategory.Table || regionCategory == RegionCategory.Stack
+                ui.snapToGrid.value &&
+                (regionCategory == RegionCategory.Table || regionCategory == RegionCategory.Stack)
 
             let localX, localY
             if (regionCategory == RegionCategory.Table && isSameRegion) {
@@ -289,7 +291,7 @@ export function useCardDragDrop(
             // Always snap over the playArea.
             // If the card comes from another region or has been attracted by alignment,
             // it will already be snapped.
-            if (regionCategory == RegionCategory.Table) {
+            if (snapToGrid && regionCategory == RegionCategory.Table) {
                 localX = Snap.to(localX, GRID_SIZE)
                 localY = Snap.ceil(localY, GRID_SIZE)
             }

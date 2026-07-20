@@ -14,14 +14,15 @@ export function useUIFeatures() {
         aidsEnabled,
         worldAlignment: computed(() => preferences.value.worldAlignment ?? WorldAlignment.Center),
         glowInHandEnabled: computed(
-            () => aidsEnabled.value && (preferences.value.glowInHand ?? true),
+            () => aidsEnabled.value && (preferences.value.glowInHand ?? 1) === 1,
         ),
         glowInPlayEnabled: computed(
-            () => aidsEnabled.value && (preferences.value.glowInPlay ?? true),
+            () => aidsEnabled.value && (preferences.value.glowInPlay ?? 1) === 1,
         ),
-        alignmentGuidesEnabled: computed(() => preferences.value.alignmentGuides ?? true),
-        cardGroupingEnabled: computed(() => preferences.value.cardGrouping ?? true),
-        actionDeclarationEnabled: computed(() => preferences.value.actionDeclaration ?? true),
+        snapToGrid: computed(() => (preferences.value.snapToGrid ?? 1) === 1),
+        alignmentGuidesEnabled: computed(() => (preferences.value.alignmentGuides ?? 1) === 1),
+        cardGroupingEnabled: computed(() => (preferences.value.cardGrouping ?? 1) === 1),
+        actionDeclarationEnabled: computed(() => (preferences.value.actionDeclaration ?? 1) === 1),
         turnNotificationEnabled: computed(() => (preferences.value.turnNotification ?? 1) === 1),
     }
 }

@@ -101,7 +101,7 @@ export function dropCoordinates(
     toContainer: GameObjects.Container,
     centerWithScale?: number,
     isLocked = false,
-    snap = false,
+    snapToGrid = false,
 ) {
     if (!pointer || !toContainer) {
         return { x: 0, y: 0 }
@@ -118,7 +118,7 @@ export function dropCoordinates(
         y = y - halfHeight
     }
 
-    if (snap) {
+    if (snapToGrid) {
         x = Snap.to(x, GRID_SIZE)
         y = Snap.to(y, GRID_SIZE)
     }
