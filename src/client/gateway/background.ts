@@ -18,7 +18,7 @@ import { db } from '@/client/gateway/db.ts'
  * changes and revoked to avoid leaks.
  */
 
-export const BUILTIN_BACKGROUNDS = ['grey', 'beige', 'black', 'brown', 'purple'] as const
+export const BUILTIN_BACKGROUNDS = ['grey', 'beige', 'black', 'brown', 'purple', 'wood'] as const
 export type BuiltinBackground = (typeof BUILTIN_BACKGROUNDS)[number]
 
 export const DEFAULT_BACKGROUND: BuiltinBackground = 'grey'
