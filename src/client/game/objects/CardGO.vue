@@ -77,6 +77,7 @@
         <!-- Red Circle -->
         <Circle
             ref="bloodCounterCircle"
+            :key="key + 'bloodCircle'"
             :radius="COUNTER_RADIUS"
             :fillColor="Colors.BLOOD_COUNTER_FILL.color"
             :fillAlpha="1"
@@ -90,6 +91,7 @@
         <!-- Number text -->
         <Text
             ref="bloodCounterText"
+            :key="key + 'bloodText'"
             :text="card.blood.toString()"
             :style="COUNTER_TEXT_STYLE"
             :origin="0.5"
@@ -103,6 +105,7 @@
             <!-- Burn Blood -->
             <ButtonGo
                 ref="burnBloodButton"
+                :key="key + 'burnBloodButton'"
                 name="burnBloodButton"
                 :x="overlays.burnBlood.x"
                 :y="overlays.burnBlood.y"
@@ -118,6 +121,7 @@
             <!-- Gain Blood -->
             <ButtonGo
                 ref="gainBloodButton"
+                :key="key + 'gainBloodButton'"
                 name="gainBloodButton"
                 :x="overlays.gainBlood.x"
                 :y="overlays.gainBlood.y"
@@ -138,6 +142,7 @@
         <ButtonGo
             v-if="card.isIn.controlled && !card.isMinion()"
             ref="ashHeapButton"
+            :key="key + 'ashHeapButton'"
             name="ashHeapButton"
             :x="overlays.ashHeap.x"
             :y="overlays.ashHeap.y"
@@ -156,6 +161,7 @@
                 card.isIn.uncontrolled && card.isMinion() && card.controller == players.selfPlayer
             "
             ref="influenceButton"
+            :key="key + 'influenceButton'"
             name="influenceButton"
             :x="overlays.influence.x"
             :y="overlays.influence.y"
@@ -173,6 +179,7 @@
     <template v-if="card.greenCounter > 0">
         <Circle
             ref="greenCounterCircle"
+            :key="key + 'greenCircle'"
             :radius="COUNTER_RADIUS"
             :fillColor="Colors.GREEN_COUNTER_FILL.color"
             :fillAlpha="1"
@@ -185,6 +192,7 @@
         />
         <Text
             ref="greenCounterText"
+            :key="key + 'greenText'"
             :text="card.greenCounter.toString()"
             :style="COUNTER_TEXT_STYLE"
             :origin="0.5"
@@ -197,6 +205,7 @@
     <template v-if="card.orangeCounter > 0">
         <Circle
             ref="orangeCounterCircle"
+            :key="key + 'orangeCircle'"
             :radius="COUNTER_RADIUS"
             :fillColor="Colors.ORANGE_COUNTER_FILL.color"
             :fillAlpha="1"
@@ -209,6 +218,7 @@
         />
         <Text
             ref="orangeCounterText"
+            :key="key + 'orangeText'"
             :text="card.orangeCounter.toString()"
             :style="COUNTER_TEXT_STYLE"
             :origin="0.5"
