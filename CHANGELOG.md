@@ -1,3 +1,14 @@
+## [0.9.1] - 2026-07-20
+
+Features:
+- From the log, browse unlocked cards during an unlock all
+- A card dropped from hand outside of any play area is now considered played
+
+Bugfix:
+- Fix black rectangles replacing cards on lower-end hardware
+- Prevent incorrect counters positionning
+- Lot of subtle fixes on drag'n'drop
+
 ## [0.9.0] - 2026-07-14
 
 Features:

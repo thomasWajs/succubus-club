@@ -2,14 +2,14 @@ import { CURRENT_VERSION } from '@/shared/version.mjs'
 
 export const latestChangelog = {
     version: CURRENT_VERSION,
-    date: '2026-07-14',
+    date: '2026-07-20',
     features: [
-        'New Puppeteer mode : load 5 decks and manage each player in turn',
-        'Flip a coin & roll a d6 ( 👉 Malkav cards )',
-        'Quick move from Ash Heap ( 👉 Ashur Tablets )',
-        'Visual notification when passing turn',
-        'Configure a custom tabletop background',
-        'Support VTESDeck import',
+        'From the log, browse unlocked cards during an unlock all',
+        'A card dropped from hand outside of any play area is now considered played',
     ],
-    bugfixes: ['Arrows are redrawn properly when switching focus mode on/off'],
+    bugfixes: [
+        'Fix black rectangles replacing cards on lower-end hardware',
+        'Prevent incorrect counters positionning',
+        "Lot of subtle fixes on drag'n'drop",
+    ],
 }
