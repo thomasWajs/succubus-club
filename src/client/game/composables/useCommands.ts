@@ -439,6 +439,21 @@ function createCommands(): Commands {
             },
         }),
 
+        MoveToLibBottom: createCardCommand({
+            name: 'MoveToLibBottom',
+            label: 'Move To Bottom of Library',
+            repr: 'Q',
+            keyCodes: [KeyCodes.Q],
+            cardAction: (card: Card) => {
+                if (players.selfPlayer && !card.isCrypt) {
+                    gameMutations.moveToBottom.actSelf({
+                        card,
+                        toCardRegion: players.selfPlayer.library,
+                    })
+                }
+            },
+        }),
+
         RemoveFromGame: createCardCommand({
             name: 'RemoveFromGame',
             label: 'Remove From Game',

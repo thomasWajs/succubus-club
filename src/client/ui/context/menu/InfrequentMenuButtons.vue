@@ -39,26 +39,18 @@
     </CommandContextMenuButton>
 
     <CommandContextMenuButton
+        v-if="!firstCard.isIn.uncontrolled && !firstCard.isIn.crypt"
+        :command="commands.MoveToLibBottom"
+        :closeOnClick="true"
+    >
+        Move to Bottom of Library
+    </CommandContextMenuButton>
+
+    <CommandContextMenuButton
         v-if="!firstCard.isIn.removed"
         :command="commands.RemoveFromGame"
         :closeOnClick="true"
     />
-
-    <ContextMenuButton
-        v-if="!firstCard.isIn.uncontrolled && !firstCard.isIn.crypt"
-        :closeOnClick="true"
-        :cardAction="
-            (card: Card) =>
-                players.selfPlayer ?
-                    gameMutations.moveToBottom.actSelf({
-                        card: card,
-                        toCardRegion: players.selfPlayer.library,
-                    })
-                :   null
-        "
-    >
-        Move to Bottom of Library
-    </ContextMenuButton>
 
     <ContextMenuButton
         v-if="firstCard.isIn.play || firstCard.isIn.crypt"

@@ -69,6 +69,21 @@
             @pointerout="onPointerOut"
             @click="overlayClick(commands.MoveToAshHeap.cardAction)"
         />
+
+        <!-- Move to Bottom of Library -->
+        <ButtonGo
+            ref="moveToBottomButton"
+            name="moveToBottomButton"
+            :x="overlays.moveToBottom.x"
+            :y="overlays.moveToBottom.y"
+            :width="80"
+            :height="25"
+            text="To Bottom"
+            :textStyle="{ fontSize: '12px' }"
+            @pointerover="onPointerOver"
+            @pointerout="onPointerOut"
+            @click="overlayClick(commands.MoveToLibBottom.cardAction)"
+        />
     </template>
 </template>
 
@@ -126,6 +141,7 @@ const image = refObj<GameObjects.Image>()
 const cardOutline = refObj<GameObjects.Rectangle>()
 const playButton = ref<typeof ButtonGo>()
 const discardButton = ref<typeof ButtonGo>()
+const moveToBottomButton = ref<typeof ButtonGo>()
 
 const key = computed(() => `hand${card.oid.toString()}`)
 
@@ -185,6 +201,7 @@ function bringToTop(withOutline = false) {
     }
     playButton.value?.bringToTop()
     discardButton.value?.bringToTop()
+    moveToBottomButton.value?.bringToTop()
 }
 
 /**
@@ -195,6 +212,7 @@ const ASH_HEAP_BUTTON_SIZE = OVERLAY_BUTTON_SIZE * 1.5
 
 const overlays = computed(() => {
     const totalAshHeapButtonSize = ASH_HEAP_BUTTON_SIZE + COUNTER_OUTLINE_THICKNESS
+    const leftEdge = cardAttrs.value.x
     const rightEdge = cardAttrs.value.x + CARD_WIDTH * CARD_IN_HAND_SCALE
     const bottomEdge = cardAttrs.value.y + CARD_HEIGHT * CARD_IN_HAND_SCALE
 
@@ -206,6 +224,10 @@ const overlays = computed(() => {
         ashHeap: {
             x: rightEdge - totalAshHeapButtonSize / 2 - 1, // -1 is to account for outline thickness
             y: bottomEdge - totalAshHeapButtonSize / 2 - 1, // -1 is to account for outline thickness
+        },
+        moveToBottom: {
+            x: leftEdge + 44,
+            y: bottomEdge - 15,
         },
     }
 })
