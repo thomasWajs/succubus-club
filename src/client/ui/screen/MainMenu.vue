@@ -107,6 +107,7 @@ import { ref } from 'vue'
 import * as logging from '@/client/logging.ts'
 import { isCrawler, screenBigEnough } from '@/client/game/display.ts'
 import { hasWebGL } from '@/client/initClient.ts'
+import { InvalidDeck } from '@/client/types.ts'
 
 const core = useCoreStore()
 const bus = useBusStore()
@@ -149,7 +150,9 @@ async function startTrainGame() {
             message = `${message} : ${error.message}`
         }
         bus.alertError(message)
-        logging.captureException(error)
+        if (!(error instanceof InvalidDeck)) {
+            logging.captureException(error)
+        }
     }
 }
 
@@ -172,7 +175,9 @@ async function startPuppeteerGame() {
             message = `${message} : ${error.message}`
         }
         bus.alertError(message)
-        logging.captureException(error)
+        if (!(error instanceof InvalidDeck)) {
+            logging.captureException(error)
+        }
     }
 }
 
