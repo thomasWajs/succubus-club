@@ -265,6 +265,7 @@ import { createGameRoom } from '@/client/multiplayer/lobby.ts'
 import { computeKey } from '@/client/multiplayer/encryption.ts'
 import CurrentRoom from '@/client/ui/components/CurrentRoom.vue'
 import ToggleSwitch from '@/client/ui/components/ToggleSwitch.vue'
+import { NotInAGameRoom } from '@/client/types.ts'
 
 const core = useCoreStore()
 const multiplayer = useMultiplayerStore()
@@ -362,7 +363,9 @@ async function startConnectIntoGame(gameRoom?: any) {
             message = `${message}: ${error.message}`
         }
         bus.alertError(message)
-        logging.captureException(error)
+        if (!(error instanceof NotInAGameRoom)) {
+            logging.captureException(error)
+        }
     } finally {
         isConnecting.value = false
     }
