@@ -409,6 +409,10 @@ function _unsafeReceiveMutationMessage(gameMutationMessage: GameMutationMessage)
         }
         seenMutations.add(gameMutationMessage.gameMutationId)
 
+        // Message has no version, it's malformed, drop it
+        if (!gameMutationMessage.globalVersion) {
+            return
+        }
         // Update our global clock when we receive a non-applied remote mutation,
         // whatever the result ( pending, applied, invalid )
         multiplayer.globalClock.update(gameMutationMessage.globalVersion)
