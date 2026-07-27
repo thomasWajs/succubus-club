@@ -25,6 +25,7 @@ import { stringify as stableStringify } from 'safe-stable-stringify'
 import xxhash, { XXHashAPI } from 'xxhash-wasm'
 import { Player } from '@/shared/model/Player.ts'
 import { CardRegion } from '@/shared/model/CardRegion.ts'
+import { BaseModel } from '@/shared/model/BaseModel.ts'
 
 /**
  * Hashing functions
@@ -112,9 +113,10 @@ export function deserializeValueRecursive(value: JsonValue, gameId: GameId): unk
             return new Date(value.substring(DATE_PREFIX.length))
         }
 
-        const allStateObjects = {
+        const allStateObjects: Record<string, BaseModel> = {
             ...gameState.allStateObjects,
             ...gameState.staleCards,
+            limbo: gameState.limboRegion,
         }
         if (value.startsWith(OID_PREFIX)) {
             const oid = value.substring(OID_PREFIX.length)
