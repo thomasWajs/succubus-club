@@ -228,7 +228,9 @@
 
                         <template
                             v-if="
-                                gameState.action.minionAction.type == MinionActionType.ActionInPlay
+                                gameState.action.minionAction.type ==
+                                    MinionActionType.ActionInPlay &&
+                                gameState.action.minionAction.card
                             "
                         >
                             Provided By
