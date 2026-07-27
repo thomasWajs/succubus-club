@@ -21,7 +21,6 @@ import { useBusStore } from '@/client/store/bus.ts'
 import * as logging from '@/client/logging.ts'
 import { useCoreStore } from '@/client/store/core.ts'
 import { resetState, startGame } from '@/client/state/setup.ts'
-import { GameType } from '@/shared/types/state.ts'
 import { AnyGameMutation } from '@/shared/state/gameMutations.ts'
 import {
     applyInitialGameState,
@@ -514,7 +513,7 @@ export async function receiveLaunchGame(serializedGame: SerializedMultiplayerGam
     }
 
     await applyInitialGameState(serializedGame)
-    startGame(GameType.Multiplayer)
+    startGame()
     await core.userProfile.setLastMultiGame(gameRoom.id)
 
     // Disconnect from SCS websocket if we won't be using it
@@ -589,7 +588,7 @@ export async function connectIntoGame(gameRoom?: GameRoom) {
     ensureGameRoom()
     bus.isResyncing = true
     resetState()
-    startGame(GameType.Multiplayer)
+    startGame()
     await requestResyncGameState()
 }
 

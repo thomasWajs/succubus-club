@@ -1,4 +1,4 @@
-export class TimeoutError extends Error {}
+import { TimeoutError } from '@/shared/types/errors.ts'
 
 export function waitUntil(
     isTrue: () => boolean,

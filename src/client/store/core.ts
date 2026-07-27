@@ -1,6 +1,5 @@
 import Phaser from 'phaser'
 import { acceptHMRUpdate, defineStore } from 'pinia'
-import { GameType } from '@/shared/types/state.ts'
 import { Conductor } from '@/client/bot/conductor.ts'
 import { DbDeck, DbUserProfile } from '@/client/gateway/db.ts'
 import { shallowRef } from 'vue'
@@ -31,8 +30,6 @@ export function setPhaserGame(game: Phaser.Game | null) {
 
 export const useCoreStore = defineStore('core', {
     state: () => ({
-        gameType: GameType.TrainBot,
-
         gameIsStarted: false,
         resourcesAreReady: false,
         phaserIsReady: false,

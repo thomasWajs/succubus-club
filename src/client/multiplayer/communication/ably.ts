@@ -19,7 +19,6 @@ import Ably, { ChannelOptions } from 'ably'
 import { ensureGameRoom, receiveLaunchGame } from '@/client/multiplayer/room.ts'
 import { shuffleArray } from '@/shared/utils.ts'
 import { Communication } from '@/client/multiplayer/communication/index.ts'
-import { GameType } from '@/shared/types/state.ts'
 import { useCoreStore } from '@/client/store/core.ts'
 import { fetchGameState, storeGameState } from '@/client/gateway/gameState.ts'
 import { serializeMultiplayerGame } from '@/client/gateway/serialization.ts'
@@ -152,7 +151,7 @@ export const ablyCommunication: Communication = {
         const core = useCoreStore()
         const multiplayer = useMultiplayerStore()
         const roomChannel = getRoomChannel()
-        core.gameType = GameType.Multiplayer // Needed now to setup correctly the game state
+        // core.gameType = GameType.Multiplayer // Needed now to setup correctly the game state
 
         const savedGame = multiplayer.restoringSavedGame
         if (gameRoom.isSavedGame && savedGame) {
@@ -166,7 +165,7 @@ export const ablyCommunication: Communication = {
         const gameStateId = await storeGameState(serializedGame)
         await ablyPublish(roomChannel, MultiplayerMessageType.LaunchGame, { gameStateId })
         gameRoom.isStarted = true
-        startGame(GameType.Multiplayer)
+        startGame()
         await core.userProfile.setLastMultiGame(gameRoom.id)
     },
 

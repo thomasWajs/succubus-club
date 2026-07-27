@@ -12,7 +12,8 @@ import { GameState } from '@/shared/state/gameState.ts'
 import { User, UserDecks } from '@/shared/types/multiplayer.ts'
 import { generateGameId } from '@/shared/state/ids.ts'
 import { isCryptId } from '@/shared/model/Card.ts'
-import { InvalidDeck } from '@/client/types.ts'
+import { InvalidDeck } from '@/shared/types/errors.ts'
+import { GameType } from '@/shared/types/state.ts'
 
 function loadDeck(gameState: GameState, player: Player, deckList: DeckList) {
     for (const [krcgId, quantity] of Object.entries(deckList)) {
@@ -61,6 +62,7 @@ export function setupMultiplayerGameState(
     userDecks: UserDecks,
 ) {
     gameState.gameId = generateGameId()
+    gameState.gameType = GameType.Multiplayer
     registerGameState(gameState.gameId, gameState)
 
     for (let i = 0; i < seatedUsers.length; i++) {

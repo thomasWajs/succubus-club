@@ -90,7 +90,6 @@
 
 <script setup lang="ts">
 import { useCoreStore } from '@/client/store/core.ts'
-import { GameType } from '@/shared/types/state.ts'
 import { joinLobby } from '@/client/multiplayer/lobby.ts'
 import { setupPuppeteerGame, setupTrainGame, startGame } from '@/client/state/setup.ts'
 import { useRouter } from 'vue-router'
@@ -107,7 +106,8 @@ import { ref } from 'vue'
 import * as logging from '@/client/logging.ts'
 import { isCrawler, screenBigEnough } from '@/client/game/display.ts'
 import { hasWebGL } from '@/client/initClient.ts'
-import { InvalidDeck } from '@/client/types.ts'
+
+import { InvalidDeck } from '@/shared/types/errors.ts'
 
 const core = useCoreStore()
 const bus = useBusStore()
@@ -141,7 +141,7 @@ async function startTrainGame() {
 
     try {
         setupTrainGame()
-        startGame(GameType.TrainBot)
+        startGame()
         // Trigger first bot turn manually
         setTimeout(() => core.conductor?.runDecisionMaking(), 2000)
     } catch (error) {
@@ -168,7 +168,7 @@ async function startPuppeteerGame() {
 
     try {
         setupPuppeteerGame(puppets)
-        startGame(GameType.Puppeteer)
+        startGame()
     } catch (error) {
         let message = 'An error occurred while starting the Puppeteer game'
         if (error instanceof Error) {

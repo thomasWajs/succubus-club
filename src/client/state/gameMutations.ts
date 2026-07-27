@@ -27,6 +27,7 @@ import {
     sendShuffleRequest,
 } from '@/client/multiplayer/communication/scs.ts'
 import { getLogger } from '@/shared/registries.ts'
+import { useGameStateStore } from '@/client/store/gameState.ts'
 
 /**
  * Apply the mutation locally, if it's valid.
@@ -59,7 +60,7 @@ export function applyMutationIfValid(gameMutation: AnyGameMutation) {
  * With TrainBot, enqueue the mutation to maintain correct ordering.
  */
 export function applyMutationLocally(gameMutation: AnyGameMutation) {
-    if (useCoreStore().gameType == GameType.TrainBot) {
+    if (useGameStateStore().gameType == GameType.TrainBot) {
         enqueueBotMutation(gameMutation)
     } else {
         applyMutationIfValid(gameMutation)
@@ -71,7 +72,7 @@ export function applyMutationLocally(gameMutation: AnyGameMutation) {
  * Alert the user if the mutation is invalid.
  */
 export function dispatchMutation(gameMutation: AnyGameMutation) {
-    const core = useCoreStore()
+    const gameState = useGameStateStore()
     const bus = useBusStore()
 
     const validity = gameMutation.canApply()
@@ -82,7 +83,7 @@ export function dispatchMutation(gameMutation: AnyGameMutation) {
 
     applyMutationLocally(gameMutation)
 
-    if (core.gameType == GameType.Multiplayer) {
+    if (gameState.gameType == GameType.Multiplayer) {
         broadcastGameMutation(gameMutation)
     }
 
@@ -139,10 +140,11 @@ export function cancelMutation(mutationEntry: MutationHistoryEntry) {
  */
 
 export async function shuffleCardRegion(cardRegion: AnyCardRegion) {
-    const core = useCoreStore()
     const players = usePlayersStore()
     const history = useHistoryStore()
     const multiplayer = useMultiplayerStore()
+    const bus = useBusStore()
+    const gameState = useGameStateStore()
 
     if (!players.selfPlayer) {
         return
@@ -151,12 +153,12 @@ export async function shuffleCardRegion(cardRegion: AnyCardRegion) {
     // Prevent multiple shuffle
     const lastMutation = history.getLastMutationForPlayer(players.selfPlayer.oid)
     if (lastMutation && lastMutation.serializedMutation.name == 'shuffle') {
-        useBusStore().alertWarning(`This stack is already shuffled.`)
+        bus.alertWarning(`This stack is already shuffled.`)
         return
     }
 
     // For SCS mode, request server-side shuffle
-    if (core.gameType == GameType.Multiplayer) {
+    if (gameState.gameType == GameType.Multiplayer) {
         const gameRoom = multiplayer.currentGameRoom
         if (gameRoom && gameRoom.communication == CommunicationMode.SCS) {
             await sendShuffleRequest(cardRegion)
@@ -177,11 +179,11 @@ export async function shuffleCardRegion(cardRegion: AnyCardRegion) {
  */
 
 export function rollRandomResult(randomType: 'coin' | 'd6') {
-    const core = useCoreStore()
     const multiplayer = useMultiplayerStore()
+    const gameState = useGameStateStore()
 
     // For SCS mode, request server-side random result
-    if (core.gameType == GameType.Multiplayer) {
+    if (gameState.gameType == GameType.Multiplayer) {
         const gameRoom = multiplayer.currentGameRoom
         if (gameRoom && gameRoom.communication == CommunicationMode.SCS) {
             sendRandomResultRequest(randomType)

@@ -15,6 +15,7 @@ import {
     CardRevelation,
     CardRevelationTargetOid,
     CombatState,
+    GameType,
     KnownCards,
     TargetDeclaration,
 } from '@/shared/types/state.ts'
@@ -33,6 +34,7 @@ import { CardRegion } from '@/shared/model/CardRegion.ts'
 
 export class GameState {
     gameId: GameId = ''
+    gameType: GameType = GameType.Unset
     isStrictGame: boolean = false
 
     /** Main objects **/

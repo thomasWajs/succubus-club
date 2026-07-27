@@ -164,7 +164,7 @@ function continueSavedGame(savedGame: DbSavedGame) {
     else {
         try {
             setupSavedGame(savedGame)
-            startGame(savedGame.gameType)
+            startGame()
         } catch (error) {
             let message = 'An error occurred while starting the game'
             if (error instanceof Error) {

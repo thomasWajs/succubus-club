@@ -63,7 +63,9 @@
                 </span>
             </div>
 
-            <template v-if="core.gameType == GameType.Multiplayer && spectatorUsers.length > 0">
+            <template
+                v-if="gameState.gameType == GameType.Multiplayer && spectatorUsers.length > 0"
+            >
                 <div class="separator" />
                 <div
                     v-for="spectator in spectatorUsers"
@@ -85,10 +87,8 @@ import { useGameStateStore } from '@/client/store/gameState.ts'
 import { computed, ref } from 'vue'
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import { GameType } from '@/shared/types/state.ts'
-import { useCoreStore } from '@/client/store/core.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
 
-const core = useCoreStore()
 const gameState = useGameStateStore()
 const multiplayer = useMultiplayerStore()
 const players = usePlayersStore()
@@ -96,7 +96,7 @@ const players = usePlayersStore()
 const isCollapsed = ref(true)
 
 const disconnectedPlayers = computed(() => {
-    if (core.gameType != GameType.Multiplayer) {
+    if (gameState.gameType != GameType.Multiplayer) {
         return {}
     }
 

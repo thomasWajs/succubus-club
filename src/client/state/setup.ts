@@ -54,6 +54,7 @@ export function setupTrainGame() {
 
     // noinspection JSConstantReassignment
     gameState.gameId = generateGameId()
+    gameState.gameType = GameType.TrainBot
     registerGameState(gameState.gameId, gameState)
 
     const selfPlayer = gameState.createPlayer(
@@ -94,6 +95,7 @@ export function setupPuppeteerGame(puppets: Puppet[]) {
 
     // noinspection JSConstantReassignment
     gameState.gameId = generateGameId()
+    gameState.gameType = GameType.Puppeteer
     registerGameState(gameState.gameId, gameState)
 
     let firstPlayerOid: string | null = null
@@ -163,7 +165,7 @@ export function setupSavedGame(savedGame: DbSavedGame) {
     }
 }
 
-export function startGame(gameType: GameType) {
+export function startGame() {
     const core = useCoreStore()
 
     if (core.gameIsStarted) {
@@ -174,7 +176,6 @@ export function startGame(gameType: GameType) {
     startClock()
 
     core.gameIsStarted = true
-    core.gameType = gameType
     router.push({ name: ROUTES.Game })
     initAutoSaveGame()
 }

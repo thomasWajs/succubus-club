@@ -20,7 +20,7 @@
 
         <!-- Order of declaration is important here :
         Hand MUST come after the other regions for drag alpha -->
-        <template v-if="core.gameType === GameType.Puppeteer">
+        <template v-if="gameState.gameType === GameType.Puppeteer">
             <HandGO
                 v-for="hand in puppetsHands"
                 :key="'PuppetHand-' + hand.player?.oid"

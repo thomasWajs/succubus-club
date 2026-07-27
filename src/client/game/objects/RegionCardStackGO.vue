@@ -114,7 +114,7 @@ import { AnyCardRegion } from '@/shared/types/model.ts'
 import { useCardTexture } from '@/client/game/composables/useCardTexture.ts'
 import FxHighlightRegionDrop from './FxHighlightRegionDrop.vue'
 import { GameType } from '@/shared/types/state.ts'
-import { useCoreStore } from '@/client/store/core.ts'
+import { useGameStateStore } from '@/client/store/gameState.ts'
 import Color = Phaser.Display.Color
 import Pointer = Phaser.Input.Pointer
 
@@ -129,7 +129,7 @@ const { color, cardRegion, draw } = defineProps<{
     draw?: 'crypt' | 'library'
 }>()
 
-const core = useCoreStore()
+const gameState = useGameStateStore()
 const players = usePlayersStore()
 const gameBus = useGameBusStore()
 
@@ -235,7 +235,10 @@ function onImageCreate(image: GameObjects.Image) {
 // Normally, players can only draw from their own stacks.
 // But in Puppeteer mode, the user can make anyone draw
 const canDraw = computed(() => {
-    return draw && (cardRegion.owner == players.selfPlayer || core.gameType === GameType.Puppeteer)
+    return (
+        draw &&
+        (cardRegion.owner == players.selfPlayer || gameState.gameType === GameType.Puppeteer)
+    )
 })
 
 function onImagePointerDown(pointer: Pointer) {

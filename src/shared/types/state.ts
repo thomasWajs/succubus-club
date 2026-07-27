@@ -6,6 +6,7 @@ import { AnyCardRegion, CardOid, CardRegionOid, PlayerOid, Point2D } from '@/sha
 import { KrcgId } from '@/shared/types/gateway.ts'
 
 export enum GameType {
+    Unset = 'Unset',
     TrainBot = 'TrainBot',
     Multiplayer = 'Multiplayer',
     Puppeteer = 'Puppeteer',
@@ -24,6 +25,8 @@ export class Validity {
 export const VALID = new Validity(true, '')
 export const Invalid = (reason: string) => new Validity(false, reason)
 
+// A marker for game mutations that can be done by any player
+export const ANY_PLAYER = 'ANY_PLAYER' as const
 /**
  * Flags for Conductor
  */

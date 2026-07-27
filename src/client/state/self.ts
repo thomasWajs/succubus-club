@@ -10,11 +10,10 @@ import { secureName } from '@/shared/state/cardVisibility.ts'
 import { ACTION_TYPES, LibraryCardType, TurnPhase } from '@/shared/const/model.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { GameType } from '@/shared/types/state.ts'
-import { useCoreStore } from '@/client/store/core.ts'
 
 export function selfCanSee(card: Card): boolean {
     // Special-case in Pupeteer mode, where the user can see all hands :
-    if (card.isIn.hand && useCoreStore().gameType === GameType.Puppeteer) {
+    if (card.isIn.hand && useGameStateStore().gameType === GameType.Puppeteer) {
         return true
     }
 
@@ -28,7 +27,7 @@ export function selfCanSee(card: Card): boolean {
 
 export function selfCanSeeOrPeek(card: Card): boolean {
     // Special-case in Pupeteer mode, where the user can see all hands :
-    if (card.isIn.hand && useCoreStore().gameType === GameType.Puppeteer) {
+    if (card.isIn.hand && useGameStateStore().gameType === GameType.Puppeteer) {
         return true
     }
 

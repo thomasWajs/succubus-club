@@ -12,6 +12,7 @@ import {
     ActionModifier,
     ActionProperty,
     ALL_PLAYERS,
+    ANY_PLAYER,
     CardRevelationTarget,
     CardRevelationViewer,
     GameType,
@@ -47,8 +48,6 @@ import { GameState } from '@/shared/state/gameState.ts'
 import { AnyCardRegion, CardOid, GameId } from '@/shared/types/model.ts'
 import { getGameState, getMutationTrigger } from '@/shared/registries.ts'
 import { hashObject, rehydrateCard, serializeObject } from '@/shared/serialization.ts'
-import { useCoreStore } from '@/client/store/core.ts'
-import { usePlayersStore } from '@/client/state/players.ts'
 
 export type GameMutationId = number
 export interface GameMutationParams {
@@ -98,7 +97,7 @@ export abstract class GameMutation<ParamsType extends GameMutationParams> {
     }
 
     // To be overrided by subclasses which an Exclusive sync mode
-    protected get allowedPlayer(): Player | null | undefined {
+    protected get allowedPlayer(): Player | typeof ANY_PLAYER | null | undefined {
         return null
     }
 
@@ -127,7 +126,7 @@ export abstract class GameMutation<ParamsType extends GameMutationParams> {
             if (!this.allowedPlayer) {
                 return Invalid(`No valid player for ${this.name}`)
             }
-            if (this.allowedPlayer != this.author) {
+            if (this.allowedPlayer != ANY_PLAYER && this.allowedPlayer != this.author) {
                 return Invalid(
                     `${this.author.name} cannot apply ${this.name} to ${this.allowedPlayer.name}`,
                 )
@@ -694,8 +693,8 @@ class DrawCrypt extends PlayerMutation {
     get allowedPlayer() {
         // Normally, players can only draw from their own stacks.
         // But in Puppeteer mode, the user can make anyone draw
-        if (useCoreStore().gameType === GameType.Puppeteer) {
-            return usePlayersStore().selfPlayer
+        if (this.params.player.gameState.gameType === GameType.Puppeteer) {
+            return ANY_PLAYER
         }
         return this.params.player
     }
@@ -738,8 +737,8 @@ class DrawLibrary extends PlayerMutation {
     get allowedPlayer() {
         // Normally, players can only draw from their own stacks.
         // But in Puppeteer mode, the user can make anyone draw
-        if (useCoreStore().gameType === GameType.Puppeteer) {
-            return usePlayersStore().selfPlayer
+        if (this.params.player.gameState.gameType === GameType.Puppeteer) {
+            return ANY_PLAYER
         }
         return this.params.player
     }

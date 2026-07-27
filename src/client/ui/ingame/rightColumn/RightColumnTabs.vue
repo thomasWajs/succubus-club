@@ -78,7 +78,7 @@
         </button>
 
         <button
-            v-if="core.gameType == GameType.Multiplayer"
+            v-if="gameState.gameType == GameType.Multiplayer"
             class="game-button"
             @click="requestResyncGameState(true)"
         >
@@ -192,7 +192,6 @@ import { useBusStore, useGameBusStore } from '@/client/store/bus.ts'
 import { useHistoryStore } from '@/client/store/history.ts'
 import { saveGame, SavingState } from '@/client/gateway/savedGames.ts'
 import { GameType } from '@/shared/types/state.ts'
-import { useCoreStore } from '@/client/store/core.ts'
 import { broadcastChatMessage, requestResyncGameState } from '@/client/multiplayer/room.ts'
 import UserManual from '@/client/ui/ingame/rightColumn/UserManual.vue'
 import { useGameStateStore } from '@/client/store/gameState.ts'
@@ -200,7 +199,6 @@ import { usePlayersStore } from '@/client/state/players.ts'
 import LogLine from '@/client/ui/ingame/rightColumn/LogLine.vue'
 import { leaveGame } from '@/client/state/setup.ts'
 
-const core = useCoreStore()
 const gameState = useGameStateStore()
 const players = usePlayersStore()
 const bus = useBusStore()
@@ -300,7 +298,7 @@ function sendChatMessage() {
     chatInput.value?.blur()
 
     history.addChatMessage(chatMessage)
-    if (core.gameType == GameType.Multiplayer) {
+    if (gameState.gameType == GameType.Multiplayer) {
         broadcastChatMessage(chatMessage)
     }
 }

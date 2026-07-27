@@ -23,7 +23,7 @@ export enum SavingState {
 
 export function isScsGame() {
     return (
-        useCoreStore().gameType == GameType.Multiplayer &&
+        useGameStateStore().gameType == GameType.Multiplayer &&
         useMultiplayerStore().currentGameRoom?.communication == CommunicationMode.SCS
     )
 }
@@ -66,7 +66,7 @@ export async function saveGame(isAutoSave: boolean) {
             name: saveName,
             // We cannot index boolean in Dexie, so fallback on 0=false / 1=true
             isAutoSave: isAutoSave ? 1 : 0,
-            gameType: core.gameType,
+            gameType: gameState.gameType,
             roomId: multiplayer.currentGameRoom?.id ?? '',
             roomName: multiplayer.currentGameRoom?.name ?? '',
             password: multiplayer.password,

@@ -44,7 +44,7 @@ export const usePlayersStore = defineStore('players', {
         // May be undefined for spectators, or during temporary loading states
         // In Puppeteer mode, always tracks the active player so the user manages each turn
         selfPlayer(): Player | undefined {
-            if (useCoreStore().gameType === GameType.Puppeteer) {
+            if (useGameStateStore().gameType === GameType.Puppeteer) {
                 return this.activePlayer
             }
             const gameState = useGameStateStore()
@@ -52,7 +52,7 @@ export const usePlayersStore = defineStore('players', {
         },
 
         selfIsActive(): boolean {
-            if (useCoreStore().gameType === GameType.Puppeteer) {
+            if (useGameStateStore().gameType === GameType.Puppeteer) {
                 return true
             }
             return this.activePlayer && this.selfPlayerOid ?

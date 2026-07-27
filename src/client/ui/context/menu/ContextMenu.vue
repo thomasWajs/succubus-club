@@ -37,7 +37,7 @@
         />
 
         <ContextMenuButton
-            v-if="firstCard.isIn.controlled && core.gameType == GameType.TrainBot"
+            v-if="firstCard.isIn.controlled && gameState.gameType == GameType.TrainBot"
             :closeOnClick="true"
             :disabled="!singleMinion || !selfCanAttemptBlock(gameState)"
             :cardAction="
@@ -106,7 +106,7 @@ import { useContextSelection } from '@/client/ui/context/menu/useContextSelectio
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { shuffleCardRegion } from '@/client/state/gameMutations.ts'
 
-const { core, gameBus, commands, firstCard, singleCard, singleMinion } = useContextSelection()
+const { gameBus, commands, firstCard, singleCard, singleMinion } = useContextSelection()
 const gameState = useGameStateStore()
 </script>
 
