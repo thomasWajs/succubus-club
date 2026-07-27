@@ -16,25 +16,25 @@ export class CardRegion<CardType extends Card> extends BaseModel {
         super(gameId, oid)
     }
 
-    get length() {
-        return this.cardsOid.length
-    }
-
-    get isEmpty() {
-        return this.length == 0
-    }
-
     get cards(): CardType[] {
         return this.cardsOid
             .map(cardOid => this.gameState.cards[cardOid])
             .filter((card): card is CardType => card !== undefined)
     }
 
+    get isEmpty() {
+        return this.cards.length == 0
+    }
+
+    get length() {
+        return this.cards.length
+    }
+
     get firstCard() {
-        if (this.length === 0) {
+        if (this.isEmpty) {
             throw new Error('Cannot get first card from empty region')
         }
-        return this.gameState.cards[this.cardsOid[0]]
+        return this.cards[0]
     }
 
     get owner(): Player | undefined {
