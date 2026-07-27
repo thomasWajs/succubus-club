@@ -34,6 +34,7 @@ import {
 } from '@/shared/types/multiplayer.ts'
 import * as logging from '@/client/logging.ts'
 import { useBusStore } from '@/client/store/bus.ts'
+import { NotInAGameRoom } from '@/client/types.ts'
 
 export function simulateNetworkDelay(time: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, time))
@@ -201,7 +202,13 @@ export async function ablySubscribe<T>(
         try {
             await messageHandler(message.data as T)
         } catch (e) {
-            logging.captureException(e)
+            if (e instanceof NotInAGameRoom) {
+                useBusStore().alertError(
+                    "Oops, looks like you've been disconnected. Refresh the page to reconnect.",
+                )
+            } else {
+                logging.captureException(e)
+            }
         }
     })
 }
