@@ -160,7 +160,13 @@ export async function shuffleCardRegion(cardRegion: AnyCardRegion) {
     // For SCS mode, request server-side shuffle
     if (gameState.gameType == GameType.Multiplayer) {
         const gameRoom = multiplayer.currentGameRoom
+
         if (gameRoom && gameRoom.communication == CommunicationMode.SCS) {
+            if (gameState.isStrictGame && cardRegion.owner?.oid != players.selfPlayer.oid) {
+                bus.alertWarning(`[Strict game] Players can only shuffle their own cards.`)
+                return
+            }
+
             await sendShuffleRequest(cardRegion)
             return
         }
