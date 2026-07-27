@@ -1531,7 +1531,10 @@ class DeclareAction extends GameMutation<DeclareActionParams> {
         ) {
             actionVerb = `${ActionVerb[this.params.minionAction.card.type as keyof typeof ActionVerb]} `
         }
-        if (this.params.minionAction.type == MinionActionType.ActionInPlay) {
+        if (
+            this.params.minionAction.type == MinionActionType.ActionInPlay &&
+            this.params.minionAction.card
+        ) {
             actionCard = ` ( ${this.params.minionAction.card.name} )`
         }
         return `Declare ${actionVerb}${actions.getName(this.params.minionAction)}${actionCard} with ${CARD_LOG_PLACEHOLDER}`
