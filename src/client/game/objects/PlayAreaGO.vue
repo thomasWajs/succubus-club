@@ -48,11 +48,15 @@
             v-if="player == players.selfPlayer"
             :key="'verticalSeparatorKey' + verticalSeparatorKey"
             :origin="0"
-            :x="separators.vertical.dragX ? separators.vertical.dragX : player.separators.verticalX"
+            :x="
+                (separators.vertical.dragX ? separators.vertical.dragX : player.separators.verticalX) -
+                SEPARATOR_THICKNESS / 2
+            "
             :y="player.separators.horizontalY"
-            :width="1"
+            :width="SEPARATOR_THICKNESS"
             :height="TORPOR_ZONE_BOTTOM - player.separators.horizontalY"
-            :fillColor="separators.vertical.over ? Colors.WHITE.color : playerColor.color"
+            :fillColor="Colors.SEPARATOR.color"
+            :fillAlpha="separators.vertical.over || separators.vertical.dragX ? 0.6 : 0"
             @create="onVerticalSeparatorCreate"
             @pointerover="separators.vertical.over = true"
             @pointerout="separators.vertical.over = false"
@@ -67,13 +71,14 @@
             :origin="0"
             :x="0"
             :y="
-                separators.horizontal.dragY ?
+                (separators.horizontal.dragY ?
                     separators.horizontal.dragY
-                :   player.separators.horizontalY
+                :   player.separators.horizontalY) - SEPARATOR_THICKNESS / 2
             "
             :width="PLAY_AREA_WIDTH"
-            :height="1"
-            :fillColor="separators.horizontal.over ? Colors.WHITE.color : playerColor.color"
+            :height="SEPARATOR_THICKNESS"
+            :fillColor="Colors.SEPARATOR.color"
+            :fillAlpha="separators.horizontal.over || separators.horizontal.dragY ? 0.6 : 0"
             @create="onHorizontalSeparatorCreate"
             @pointerover="separators.horizontal.over = true"
             @pointerout="separators.horizontal.over = false"
@@ -234,6 +239,7 @@ import {
     PLAY_AREA_HEIGHT,
     PLAY_AREA_WIDTH,
     PLAYER_BAR_HEIGHT,
+    SEPARATOR_THICKNESS,
     TORPOR_ZONE_BOTTOM,
     VERTICAL_SEPARATOR_MAX_X,
     VERTICAL_SEPARATOR_MIN_X,
@@ -323,7 +329,7 @@ function onVerticalSeparatorCreate(separator: GameObjects.Rectangle) {
     separator.setInteractive({
         // wider hit area for easier grabbing
         hitArea: new Phaser.Geom.Rectangle(
-            -SEPARATOR_HIT_AREA_SIZE / 2,
+            SEPARATOR_THICKNESS / 2 - SEPARATOR_HIT_AREA_SIZE / 2,
             0,
             SEPARATOR_HIT_AREA_SIZE,
             CARD_STACKS_Y - player.separators.horizontalY,
@@ -370,7 +376,7 @@ function onHorizontalSeparatorCreate(separator: GameObjects.Rectangle) {
         // taller hit area for easier grabbing
         hitArea: new Phaser.Geom.Rectangle(
             0,
-            -SEPARATOR_HIT_AREA_SIZE / 2,
+            SEPARATOR_THICKNESS / 2 - SEPARATOR_HIT_AREA_SIZE / 2,
             PLAY_AREA_WIDTH,
             SEPARATOR_HIT_AREA_SIZE,
         ),

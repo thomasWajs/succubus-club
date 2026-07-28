@@ -113,6 +113,10 @@ export const REGION_ALPHA = OPAQUE_ALPHA * 0.75
 export const REGION_BACKGROUND_COLOR = `rgba(128,128,128,${REGION_ALPHA / 255})`
 export const REGION_STACK_SIZE_BACKGROUND_COLOR = 'rgb(150, 150, 150)'
 
+// Matches the CSS right-column resize handles ( $lighter-teal #3a7d7d )
+export const SEPARATOR_COLOR = 'rgb(58,125,125)'
+export const SEPARATOR_THICKNESS = 8
+
 export const PLAYER_COLORS = {
     purple: 'rgb(60,20,95)', // dark purple
     green: 'rgb(15,70,35)', // dark emerald green
