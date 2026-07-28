@@ -1,6 +1,6 @@
-import { watch } from 'vue'
+import { nextTick, watch } from 'vue'
 import Phaser from 'phaser'
-import { display } from '@/client/game/display.ts'
+import { display, layout } from '@/client/game/display.ts'
 import { WorldAlignment } from '@/client/gateway/db.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
 import Pointer = Phaser.Input.Pointer
@@ -16,6 +16,24 @@ export function setupCamera(_tabletopScene: Phaser.Scene) {
     // Keep Camera scaled on resize
     tabletopScene.scale.on('resize', resetCamera)
     watch(worldAlignment, resetCamera)
+
+    // When the user drags the right-column handle, the flex layout resizes the
+    // canvas. Phaser only polls its parent size every ~500ms (ScaleManager's
+    // resizeInterval), which lags behind the drag, so sync it explicitly once
+    // the DOM has reflowed. In RESIZE mode refresh() reuses the cached
+    // parentSize, so getParentBounds() must run first to read the new DOM size ;
+    // refresh() then resizes the canvas and emits 'resize', re-running resetCamera.
+    watch(
+        () => layout.rightColumnWidth,
+        () =>
+            nextTick(() => {
+                if (!tabletopScene) {
+                    return
+                }
+                tabletopScene.scale.getParentBounds()
+                tabletopScene.scale.refresh()
+            }),
+    )
 
     // Commented pending camera fixes. See https://github.com/thomasWajs/succubus-club/issues/12
     if (import.meta.env.VITE_ENABLE_CAMERA) {

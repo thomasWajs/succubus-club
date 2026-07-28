@@ -122,7 +122,6 @@
 <script setup lang="ts">
 import { Colors } from '@/client/colors.ts'
 import {
-    RIGHT_COLUMN_WIDTH,
     WIELD_ACTIONS_WIDTH,
     WIELD_CARD_DISPLAY_WIDTH,
     WIELD_CARD_STACK_HEIGHT,
@@ -141,7 +140,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import CardInWieldCardStack from '@/client/game/objects/CardInWieldCardStack.vue'
 import Phaser, { GameObjects } from 'phaser'
 import WieldCardStackActions from '@/client/ui/ingame/WieldCardStackActions.vue'
-import { display } from '@/client/game/display.ts'
+import { display, layout } from '@/client/game/display.ts'
 import { WorldAlignment } from '@/client/gateway/db.ts'
 import { AnyCardRegion } from '@/shared/types/model.ts'
 import { selfSecureName } from '@/client/state/self.ts'
@@ -180,7 +179,7 @@ const INDICATOR_TEXT_STYLE = {
 const actionsStyle = computed(() => {
     let right, top
 
-    const rightBase = gameBus.focusMode ? 0 : RIGHT_COLUMN_WIDTH
+    const rightBase = gameBus.focusMode ? 0 : layout.rightColumnWidth
     if (worldAlignment.value == WorldAlignment.TopRight) {
         right = rightBase + display.horizontalPadding * display.scale
         top = 0

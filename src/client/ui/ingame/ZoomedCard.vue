@@ -13,7 +13,7 @@ import { useGameBusStore } from '@/client/store/bus.ts'
 import { useCardTexture } from '@/client/game/composables/useCardTexture.ts'
 import { useCoreStore } from '@/client/store/core.ts'
 import { getScreenPoint } from '@/client/game/utils.ts'
-import { RIGHT_COLUMN_WIDTH } from '@/shared/const/game.ts'
+import { layout } from '@/client/game/display.ts'
 
 const core = useCoreStore()
 const gameBus = useGameBusStore()
@@ -46,7 +46,7 @@ const style = computed(() => {
     // Switch it to the left instead of right
     if (
         pointerScreenPosition.value &&
-        window.innerWidth - pointerScreenPosition.value.x < RIGHT_COLUMN_WIDTH * 1.5 + 30
+        window.innerWidth - pointerScreenPosition.value.x < layout.rightColumnWidth * 1.5 + 30
     ) {
         return {
             left: '0',

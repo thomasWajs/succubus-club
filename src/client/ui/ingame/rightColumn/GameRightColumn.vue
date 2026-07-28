@@ -1,6 +1,18 @@
 <template>
-    <div id="GameRightColumn">
-        <div class="card-close-up">
+    <div
+        id="GameRightColumn"
+        :style="{ width: `${layout.rightColumnWidth}px` }"
+    >
+        <ResizeHandle
+            orientation="vertical"
+            @resize="onWidthResize"
+            @reset="resetLayout"
+        />
+
+        <div
+            class="card-close-up"
+            :style="{ height: `${layout.closeUpHeight}px` }"
+        >
             <div
                 v-if="showPinFlash"
                 :key="pinFlashKey"
@@ -52,6 +64,13 @@
             />
         </div>
 
+        <ResizeHandle
+            orientation="horizontal"
+            :style="{ top: `${layout.closeUpHeight}px` }"
+            @resize="onHeightResize"
+            @reset="resetLayout"
+        />
+
         <RightColumnPlayers />
         <RightColumnTabs />
     </div>
@@ -62,13 +81,32 @@ import { computed, ref, watch } from 'vue'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import RightColumnPlayers from '@/client/ui/ingame/rightColumn/RightColumnPlayers.vue'
 import RightColumnTabs from '@/client/ui/ingame/rightColumn/RightColumnTabs.vue'
+import ResizeHandle from '@/client/ui/ingame/rightColumn/ResizeHandle.vue'
 import { useCoreStore } from '@/client/store/core.ts'
 import { useCardTexture } from '@/client/game/composables/useCardTexture.ts'
+import {
+    layout,
+    resetLayout,
+    setCloseUpHeight,
+    setRightColumnWidth,
+} from '@/client/game/display.ts'
 
 const core = useCoreStore()
 const gameBus = useGameBusStore()
 
 const showRuling = ref(false)
+
+// The vertical handle sits on the column's left edge : dragging left (negative
+// delta) widens the column, dragging right narrows it.
+function onWidthResize(delta: number) {
+    setRightColumnWidth(layout.rightColumnWidth - delta)
+}
+
+// The horizontal handle sits at the bottom of the close-up zone : dragging down
+// (positive delta) grows the zone, dragging up shrinks it.
+function onHeightResize(delta: number) {
+    setCloseUpHeight(layout.closeUpHeight + delta)
+}
 
 const closeUpCardImage = computed(() => {
     const closeUp = gameBus.closeUpCard
@@ -105,26 +143,28 @@ watch(
 </script>
 
 <style lang="scss" scoped>
-$closeup-width: $right-column-width;
-$closeup-height: 478px;
-
 #GameRightColumn {
-    width: $right-column-width;
+    // The width is set inline from the resizable layout state. box-sizing is
+    // border-box so that width includes the 4px border, matching display.actualWidth.
+    box-sizing: border-box;
+    // The sibling play area (#PhavuerGame) has width:100% (a full-width flex
+    // basis), so without this the flex row shrinks the column below its set
+    // width. Previously the column's min-content floor came from the removed
+    // fixed-size .card-close-up ; now we pin it explicitly.
+    flex-shrink: 0;
     height: 100vh;
 
     background-color: $purple-grey;
     border-left: solid 4px $purple-grey;
     display: flex;
     flex-direction: column;
+    position: relative;
 }
 
 .card-close-up {
-    width: $closeup-width;
-    height: $closeup-height;
-    max-width: $closeup-width;
-    max-height: $closeup-height;
-    min-width: $closeup-width;
-    min-height: $closeup-height;
+    // The height is set inline from the resizable layout state.
+    width: 100%;
+    flex-shrink: 0;
     margin: 0;
     padding: 0;
     overflow: hidden;
@@ -197,13 +237,14 @@ $closeup-height: 478px;
     }
 
     img {
-        object-fit: none;
-        width: $closeup-width;
-        height: $closeup-height;
-        max-width: $closeup-width;
-        max-height: $closeup-height;
-        min-width: $closeup-width;
-        min-height: $closeup-height;
+        // Take the most space possible in the zone while keeping the card
+        // aspect ratio, pushed to the top-left corner. display:block avoids the
+        // inline-image descender gap.
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        object-position: top left;
     }
 }
 

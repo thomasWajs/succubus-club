@@ -120,6 +120,12 @@
                     >
                         Focus Mode
                     </CommandButton>
+                    <button
+                        class="game-button align-center"
+                        @click="resetLayout"
+                    >
+                        Reset Layout
+                    </button>
                 </PopupMenu>
 
                 <PopupMenu label="Game">
@@ -511,7 +517,7 @@ import {
     NO_BLOCK,
     NO_REACTION,
 } from '@/shared/types/state.ts'
-import { display } from '@/client/game/display.ts'
+import { display, resetLayout } from '@/client/game/display.ts'
 import { useCommands } from '@/client/game/composables/useCommands.ts'
 import CommandButton from '@/client/ui/ingame/CommandButton.vue'
 import PopupMenu from '@/client/ui/components/PopupMenu.vue'
