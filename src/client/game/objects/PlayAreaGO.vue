@@ -49,7 +49,9 @@
             :key="'verticalSeparatorKey' + verticalSeparatorKey"
             :origin="0"
             :x="
-                (separators.vertical.dragX ? separators.vertical.dragX : player.separators.verticalX) -
+                (separators.vertical.dragX ?
+                    separators.vertical.dragX
+                :   player.separators.verticalX) -
                 SEPARATOR_THICKNESS / 2
             "
             :y="player.separators.horizontalY"
@@ -73,7 +75,8 @@
             :y="
                 (separators.horizontal.dragY ?
                     separators.horizontal.dragY
-                :   player.separators.horizontalY) - SEPARATOR_THICKNESS / 2
+                :   player.separators.horizontalY) -
+                SEPARATOR_THICKNESS / 2
             "
             :width="PLAY_AREA_WIDTH"
             :height="SEPARATOR_THICKNESS"
