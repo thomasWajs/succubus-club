@@ -13,9 +13,10 @@ const server = http.createServer((req, res) => {
     if (req.method == 'GET' && req.url === '/logs') {
         return handleLogsRequest(req, res)
     }
-    // Explicitly close the connection for any other requests (like health checks)
-    // so they do not linger and prevent the server from sleeping.
-    // res.writeHead(404, { Connection: 'close' }).end()
+    // Silently destroy the socket for any other request (health checks, port scanners, etc.)
+    // so no response bytes are sent and the connection does not linger.
+    logger.info(`Destroying socket following a request on ${req.url}`)
+    req.socket.destroy()
 })
 
 // Keep idle timeouts low to allow the server to sleep when there are no active clients.
@@ -29,6 +30,11 @@ server.requestTimeout = 10000 // 10 seconds
  * Delegate web sockets
  */
 server.on('upgrade', (req, socket, head) => {
+    if (req.url !== '/realtime') {
+        socket.destroy()
+        logger.info(`Destroying socket following a request on ${req.url}`)
+        return
+    }
     wsServer.handleUpgrade(req, socket, head, ws => {
         wsServer.emit('connection', ws, req)
     })
