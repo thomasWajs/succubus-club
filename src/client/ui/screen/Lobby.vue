@@ -25,35 +25,39 @@
             :class="{ 'has-banner': showReconnectSuggestion }"
         >
             <!-- Players Online Sidebar -->
-            <div class="players-panel">
-                <h3 class="panel-title">
-                    Players Online ({{ Object.keys(multiplayer.users).length }})
-                </h3>
+            <div class="players-sidebar">
+                <div class="players-panel">
+                    <h3 class="panel-title">
+                        Players Online ({{ Object.keys(multiplayer.users).length }})
+                    </h3>
 
-                <div class="player-list">
-                    <div
-                        v-for="user in Object.values(multiplayer.users)"
-                        :key="user.permId"
-                        class="player-item"
-                    >
-                        <div class="player-avatar">
-                            <UserAvatar
-                                :avatar="user.avatarId ? multiplayer.avatars[user.avatarId] : null"
-                                :playerName="user.name"
-                                width="30px"
-                                height="30px"
-                                fontSize="14px"
-                            />
+                    <div class="player-list">
+                        <div
+                            v-for="user in Object.values(multiplayer.users)"
+                            :key="user.permId"
+                            class="player-item"
+                        >
+                            <div class="player-avatar">
+                                <UserAvatar
+                                    :avatar="
+                                        user.avatarId ? multiplayer.avatars[user.avatarId] : null
+                                    "
+                                    :playerName="user.name"
+                                    width="30px"
+                                    height="30px"
+                                    fontSize="14px"
+                                />
+                            </div>
+                            <span class="player-name">{{ user.name }}</span>
                         </div>
-                        <span class="player-name">{{ user.name }}</span>
                     </div>
-                </div>
 
-                <div
-                    v-if="showDiscoveryMessage"
-                    class="discovery-message"
-                >
-                    ⏳ Discovering players... This may take a few seconds
+                    <div
+                        v-if="showDiscoveryMessage"
+                        class="discovery-message"
+                    >
+                        ⏳ Discovering players... This may take a few seconds
+                    </div>
                 </div>
             </div>
 
@@ -471,9 +475,19 @@ if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
  *  Players Panel
  */
 
+// The wrapper takes the grid area but holds no in-flow content, so it never
+// contributes to the row height : the row is sized by .rooms-panel alone.
+// .players-panel is then stretched to that resolved height and scrolls inside.
+.players-sidebar {
+    grid-area: players-sidebar;
+    position: relative;
+}
+
 .players-panel {
     @include panel;
-    grid-area: players-sidebar;
+    position: absolute;
+    inset: 0;
+    box-sizing: border-box;
     overflow: hidden;
     display: flex;
     flex-direction: column;
