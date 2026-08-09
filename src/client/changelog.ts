@@ -2,14 +2,10 @@ import { CURRENT_VERSION } from '@/shared/version.mjs'
 
 export const latestChangelog = {
     version: CURRENT_VERSION,
-    date: '2026-07-20',
+    date: '2026-08-09',
     features: [
-        'From the log, browse unlocked cards during an unlock all',
-        'A card dropped from hand outside of any play area is now considered played',
+        'Control right bar layout',
+        'Smoother "Move To Bottom of Lib" ( 👉 Heart of Nizchetus )',
     ],
-    bugfixes: [
-        'Fix black rectangles replacing cards on lower-end hardware',
-        'Prevent incorrect counters positionning',
-        "Lot of subtle fixes on drag'n'drop",
-    ],
+    bugfixes: ['Idle kick increased to 2h for ousted players', 'Scroll player list in the lobby'],
 }

@@ -1,3 +1,13 @@
+## [0.9.2] - 2026-08-09
+
+Features:
+- Control right bar layout
+- Smoother "Move To Bottom of Lib" ( 👉 Heart of Nizchetus )
+
+Bugfix:
+- Idle kick increased to 2h for ousted players
+- Scroll player list in the lobby
+
 ## [0.9.1] - 2026-07-20
 
 Features:
