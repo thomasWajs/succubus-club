@@ -1,11 +1,13 @@
 import dotenv from 'dotenv'
-import * as Sentry from '@sentry/node'
+// import * as Sentry from '@sentry/node'
 
 dotenv.config({ path: '../../.env.local' })
 
-const NODE_ENV = process.env.NODE_ENV ?? 'development'
-const SENTRY_ENV = process.env.SENTRY_ENV ?? NODE_ENV
+// const NODE_ENV = process.env.NODE_ENV ?? 'development'
+// const SENTRY_ENV = process.env.SENTRY_ENV ?? NODE_ENV
 
+// Temporary disable for ticket #192
+/*
 Sentry.init({
     dsn: process.env.SCS_SENTRY_DSN,
     enabled: NODE_ENV != 'development',
@@ -17,3 +19,4 @@ Sentry.init({
     tracesSampleRate: 0,
     integrations: [Sentry.httpIntegration({ trackIncomingRequestsAsSessions: false })],
 })
+*/
