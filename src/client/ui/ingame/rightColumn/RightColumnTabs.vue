@@ -295,7 +295,7 @@ function sendChatMessage() {
         player: players.selfPlayer,
     }
     chatMessageText.value = ''
-    chatInput.value?.blur()
+    chatInput.value?.focus()
 
     history.addChatMessage(chatMessage)
     if (gameState.gameType == GameType.Multiplayer) {
