@@ -936,6 +936,7 @@ function forwardPointerEvent(event: PointerEvent) {
 .central-box {
     @include flex-center;
     flex-grow: 1;
+    position: relative;
 
     margin: 15px 0;
     padding: 5px;
@@ -1078,7 +1079,11 @@ function forwardPointerEvent(event: PointerEvent) {
 }
 
 .turn-notification {
-    align-self: center;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10;
     display: flex;
     align-items: center;
     gap: 1.5rem;
@@ -1109,14 +1114,14 @@ function forwardPointerEvent(event: PointerEvent) {
 @keyframes TurnNotificationAppear {
     0% {
         opacity: 0;
-        transform: scale(0.7);
+        transform: translate(-50%, -50%) scale(0.7);
     }
     60% {
-        transform: scale(1.08);
+        transform: translate(-50%, -50%) scale(1.08);
     }
     100% {
         opacity: 1;
-        transform: scale(1);
+        transform: translate(-50%, -50%) scale(1);
     }
 }
 
