@@ -312,7 +312,6 @@ const commands = useCommands()
 const { displayedTexture } = useCardTexture(card)
 
 const image = refObj<GameObjects.Image>()
-const dragPlaceholder = refObj<GameObjects.Image>()
 const cardOutline = refObj<GameObjects.Rectangle>()
 const bloodCounterCircle = refObj<GameObjects.Arc>()
 const bloodCounterText = refObj<GameObjects.Text>()

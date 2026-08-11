@@ -34,6 +34,11 @@ export function anyoneCanSee(card: Card) {
         return false
     }
 
+    // Special case for uncontrolled region, where non vampire minion cards are always visible
+    if (card.isIn.uncontrolled && !card.isCrypt && !card.isVampire()) {
+        return true
+    }
+
     return card.region.visibility == CardRegionVisibility.VisibleToAll
 }
 
