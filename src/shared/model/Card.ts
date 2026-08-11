@@ -10,7 +10,7 @@ import { CRYPT_CARD_IMPLEMENTATIONS } from '@/shared/cardImpl'
 import * as cardVisibility from '@/shared/state/cardVisibility.ts'
 import { GRID_SIZE } from '@/shared/const/game.ts'
 import { KrcgId } from '@/shared/types/gateway.ts'
-import { CardOid, GameId, PlayerOid } from '@/shared/types/model.ts'
+import { CardOid, GameId, ObjectId, PlayerOid } from '@/shared/types/model.ts'
 import {
     CardResource,
     CryptCardResource,
@@ -103,9 +103,14 @@ export abstract class Card extends BaseModel implements PropertiesInPlay {
         return this.gameState.players[this.ownerOid]
     }
 
-    // For now, there's no way to take control of another card
-    get controllerOid() {
-        return this.ownerOid
+    // For now, there's no way to explicitely take control of another card
+    // For now, the controller is the owner of the region of the card.
+    // Except for Master Cards, which most of the time stay under the control of their owner.
+    get controllerOid(): ObjectId {
+        if (this instanceof LibraryCard && this.resource?.type === LibraryCardType.Master) {
+            return this.owner.oid
+        }
+        return this.region.owner?.oid ?? this.owner.oid
     }
 
     get controller() {
