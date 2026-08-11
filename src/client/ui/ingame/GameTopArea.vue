@@ -169,6 +169,27 @@
             }"
             class="central-box"
         >
+            <!-- The Edge Hint -->
+            <div
+                v-if="aidsEnabled && centralContent.theEdge"
+                id="TheEdgeHint"
+            >
+                <span
+                    class="inline-player-name"
+                    :style="{
+                        backgroundColor: gameState.theEdgeController?.rgbaColor,
+                    }"
+                >
+                    {{ gameState.theEdgeController?.name }}
+                </span>
+                controls The Edge
+                <img
+                    src="/assets/theEdgeTealSmall.webp"
+                    class="theEdgeImage"
+                />
+                and can gain 1 pool from the blood bank
+            </div>
+
             <!-- Declaration hint -->
             <div class="declaration-hint">
                 <template
@@ -462,27 +483,6 @@
             >
                 Next Turn
             </CommandButton>
-
-            <!-- The Edge Hint -->
-            <div
-                v-if="aidsEnabled && centralContent.theEdge"
-                id="TheEdgeHint"
-            >
-                <span
-                    class="inline-player-name"
-                    :style="{
-                        backgroundColor: gameState.theEdgeController?.rgbaColor,
-                    }"
-                >
-                    {{ gameState.theEdgeController?.name }}
-                </span>
-                controls The Edge
-                <img
-                    src="/assets/theEdgeTealSmall.webp"
-                    class="theEdgeImage"
-                />
-                and can gain 1 pool from the blood bank
-            </div>
 
             <!-- New Turn Notification -->
             <div
@@ -936,6 +936,8 @@ function forwardPointerEvent(event: PointerEvent) {
 .central-box {
     @include flex-center;
     flex-grow: 1;
+    flex-direction: column;
+    gap: 0.5rem;
     position: relative;
 
     margin: 15px 0;
