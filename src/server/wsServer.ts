@@ -1,5 +1,4 @@
-import 'instrument'
-
+import http from 'http'
 import { WebSocket, WebSocketServer } from 'ws'
 import {
     handleDeck,
@@ -27,15 +26,19 @@ import {
 import { ClientId, ConnectionInfo } from './types.ts'
 import { generateClientId } from '@/shared/state/ids.ts'
 import { getUser, handleSetUser, removeUser } from './users.ts'
-import { captureException } from './logging.ts'
+import { captureException } from './capture.ts'
 import logger from './logger.ts'
+import { cleanupOldGames } from './persistence.ts'
+
+const PORT = parseInt(process.env.SCS_PORT ?? '3001')
 
 const SETUSER_TIMEOUT_MS = 30_000 // 30 seconds
 
 // Track all active connections
 const connections = new Map<ClientId, ConnectionInfo>()
 
-export let wsServer = new WebSocketServer({ noServer: true })
+const server = http.createServer()
+export let wsServer = new WebSocketServer({ server })
 
 /**
  * Handle new client connections
@@ -99,6 +102,11 @@ wsServer.on('connection', (webSocket: WebSocket, req) => {
                     }
 
                     await handleSetUser(connection, message)
+
+                    // A cron-job could call the cleanup periodically.
+                    // For now, just clean on every user connection.
+                    cleanupOldGames()
+
                     break
 
                 case MultiplayerMessageType.JoinRoom:
@@ -210,6 +218,14 @@ export function sendError(webSocket: WebSocket, errorMessage: string) {
         message: errorMessage,
     }
     send(webSocket, message)
+}
+
+/**
+ * Start listening
+ */
+export function startWsServer() {
+    server.listen(PORT)
+    logger.info(`WebSocket server listening on port ${PORT}`)
 }
 
 /**

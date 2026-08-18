@@ -1,5 +1,5 @@
 import { send, sendError } from './wsServer.ts'
-import { captureException } from './logging.ts'
+import { captureException } from './capture.ts'
 import logger from './logger.ts'
 import { broadcastTailored, ensureRoom } from './rooms.ts'
 import {

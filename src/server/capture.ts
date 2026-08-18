@@ -1,10 +1,10 @@
 import type { SeverityLevel } from '@sentry/node'
-// import * as Sentry from '@sentry/node'
+import * as Sentry from '@sentry/node'
 import logger from './logger.ts'
 
 export function captureException(exception: unknown) {
     if (process.env.NODE_ENV === 'production') {
-        // Sentry.captureException(exception)
+        Sentry.captureException(exception)
     } else {
         console.error(exception)
     }
@@ -12,8 +12,7 @@ export function captureException(exception: unknown) {
 
 export function captureMessage(message: string, captureContext?: SeverityLevel) {
     if (process.env.NODE_ENV === 'production') {
-        // Temporary disable for ticket #192
-        //Sentry.captureMessage(message, captureContext)
+        Sentry.captureMessage(message, captureContext)
     } else {
         if (captureContext == 'fatal' || captureContext == 'error') {
             logger.error(`[Sentry]${message}`)

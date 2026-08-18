@@ -4,9 +4,11 @@ const isProd = process.env.NODE_ENV === 'production'
 export const LOG_DIR = process.env.SCS_LOG_PATH ?? '../../logs'
 
 const consoleTransport = {
-    target: 'pino/file',
-    level: 'info',
-    options: { destination: 1 },
+    target: 'pino-pretty',
+    options: {
+        translateTime: 'SYS:HH:MM:ss',
+        ignore: 'time,pid,hostname',
+    },
 }
 
 const prettyConsoleTransport = {
@@ -18,19 +20,7 @@ const prettyConsoleTransport = {
     },
 }
 
-const fileTransport = {
-    target: 'pino-roll',
-    options: {
-        file: `${LOG_DIR}/scs`,
-        frequency: 'daily',
-        extension: '.log',
-        dateFormat: 'yyyy-MM-dd',
-        mkdir: true,
-        limit: { count: 90 },
-    },
-}
-
-const transport = isProd ? { targets: [consoleTransport, fileTransport] } : prettyConsoleTransport
+const transport = isProd ? consoleTransport : prettyConsoleTransport
 
 // @ts-ignore
 const logger = pino(

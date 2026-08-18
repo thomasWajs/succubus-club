@@ -1,7 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import Database from 'better-sqlite3'
-import { captureException } from './logging.ts'
+import { captureException } from './capture.ts'
 import logger from './logger.ts'
 import { Room } from './types.ts'
 import {
@@ -99,10 +99,6 @@ export function initTables() {
     `)
     })
 
-    // A cron-job could call the cleanup periodically.
-    // BUT : Railway is currently configured in serverless mode,
-    // which means it will shutdown and restart frequently, we'll run the cleanup just once at startup.
-    // In the same vein, no need to cleanup the games stored in memory, they will vanish on server shutdown.
     cleanupOldGames()
 
     logger.info('Database tables initialized')

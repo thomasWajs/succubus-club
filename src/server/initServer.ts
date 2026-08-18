@@ -6,7 +6,7 @@ import { resolve } from 'path'
 import { initTables, loadPersistedData } from './persistence.ts'
 import { restoreRooms } from './rooms.ts'
 import logger from './logger.ts'
-import { captureException, captureMessage } from './logging.ts'
+import { captureException, captureMessage } from './capture.ts'
 
 export async function initServer() {
     registerLogger({ captureException, captureMessage })

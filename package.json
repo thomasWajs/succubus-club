@@ -37,7 +37,6 @@
         "format:fix": "prettier --write .",
         "server:install": "cd src/server && npm install",
         "server:dev": "cd src/server && npm run dev",
-        "server:build": "cd src/server && npm run build",
         "server:start": "cd src/server && npm run start"
     }
 }
