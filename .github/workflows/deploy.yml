@@ -1,0 +1,26 @@
+name: Deploy to AlwaysData
+
+on:
+    push:
+        branches:
+            - master
+
+jobs:
+    deploy:
+        runs-on: ubuntu-latest
+        steps:
+            -   name: Update code via SSH
+                uses: appleboy/ssh-action@v1.0.3
+                with:
+                    host: ${{ secrets.SSH_HOST }}
+                    username: ${{ secrets.SSH_USER }}
+                    password: ${{ secrets.SSH_PASSWORD }}
+                    script: |
+                        cd succubus-club
+                        git pull origin master
+                        npm server:install
+
+            -   name: Restart AlwaysData Site
+                run: |
+                    curl -X POST "https://api.alwaysdata.com/v1/site/${{ secrets.DEPLOY_SITE_ID }}/restart/" \
+                         -u "${{ secrets.DEPLOY_TOKEN }}:"
