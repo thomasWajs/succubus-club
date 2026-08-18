@@ -539,32 +539,36 @@ async function saveDeckName() {
 
 const vdbDeckUrl = ref('')
 
-function loadFromVdb() {
-    loadDeck(() => getOrImportVdb(vdbDeckUrl.value))
+async function loadFromVdb() {
+    await loadDeck(() => getOrImportVdb(vdbDeckUrl.value))
+    vdbDeckUrl.value = ''
 }
 
-/** VDB Import **/
+/** VTESDeck Import **/
 
 const vtesdecksDeckUrl = ref('')
 
-function loadFromVtesdecks() {
-    loadDeck(() => getOrImportVtesdecks(vtesdecksDeckUrl.value))
+async function loadFromVtesdecks() {
+    await loadDeck(() => getOrImportVtesdecks(vtesdecksDeckUrl.value))
+    vtesdecksDeckUrl.value = ''
 }
 
 /** Amaranth Import **/
 
 const amaranthDeckUrl = ref('')
 
-function loadFromAmaranth() {
-    loadDeck(() => getOrImportAmaranth(amaranthDeckUrl.value))
+async function loadFromAmaranth() {
+    await loadDeck(() => getOrImportAmaranth(amaranthDeckUrl.value))
+    amaranthDeckUrl.value = ''
 }
 
 /** Text Import **/
 
 const deckText = ref('')
 
-function loadFromText() {
-    loadDeck(() => getOrImportText(deckText.value))
+async function loadFromText() {
+    await loadDeck(() => getOrImportText(deckText.value))
+    deckText.value = ''
 }
 
 /** Preconstructed Decks **/
