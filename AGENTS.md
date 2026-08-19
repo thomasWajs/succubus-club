@@ -59,8 +59,7 @@ Commands are managed via `npm`. Run these from the project root.
 
 #### Client Commands
 - **Install Dependencies**: `npm install`
-- **Development Server**: `npm run dev` (Runs Vite on `localhost:5173`)
-- **Build Production**: `npm run build`
+- **Development Server**: `npm run dev` (Runs Vite)
 - **Type Checking**: `npm run type:check`
 - **Linting**:
   - `npm run lint:check` (Report errors)
@@ -72,7 +71,6 @@ Commands are managed via `npm`. Run these from the project root.
 #### Server Commands
 - **Install Server Deps**: `npm run server:install`
 - **Start Development Server**: `npm run server:dev` (Uses `tsx watch`)
-- **Build Server**: `npm run server:build`
 - **Start Production Server**: `npm run server:start`
 
 #### Testing
@@ -80,11 +78,9 @@ Currently, there is no automated test suite configured in the repository.
 
 ### 7. AI Agent Specific Tips
 - **Context**: Use the `src/shared` folder to understand the game model and logic.
-- **UI**: When creating new UI components, refer to these for structure and styles:
-  - Header/Navigation: `src/client/ui/components/TopBar.vue`
-  - Screens/Layouts: `src/client/ui/screen/Lobby.vue`
 - **Game Objects**: Use components in `src/client/game/objects` as templates (e.g., `CardGO.vue`).
 - **State Management**: Client-side, use Pinia stores located in `src/client/store` to manage the game state.
+- **Validation**: Do not try to validate in-browser rendering with playwright or such other tools.
 
 ### 8. Code Style Reference
 Follow the existing patterns in the codebase:
