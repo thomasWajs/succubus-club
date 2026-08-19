@@ -11,11 +11,20 @@ import {
     MultiplayerMessageType,
     PermanentId,
     PickSeatMessage,
+    RoomSeat,
     ScsRollSeatingMessage,
     SerializedChatMessage,
     SerializedMultiplayerGame,
+    SetRoomSeatMessage,
     User,
 } from '@/shared/types/multiplayer.ts'
+import {
+    canTakeRoomSeat,
+    getRoomSeat,
+    isSeated,
+    removeFromSeating,
+    resolveRoomSeat,
+} from '@/shared/multiplayer/seats.ts'
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import { useBusStore } from '@/client/store/bus.ts'
 import * as logging from '@/client/logging.ts'
@@ -152,6 +161,7 @@ export async function joinGameRoom(gameRoom: GameRoom, key?: Key) {
             ),
             ablySubscribe(roomChannel, MultiplayerMessageType.PickSeat, onReceivePickSeat),
             ablySubscribe(roomChannel, MultiplayerMessageType.LeaveSeat, onReceiveLeaveSeat),
+            ablySubscribe(roomChannel, MultiplayerMessageType.SetRoomSeat, onReceiveSetRoomSeat),
 
             ...scsSubscriptions,
         ])
@@ -164,11 +174,8 @@ export async function joinGameRoom(gameRoom: GameRoom, key?: Key) {
         // If ably, it's already joined. If SCS, we need to join.
         await comm.joinRoom(gameRoom.id, key)
 
-        if (canUserBeAPlayer(gameRoom, multiplayer.selfUser)) {
-            multiplayer.upsertGameRoomPlayer(multiplayer.selfUser)
-        } else {
-            multiplayer.upsertGameRoomSpectator(multiplayer.selfUser)
-        }
+        const permId = multiplayer.selfUser.permId
+        multiplayer.setGameRoomSeat(permId, resolveRoomSeat(gameRoom, permId))
 
         if (multiplayer.selfDeck) {
             await comm.sendDeck()
@@ -195,7 +202,8 @@ export async function leaveGameRoom() {
     }
 
     // We're the last user in the room, we can delete it.
-    if (multiplayer.gameRoomUsers.length == 1 && multiplayer.currentGameRoomId) {
+    // Every seat counts : judges and spectators still need the room to exist.
+    if (multiplayer.allGameRoomUsers.length == 1 && multiplayer.currentGameRoomId) {
         await deleteGameRoom(multiplayer.currentGameRoomId)
     }
 
@@ -246,16 +254,6 @@ export function setupGameRoomWatcher() {
  * Presence / Users
  */
 
-function canUserBeAPlayer(gameRoom: GameRoom, user: User): boolean {
-    if (gameRoom.isStarted && gameRoom.seating) {
-        // Started games only accept players existing in the seating
-        return gameRoom.seating.includes(user.permId)
-    } else {
-        // Pending games accept new players up until 5 players
-        return gameRoom.players.length < 5 || gameRoom.players.includes(user.permId)
-    }
-}
-
 function onMemberJoin(presence: PresenceMessage) {
     const multiplayer = useMultiplayerStore()
     const user = multiplayer.users[presence.clientId]
@@ -265,16 +263,16 @@ function onMemberJoin(presence: PresenceMessage) {
         return
     }
 
-    if (canUserBeAPlayer(gameRoom, user)) {
+    // A judge or a spectator kept their seat while offline, so this restores it
+    const seat = resolveRoomSeat(gameRoom, user.permId)
+    if (seat == RoomSeat.Player) {
         alertReconnect(gameRoom, user)
-        multiplayer.upsertGameRoomPlayer(user)
+    }
+    multiplayer.setGameRoomSeat(user.permId, seat)
 
-        // Special-case : host is not connected anymore, and can't broadcast with its watcher.
-        if (gameRoom && !multiplayer.isHostConnected) {
-            broadcastGameRoom(gameRoom)
-        }
-    } else {
-        multiplayer.upsertGameRoomSpectator(user)
+    // Special-case : host is not connected anymore, and can't broadcast with its watcher.
+    if (!multiplayer.isHostConnected) {
+        broadcastGameRoom(gameRoom)
     }
 
     // In Ably mode, send our decklist to the newly connected user
@@ -290,8 +288,7 @@ function onMemberLeave(presence: PresenceMessage) {
 
     if (user) {
         alertDisconnect(user)
-        multiplayer.removeGameRoomPlayer(user)
-        multiplayer.removeGameRoomSpectator(user)
+        multiplayer.releaseGameRoomSeat(user.permId)
 
         // Special-case : host is not connected anymore, and can't broadcast with its watcher.
         if (gameRoom && !multiplayer.isHostConnected) {
@@ -358,8 +355,13 @@ export async function pickSeat(position: number) {
         throw new Error(`Game already started`)
     }
     // Check if player is already seated
-    if (gameRoom.seating && gameRoom.seating.includes(multiplayer.selfUser.permId)) {
+    if (isSeated(gameRoom, multiplayer.selfUser.permId)) {
         throw new Error(`You are already seated`)
+    }
+    // Only players get a turn order position : a judge or a spectator in the seating
+    // would keep isSeatingReady false forever.
+    if (getRoomSeat(gameRoom, multiplayer.selfUser.permId) != RoomSeat.Player) {
+        throw new Error(`Only players can pick a seat`)
     }
     // Initialize seating if needed
     // Replace EMPTY marker with actual seating array if this is the first pick
@@ -389,10 +391,12 @@ async function onReceivePickSeat(message: PickSeatMessage) {
     // Cannot pick seat if the game is already started
     // Don't apply our own seat picks (already applied locally)
     // Validate that the player isn't already seated
+    // Only players get a turn order position
     if (
         gameRoom.isStarted ||
         message.permId === multiplayer.selfUser.permId ||
-        (gameRoom.seating && gameRoom.seating.includes(message.permId))
+        isSeated(gameRoom, message.permId) ||
+        getRoomSeat(gameRoom, message.permId) != RoomSeat.Player
     ) {
         return
     }
@@ -420,23 +424,10 @@ export async function leaveSeat() {
         throw new Error(`Game already started`)
     }
     // Check if player is seated
-    if (
-        !gameRoom.seating ||
-        gameRoom.seating == EMPTY_SEATING ||
-        !gameRoom.seating.includes(multiplayer.selfUser.permId)
-    ) {
+    if (!isSeated(gameRoom, multiplayer.selfUser.permId)) {
         throw new Error(`You are not seated`)
     }
-    // Remove player from the seating array
-    const index = gameRoom.seating.indexOf(multiplayer.selfUser.permId)
-    if (index > -1) {
-        gameRoom.seating.splice(index, 1)
-    }
-
-    // If seating is now empty, restore EMPTY marker (RTDB wipes empty arrays)
-    if (gameRoom.seating.length === 0) {
-        gameRoom.seating = EMPTY_SEATING
-    }
+    removeFromSeating(gameRoom, multiplayer.selfUser.permId)
 
     // Broadcast the seat leave to all players
     await broadcastLeaveSeat(multiplayer.selfUser.permId)
@@ -461,22 +452,80 @@ async function onReceiveLeaveSeat(message: LeaveSeatMessage) {
     if (
         gameRoom.isStarted ||
         message.permId === multiplayer.selfUser.permId ||
-        !gameRoom.seating ||
-        gameRoom.seating == EMPTY_SEATING ||
-        !gameRoom.seating.includes(message.permId)
+        !isSeated(gameRoom, message.permId)
     ) {
         return
     }
 
-    // Remove player from the seating array
-    const index = gameRoom.seating.indexOf(message.permId)
-    if (index > -1) {
-        gameRoom.seating.splice(index, 1)
+    removeFromSeating(gameRoom, message.permId)
+}
+
+/** Room Seat Messages */
+
+/**
+ * Move ourselves to another room seat ( player / judge / spectator ).
+ *
+ * Mutate locally then broadcast, like pickSeat : only the host persists the room to
+ * RTDB, so a local mutation alone would be wiped by the next host broadcast.
+ */
+export async function setSelfRoomSeat(seat: RoomSeat) {
+    const multiplayer = useMultiplayerStore()
+    const gameRoom = ensureGameRoom()
+    const permId = multiplayer.selfUser.permId
+
+    // Cannot change seat on a game that's already started
+    if (gameRoom.isStarted) {
+        throw new Error(`Game already started`)
+    }
+    // Already there : nothing to do
+    if (getRoomSeat(gameRoom, permId) == seat) {
+        return
+    }
+    if (!canTakeRoomSeat(gameRoom, permId, seat)) {
+        throw new Error(`You cannot take this seat`)
     }
 
-    // If seating is now empty, restore EMPTY marker (RTDB wipes empty arrays)
-    if (gameRoom.seating.length === 0) {
-        gameRoom.seating = EMPTY_SEATING
+    multiplayer.setGameRoomSeat(permId, seat)
+
+    // Judges and spectators never gate the game start
+    if (seat != RoomSeat.Player) {
+        multiplayer.selfIsReady = false
+    }
+
+    // Broadcast the seat change to all users
+    await broadcastSetRoomSeat(permId, seat)
+}
+
+async function broadcastSetRoomSeat(permId: PermanentId, seat: RoomSeat) {
+    const gameRoom = ensureGameRoom()
+    if (gameRoom.isStarted) {
+        throw new Error(`Game already started`)
+    }
+    const roomChannel = getRoomChannel()
+    await ablyPublish(roomChannel, MultiplayerMessageType.SetRoomSeat, { permId, seat })
+}
+
+async function onReceiveSetRoomSeat(message: SetRoomSeatMessage) {
+    const multiplayer = useMultiplayerStore()
+    const gameRoom = ensureGameRoom()
+
+    // Cannot change seat if the game is already started
+    // Don't apply our own seat changes (already applied locally)
+    // Validate the seat is still available. Two users racing for the last player seat
+    // both pass locally, but the host arbitrates here and its broadcast wins.
+    if (
+        gameRoom.isStarted ||
+        message.permId === multiplayer.selfUser.permId ||
+        !canTakeRoomSeat(gameRoom, message.permId, message.seat)
+    ) {
+        return
+    }
+
+    multiplayer.setGameRoomSeat(message.permId, message.seat)
+
+    // Special-case : host is not connected anymore, and can't broadcast with its watcher.
+    if (!multiplayer.isHostConnected) {
+        broadcastGameRoom(gameRoom)
     }
 }
 
@@ -618,8 +667,7 @@ function alertReconnect(gameRoom: GameRoom, user: User) {
     // the game is started AND he's seated AND we alerted for the disconnection
     if (
         gameRoom.isStarted &&
-        gameRoom.seating &&
-        gameRoom.seating.includes(user.permId) &&
+        isSeated(gameRoom, user.permId) &&
         last_disconnect_alert[user.permId]
     ) {
         bus.alertSuccess(`${user.name} has reconnected into the game room.`)

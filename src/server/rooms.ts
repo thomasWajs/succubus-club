@@ -4,9 +4,13 @@ import {
     JoinRoomMessage,
     MultiplayerMessageType,
     PermanentId,
+    RollSeatingMessage,
     RoomId,
+    RoomSeat,
     ScsServerMessage,
+    ScsSetupGameMessage,
 } from '@/shared/types/multiplayer.ts'
+import { MAX_PLAYERS } from '@/shared/const/model.ts'
 import { send, sendError } from './wsServer.ts'
 import { ConnectionInfo, Room, SERVER_PERM_ID } from './types.ts'
 import logger from './logger.ts'
@@ -75,7 +79,7 @@ export function ensureRoom(roomId: RoomId | null): Room {
 /**
  * Get or create a room
  */
-export function getOrCreateRoom(roomId: RoomId, passwordHash: string): Room {
+export function getOrCreateRoom(roomId: RoomId, passwordHash: string, hostId: PermanentId): Room {
     let room = rooms.get(roomId)
     if (!room) {
         // This should not happen, except from malicious actor
@@ -83,9 +87,13 @@ export function getOrCreateRoom(roomId: RoomId, passwordHash: string): Room {
             throw new Error('RoomId already in use, please generate another one')
         }
 
+        // The first user to join is the host : createGameRoom joins SCS before
+        // publishing the room, so nobody else can know the roomId yet.
         room = {
             id: roomId,
+            hostId,
             players: new Set(),
+            seats: {},
             passwordHash,
             seating: EMPTY_SEATING,
             gameId: null,
@@ -188,7 +196,7 @@ export async function handleJoinRoom(connection: ConnectionInfo, message: JoinRo
     if (savedGameId) {
         room = loadSavedGameRoom(roomId, savedGameId)
     } else {
-        room = getOrCreateRoom(roomId, passwordHash)
+        room = getOrCreateRoom(roomId, passwordHash, connection.permId)
     }
 
     // Ensure players knows the password when there's one
@@ -247,13 +255,29 @@ export async function handleDeck(connection: ConnectionInfo, message: DeckMessag
 /**
  * Handle roll seating
  */
-export async function handleRollSeating(connection: ConnectionInfo) {
+export async function handleRollSeating(connection: ConnectionInfo, message: RollSeatingMessage) {
     const room = ensureRoom(connection.roomId)
     const user = getUser(connection.permId)
 
+    // Only the host rolls the seating. The client checks this too, but the candidates
+    // come from the client, so a peer could otherwise dictate who sits at the table.
+    if (connection.permId != room.hostId) {
+        sendError(connection.webSocket, 'Only the host can roll the seating')
+        return
+    }
+
+    // room.players is every connected websocket, judges and spectators included, so the
+    // client declares who the players are.
+    const declared = message.candidates
+    const candidates = declared.filter(permId => room.players.has(permId))
+
+    if (candidates.length == 0 || candidates.length > MAX_PLAYERS) {
+        sendError(connection.webSocket, 'Invalid players to seat')
+        return
+    }
+
     // Generate random seating from players
-    const players = Array.from(room.players)
-    const seating = shuffleArray(players)
+    const seating = shuffleArray(candidates)
 
     // Store the seating in the room
     room.seating = seating
@@ -301,11 +325,28 @@ function setupNewGame(room: Room): GameState {
         }
     }
 
+    // The declared seats must agree with the seating, else the host is desynced
+    const seatedPlayers = Object.entries(room.seats)
+        .filter(([, seat]) => seat == RoomSeat.Player)
+        .map(([permId]) => permId)
+    if (seatedPlayers.toSorted().join() != [...room.seating].toSorted().join()) {
+        throw new Error(`Declared player seats do not match the seating`)
+    }
+
     return createGameState(room)
 }
 
-export async function handleSetupGame(connection: ConnectionInfo) {
+export async function handleSetupGame(connection: ConnectionInfo, message: ScsSetupGameMessage) {
     const room = ensureRoom(connection.roomId)
+
+    // Only the host launches the game, and so only the host declares the seats.
+    // Without this, any user in the room could grant themselves a judge's vision.
+    if (connection.permId != room.hostId) {
+        sendError(connection.webSocket, 'Only the host can launch the game')
+        return
+    }
+
+    room.seats = message.seats
     const gameState = room.isSavedGame ? setupSavedGame(room) : setupNewGame(room)
 
     broadcastTailored(room.id, permId => ({

@@ -5,12 +5,19 @@ import {
     GameRoom,
     PermanentId,
     RoomId,
+    RoomSeat,
     ScsStatus,
     User,
     UserDecks,
     VectorClockVersion,
     VersioningId,
 } from '@/shared/types/multiplayer.ts'
+import {
+    applyRoomSeat,
+    getRoomPermIds,
+    getRoomSeat,
+    releaseRoomSeat,
+} from '@/shared/multiplayer/seats.ts'
 import { LamportClock, VectorClock } from '@/shared/multiplayer/clock.ts'
 import { GameMutationId } from '@/shared/state/gameMutations.ts'
 import { fetchAvatar } from '@/client/gateway/user.ts'
@@ -98,21 +105,57 @@ export const useMultiplayerStore = defineStore('multiplayer', {
         },
 
         isHostConnected(): boolean {
-            return this.currentGameRoom?.players.includes(this.currentGameRoom?.hostId) ?? false
+            const gameRoom = this.currentGameRoom
+            return gameRoom ? !!this.users[gameRoom.hostId] : false
         },
         selfIsHost(): boolean {
             return this.currentGameRoom?.hostId == this.selfUser.permId
         },
-        gameRoomUsers(): User[] {
+        // Every user in the room, whatever their seat
+        allGameRoomUsers(): User[] {
+            const gameRoom = this.currentGameRoom
+            if (!gameRoom) {
+                return []
+            }
+            return getRoomPermIds(gameRoom)
+                .map(permId => this.users[permId])
+                .filter(u => u)
+        },
+        // Players only. Everything that gates the game start is built on this.
+        playerUsers(): User[] {
             return (
                 this.currentGameRoom?.players.map(permId => this.users[permId]).filter(u => u) ?? []
             )
         },
-        sortedGameRoomUsers(): User[] {
-            if (!this.currentGameRoom) return []
-            return this.gameRoomUsers.toSorted((u1, u2) => u1.name.localeCompare(u2.name))
+        judgeUsers(): User[] {
+            return (
+                this.currentGameRoom?.judges.map(permId => this.users[permId]).filter(u => u) ?? []
+            )
         },
-        seatedGameRoomUsers(): User[] {
+        spectatorUsers(): User[] {
+            return (
+                this.currentGameRoom?.spectators.map(permId => this.users[permId]).filter(u => u) ??
+                []
+            )
+        },
+        selfRoomSeat(): RoomSeat | null {
+            const gameRoom = this.currentGameRoom
+            return gameRoom ? getRoomSeat(gameRoom, this.selfUser.permId) : null
+        },
+        selfIsPlayer(): boolean {
+            return this.selfRoomSeat == RoomSeat.Player
+        },
+        selfIsJudge(): boolean {
+            return this.selfRoomSeat == RoomSeat.Judge
+        },
+        selfIsSpectator(): boolean {
+            return this.selfRoomSeat == RoomSeat.Spectator
+        },
+        sortedPlayerUsers(): User[] {
+            if (!this.currentGameRoom) return []
+            return this.playerUsers.toSorted((u1, u2) => u1.name.localeCompare(u2.name))
+        },
+        seatedPlayerUsers(): User[] {
             if (
                 !this.currentGameRoom ||
                 !this.isSeatingReady ||
@@ -124,7 +167,7 @@ export const useMultiplayerStore = defineStore('multiplayer', {
             return this.currentGameRoom.seating.map(permId => this.users[permId]).filter(u => u)
         },
 
-        areAllUsersReady(): boolean {
+        areAllPlayerUsersReady(): boolean {
             const gameRoom = this.currentGameRoom
             if (!gameRoom) {
                 return false
@@ -136,7 +179,12 @@ export const useMultiplayerStore = defineStore('multiplayer', {
                     return user?.isReady ?? false
                 })
             }
-            return this.gameRoomUsers.every(user => user.isReady && this.userDecks[user.permId])
+            // every() is true on an empty array : an empty table is never ready,
+            // else we would roll a seating with no player in it.
+            return (
+                this.playerUsers.length > 0 &&
+                this.playerUsers.every(user => user.isReady && this.userDecks[user.permId])
+            )
         },
 
         missingSavedGamePlayers(): boolean {
@@ -149,7 +197,7 @@ export const useMultiplayerStore = defineStore('multiplayer', {
             }
 
             // Check that all competing players have joined the room
-            const playerPermIds = this.gameRoomUsers.map(user => user.permId)
+            const playerPermIds = this.playerUsers.map(user => user.permId)
             return !gameRoom.competingPlayers.every(permId => playerPermIds.includes(permId))
         },
 
@@ -160,12 +208,12 @@ export const useMultiplayerStore = defineStore('multiplayer', {
             }
 
             const seatingPermIds = [...gameRoom.seating].sort()
-            const gameRoomPermIds = this.gameRoomUsers.map(user => user.permId).sort()
+            const gameRoomPermIds = this.playerUsers.map(user => user.permId).sort()
             return seatingPermIds.join('') == gameRoomPermIds.join('')
         },
 
         isRoomReady(): boolean {
-            return this.areAllUsersReady && this.isSeatingReady
+            return this.areAllPlayerUsersReady && this.isSeatingReady
         },
     },
     actions: {
@@ -184,28 +232,16 @@ export const useMultiplayerStore = defineStore('multiplayer', {
             }
         },
 
-        upsertGameRoomPlayer(user: User) {
-            if (this.currentGameRoom && !this.currentGameRoom.players.includes(user.permId)) {
-                this.currentGameRoom.players.push(user.permId)
-            }
-        },
-        removeGameRoomPlayer(user: User) {
+        // Seats are mutually exclusive : always go through these two.
+        setGameRoomSeat(permId: PermanentId, seat: RoomSeat) {
             if (this.currentGameRoom) {
-                this.currentGameRoom.players = this.currentGameRoom.players.filter(
-                    permId => permId !== user.permId,
-                )
+                applyRoomSeat(this.currentGameRoom, permId, seat)
             }
         },
-        upsertGameRoomSpectator(user: User) {
-            if (this.currentGameRoom && !this.currentGameRoom.spectators.includes(user.permId)) {
-                this.currentGameRoom.spectators.push(user.permId)
-            }
-        },
-        removeGameRoomSpectator(user: User) {
+        // A disconnecting user only gives up a player seat : see releaseRoomSeat
+        releaseGameRoomSeat(permId: PermanentId) {
             if (this.currentGameRoom) {
-                this.currentGameRoom.spectators = this.currentGameRoom.spectators.filter(
-                    permId => permId !== user.permId,
-                )
+                releaseRoomSeat(this.currentGameRoom, permId)
             }
         },
     },

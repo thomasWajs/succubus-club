@@ -41,6 +41,18 @@ export enum ScsStatus {
 }
 export const EMPTY_SEATING = 'EMPTY_SEATING'
 export type Seating = PermanentId[] | typeof EMPTY_SEATING
+
+// Where a user sits in a game room, before the game starts.
+// Beware : 'seat' also means a turn order position elsewhere ( Seating, pickSeat, leaveSeat ).
+// Always keep the 'Room' prefix for this notion.
+export enum RoomSeat {
+    Player = 'Player',
+    Judge = 'Judge',
+    Spectator = 'Spectator',
+}
+
+export type RoomSeats = Record<PermanentId, RoomSeat>
+
 export type GameRoom = {
     id: RoomId
     name: string
@@ -56,6 +68,7 @@ export type GameRoom = {
     competingPlayers: PermanentId[] // Non-ousted players, in the order of the turn
     seating?: Seating // permanentId in the order of the seating
     spectators: PermanentId[] // permanentId in arbitrary order
+    judges: PermanentId[] // permanentId in arbitrary order
 }
 
 /**
@@ -222,6 +235,7 @@ export enum MultiplayerMessageType {
     RollSeating = 'RollSeating',
     PickSeat = 'PickSeat',
     LeaveSeat = 'LeaveSeat',
+    SetRoomSeat = 'SetRoomSeat',
 
     SetupGame = 'SetupGame',
     LaunchGame = 'LaunchGame',
@@ -250,6 +264,11 @@ export type PickSeatMessage = {
 
 export type LeaveSeatMessage = {
     permId: PermanentId
+}
+
+export type SetRoomSeatMessage = {
+    permId: PermanentId
+    seat: RoomSeat
 }
 
 export type GameMutationMessage = {
@@ -287,6 +306,7 @@ export type AblyMessage =
     | AblyLaunchGameMessage
     | PickSeatMessage
     | LeaveSeatMessage
+    | SetRoomSeatMessage
     | GameMutationMessage
     | AblyRequestResyncMessage
     | AblyGameStateMessage
@@ -321,10 +341,15 @@ export type LeaveRoomMessage = {
 
 export type RollSeatingMessage = {
     type: MultiplayerMessageType.RollSeating
+    // Validated server-side against room.players.
+    candidates: PermanentId[]
 }
 
 export type ScsSetupGameMessage = {
     type: MultiplayerMessageType.SetupGame
+    // The seats, as held by the host. Seats are frozen once the game is started,
+    // so this launch-time map stays true for the whole game.
+    seats: RoomSeats
 }
 
 export type ScsGameMutationMessage = GameMutationMessage & {

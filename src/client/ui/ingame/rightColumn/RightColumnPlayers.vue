@@ -12,6 +12,7 @@
             >
         </div>
         <div v-if="!isCollapsed">
+            <div class="separator">Players</div>
             <div
                 v-for="player in gameState.players"
                 :key="player.oid"
@@ -63,20 +64,32 @@
                 </span>
             </div>
 
-            <template
-                v-if="gameState.gameType == GameType.Multiplayer && spectatorUsers.length > 0"
-            >
-                <div class="separator" />
-                <div
-                    v-for="spectator in spectatorUsers"
-                    :key="spectator.permId"
-                    class="player spectator"
-                >
-                    <span class="player-name">
-                        {{ spectator.name }}
-                    </span>
-                    <span class="role-icon spectator-icon">👁️</span>
-                </div>
+            <template v-if="gameState.gameType == GameType.Multiplayer">
+                <template v-if="multiplayer.judgeUsers.length > 0">
+                    <div class="separator">Judges</div>
+                    <div
+                        v-for="judge in multiplayer.judgeUsers"
+                        :key="judge.permId"
+                        class="player judge"
+                    >
+                        <span class="player-name">
+                            {{ judge.name }}
+                        </span>
+                    </div>
+                </template>
+
+                <template v-if="multiplayer.spectatorUsers.length > 0">
+                    <div class="separator">Spectators</div>
+                    <div
+                        v-for="spectator in multiplayer.spectatorUsers"
+                        :key="spectator.permId"
+                        class="player spectator"
+                    >
+                        <span class="player-name">
+                            {{ spectator.name }}
+                        </span>
+                    </div>
+                </template>
             </template>
         </div>
     </div>
@@ -108,21 +121,11 @@ const disconnectedPlayers = computed(() => {
     )
 })
 
-const spectatorUsers = computed(() => {
-    if (!multiplayer.currentGameRoom) {
-        return []
-    }
-    return multiplayer.currentGameRoom.spectators
-        .map(permId => multiplayer.users[permId])
-        .filter(user => user !== undefined)
-})
-
 const connectedUsersCount = computed(() => {
     const playersCount = Object.values(gameState.players).filter(
         player => !disconnectedPlayers.value[player.oid],
     ).length
-    const spectatorsCount = spectatorUsers.value.length
-    return playersCount + spectatorsCount
+    return playersCount + multiplayer.judgeUsers.length + multiplayer.spectatorUsers.length
 })
 </script>
 
@@ -157,10 +160,26 @@ $window-right: 340px;
         }
     }
 
+    // A labelled rule : the two lines flank the centered title.
+    // Both are empty, so flex: 1 splits the space exactly in half.
     .separator {
-        height: 1px;
-        background: $mist-grey;
+        display: flex;
+        align-items: center;
+        gap: 6px;
         margin: 4px 0;
+
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: $bone-grey;
+
+        &::before,
+        &::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: $mist-grey;
+        }
     }
 
     .player {

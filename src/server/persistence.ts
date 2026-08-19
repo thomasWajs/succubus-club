@@ -6,6 +6,7 @@ import logger from './logger.ts'
 import { Room } from './types.ts'
 import {
     RoomId,
+    RoomSeats,
     Seating,
     SerializedGameState,
     UserDecks,
@@ -27,7 +28,9 @@ const DB_PATH = process.env.SCS_DB_PATH || '../../data/game-server.db'
 type RoomRow = {
     id: string
     passwordHash: string
+    hostId: string
     userDecks: string
+    seats: string
     seating: string
     gameId: string
     globalClock: string
@@ -86,7 +89,9 @@ export function initTables() {
         CREATE TABLE IF NOT EXISTS rooms (
             id TEXT PRIMARY KEY,
             passwordHash TEXT NOT NULL,
+            hostId TEXT NOT NULL,
             userDecks TEXT NOT NULL,
+            seats TEXT NOT NULL,
             seating TEXT NOT NULL,
             gameId TEXT,
             globalClock TEXT NOT NULL,
@@ -126,11 +131,13 @@ export function saveRoom(room: Room): void {
         withDb(db => {
             const now = Date.now()
             const stmt = db.prepare(`
-                INSERT INTO rooms (id, passwordHash, userDecks, seating, gameId, globalClock, objectClocks, gameState, history, createdAt, updatedAt)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO rooms (id, passwordHash, hostId, userDecks, seats, seating, gameId, globalClock, objectClocks, gameState, history, createdAt, updatedAt)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                     passwordHash = excluded.passwordHash,
+                    hostId = excluded.hostId,
                     userDecks = excluded.userDecks,
+                    seats = excluded.seats,
                     seating = excluded.seating,
                     gameId = excluded.gameId,
                     globalClock = excluded.globalClock,
@@ -144,7 +151,9 @@ export function saveRoom(room: Room): void {
             stmt.run(
                 room.id,
                 room.passwordHash,
+                room.hostId,
                 JSON.stringify(room.userDecks),
+                JSON.stringify(room.seats),
                 JSON.stringify(room.seating),
                 room.gameId,
                 JSON.stringify(room.globalClock),
@@ -180,7 +189,9 @@ function loadRoomRow(row: RoomRow): Room {
         id: row.id,
         players: new Set(), // Will be repopulated as players reconnect
         passwordHash: row.passwordHash,
+        hostId: row.hostId,
         userDecks: JSON.parse(row.userDecks) as UserDecks,
+        seats: JSON.parse(row.seats) as RoomSeats,
         seating: JSON.parse(row.seating) as Seating,
         gameId: row.gameId,
         globalClock,

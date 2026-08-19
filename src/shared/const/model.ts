@@ -158,6 +158,9 @@ export const MIN_LIB_SIZE = 60
 export const MAX_LIB_SIZE = 90
 export const MIN_CRYPT_SIZE = 12
 
+// Coupled to ORDERED_PLAYER_COLORS, which setupMultiplayerGameState indexes by seat
+export const MAX_PLAYERS = 5
+
 export const DEFAULT_MPA = 1 // masterPhaseActions
 export const DEFAULT_TRANSFERS = 4
 export const DEFAULT_DPA = 1 // discardPhaseActions

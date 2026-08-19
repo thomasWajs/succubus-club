@@ -444,7 +444,9 @@ if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
 .lobby-content {
     display: grid;
     grid-template-columns: 300px 1fr;
-    grid-template-rows: 1fr 380px;
+    // The current room row grows with its content ( judges and spectators add rows ),
+    // but never shrinks below the height it needs to look right when empty.
+    grid-template-rows: 1fr minmax(380px, auto);
     grid-template-areas:
         'players-sidebar rooms-section'
         'current-room current-room';

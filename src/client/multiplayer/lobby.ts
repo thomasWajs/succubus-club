@@ -230,6 +230,7 @@ async function syncGameRooms(snapshot: DataSnapshot) {
         gameRoom.players ??= []
         gameRoom.competingPlayers ??= []
         gameRoom.spectators ??= []
+        gameRoom.judges ??= []
 
         gameRooms[roomId] = gameRoom
     }
@@ -279,6 +280,7 @@ export async function createGameRoom(
         players: [multiplayer.selfUser.permId],
         competingPlayers: savedGame ? savedGame.competingPlayers : [],
         spectators: [],
+        judges: [],
     }
     // Don't try to coalesce inline with 'seating: savedGame?.seating',
     // as firebase refuse to receive undefined properties

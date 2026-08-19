@@ -3,6 +3,7 @@
  */
 
 import { useGameStateStore } from '@/client/store/gameState.ts'
+import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
 import { Card, LibraryCard } from '@/shared/model/Card.ts'
 import * as cardVisibility from '@/shared/state/cardVisibility.ts'
@@ -11,9 +12,23 @@ import { ACTION_TYPES, LibraryCardType, TurnPhase } from '@/shared/const/model.t
 import { Player } from '@/shared/model/Player.ts'
 import { GameType } from '@/shared/types/state.ts'
 
+/**
+ * A judge oversees the game : they see and peek every card.
+ *
+ * This is an access-control override, not a game rule, so it lives here rather than
+ * in cardVisibility : those functions take a Player, and a judge has none.
+ */
+export function selfIsJudge(): boolean {
+    return useMultiplayerStore().selfIsJudge
+}
+
 export function selfCanSee(card: Card): boolean {
     // Special-case in Pupeteer mode, where the user can see all hands :
     if (card.isIn.hand && useGameStateStore().gameType === GameType.Puppeteer) {
+        return true
+    }
+
+    if (selfIsJudge()) {
         return true
     }
 
@@ -28,6 +43,10 @@ export function selfCanSee(card: Card): boolean {
 export function selfCanSeeOrPeek(card: Card): boolean {
     // Special-case in Pupeteer mode, where the user can see all hands :
     if (card.isIn.hand && useGameStateStore().gameType === GameType.Puppeteer) {
+        return true
+    }
+
+    if (selfIsJudge()) {
         return true
     }
 
@@ -68,5 +87,8 @@ export function selfCanPlay(card: LibraryCard): boolean {
 }
 
 export function selfSecureName(target: Card | Player): string {
+    if (selfIsJudge()) {
+        return target.name
+    }
     return secureName(target, usePlayersStore().selfPlayer)
 }

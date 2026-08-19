@@ -122,11 +122,11 @@ wsServer.on('connection', (webSocket: WebSocket, req) => {
                     break
 
                 case MultiplayerMessageType.RollSeating:
-                    await handleRollSeating(connection)
+                    await handleRollSeating(connection, message)
                     break
 
                 case MultiplayerMessageType.SetupGame:
-                    await handleSetupGame(connection)
+                    await handleSetupGame(connection, message)
                     break
 
                 case MultiplayerMessageType.GameMutation:

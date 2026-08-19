@@ -1,6 +1,7 @@
 import {
     PermanentId,
     RoomId,
+    RoomSeats,
     Seating,
     UserDecks,
     VersioningId,
@@ -32,8 +33,10 @@ export type ConnectionInfo = {
 export type Room = {
     id: RoomId
     passwordHash: string // empty string == no password
+    hostId: PermanentId // The user who created the room, and the only one allowed to launch
     userDecks: UserDecks
-    players: Set<PermanentId>
+    players: Set<PermanentId> // Currently connected users, whatever their seat
+    seats: RoomSeats // permId -> seat, declared by the host when launching
     seating: Seating
     gameId: GameId | null
     globalClock: LamportClock

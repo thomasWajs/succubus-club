@@ -18,6 +18,7 @@ import {
 import Ably, { ChannelOptions } from 'ably'
 import { ensureGameRoom, receiveLaunchGame } from '@/client/multiplayer/room.ts'
 import { shuffleArray } from '@/shared/utils.ts'
+import { getSeatingCandidates } from '@/shared/multiplayer/seats.ts'
 import { Communication } from '@/client/multiplayer/communication/index.ts'
 import { useCoreStore } from '@/client/store/core.ts'
 import { fetchGameState, storeGameState } from '@/client/gateway/gameState.ts'
@@ -143,8 +144,11 @@ export const ablyCommunication: Communication = {
 
     rollSeating() {
         const gameRoom = ensureGameRoom()
+        // Judges and spectators never get a seat.
+        // getSeatingCandidates returns a new array : shuffleArray shuffles in place,
+        // so seating must not alias gameRoom.players.
         // Will be propagated through the gameRoom watcher
-        gameRoom.seating = shuffleArray<string>(gameRoom.players)
+        gameRoom.seating = shuffleArray(getSeatingCandidates(gameRoom))
     },
 
     async launchGame(gameRoom: GameRoom) {

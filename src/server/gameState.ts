@@ -6,9 +6,13 @@ import {
     EMPTY_SEATING,
     MultiplayerMessageType,
     MutationSyncMode,
+    PackedGameMutation,
     PermanentId,
+    RoomSeat,
+    RoomSeats,
     ScsGameMutationMessage,
     ScsGameStateMessage,
+    SerializedCard,
     ScsMutationRejectedMessage,
     ScsRandomResultRequestMessage,
     ScsShuffleCardRegionMessage,
@@ -20,9 +24,11 @@ import { setupMultiplayerGameState } from '@/shared/state/setup.ts'
 import { getUser } from './users.ts'
 import { KnownCards } from '@/shared/types/state.ts'
 import { anyoneCanSee, canSeeOrPeek } from '@/shared/state/cardVisibility.ts'
+import { UNKNOWN_MINION_ATTRS, UNKNOWN_VAMPIRE_ATTRS } from '@/shared/model/Card.ts'
 import {
     hashObject,
     packGameMutation,
+    rehydrateCard,
     serializeGameState,
     serializeHistory,
     unpackGameMutation,
@@ -98,15 +104,72 @@ export function getPlayer(gameState: GameState, permId: PermanentId) {
 /**
  * In a game state, get cards that are known by a given user
  */
-export function getKnownCards(gameState: GameState, permId: PermanentId): KnownCards {
+export function getKnownCards(
+    gameState: GameState,
+    permId: PermanentId,
+    seats: RoomSeats,
+): KnownCards {
     const userKnownCards: KnownCards = {}
+    // A judge oversees the game : they see and peek every card
+    const isJudge = seats[permId] == RoomSeat.Judge
     const player = getPlayer(gameState, permId)
     for (const card of Object.values(gameState.cards)) {
-        if (card.krcgId && (anyoneCanSee(card) || (player && canSeeOrPeek(player, card)))) {
+        if (
+            card.krcgId &&
+            (isJudge || anyoneCanSee(card) || (player && canSeeOrPeek(player, card)))
+        ) {
             userKnownCards[card.oid] = card.krcgId
         }
     }
     return userKnownCards
+}
+
+/**
+ * Hide the attributes of a card the user doesn't know, to avoid leaking info on hidden
+ * cards. Does nothing for a card they know.
+ *
+ * A crypt card keeps the UNKNOWN markers : everyone can see it's a crypt card, and
+ * that's exactly the state CryptCard builds by default. It also has to keep them, as
+ * initMinionAttrs only refills attrs that hold the marker.
+ * A library card drops them entirely : being an ally is hidden information, and
+ * LibraryCard.initMinionAttrs recreates them on reveal.
+ */
+function redactUnknownCard(card: SerializedCard, knownCards: KnownCards) {
+    if (card.oid in knownCards) {
+        return
+    }
+
+    if (card.isCrypt) {
+        card.minionAttrs = UNKNOWN_MINION_ATTRS
+        card.vampireAttrs = UNKNOWN_VAMPIRE_ATTRS
+    } else {
+        delete card.minionAttrs
+        delete card.vampireAttrs
+    }
+}
+
+/**
+ * Redact a mutation before broadcasting it to one user.
+ *
+ * Mutations normally reference cards by oid, but the shuffle mutation embeds them by
+ * value ( see handleShuffleCardRegion ), so its params leak the attrs of every shuffled
+ * card, in the new order, to everyone. They must be redacted per recipient.
+ */
+function redactPackedMutation(
+    gameMutation: PackedGameMutation,
+    knownCards: KnownCards,
+): PackedGameMutation {
+    if (!Array.isArray(gameMutation.p.shuffledCards)) {
+        return gameMutation
+    }
+
+    // Deep copy : every recipient gets their own redaction of the same source cards
+    const redacted = JSON.parse(JSON.stringify(gameMutation)) as PackedGameMutation
+    for (const card of redacted.p.shuffledCards as unknown as SerializedCard[]) {
+        redactUnknownCard(card, knownCards)
+    }
+
+    return redacted
 }
 
 /**
@@ -117,18 +180,20 @@ export function getSerializedGame(
     room: Room,
     permId: PermanentId,
 ): SerializedMultiplayerGame {
-    const knownCards = getKnownCards(gameState, permId)
+    const knownCards = getKnownCards(gameState, permId, room.seats)
     const userGameState = { ...gameState, knownCards } as GameState
     const serializedGameState = serializeGameState(userGameState)
 
-    // Hide minionAttrs and vampireAttrs to avoid leaking info on hidden cards to the players
+    // Hide the attrs of hidden cards.
+    // When setting up the game, each users know only its own crypt and starting hand.
+    // When resyncing, he will know more.
+    // staleCards matters as much as cards : shuffling keeps the same card object in both,
+    // so a stale entry carries the *new* oid of a shuffled card.
     for (const card of Object.values(serializedGameState.cards)) {
-        // When setting up the game, each users know only its own crypt and starting hand.
-        // When resyncing, he will know more.
-        if (!(card.oid in knownCards)) {
-            delete card.minionAttrs
-            delete card.vampireAttrs
-        }
+        redactUnknownCard(card, knownCards)
+    }
+    for (const card of Object.values(serializedGameState.staleCards)) {
+        redactUnknownCard(card, knownCards)
     }
 
     const objectClocks = Object.fromEntries(
@@ -239,8 +304,12 @@ export async function handleGameMutation(
 
         // Broadcast mutation to all players in the room
         broadcastTailored(room.id, permId => {
-            const knownCards = getKnownCards(room.gameState, permId)
-            return { ...message, knownCards }
+            const knownCards = getKnownCards(room.gameState, permId, room.seats)
+            return {
+                ...message,
+                gameMutation: redactPackedMutation(message.gameMutation, knownCards),
+                knownCards,
+            }
         })
     } catch (error) {
         logger.error(`Error applying mutation: ${error}`)
@@ -287,8 +356,17 @@ export async function handleShuffleCardRegion(
             newOidArray.push(newOid)
             const card = gameState.cards[oldOid]
             if (card) {
-                // Store for history deserialization
-                gameState.staleCards[oldOid] = card
+                // Store a snapshot for history deserialization, under the old oid.
+                // It has to be a separate object holding the old oid : the live card is
+                // about to get the new one, and staleCards is keyed by card.oid on
+                // rehydration. Keeping the live card here would both alias the history
+                // to a mutating object, and land under the new oid on the clients.
+                // This mirrors what the shuffle mutation does client-side.
+                rehydrateCard(
+                    gameState,
+                    JSON.parse(JSON.stringify(card)) as SerializedCard,
+                    'staleCards',
+                )
                 // Update the card's oid
                 card.oid = newOid
                 // Move the card to the new key
