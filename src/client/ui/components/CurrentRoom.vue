@@ -222,8 +222,7 @@
                 </template>
             </div>
 
-            <!-- Move ourselves between the table, the judge seat and the sidelines.
-                 Sits at the right of the tiles. -->
+            <!-- Move ourselves between the table, the judge seat and the sidelines. Sits at the right of the tiles. -->
             <div
                 v-if="canChangeRoomSeat"
                 class="room-seat-picker"
