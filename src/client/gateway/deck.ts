@@ -6,19 +6,47 @@ import { Deck, DeckList } from '@/shared/types/gateway.ts'
 import { isCryptId } from '@/shared/model/Card.ts'
 import { importTextDeck } from '@/client/gateway/importTextDeck.ts'
 
+type UrlDeckSource =
+    | typeof DeckSource.Vdb
+    | typeof DeckSource.VtesDecks
+    | typeof DeckSource.Amaranth
+
+const URL_DECK_ENDPOINTS: Record<UrlDeckSource, string> = {
+    [DeckSource.Vdb]: KRCG_API_ENDPOINTS.vdb,
+    [DeckSource.VtesDecks]: KRCG_API_ENDPOINTS.vtesdecks,
+    [DeckSource.Amaranth]: KRCG_API_ENDPOINTS.amaranth,
+}
+
+export function isUrlDeck(source: DeckSource): source is UrlDeckSource {
+    return source in URL_DECK_ENDPOINTS
+}
+
+async function updateUrlDeck(deck: DbDeck) {
+    if (!isUrlDeck(deck.source)) {
+        throw new Error(`Deck source "${deck.source}" cannot be updated`)
+    }
+    const krcgEndpoint = URL_DECK_ENDPOINTS[deck.source]
+
+    const freshDeck = await fetchFromDeckBuilder(krcgEndpoint, deck.sourceValue)
+    await db.decks.update(deck.id, { cards: freshDeck.cards })
+    const updatedDeck = await DbDeck.get(deck.id)
+    if (!updatedDeck) {
+        throw new Error('Error while refreshing the deck')
+    }
+    return updatedDeck
+}
+
 export async function getOrImportDeck(
     source: DeckSource,
     sourceId: string,
     importer: () => Promise<Deck>,
-    forceReimport = false,
 ) {
     let dbDeck = await db.decks
         .filter(deck => deck.source === source && deck.sourceValue === sourceId)
         .first()
 
-    if (forceReimport && dbDeck) {
-        dbDeck.delete()
-        dbDeck = undefined
+    if (dbDeck && isUrlDeck(source)) {
+        return await updateUrlDeck(dbDeck)
     }
 
     if (!dbDeck) {
@@ -36,34 +64,17 @@ export async function selectDeck(deck: DbDeck) {
     core.selfDeck = deck
 }
 
-export async function getOrImportFromDeckBuilder(
-    deckSource: DeckSource,
-    krcgEndpoint: string,
-    url: string,
-) {
-    const dbDeck = await getOrImportDeck(
-        deckSource,
-        url,
-        () => fetchFromDeckBuilder(krcgEndpoint, url),
-        true,
+export async function getOrImportFromDeckBuilder(deckSource: UrlDeckSource, url: string) {
+    const krcgEndpoint = URL_DECK_ENDPOINTS[deckSource]
+    const dbDeck = await getOrImportDeck(deckSource, url, () =>
+        fetchFromDeckBuilder(krcgEndpoint, url),
     )
     await selectDeck(dbDeck)
 }
 
-export async function getOrImportVdb(vdbUrl: string) {
-    await getOrImportFromDeckBuilder(DeckSource.Vdb, KRCG_API_ENDPOINTS.vdb, vdbUrl)
-}
-
-export async function getOrImportVtesdecks(vtesdecksUrl: string) {
-    await getOrImportFromDeckBuilder(
-        DeckSource.VtesDecks,
-        KRCG_API_ENDPOINTS.vtesdecks,
-        vtesdecksUrl,
-    )
-}
-
-export async function getOrImportAmaranth(amaranthUrl: string) {
-    await getOrImportFromDeckBuilder(DeckSource.Amaranth, KRCG_API_ENDPOINTS.amaranth, amaranthUrl)
+export async function refreshDeck(deck: DbDeck) {
+    const updatedDeck = await updateUrlDeck(deck)
+    await selectDeck(updatedDeck)
 }
 
 export async function getOrImportText(deckText: string) {

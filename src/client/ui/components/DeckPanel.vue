@@ -84,6 +84,14 @@
                             </div>
                             <div class="deck-actions">
                                 <button
+                                    v-if="isUrlDeck(deck.source)"
+                                    class="action-btn refresh-btn"
+                                    title="Re-fetch this deck from its source URL"
+                                    @click="refreshFromHistory(deck as DbDeck)"
+                                >
+                                    Refresh
+                                </button>
+                                <button
                                     v-if="editingDeckId === deck.id"
                                     class="action-btn ok-btn"
                                     @click="saveEdit(deck as DbDeck)"
@@ -371,16 +379,16 @@ import { useBusStore } from '@/client/store/bus.ts'
 import DeckViewer from '@/client/ui/components/DeckViewer.vue'
 import TopPanel from '@/client/ui/components/TopPanel.vue'
 import {
-    getOrImportAmaranth,
+    getOrImportFromDeckBuilder,
     getOrImportPrecon,
     getOrImportText,
-    getOrImportVdb,
-    getOrImportVtesdecks,
+    isUrlDeck,
+    refreshDeck,
     selectDeck,
     validateDeckList,
 } from '@/client/gateway/deck.ts'
 import { useCoreStore } from '@/client/store/core.ts'
-import { db, DbDeck } from '@/client/gateway/db.ts'
+import { db, DbDeck, DeckSource } from '@/client/gateway/db.ts'
 import { gameResources } from '@/shared/registries.ts'
 import { DeckList } from '@/shared/types/gateway.ts'
 
@@ -469,6 +477,10 @@ function loadFromHistory(deck: DbDeck) {
     loadDeck(() => selectDeck(deck))
 }
 
+function refreshFromHistory(deck: DbDeck) {
+    loadDeck(() => refreshDeck(deck))
+}
+
 async function removeFromHistory(deck: DbDeck) {
     await deck.delete()
     loadDeckHistory()
@@ -540,7 +552,7 @@ async function saveDeckName() {
 const vdbDeckUrl = ref('')
 
 async function loadFromVdb() {
-    await loadDeck(() => getOrImportVdb(vdbDeckUrl.value))
+    await loadDeck(() => getOrImportFromDeckBuilder(DeckSource.Vdb, vdbDeckUrl.value))
     vdbDeckUrl.value = ''
 }
 
@@ -549,7 +561,7 @@ async function loadFromVdb() {
 const vtesdecksDeckUrl = ref('')
 
 async function loadFromVtesdecks() {
-    await loadDeck(() => getOrImportVtesdecks(vtesdecksDeckUrl.value))
+    await loadDeck(() => getOrImportFromDeckBuilder(DeckSource.VtesDecks, vtesdecksDeckUrl.value))
     vtesdecksDeckUrl.value = ''
 }
 
@@ -558,7 +570,7 @@ async function loadFromVtesdecks() {
 const amaranthDeckUrl = ref('')
 
 async function loadFromAmaranth() {
-    await loadDeck(() => getOrImportAmaranth(amaranthDeckUrl.value))
+    await loadDeck(() => getOrImportFromDeckBuilder(DeckSource.Amaranth, amaranthDeckUrl.value))
     amaranthDeckUrl.value = ''
 }
 
@@ -776,6 +788,11 @@ $max-width: 1200px;
 
     &.remove-btn {
         background: linear-gradient(135deg, $blood-red 0%, $dark-blood 100%);
+        color: $pearl-grey;
+    }
+
+    &.refresh-btn {
+        background: linear-gradient(135deg, $shadow-purple 0%, $deep-purple 100%);
         color: $pearl-grey;
     }
 
