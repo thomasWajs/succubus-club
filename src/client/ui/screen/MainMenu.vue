@@ -22,7 +22,8 @@
 
         <img
             id="WelcomeSign"
-            src="/assets/welcomeSign.png"
+            :class="{ isAnniversary }"
+            :src="welcomeSignSrc"
             alt="Succubus Club"
         />
 
@@ -102,7 +103,7 @@ import ChangelogModal from '@/client/ui/components/ChangelogModal.vue'
 import TrainBotDisclaimer from '@/client/ui/components/TrainBotDisclaimer.vue'
 import PuppeteerModal from '@/client/ui/components/PuppeteerModal.vue'
 import IdleModal from '@/client/ui/components/IdleModal.vue'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import * as logging from '@/client/logging.ts'
 import { isCrawler, screenBigEnough } from '@/client/game/display.ts'
 import { hasWebGL } from '@/client/initClient.ts'
@@ -114,6 +115,22 @@ const bus = useBusStore()
 const router = useRouter()
 const trainBotDisclaimerRef = ref<InstanceType<typeof TrainBotDisclaimer> | null>(null)
 const puppeteerModalRef = ref<InstanceType<typeof PuppeteerModal> | null>(null)
+
+/**
+ *  Welcome Sign
+ */
+
+const welcomeSignSrc = computed(() =>
+    isAnniversary.value ? '/assets/1year.jpg' : '/assets/welcomeSign.png',
+)
+
+// Show the anniversary illustration from Sept 13th 2026 00:00 until Sept 29th 2026 23:59 UTC (inclusive)
+const isAnniversary = computed(() => {
+    const now = Date.now()
+    const start = Date.UTC(2026, 8, 13, 0, 0, 0)
+    const end = Date.UTC(2026, 8, 29, 23, 59, 59, 999)
+    return now >= start && now <= end
+})
 
 /**
  *  Menu
@@ -249,6 +266,15 @@ const showMobileMessage = !screenBigEnough && !isCrawler()
     @media (max-height: 750px) or (max-width: 720px) {
         height: 300px;
         width: 300px;
+    }
+
+    &.isAnniversary {
+        $fade: radial-gradient(ellipse 65% 85% at center, black 35%, transparent 84%);
+        mask-image: $fade;
+        -webkit-mask-image: $fade;
+
+        height: 450px;
+        width: 450px;
     }
 }
 
