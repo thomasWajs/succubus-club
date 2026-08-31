@@ -343,9 +343,12 @@ const puppetsHands = computed(() => {
     }
 
     const active = players.activePlayer
-    const count = playerSeats.value.length
 
-    if (count <= 1) {
+    if (playerSeats.value.length == 0 || gameState.competingPlayers.length == 0) {
+        return []
+    }
+
+    if (playerSeats.value.length == 1 || gameState.competingPlayers.length == 1) {
         return [
             {
                 player: active,
@@ -358,7 +361,7 @@ const puppetsHands = computed(() => {
         ]
     }
 
-    if (count === 2) {
+    if (playerSeats.value.length === 2) {
         return [
             {
                 player: active.prey,
@@ -381,32 +384,43 @@ const puppetsHands = computed(() => {
 
     // 3+ players: align sections with the three play-area columns
     const rightX = PLAY_AREA_X + PLAY_AREA_WIDTH
-    return [
-        {
-            player: active.prey,
-            x: 0,
-            y: HAND_Y,
-            width: PLAY_AREA_X - PUPPET_HAND_PADDING,
-            height: HAND_HEIGHT,
-            interactive: false,
-        },
-        {
-            player: active,
-            x: PLAY_AREA_X + PUPPET_HAND_PADDING / 2,
-            y: HAND_Y,
-            width: PLAY_AREA_WIDTH - PUPPET_HAND_PADDING,
-            height: HAND_HEIGHT,
-            interactive: true,
-        },
-        {
-            player: active.predator,
-            x: rightX + PUPPET_HAND_PADDING,
-            y: HAND_Y,
-            width: PLAY_AREA_X - PUPPET_HAND_PADDING,
-            height: HAND_HEIGHT,
-            interactive: false,
-        },
-    ]
+
+    const leftSection = {
+        player: active.prey,
+        x: 0,
+        y: HAND_Y,
+        width: PLAY_AREA_X - PUPPET_HAND_PADDING,
+        height: HAND_HEIGHT,
+        interactive: false,
+    }
+    const centerSection = {
+        player: active,
+        x: PLAY_AREA_X + PUPPET_HAND_PADDING / 2,
+        y: HAND_Y,
+        width: PLAY_AREA_WIDTH - PUPPET_HAND_PADDING,
+        height: HAND_HEIGHT,
+        interactive: true,
+    }
+    const rightSection = {
+        player: active.predator,
+        x: rightX + PUPPET_HAND_PADDING,
+        y: HAND_Y,
+        width: PLAY_AREA_X - PUPPET_HAND_PADDING,
+        height: HAND_HEIGHT,
+        interactive: false,
+    }
+
+    // Only two competing players remain, but the ousted players' play areas are
+    // still shown ( keeping count >= 3 ). In that case prey and predator are the
+    // same opponent, so render its hand only once, on the side where its play
+    // area is actually displayed ( left or right column ).
+    if (active.prey && active.prey === active.predator) {
+        const seat = playerSeats.value.find(s => s.player === active.prey)
+        const onRight = seat ? seat.x >= PLAY_AREA_X : true
+        return onRight ? [centerSection, rightSection] : [leftSection, centerSection]
+    }
+
+    return [leftSection, centerSection, rightSection]
 })
 
 // Vertical delimiter X positions: the start X of every section after the first
