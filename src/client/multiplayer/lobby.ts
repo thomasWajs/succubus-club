@@ -1,4 +1,5 @@
 import { watch, WatchHandle } from 'vue'
+import Ably from 'ably'
 import {
     DataSnapshot,
     detachAndReleaseChannel,
@@ -84,8 +85,13 @@ export async function joinLobby() {
 
         // Presence / Users
         await lobbyChannel.presence.enter(multiplayer.selfUser)
-        await syncUsers()
-        await lobbyChannel.presence.subscribe(syncUsers)
+        await seedUsers()
+        // Consume per-member presence deltas ( O(1) each ) instead of rebuilding the
+        // whole user map on every event ( which was O(N) per event, so O(N^2) overall ).
+        await lobbyChannel.presence.subscribe(onPresenceEvent)
+        // Ably replays presence as a SYNC after a non-continuous reconnection, so
+        // reconcile the full set on every (re)attach to recover from continuity loss.
+        lobbyChannel.on('attached', seedUsers)
 
         // Game room list
         rtdbOnValue(rtdbRef(rtdb, GAME_ROOMS_KEY), syncGameRooms)
@@ -138,7 +144,10 @@ export async function leaveMultiplayer() {
  * Presence / Users
  */
 
-async function syncUsers() {
+// Rebuild the whole user map from the full presence set. Used to seed on join and to
+// reconcile on every (re)attach. Kept off the hot path : presence deltas are handled
+// incrementally by onPresenceEvent.
+async function seedUsers() {
     const { multiplayer, lobbyChannel } = await useLobby()
 
     if (lobbyChannel.state != 'attached') {
@@ -149,6 +158,33 @@ async function syncUsers() {
     multiplayer.users = {}
     // Loop to call upsertUser to fetch their avatar
     for (const member of presenceSet) {
+        multiplayer.upsertUser(member.data)
+    }
+    // selfUser is authoritative locally. The remote presence copy lags behind by the
+    // update debounce, so re-assert self last to avoid a stale ready/name flicker.
+    multiplayer.upsertUser(multiplayer.selfUser)
+}
+
+// Handle a single presence delta in O(1), instead of rebuilding the whole map.
+async function onPresenceEvent(member: Ably.PresenceMessage) {
+    const { multiplayer, lobbyChannel } = await useLobby()
+
+    // With echoMessages:false we never receive our own presence events. selfUser is
+    // authoritative locally ( updated optimistically by the watcher ), so ignore self.
+    if (member.clientId == multiplayer.selfUser.permId) {
+        return
+    }
+
+    if (member.action == 'leave' || member.action == 'absent') {
+        // A user may hold several connections ( e.g. multiple tabs ) under one clientId.
+        // Only drop them once their last connection is gone, to avoid removing a user
+        // who is still present through another connection.
+        const remaining = await lobbyChannel.presence.get({ clientId: member.clientId })
+        if (remaining.length == 0) {
+            delete multiplayer.users[member.clientId]
+        }
+    } else {
+        // enter | present | update
         multiplayer.upsertUser(member.data)
     }
 }
