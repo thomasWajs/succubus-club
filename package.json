@@ -30,6 +30,7 @@
         "dev": "vite --config vite/config.dev.mjs",
         "preview": "vite preview",
         "build": "vite build --config vite/config.prod.mjs",
+        "loadtest": "node script/lobbySim.mjs",
         "type:check": "vue-tsc --noEmit",
         "lint:check": "eslint .",
         "lint:fix": "eslint . --fix",
