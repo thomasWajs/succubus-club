@@ -174,6 +174,31 @@ export const DEFAULT_CARD_ATTRS = {
     Strength: 1,
     Hunt: 1,
     Vote: 0,
+    Ballot: 0,
+}
+
+// Number of votes granted by a vampire's title during a referendum.
+// Camarilla, Sabbat, Laibon, Anarch and independent clan titles.
+export const TITLE_VOTES: Record<string, number> = {
+    primogen: 1,
+    prince: 2,
+    justicar: 3,
+    'inner circle': 4,
+    bishop: 1,
+    archbishop: 2,
+    cardinal: 3,
+    regent: 4,
+    baron: 2,
+    magaji: 2,
+    kholo: 2,
+    '1 vote': 1,
+    '2 votes': 2,
+}
+
+// Number of ballots granted by a vampire's title during a referendum.
+// Priscus grant ballots rather than votes.
+export const TITLE_BALLOTS: Record<string, number> = {
+    priscus: 1,
 }
 
 export const PLAYER_NAME_LEGIBLE_LENGTH = 22

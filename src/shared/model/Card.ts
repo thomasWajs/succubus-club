@@ -5,6 +5,8 @@ import {
     DisciplineLevel,
     LibraryCardType,
     Marker,
+    TITLE_BALLOTS,
+    TITLE_VOTES,
 } from '@/shared/const/model.ts'
 import { CRYPT_CARD_IMPLEMENTATIONS } from '@/shared/cardImpl'
 import * as cardVisibility from '@/shared/state/cardVisibility.ts'
@@ -20,7 +22,7 @@ import {
 import { gameResources } from '@/shared/registries.ts'
 
 // Markers for hidden crypt cards in SCS mode :
-// Wwe know they are vampires, but can't know their attrs at init.
+// We know they are vampires, but can't know their attrs at init.
 export const UNKNOWN_MINION_ATTRS = 'UNKNOWN_MINION_ATTRS' as const
 export const UNKNOWN_VAMPIRE_ATTRS = 'UNKNOWN_VAMPIRE_ATTRS' as const
 
@@ -40,6 +42,7 @@ class VampireAttributes {
     sect = ''
     title = ''
     vote = DEFAULT_CARD_ATTRS.Vote
+    ballot = DEFAULT_CARD_ATTRS.Ballot
     //traits: Trait[]
 }
 
@@ -296,6 +299,9 @@ export class CryptCard extends Card {
             this.vampireAttrs.clan = cardResource.clan
             this.vampireAttrs.sect = cardResource.sect
             this.vampireAttrs.title = cardResource.title
+            this.vampireAttrs.vote = TITLE_VOTES[cardResource.title] ?? DEFAULT_CARD_ATTRS.Vote
+            this.vampireAttrs.ballot =
+                TITLE_BALLOTS[cardResource.title] ?? DEFAULT_CARD_ATTRS.Ballot
         }
 
         const implementation = CRYPT_CARD_IMPLEMENTATIONS[this.krcgId]
