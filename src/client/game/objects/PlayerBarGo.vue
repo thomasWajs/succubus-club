@@ -83,6 +83,34 @@
         "
     />
 
+    <!-- Ballots ( only shown when the player has at least one ) -->
+    <Text
+        v-if="aidsEnabled && totalBallots >= 1"
+        :text="totalBallots + ' ballot'"
+        :style="{
+            color: '#000',
+            fontStyle: 'Bold',
+            fontSize: '16px',
+        }"
+        :origin="1"
+        :x="x + width - 130"
+        :y="y + 22"
+    />
+
+    <!-- Votes -->
+    <Text
+        v-if="aidsEnabled"
+        :text="totalVotes + ' vote'"
+        :style="{
+            color: '#000',
+            fontStyle: 'Bold',
+            fontSize: '16px',
+        }"
+        :origin="1"
+        :x="x + width - 60"
+        :y="y + 22"
+    />
+
     <!-- Victory Points -->
     <Text
         :text="player.victoryPoints + ' VP'"
@@ -98,7 +126,7 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted } from 'vue'
+import { computed, onBeforeUnmount, onMounted } from 'vue'
 import Phaser, { GameObjects } from 'phaser'
 import { Polygon, Rectangle, refObj, Text } from 'phavuer'
 import { Colors } from '@/client/colors.ts'
@@ -109,6 +137,7 @@ import { useGameBusStore } from '@/client/store/bus.ts'
 import ButtonGo from '@/client/game/objects/ButtonGo.vue'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
 import { getPlayerColor } from '@/client/game/utils.ts'
+import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
 import Color = Phaser.Display.Color
 
 const { x, y, width, height, color, player } = defineProps<{
@@ -122,8 +151,17 @@ const { x, y, width, height, color, player } = defineProps<{
 
 const players = usePlayersStore()
 const gameBus = useGameBusStore()
+const { aidsEnabled } = useUIFeatures()
 
 const playerColor = getPlayerColor(player).darken(20).desaturate(60)
+
+// Total votes and ballots granted by the player's vampires in the ready region
+const totalVotes = computed(() =>
+    player.vampiresReady.reduce((sum, vampire) => sum + vampire.vampireAttrs.vote, 0),
+)
+const totalBallots = computed(() =>
+    player.vampiresReady.reduce((sum, vampire) => sum + vampire.vampireAttrs.ballot, 0),
+)
 
 const poolDiamond = refObj<GameObjects.Polygon>()
 
