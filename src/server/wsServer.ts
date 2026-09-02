@@ -34,20 +34,65 @@ const PORT = parseInt(process.env.SCS_PORT ?? '3001')
 
 const SETUSER_TIMEOUT_MS = 30_000 // 30 seconds
 
+// Comma-separated list of origins allowed to connect. When empty, all origins are allowed.
+const allowedOrigins = (process.env.SCS_ALLOWED_ORIGINS ?? '')
+    .split(',')
+    .map(origin => origin.trim())
+    .filter(origin => origin.length > 0)
+
+/**
+ * Resolve the client's remote address, honoring reverse-proxy headers.
+ */
+function getRemoteAddress(request: http.IncomingMessage): string {
+    return (
+        (request.headers['x-real-ip'] as string) ??
+        request.headers['x-forwarded-for']?.toString().split(',')[0].trim() ??
+        request.socket.remoteAddress
+    )
+}
+
+/**
+ * Check whether a client origin is allowed to connect.
+ * An allowed entry matches either the full origin (e.g. "http://localhost:666")
+ * or just the hostname (e.g. "localhost"), ignoring scheme and port.
+ */
+function isOriginAllowed(origin: string | undefined): boolean {
+    if (!origin) {
+        return false
+    }
+    if (allowedOrigins.includes(origin)) {
+        return true
+    }
+    try {
+        return allowedOrigins.includes(new URL(origin).hostname)
+    } catch {
+        return false
+    }
+}
+
 // Track all active connections
 const connections = new Map<ClientId, ConnectionInfo>()
 
 const server = http.createServer()
-export let wsServer = new WebSocketServer({ server })
+export let wsServer = new WebSocketServer({
+    server,
+    verifyClient: ({ origin, req }, done) => {
+        if (isOriginAllowed(origin)) {
+            done(true)
+            return
+        }
+
+        const remoteAddress = getRemoteAddress(req)
+        logger.warn(`Rejected connection from ${remoteAddress} - disallowed origin: ${origin}`)
+        done(false, 403, 'Forbidden origin')
+    },
+})
 
 /**
  * Handle new client connections
  */
-wsServer.on('connection', (webSocket: WebSocket, req) => {
-    const remoteAddress =
-        (req.headers['x-real-ip'] as string) ??
-        req.headers['x-forwarded-for']?.toString().split(',')[0].trim() ??
-        req.socket.remoteAddress
+wsServer.on('connection', (webSocket: WebSocket, request) => {
+    const remoteAddress = getRemoteAddress(request)
 
     logger.info('New client connected : ' + remoteAddress)
 
