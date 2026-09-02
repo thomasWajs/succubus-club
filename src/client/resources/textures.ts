@@ -88,13 +88,13 @@ export function loadTexture(scene: Phaser.Scene, cardName: string) {
 
 export function getFrequentCards(): string[] {
     const textures = useCoreStore().phaserGame.textures
-    return ATLASES.flatMap(name => textures.get(name).getFrameNames())
+    return ATLASES.flatMap(name => textures.get(name)?.getFrameNames() ?? [])
 }
 
 export function getAtlasForCard(cardName: string): string | undefined {
     const textures = useCoreStore().phaserGame.textures
     for (const name of ATLASES) {
-        if (textures.get(name).has(cardName)) {
+        if (textures.exists(name) && textures.get(name)?.has(cardName)) {
             return name
         }
     }
