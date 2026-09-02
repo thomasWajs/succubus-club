@@ -129,7 +129,6 @@
                 </PopupMenu>
 
                 <PopupMenu label="Game">
-                    <CommandButton :command="commands.UnlockAll"> Unlock All </CommandButton>
                     <CommandButton :command="commands.DiscardAtRandom">
                         Discard At Random
                     </CommandButton>
@@ -151,14 +150,24 @@
                 </PopupMenu>
             </div>
 
-            <!-- Cards with an effect -->
-            <div
-                v-if="glowInPlayEnabled"
-                class="cards-during-current-phase"
-                :class="{ 'has-effect': gameState.cardsDuringCurrentPhase.length > 0 }"
-                @click="pingCardsDuringCurrentPhase"
-            >
-                {{ gameState.cardsDuringCurrentPhase.length }} cards with an effect
+            <!-- Right-anchored controls, aligned under the phases block -->
+            <div class="right-controls">
+                <CommandButton
+                    class="unlock-all-button"
+                    :command="commands.UnlockAll"
+                >
+                    Unlock All
+                </CommandButton>
+
+                <!-- Cards with an effect -->
+                <div
+                    v-if="glowInPlayEnabled"
+                    class="cards-during-current-phase"
+                    :class="{ 'has-effect': gameState.cardsDuringCurrentPhase.length > 0 }"
+                    @click="pingCardsDuringCurrentPhase"
+                >
+                    {{ gameState.cardsDuringCurrentPhase.length }} cards with an effect
+                </div>
             </div>
         </div>
 
@@ -847,6 +856,25 @@ function forwardPointerEvent(event: PointerEvent) {
     display: flex;
     justify-content: space-between;
     padding-top: 5px;
+}
+
+.right-controls {
+    display: flex;
+    align-items: stretch;
+    gap: 5px;
+    // Anchor the group to the right so it stays in place even when
+    // .game-mutations is hidden (non-player view).
+    margin-left: auto;
+    // Match the fixed width of .phases (2 nav buttons + 5 phase boxes) so the
+    // group's left edge lines up with the left edge of the phases block above.
+    width: 262px;
+
+    .unlock-all-button {
+        // Grow to fill the space left of the cards indicator, so the button's
+        // left edge aligns with .phases while staying adjacent to the cards.
+        flex: 1;
+        white-space: nowrap;
+    }
 }
 
 .cards-during-current-phase {
