@@ -1,3 +1,17 @@
+## [0.10.0] - 2026-09-02
+
+Features:
+- Migrated SCS to a new home with hopefully 100% uptime
+- New judge role with full visibility over the cards
+- New aid : display total vote/ballot count near player names.
+- Keep minion cards visible in the uncontrolled region
+- Refresh an iimported deck
+
+Bugfix:
+- Better stability when the lobby is crowded
+- In pupeteer mode, deduplicate the opponent's hand in duel
+- Lot of small bugfixes
+
 ## [0.9.2] - 2026-08-09
 
 Features:

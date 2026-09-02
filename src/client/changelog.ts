@@ -2,10 +2,17 @@ import { CURRENT_VERSION } from '@/shared/version.mjs'
 
 export const latestChangelog = {
     version: CURRENT_VERSION,
-    date: '2026-08-09',
+    date: '2026-09-02',
     features: [
-        'Control right bar layout',
-        'Smoother "Move To Bottom of Lib" ( 👉 Heart of Nizchetus )',
+        'Migrated SCS to a new home with hopefully 100% uptime',
+        'New judge role with full visibility over the cards',
+        'New aid : display total vote/ballot count near player names.',
+        'Keep minion cards visible in the uncontrolled region',
+        'Refresh an iimported deck',
     ],
-    bugfixes: ['Idle kick increased to 2h for ousted players', 'Scroll player list in the lobby'],
+    bugfixes: [
+        'Better stability when the lobby is crowded',
+        "In pupeteer mode, deduplicate the opponent's hand in duel",
+        'Lot of small bugfixes',
+    ],
 }
