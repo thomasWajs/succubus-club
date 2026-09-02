@@ -133,8 +133,11 @@ export class Conductor {
         })
     }
 
+    // @ts-expect-error: Silenced for now, the bot is considered low-priority.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     invalidDecision(reason: string, decision: BotDecision) {
-        logging.captureMessage(`INVALID BOT DECISION !!! : ${reason}\n${JSON.stringify(decision)}`)
+        // TODO: uncomment when getting back to work on the bot.
+        // logging.captureMessage(`INVALID BOT DECISION !!! : ${reason}\n${JSON.stringify(decision)}`)
     }
 
     mustStopPlaying() {
