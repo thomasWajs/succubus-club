@@ -1,5 +1,5 @@
 <template>
-    <div
+    <CentralPanel
         class="action-infos"
         :class="{ 'full-display': fullDisplay }"
     >
@@ -131,7 +131,7 @@
                 </button>
             </div>
         </div>
-    </div>
+    </CentralPanel>
 </template>
 
 <script setup lang="ts">
@@ -151,6 +151,7 @@ import {
 import * as actions from '@/shared/state/minionActions.ts'
 import { selfSecureName } from '@/client/state/self.ts'
 import ActionPropertyStepper from '@/client/ui/ingame/topArea/central/ActionPropertyStepper.vue'
+import CentralPanel from '@/client/ui/ingame/topArea/central/CentralPanel.vue'
 
 const props = defineProps<{
     action: ActionState
@@ -165,12 +166,12 @@ const selfHasImpulse = computed(() => props.action.impulsePlayer == players.self
 </script>
 
 <style lang="scss">
-.action-infos {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
+.central-panel.action-infos {
+    // Rows are laid out vertically with generous spacing ; the shared surface
+    // provides the outer padding. Stretch the rows so the ones using
+    // space-between ( properties, minions ) can spread across the full width.
+    align-items: stretch;
     gap: 1rem;
-    padding: 0 30px;
 
     .cryptCard {
         color: $crypt-orange;

@@ -1,6 +1,6 @@
 <template>
-    <div
-        class="secret-interface"
+    <CentralPanel
+        title="Secret Choice"
         @pointerdown.stop
         @pointerup.stop
         @pointermove.stop
@@ -8,51 +8,52 @@
         @keydown.stop
         @keyup.stop
     >
-        <span class="secret-title">Secret Choice</span>
+        <div class="secret-interface">
+            <input
+                v-model="secretInput"
+                class="secret-input"
+                type="text"
+                placeholder="Type your secret..."
+                @keyup.enter="validateSecret"
+            />
 
-        <input
-            v-model="secretInput"
-            class="secret-input"
-            type="text"
-            placeholder="Type your secret..."
-            @keyup.enter="validateSecret"
-        />
+            <div class="secret-buttons">
+                <button
+                    class="game-button"
+                    :disabled="!secretInput.trim()"
+                    @click="validateSecret"
+                >
+                    Validate
+                </button>
+                <button
+                    class="game-button"
+                    :disabled="storedSecret === null"
+                    @click="revealSecret"
+                >
+                    Reveal
+                </button>
+                <button
+                    class="game-button is-danger"
+                    @click="$emit('close')"
+                >
+                    Close
+                </button>
+            </div>
 
-        <div class="secret-buttons">
-            <button
-                class="game-button"
-                :disabled="!secretInput.trim()"
-                @click="validateSecret"
+            <span
+                class="secret-status"
+                :class="{ visible: storedSecret !== null }"
             >
-                Validate
-            </button>
-            <button
-                class="game-button"
-                :disabled="storedSecret === null"
-                @click="revealSecret"
-            >
-                Reveal
-            </button>
-            <button
-                class="game-button is-danger"
-                @click="$emit('close')"
-            >
-                Close
-            </button>
+                Secret locked in, waiting to reveal.
+            </span>
         </div>
-
-        <span
-            class="secret-status"
-            :class="{ visible: storedSecret !== null }"
-        >
-            Secret locked in, waiting to reveal.
-        </span>
-    </div>
+    </CentralPanel>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
+import CentralPanel from '@/client/ui/ingame/topArea/central/CentralPanel.vue'
 
 defineEmits<{
     (e: 'close'): void
@@ -90,19 +91,11 @@ function revealSecret() {
 
 <style lang="scss">
 .secret-interface {
-    position: relative;
     display: flex;
     flex-direction: column;
     align-items: stretch;
     gap: 0.5rem;
     min-width: 260px;
-    padding: 0 30px;
-
-    .secret-title {
-        font-weight: bold;
-        color: $shadow-grey;
-        text-align: center;
-    }
 
     .secret-input {
         padding: 5px 6px;

@@ -1,37 +1,37 @@
 <template>
-    <div id="TheEdgeHint">
-        <span
-            class="inline-player-name"
-            :style="{
-                backgroundColor: gameState.theEdgeController?.rgbaColor,
-            }"
-        >
-            {{ gameState.theEdgeController?.name }}
-        </span>
-        controls The Edge
-        <img
-            src="/assets/theEdgeTealSmall.webp"
-            class="theEdgeImage"
-        />
-        and can gain 1 pool from the blood bank
-    </div>
+    <CentralPanel class="the-edge-hint">
+        <div>
+            <span
+                class="inline-player-name"
+                :style="{
+                    backgroundColor: gameState.theEdgeController?.rgbaColor,
+                }"
+            >
+                {{ gameState.theEdgeController?.name }}
+            </span>
+            controls The Edge
+            <img
+                src="/assets/theEdgeTealSmall.webp"
+                class="theEdgeImage"
+            />
+            and can gain 1 pool from the blood bank
+        </div>
+    </CentralPanel>
 </template>
 
 <script setup lang="ts">
 import { useGameStateStore } from '@/client/store/gameState.ts'
+import CentralPanel from '@/client/ui/ingame/topArea/central/CentralPanel.vue'
 
 const gameState = useGameStateStore()
 </script>
 
 <style lang="scss">
-#TheEdgeHint {
-    background-color: $silver-grey;
-    color: $shadow-grey;
-    display: inline-block;
+.central-panel.the-edge-hint {
     text-align: center;
-    border: solid 1px $shadow-grey;
-    padding: 4px 2px;
-    animation: TheEdgeHintAppear 1s linear;
+    // Draw the eye when The Edge becomes gainable, without leaving the shared
+    // surface : flash the border teal instead of the background.
+    animation: TheEdgeHintFlash 1s linear;
 
     .theEdgeImage {
         height: 25px;
@@ -39,15 +39,15 @@ const gameState = useGameStateStore()
     }
 }
 
-@keyframes TheEdgeHintAppear {
+@keyframes TheEdgeHintFlash {
     0% {
-        background-color: $silver-grey;
+        border-color: $shadow-grey;
     }
     10% {
-        background-color: $light-teal;
+        border-color: $light-teal;
     }
     100% {
-        background-color: $silver-grey;
+        border-color: $shadow-grey;
     }
 }
 </style>

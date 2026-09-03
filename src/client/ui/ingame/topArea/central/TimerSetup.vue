@@ -1,24 +1,27 @@
 <template>
-    <div class="timer-setup">
-        <span class="timer-setup-text">Start a 2h timer ? </span>
-        <button
-            class="game-button"
-            @click="timer.acceptTimer()"
-        >
-            Yes
-        </button>
-        <button
-            class="game-button"
-            @click="timer.declineTimer()"
-        >
-            No
-        </button>
-    </div>
+    <CentralPanel>
+        <div class="timer-setup">
+            <span class="timer-setup-text">Start a 2h timer ? </span>
+            <button
+                class="game-button"
+                @click="timer.acceptTimer()"
+            >
+                Yes
+            </button>
+            <button
+                class="game-button"
+                @click="timer.declineTimer()"
+            >
+                No
+            </button>
+        </div>
+    </CentralPanel>
 </template>
 
 <script setup lang="ts">
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { useTimer } from '@/shared/state/useTimer.ts'
+import CentralPanel from '@/client/ui/ingame/topArea/central/CentralPanel.vue'
 
 const gameState = useGameStateStore()
 const timer = useTimer(gameState.gameId)
@@ -26,14 +29,9 @@ const timer = useTimer(gameState.gameId)
 
 <style lang="scss">
 .timer-setup {
-    align-self: center;
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    background: rgba($pearl-grey, 0.7);
-    padding: 0.5rem 1rem;
-    border: solid 1px $shadow-grey;
-    border-radius: 2px;
 
     .timer-setup-text {
         font-weight: bold;

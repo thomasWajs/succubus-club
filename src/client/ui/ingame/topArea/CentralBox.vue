@@ -1,13 +1,5 @@
 <template>
-    <div
-        :class="{
-            'bg-visible':
-                centralContent.action ||
-                centralContent.declarationHint ||
-                gameBus.secretInterfaceShown,
-        }"
-        class="central-box"
-    >
+    <div class="central-box">
         <!-- The Edge Hint -->
         <TheEdgeHint v-if="aidsEnabled && centralContent.theEdge" />
 
@@ -112,8 +104,6 @@ onUnmounted(() => clearTimeout(turnNotificationTimeout))
  */
 
 const centralContent = computed(() => ({
-    action: !!gameState.action,
-    declarationHint: !!gameBus.actionDeclaration.type,
     turnNotification: turnNotificationVisible.value,
     timer:
         !turnNotificationVisible.value &&
@@ -138,10 +128,6 @@ const centralContent = computed(() => ({
     position: relative;
 
     margin: 15px 0;
-    padding: 5px;
-
-    &.bg-visible {
-        background: rgba(#dddddd, 0.4);
-    }
+    padding: 0;
 }
 </style>
