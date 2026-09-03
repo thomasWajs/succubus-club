@@ -9,17 +9,17 @@ jobs:
     deploy:
         runs-on: ubuntu-latest
         steps:
-            -   name: Update code via SSH
-                uses: appleboy/ssh-action@v1.0.3
-                with:
-                    host: ${{ secrets.SSH_HOST }}
-                    username: ${{ secrets.SSH_USER }}
-                    key: ${{ secrets.SSH_KEY }}
-                    script: |
-                        cd succubus-club
-                        git pull origin master
+            - name: Update code via SSH
+              uses: appleboy/ssh-action@v1.0.3
+              with:
+                  host: ${{ secrets.SSH_HOST }}
+                  username: ${{ secrets.SSH_USER }}
+                  key: ${{ secrets.SSH_KEY }}
+                  script: |
+                      cd succubus-club
+                      git pull origin master
 
-            -   name: Restart AlwaysData Site
-                run: |
-                    curl -X POST "https://api.alwaysdata.com/v1/site/${{ secrets.DEPLOY_SITE_ID }}/restart/" \
-                    -u "${{ secrets.DEPLOY_TOKEN }}:"
+            - name: Restart AlwaysData Site
+              run: |
+                  curl -X POST "https://api.alwaysdata.com/v1/site/${{ secrets.DEPLOY_SITE_ID }}/restart/" \
+                  -u "${{ secrets.DEPLOY_TOKEN }}:"

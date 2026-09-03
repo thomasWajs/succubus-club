@@ -4,32 +4,28 @@ import typescriptParser from '@typescript-eslint/parser'
 import vue from 'eslint-plugin-vue'
 import vueParser from 'vue-eslint-parser'
 import prettierConfig from 'eslint-config-prettier'
+import globals from 'globals'
 
-const browserGlobals = {
+// Vue compiler macros (auto-available in <script setup>, not real imports).
+const vueMacros = {
     defineProps: 'readonly',
     defineEmits: 'readonly',
     defineExpose: 'readonly',
     withDefaults: 'readonly',
-    // Browser globals
-    window: 'readonly',
-    document: 'readonly',
-    console: 'readonly',
-    setTimeout: 'readonly',
-    setInterval: 'readonly',
-    clearTimeout: 'readonly',
-    clearInterval: 'readonly',
-    fetch: 'readonly',
-    crypto: 'readonly',
-    Image: 'readonly',
-    screen: 'readonly',
-    queueMicrotask: 'readonly',
-    localStorage: 'readonly',
-    navigator: 'readonly',
-    // Node globals
-    process: 'readonly',
-    // Cache-busting globals
+}
+
+// Injected at build time for cache-busting (see vite config).
+const cacheBustingGlobals = {
     ATLAS_TEXTURE_HASH: 'readonly',
     ATLAS_JSON_HASH: 'readonly',
+}
+
+const browserGlobals = {
+    ...globals.browser,
+    ...vueMacros,
+    ...cacheBustingGlobals,
+    // A few browser files read process.env.NODE_ENV (Vite inlines it).
+    process: 'readonly',
 }
 
 export default [
@@ -186,29 +182,7 @@ export default [
         languageOptions: {
             ecmaVersion: 2023,
             sourceType: 'module',
-            globals: {
-                // Node.js globals
-                process: 'readonly',
-                Buffer: 'readonly',
-                global: 'readonly',
-                __dirname: 'readonly',
-                __filename: 'readonly',
-                console: 'readonly',
-                setTimeout: 'readonly',
-                setInterval: 'readonly',
-                clearTimeout: 'readonly',
-                clearInterval: 'readonly',
-                // Modern Node.js/Web API globals
-                fetch: 'readonly',
-                Response: 'readonly',
-                Request: 'readonly',
-                URL: 'readonly',
-                URLSearchParams: 'readonly',
-                TextEncoder: 'readonly',
-                TextDecoder: 'readonly',
-                AbortController: 'readonly',
-                AbortSignal: 'readonly',
-            },
+            globals: globals.node,
         },
         rules: {
             // Disable indentation rules
@@ -244,18 +218,7 @@ export default [
                 sourceType: 'module',
                 // No project reference for config files
             },
-            globals: {
-                process: 'readonly',
-                Buffer: 'readonly',
-                global: 'readonly',
-                __dirname: 'readonly',
-                __filename: 'readonly',
-                console: 'readonly',
-                setTimeout: 'readonly',
-                setInterval: 'readonly',
-                clearTimeout: 'readonly',
-                clearInterval: 'readonly',
-            },
+            globals: globals.node,
         },
         plugins: {
             '@typescript-eslint': typescript,
@@ -279,6 +242,21 @@ export default [
                 },
             ],
             '@typescript-eslint/no-explicit-any': 'warn',
+        },
+    },
+    // Configuration for Node.js dev/tooling scripts
+    {
+        files: ['script/**/*.{js,mjs}'],
+        languageOptions: {
+            ecmaVersion: 2023,
+            sourceType: 'module',
+            globals: globals.node,
+        },
+        rules: {
+            'no-console': 'off',
+            'no-undef': 'error',
+            'prefer-const': 'error',
+            'no-var': 'error',
         },
     },
     {

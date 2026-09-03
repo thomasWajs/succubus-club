@@ -5,7 +5,7 @@ on: # yamllint disable-line rule:truthy
     push: null
     pull_request: null
 
-permissions: { }
+permissions: {}
 
 jobs:
     build:
@@ -19,27 +19,27 @@ jobs:
             statuses: write
 
         steps:
-            -   name: Checkout code
-                uses: actions/checkout@v5
-                with:
-                    # super-linter needs the full git history to get the
-                    # list of files that changed across commits
-                    fetch-depth: 0
-                    persist-credentials: false
+            - name: Checkout code
+              uses: actions/checkout@v5
+              with:
+                  # super-linter needs the full git history to get the
+                  # list of files that changed across commits
+                  fetch-depth: 0
+                  persist-credentials: false
 
-            -   name: Super-linter
-                uses: super-linter/super-linter@v8.2.0 # x-release-please-version
-                env:
-                    # To report GitHub Actions status checks
-                    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-                    VALIDATE_EDITORCONFIG: true
-                    VALIDATE_TYPESCRIPT_ES: true
-                    VALIDATE_TYPESCRIPT_PRETTIER: true
-                    VALIDATE_VUE: true
-                    VALIDATE_VUE_PRETTIER: true
-                    VALIDATE_JSON_PRETTIER: true
+            - name: Super-linter
+              uses: super-linter/super-linter@v8.2.0 # x-release-please-version
+              env:
+                  # To report GitHub Actions status checks
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  VALIDATE_EDITORCONFIG: true
+                  VALIDATE_TYPESCRIPT_ES: true
+                  VALIDATE_TYPESCRIPT_PRETTIER: true
+                  VALIDATE_VUE: true
+                  VALIDATE_VUE_PRETTIER: true
+                  VALIDATE_JSON_PRETTIER: true
 
-                    LINTER_RULES_PATH: /
-                    JAVASCRIPT_ES_CONFIG_FILE: eslint.config.js
-                    TYPESCRIPT_ES_CONFIG_FILE: eslint.config.js
-                    VUE_ES_CONFIG_FILE: eslint.config.js
+                  LINTER_RULES_PATH: /
+                  JAVASCRIPT_ES_CONFIG_FILE: eslint.config.js
+                  TYPESCRIPT_ES_CONFIG_FILE: eslint.config.js
+                  VUE_ES_CONFIG_FILE: eslint.config.js
