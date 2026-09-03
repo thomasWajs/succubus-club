@@ -36,7 +36,6 @@
         "lint:fix": "eslint . --fix",
         "format:check": "prettier --check .",
         "format:fix": "prettier --write .",
-        "server:install": "cd src/server && npm install",
         "server:dev": "cd src/server && npm run dev",
         "server:start": "cd src/server && npm run start"
     }
