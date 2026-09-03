@@ -159,6 +159,7 @@ export const useGameBusStore = defineStore('gameBus', {
             show: false,
             player: null as Player | null,
         },
+        secretInterfaceShown: false,
         wieldCardStack: {
             show: false,
             cardRegion: null as AnyCardRegion | null,

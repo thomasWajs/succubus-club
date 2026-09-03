@@ -43,7 +43,7 @@
 <script setup lang="ts">
 import Play from '@/client/game/Play.vue'
 import GameGameRightColumn from '@/client/ui/ingame/rightColumn/GameRightColumn.vue'
-import GameTopArea from '@/client/ui/ingame/GameTopArea.vue'
+import GameTopArea from '@/client/ui/ingame/topArea/GameTopArea.vue'
 import { useCoreStore } from '@/client/store/core.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { display } from '@/client/game/display.ts'
