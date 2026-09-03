@@ -9,9 +9,16 @@ charset = utf-8
 trim_trailing_whitespace = true
 insert_final_newline = true
 
-[*.{js,ts,py,vue,html,scss,yml}]
+[*.{js,ts,py,vue,html,scss}]
 indent_style = space
 indent_size = 4
+
+# YAML is a 2-space idiom: Prettier indents block-sequence item children at
+# dash+2, which is never a strict multiple of 4. Match that so editorconfig-checker
+# and Prettier agree.
+[*.{yml,yaml}]
+indent_style = space
+indent_size = 2
 
 [*.{json,md}]
 insert_final_newline = unset
