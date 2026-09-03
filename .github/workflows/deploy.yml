@@ -14,7 +14,7 @@ jobs:
                 with:
                     host: ${{ secrets.SSH_HOST }}
                     username: ${{ secrets.SSH_USER }}
-                    password: ${{ secrets.SSH_PASSWORD }}
+                    key: ${{ secrets.SSH_KEY }}
                     script: |
                         cd succubus-club
                         git pull origin master
