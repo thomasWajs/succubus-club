@@ -37,6 +37,12 @@ function toggle() {
     isOpen.value = !isOpen.value
 }
 
+function close() {
+    isOpen.value = false
+}
+
+defineExpose({ close })
+
 function onClickOutside(event: MouseEvent) {
     if (containerEl.value && !containerEl.value.contains(event.target as Node)) {
         isOpen.value = false

@@ -92,3 +92,12 @@ export const Snap = {
         return divide ? (start + value) / gap : start + value
     },
 }
+
+export function simpleEscapeHtml(value: string): string {
+    return value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+}

@@ -48,6 +48,7 @@ import { GameState } from '@/shared/state/gameState.ts'
 import { AnyCardRegion, CardOid, GameId } from '@/shared/types/model.ts'
 import { getGameState, getMutationTrigger } from '@/shared/registries.ts'
 import { hashObject, rehydrateCard, serializeObject } from '@/shared/serialization.ts'
+import { simpleEscapeHtml } from '@/shared/utils.ts'
 
 export type GameMutationId = number
 export interface GameMutationParams {
@@ -1257,6 +1258,70 @@ class Reveal extends GameMutation<RevealParams> {
 }
 
 /**
+ * Random Result ( Coin Flip / Dice Roll )
+ */
+
+export interface RandomResultParams extends GameMutationParams {
+    randomType: 'coin' | 'd6'
+    result: number
+}
+
+export class RandomResult extends GameMutation<RandomResultParams> {
+    readonly syncMode = MutationSyncMode.Merge
+    isIgnoredForCancel = true
+
+    protected updateGameState(): void {
+        // No state change - this mutation only serves as a log/broadcast event
+    }
+
+    formatForLog() {
+        if (this.params.randomType === 'coin') {
+            const face = this.params.result === 1 ? 'Heads' : 'Tails'
+            return `${this.author.name} flips a coin: ${face}`
+        }
+        return `${this.author.name} rolls a d6: ${this.params.result}`
+    }
+}
+
+/**
+ * Secret ( hidden choice revealed simultaneously, like a bid or rock/paper/scissor )
+ *
+ * The secret value is kept locally by the author until it is revealed.
+ * AnnounceSecret only broadcasts that a choice has been made.
+ * RevealSecret broadcasts the actual value for everyone to see in the logs.
+ */
+
+export class SecretAnnounce extends GameMutation<EmptyParams> {
+    readonly syncMode = MutationSyncMode.Merge
+    isIgnoredForCancel = true
+
+    protected updateGameState(): void {
+        // No state change - this mutation only serves as a log/broadcast event
+    }
+
+    formatForLog() {
+        return `has chosen a secret`
+    }
+}
+
+export interface RevealSecretParams extends GameMutationParams {
+    secret: string
+}
+
+export class SecretReveal extends GameMutation<RevealSecretParams> {
+    readonly syncMode = MutationSyncMode.Merge
+    isIgnoredForCancel = true
+
+    protected updateGameState(): void {
+        // No state change - this mutation only serves as a log/broadcast event
+    }
+
+    formatForLog() {
+        return `reveals their secret: <strong>${simpleEscapeHtml(this.params.secret)}</strong>`
+    }
+}
+
+/**
  * Flip a card
  */
 
@@ -2106,32 +2171,6 @@ function defineMutation<
     }
 }
 
-/**
- * Random Result ( Coin Flip / Dice Roll )
- */
-
-export interface RandomResultParams extends GameMutationParams {
-    randomType: 'coin' | 'd6'
-    result: number
-}
-
-export class RandomResult extends GameMutation<RandomResultParams> {
-    readonly syncMode = MutationSyncMode.Merge
-    isIgnoredForCancel = true
-
-    protected updateGameState(): void {
-        // No state change - this mutation only serves as a log/broadcast event
-    }
-
-    formatForLog() {
-        if (this.params.randomType === 'coin') {
-            const face = this.params.result === 1 ? 'Heads' : 'Tails'
-            return `${this.author.name} flips a coin: ${face}`
-        }
-        return `${this.author.name} rolls a d6: ${this.params.result}`
-    }
-}
-
 export const gameMutations = {
     becomeMinion: defineMutation(BecomeMinion),
     becomeVampire: defineMutation(BecomeVampire),
@@ -2155,10 +2194,12 @@ export const gameMutations = {
     playFaceDown: defineMutation(PlayFaceDown),
     playFaceDownInverse: defineMutation(PlayFaceDownInverse),
     reveal: defineMutation(Reveal),
+    randomResult: defineMutation(RandomResult),
+    secretAnnounce: defineMutation(SecretAnnounce),
+    secretReveal: defineMutation(SecretReveal),
     setFlip: defineMutation(SetFlip),
     setLock: defineMutation(SetLock),
     shuffle: defineMutation(Shuffle),
-    randomResult: defineMutation(RandomResult),
     unlockAll: defineMutation(UnlockAll),
     unlockAllInverse: defineMutation(UnlockAllInverse),
 
