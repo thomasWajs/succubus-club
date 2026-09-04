@@ -5,6 +5,7 @@ import { readFileSync } from 'fs'
 import { resolve } from 'path'
 import { initTables, loadPersistedData } from './persistence.ts'
 import { restoreRooms } from './rooms.ts'
+import { restoreBans } from './banlist.ts'
 import logger from './logger.ts'
 import { captureException, captureMessage } from './capture.ts'
 
@@ -24,7 +25,9 @@ function loadCardbase() {
 }
 
 function restorePersistedData() {
-    const { rooms } = loadPersistedData()
+    const { rooms, bans } = loadPersistedData()
     restoreRooms(rooms)
     logger.info(`Restored ${rooms.length} rooms`)
+    restoreBans(bans)
+    logger.info(`Restored ${bans.length} bans`)
 }

@@ -29,10 +29,16 @@ import { getUser, handleSetUser, removeUser } from './users.ts'
 import { captureException } from './capture.ts'
 import logger from './logger.ts'
 import { cleanupOldGames } from './persistence.ts'
+import { isBanned, recordFailedConnection } from './banlist.ts'
 
 const PORT = parseInt(process.env.SCS_PORT ?? '3001')
 
 const SETUSER_TIMEOUT_MS = 30_000 // 30 seconds
+
+// How often we ping each client to keep the connection warm (below common
+// reverse-proxy / NAT idle timeouts) and to detect dead sockets. A client that
+// fails to pong before the next tick is considered gone and terminated.
+const HEARTBEAT_INTERVAL_MS = 30_000 // 30 seconds
 
 // Comma-separated list of origins allowed to connect. When empty, all origins are allowed.
 const allowedOrigins = (process.env.SCS_ALLOWED_ORIGINS ?? '')
@@ -77,12 +83,19 @@ const server = http.createServer()
 export let wsServer = new WebSocketServer({
     server,
     verifyClient: ({ origin, req }, done) => {
+        const remoteAddress = getRemoteAddress(req)
+
+        if (isBanned(remoteAddress)) {
+            logger.warn(`Rejected connection from ${remoteAddress} - banned IP`)
+            done(false, 403, 'Forbidden')
+            return
+        }
+
         if (isOriginAllowed(origin)) {
             done(true)
             return
         }
 
-        const remoteAddress = getRemoteAddress(req)
         logger.warn(`Rejected connection from ${remoteAddress} - disallowed origin: ${origin}`)
         done(false, 403, 'Forbidden origin')
     },
@@ -105,6 +118,15 @@ wsServer.on('connection', (webSocket: WebSocket, request) => {
         remoteAddress,
         permId: '', // Will be set on setUser
         roomId: null, // Will be set on joinRoom
+        isAlive: true, // Heartbeat: healthy until proven otherwise
+    })
+
+    // Heartbeat: the browser auto-replies to our pings with a pong.
+    webSocket.on('pong', () => {
+        const connection = connections.get(clientId)
+        if (connection) {
+            connection.isAlive = true
+        }
     })
 
     // Client must send a SetUser message promptly, or get disconnected
@@ -113,6 +135,8 @@ wsServer.on('connection', (webSocket: WebSocket, request) => {
         const connection = connections.get(clientId)
         if (connection && !connection.permId) {
             logger.info(`Disconnecting client ${clientId} - no SetUser received within 30s`)
+
+            recordFailedConnection(connection.remoteAddress)
 
             handleDisconnect(connection)
 
@@ -234,6 +258,35 @@ wsServer.on('error', error => {
 })
 
 /**
+ * Heartbeat: periodically ping every client. A client that did not pong since
+ * the previous tick is considered dead and terminated. This keeps live
+ * connections warm (avoiding idle-timeout disconnects at the reverse proxy)
+ * and cleans up sockets that dropped without a proper close.
+ */
+let heartbeatInterval: ReturnType<typeof setInterval> | null = null
+
+function startHeartbeat() {
+    heartbeatInterval = setInterval(() => {
+        for (const connection of connections.values()) {
+            if (!connection.isAlive) {
+                logger.info(`Terminating unresponsive client ${connection.clientId}`)
+                handleDisconnect(connection)
+                connection.webSocket.terminate()
+                connections.delete(connection.clientId)
+                continue
+            }
+
+            connection.isAlive = false
+            try {
+                connection.webSocket.ping()
+            } catch {}
+        }
+    }, HEARTBEAT_INTERVAL_MS)
+
+    heartbeatInterval.unref() // Don't keep the process alive just for the heartbeat
+}
+
+/**
  * Handle player disconnection
  */
 export function handleDisconnect(connection: ConnectionInfo) {
@@ -270,6 +323,7 @@ export function sendError(webSocket: WebSocket, errorMessage: string) {
  */
 export function startWsServer() {
     server.listen(PORT)
+    startHeartbeat()
     logger.info(`WebSocket server listening on port ${PORT}`)
 }
 
@@ -277,6 +331,11 @@ export function startWsServer() {
  * Graceful shutdown
  */
 export async function stopWsServer() {
+    if (heartbeatInterval) {
+        clearInterval(heartbeatInterval)
+        heartbeatInterval = null
+    }
+
     await new Promise<void>((resolve, reject) => {
         wsServer.close(err => {
             if (err) reject(err)

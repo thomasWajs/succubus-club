@@ -44,19 +44,22 @@ const ONE_DAY = 24 * ONE_HOUR
 const TWO_WEEKS = 14 * ONE_DAY
 
 /**
- * Open the database, run a callback, then close it immediately.
- * This prevents a persistent open connection that would keep Railway awake.
+ * Initialize SQLite database (single, long-lived connection)
  */
-function withDb<T>(fn: (db: Database.Database) => T): T {
-    fs.mkdirSync(path.dirname(DB_PATH), { recursive: true })
-    const db = new Database(DB_PATH)
-    // WAL mode: better concurrency, and WAL checkpoint flushes are isolated to this call
-    db.pragma('journal_mode = WAL')
-    try {
-        return fn(db)
-    } finally {
-        db.close()
-    }
+fs.mkdirSync(path.dirname(DB_PATH), { recursive: true })
+const db = new Database(DB_PATH)
+
+// Enable WAL mode for better concurrency
+db.pragma('journal_mode = WAL')
+
+logger.info(`Database initialized at: ${DB_PATH}`)
+
+/**
+ * Close the database connection, checkpointing the WAL cleanly.
+ * Call once on graceful shutdown.
+ */
+export function closeDb(): void {
+    db.close()
 }
 
 /**
@@ -65,16 +68,20 @@ function withDb<T>(fn: (db: Database.Database) => T): T {
 
 export function cleanupOldGames() {
     try {
-        withDb(db => {
-            const twoWeeksAgo = Date.now() - TWO_WEEKS
+        const twoWeeksAgo = Date.now() - TWO_WEEKS
 
-            const deleteOldRooms = db.prepare('DELETE FROM rooms WHERE updatedAt < ?')
-            const deletedRooms = deleteOldRooms.run(twoWeeksAgo)
+        const deleteOldRooms = db.prepare('DELETE FROM rooms WHERE updatedAt < ?')
+        const deletedRooms = deleteOldRooms.run(twoWeeksAgo)
 
-            if (deletedRooms.changes > 0) {
-                logger.info(`Cleaned up ${deletedRooms.changes} old rooms`)
-            }
-        })
+        if (deletedRooms.changes > 0) {
+            logger.info(`Cleaned up ${deletedRooms.changes} old rooms`)
+        }
+
+        const deleteExpired = db.prepare('DELETE FROM bans WHERE bannedUntil <= ?')
+        const deletedBans = deleteExpired.run(Date.now())
+        if (deletedBans.changes > 0) {
+            logger.info(`Cleaned up ${deletedBans.changes} expired bans`)
+        }
     } catch (error) {
         captureException(error)
     }
@@ -84,8 +91,7 @@ export function cleanupOldGames() {
  * Create tables if they don't exist
  */
 export function initTables() {
-    withDb(db => {
-        db.exec(`
+    db.exec(`
         CREATE TABLE IF NOT EXISTS rooms (
             id TEXT PRIMARY KEY,
             passwordHash TEXT NOT NULL,
@@ -102,7 +108,13 @@ export function initTables() {
             updatedAt INTEGER NOT NULL
         )
     `)
-    })
+
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS bans (
+            ip TEXT PRIMARY KEY,
+            bannedUntil INTEGER NOT NULL
+        )
+    `)
 
     cleanupOldGames()
 
@@ -115,11 +127,9 @@ export function initTables() {
 
 export function hasRoom(id: string): boolean {
     try {
-        return withDb(db => {
-            const stmt = db.prepare('SELECT 1 FROM rooms WHERE id = ?')
-            const row = stmt.get(id)
-            return !!row
-        })
+        const stmt = db.prepare('SELECT 1 FROM rooms WHERE id = ?')
+        const row = stmt.get(id)
+        return !!row
     } catch (error) {
         captureException(error)
         return false
@@ -128,9 +138,8 @@ export function hasRoom(id: string): boolean {
 
 export function saveRoom(room: Room): void {
     try {
-        withDb(db => {
-            const now = Date.now()
-            const stmt = db.prepare(`
+        const now = Date.now()
+        const stmt = db.prepare(`
                 INSERT INTO rooms (id, passwordHash, hostId, userDecks, seats, seating, gameId, globalClock, objectClocks, gameState, history, createdAt, updatedAt)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
@@ -146,24 +155,23 @@ export function saveRoom(room: Room): void {
                     history = excluded.history,
                     updatedAt = excluded.updatedAt
             `)
-            const serializedGameState =
-                room.gameState ? JSON.stringify(serializeGameState(room.gameState)) : null
-            stmt.run(
-                room.id,
-                room.passwordHash,
-                room.hostId,
-                JSON.stringify(room.userDecks),
-                JSON.stringify(room.seats),
-                JSON.stringify(room.seating),
-                room.gameId,
-                JSON.stringify(room.globalClock),
-                JSON.stringify(room.objectClocks),
-                serializedGameState,
-                JSON.stringify(serializeHistory(room.history, true)),
-                now,
-                now,
-            )
-        })
+        const serializedGameState =
+            room.gameState ? JSON.stringify(serializeGameState(room.gameState)) : null
+        stmt.run(
+            room.id,
+            room.passwordHash,
+            room.hostId,
+            JSON.stringify(room.userDecks),
+            JSON.stringify(room.seats),
+            JSON.stringify(room.seating),
+            room.gameId,
+            JSON.stringify(room.globalClock),
+            JSON.stringify(room.objectClocks),
+            serializedGameState,
+            JSON.stringify(serializeHistory(room.history, true)),
+            now,
+            now,
+        )
     } catch (error) {
         captureException(error)
     }
@@ -204,14 +212,12 @@ function loadRoomRow(row: RoomRow): Room {
 
 export function loadRoom(roomId: RoomId): Room | undefined {
     try {
-        return withDb(db => {
-            const stmt = db.prepare('SELECT * FROM rooms WHERE id = ?')
-            const row = stmt.get(roomId) as RoomRow
-            if (!row) {
-                return undefined
-            }
-            return loadRoomRow(row)
-        })
+        const stmt = db.prepare('SELECT * FROM rooms WHERE id = ?')
+        const row = stmt.get(roomId) as RoomRow
+        if (!row) {
+            return undefined
+        }
+        return loadRoomRow(row)
     } catch (error) {
         captureException(error)
         return undefined
@@ -220,23 +226,21 @@ export function loadRoom(roomId: RoomId): Room | undefined {
 
 export function loadRecentRooms(): Room[] {
     try {
-        return withDb(db => {
-            const sixHoursAgo = Date.now() - 6 * ONE_HOUR
-            const stmt = db.prepare('SELECT * FROM rooms WHERE updatedAt >= ?')
-            const rows = stmt.all(sixHoursAgo) as RoomRow[]
+        const sixHoursAgo = Date.now() - 6 * ONE_HOUR
+        const stmt = db.prepare('SELECT * FROM rooms WHERE updatedAt >= ?')
+        const rows = stmt.all(sixHoursAgo) as RoomRow[]
 
-            const validRooms: Room[] = []
-            for (const row of rows) {
-                try {
-                    validRooms.push(loadRoomRow(row))
-                } catch (error) {
-                    logger.warn(`Failed to load room ${row.id}, skipping...`)
-                    captureException(error)
-                }
+        const validRooms: Room[] = []
+        for (const row of rows) {
+            try {
+                validRooms.push(loadRoomRow(row))
+            } catch (error) {
+                logger.warn(`Failed to load room ${row.id}, skipping...`)
+                captureException(error)
             }
+        }
 
-            return validRooms
-        })
+        return validRooms
     } catch (error) {
         captureException(error)
         return []
@@ -245,19 +249,54 @@ export function loadRecentRooms(): Room[] {
 
 export function deleteRoom(roomId: RoomId): void {
     try {
-        withDb(db => {
-            const stmt = db.prepare('DELETE FROM rooms WHERE id = ?')
-            stmt.run(roomId)
-        })
+        const stmt = db.prepare('DELETE FROM rooms WHERE id = ?')
+        stmt.run(roomId)
     } catch (error) {
         captureException(error)
     }
 }
 
 /**
+ * Ban persistence
+ */
+
+export type BanRecord = {
+    ip: string
+    bannedUntil: number
+}
+
+export function saveBan(ip: string, bannedUntil: number): void {
+    try {
+        const stmt = db.prepare(`
+            INSERT INTO bans (ip, bannedUntil)
+            VALUES (?, ?)
+            ON CONFLICT(ip) DO UPDATE SET bannedUntil = excluded.bannedUntil
+        `)
+        stmt.run(ip, bannedUntil)
+    } catch (error) {
+        captureException(error)
+    }
+}
+
+/**
+ * Load bans that are still active (not yet expired).
+ */
+export function loadActiveBans(): BanRecord[] {
+    try {
+        const stmt = db.prepare('SELECT ip, bannedUntil FROM bans WHERE bannedUntil > ?')
+        return stmt.all(Date.now()) as BanRecord[]
+    } catch (error) {
+        captureException(error)
+        return []
+    }
+}
+
+/**
  * Restore recent persisted data
  */
-export function loadPersistedData(): { rooms: Room[] } {
+
+export function loadPersistedData(): { rooms: Room[]; bans: BanRecord[] } {
     const rooms = loadRecentRooms()
-    return { rooms }
+    const bans = loadActiveBans()
+    return { rooms, bans }
 }

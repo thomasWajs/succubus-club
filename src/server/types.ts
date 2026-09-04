@@ -25,6 +25,8 @@ export type ConnectionInfo = {
     remoteAddress: string
     permId: PermanentId
     roomId: RoomId | null
+    // Heartbeat liveness: set true on pong, false when a ping is sent.
+    isAlive: boolean
 }
 
 /**
