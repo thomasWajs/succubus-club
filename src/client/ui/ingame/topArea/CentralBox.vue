@@ -59,6 +59,7 @@ import ActionInfos from '@/client/ui/ingame/topArea/central/ActionInfos.vue'
 import TimerSetup from '@/client/ui/ingame/topArea/central/TimerSetup.vue'
 import NextTurn from '@/client/ui/ingame/topArea/central/NextTurn.vue'
 import TurnNotification from '@/client/ui/ingame/topArea/central/TurnNotification.vue'
+import { GameType } from '@/shared/types/state.ts'
 
 const gameState = useGameStateStore()
 const gameBus = useGameBusStore()
@@ -76,7 +77,8 @@ const { aidsEnabled, turnNotificationEnabled } = useUIFeatures()
  * takes over the central box, so timer-setup and TheEdgeHint are hidden.
  */
 
-const TURN_NOTIFICATION_DURATION = 3500
+const TURN_NOTIFICATION_DURATION_LONG = 3500
+const TURN_NOTIFICATION_DURATION_SHORT = 1000
 const turnNotificationVisible = ref(false)
 let turnNotificationTimeout: ReturnType<typeof setTimeout> | undefined
 
@@ -88,11 +90,16 @@ watch(
             return
         }
 
+        const duration =
+            gameState.gameType == GameType.TrainBot ?
+                TURN_NOTIFICATION_DURATION_SHORT
+            :   TURN_NOTIFICATION_DURATION_LONG
+
         turnNotificationVisible.value = true
         clearTimeout(turnNotificationTimeout)
         turnNotificationTimeout = setTimeout(() => {
             turnNotificationVisible.value = false
-        }, TURN_NOTIFICATION_DURATION)
+        }, duration)
     },
     { immediate: true },
 )
