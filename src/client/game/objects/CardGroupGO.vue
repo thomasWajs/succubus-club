@@ -91,7 +91,7 @@ import {
     CARD_GROUP_ICON_WIDTH,
     CARD_OUTLINE_THICKNESS,
 } from '@/shared/const/game.ts'
-import ButtonGo from '@/client/game/objects/ButtonGO.vue'
+import ButtonGO from '@/client/game/objects/ButtonGO.vue'
 import { CardGroup } from '@/client/game/types.ts'
 import { Card } from '@/shared/model/Card.ts'
 import { AnyCardRegion } from '@/shared/types/model.ts'
