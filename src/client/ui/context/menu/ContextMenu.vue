@@ -92,6 +92,7 @@
 </template>
 
 <script setup lang="ts">
+import { useGameStateStore } from '@/client/store/gameState.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
 import { Card } from '@/shared/model/Card.ts'
 import { GameType, NO_BLOCK } from '@/shared/types/state.ts'
@@ -102,12 +103,15 @@ import MarkersSubmenu from '@/client/ui/context/menu/MarkersSubmenu.vue'
 import CountersSubmenu from '@/client/ui/context/menu/CountersSubmenu.vue'
 import { selfCanAttemptBlock } from '@/shared/state/actionState.ts'
 import InfrequentMenuButtons from '@/client/ui/context/menu/InfrequentMenuButtons.vue'
-import { useContextSelection } from '@/client/ui/context/menu/useContextSelection.ts'
-import { useGameStateStore } from '@/client/store/gameState.ts'
 import { shuffleCardRegion } from '@/client/state/gameMutations.ts'
+import { useGameBusStore } from '@/client/store/bus.ts'
+import { useCommands } from '@/client/game/composables/useCommands.ts'
+import { useSelection } from '@/client/game/composables/useSelection.ts'
 
-const { gameBus, commands, firstCard, singleCard, singleMinion } = useContextSelection()
 const gameState = useGameStateStore()
+const gameBus = useGameBusStore()
+const commands = useCommands()
+const { firstCard, singleCard, singleMinion } = useSelection(() => gameBus.contextMenu.cards)
 </script>
 
 <style lang="scss" scoped>

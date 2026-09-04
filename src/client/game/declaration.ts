@@ -3,9 +3,10 @@ import { MinionAction, MinionActionNames, MinionActionType } from '@/shared/type
 import { Player } from '@/shared/model/Player.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
 import { useBusStore, useGameBusStore } from '@/client/store/bus.ts'
-import { Card, Minion } from '@/shared/model/Card.ts'
+import { Card, LibraryCard, Minion } from '@/shared/model/Card.ts'
 import { GRID_SIZE, PLAY_AREA_WIDTH } from '@/shared/const/game.ts'
 import { selfSecureName } from '@/client/state/self.ts'
+import { createActionCardAction } from '@/shared/state/minionActions.ts'
 
 export function playCard({
     card,
@@ -76,6 +77,10 @@ export function declareAction(action: MinionAction, player?: Player) {
     ) {
         playCard({ card: action.card, actingMinion: action.actingMinion })
     }
+}
+
+export function declareActionCardFromHand(actingMinion: Minion, card: LibraryCard) {
+    declareAction(createActionCardAction(actingMinion, card, {}))
 }
 
 export function startTargetDeclaration(card: Card) {

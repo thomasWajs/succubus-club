@@ -104,11 +104,17 @@
 <script setup lang="ts">
 import { gameMutations } from '@/shared/state/gameMutations.ts'
 import { Card } from '@/shared/model/Card.ts'
-import { useContextSelection } from '@/client/ui/context/menu/useContextSelection.ts'
 import CommandContextMenuButton from '@/client/ui/context/menu/CommandContextMenuButton.vue'
 import ContextMenuButton from '@/client/ui/context/menu/ContextMenuButton.vue'
+import { useGameBusStore } from '@/client/store/bus.ts'
+import { usePlayersStore } from '@/client/state/players.ts'
+import { useCommands } from '@/client/game/composables/useCommands.ts'
+import { useSelection } from '@/client/game/composables/useSelection.ts'
 
-const { players, commands, firstCard, singleCard } = useContextSelection()
+const gameBus = useGameBusStore()
+const players = usePlayersStore()
+const commands = useCommands()
+const { firstCard, singleCard } = useSelection(() => gameBus.contextMenu.cards)
 </script>
 
 <style lang="scss"></style>

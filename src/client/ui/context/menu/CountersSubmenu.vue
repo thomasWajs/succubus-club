@@ -29,10 +29,14 @@
 </template>
 
 <script setup lang="ts">
-import { useContextSelection } from '@/client/ui/context/menu/useContextSelection.ts'
 import CommandContextMenuButton from '@/client/ui/context/menu/CommandContextMenuButton.vue'
+import { useGameBusStore } from '@/client/store/bus.ts'
+import { useCommands } from '@/client/game/composables/useCommands.ts'
+import { useSelection } from '@/client/game/composables/useSelection.ts'
 
-const { commands, firstCard } = useContextSelection()
+const gameBus = useGameBusStore()
+const commands = useCommands()
+const { firstCard } = useSelection(() => gameBus.contextMenu.cards)
 </script>
 
 <style lang="scss"></style>

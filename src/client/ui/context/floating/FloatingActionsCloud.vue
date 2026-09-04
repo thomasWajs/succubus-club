@@ -26,6 +26,7 @@ import { MinionActionType } from '@/shared/types/state.ts'
 import { declareAction, startTargetDeclaration } from '@/client/game/declaration.ts'
 import { ACTION_TYPES } from '@/shared/const/model.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
+import { useSelection } from '@/client/game/composables/useSelection.ts'
 import { Card, Minion } from '@/shared/model/Card.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
 
@@ -33,6 +34,7 @@ const gameBus = useGameBusStore()
 const gameState = useGameStateStore()
 const players = usePlayersStore()
 const { actionDeclarationEnabled } = useUIFeatures()
+const { singleCard, primedMinion } = useSelection(() => gameBus.selectedCards)
 
 type FloatingActionData = {
     label: string
@@ -46,7 +48,7 @@ type FloatingActionData = {
 const CARD_ACTION_GAP = 10
 const CARD_ACTION_HEIGHT = 45
 
-const selectedCard = computed(() => {
+const focusedCard = computed(() => {
     if (
         gameBus.contextMenu.show ||
         gameBus.declaringTargetOrigin ||
@@ -57,29 +59,29 @@ const selectedCard = computed(() => {
     ) {
         return
     }
-    const card = gameBus.selectedCards.length == 1 && gameBus.selectedCards[0]
-    return (
-            card &&
-                [players.selfPlayer?.ready, players.selfPlayer?.torpor].includes(card.region) &&
-                !card.isLocked &&
-                (card.isMinion() || card.isEmbraceLike())
-        ) ?
-            card
-        :   undefined
+
+    // Main case : a selected minion capable of performing an action.
+    if (primedMinion.value) {
+        return primedMinion.value
+    }
+
+    // Alternate case : an embrace-like can become a vampire
+    if (singleCard.value && singleCard.value.isEmbraceLike()) {
+        return singleCard.value
+    }
+
+    return undefined
 })
 
 const floatingActions = computed(() => {
-    const card = selectedCard.value
-    if (!card) {
-        return []
+    const card = focusedCard.value
+    if (card) {
+        if (card.isEmbraceLike()) {
+            return getEmbraceLikeActions(card)
+        } else if (card.isMinion()) {
+            return getActingMinionActions(card)
+        }
     }
-
-    if (card.isMinion()) {
-        return getActingMinionActions(card)
-    } else if (card.isEmbraceLike()) {
-        return getEmbraceLikeActions(card)
-    }
-
     return []
 })
 

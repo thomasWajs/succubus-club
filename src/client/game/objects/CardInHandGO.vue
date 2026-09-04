@@ -106,11 +106,13 @@ import {
     OVERLAY_BUTTON_SIZE,
 } from '@/shared/const/game.ts'
 import { Card, LibraryCard } from '@/shared/model/Card.ts'
+import { ACTION_TYPES } from '@/shared/const/model.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
 import { useCommands } from '@/client/game/composables/useCommands.ts'
 import { CardAttrs, PhaserDataKey, RegionCategory } from '@/client/game/types.ts'
 import { useCardDragDrop } from '@/client/game/composables/useCardDragDrop.ts'
+import { useSelection } from '@/client/game/composables/useSelection.ts'
 import ButtonGO from '@/client/game/objects/ButtonGO.vue'
 import { useCardClick } from '@/client/game/composables/useCardClick.ts'
 import { useCardOutline } from '@/client/game/composables/useCardOutline.ts'
@@ -120,7 +122,7 @@ import {
     getWorldPoint,
     reorderCardIndex,
 } from '@/client/game/utils.ts'
-import { playCard } from '@/client/game/declaration.ts'
+import { declareActionCardFromHand, playCard } from '@/client/game/declaration.ts'
 import { selfCanPlay } from '@/client/state/self.ts'
 import { useCardTexture } from '@/client/game/composables/useCardTexture.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
@@ -136,6 +138,8 @@ const players = usePlayersStore()
 const gameBus = useGameBusStore()
 const gameState = useGameStateStore()
 const commands = useCommands()
+const { glowInHandEnabled } = useUIFeatures()
+const { primedMinion } = useSelection(() => gameBus.selectedCards)
 const { displayedTexture } = useCardTexture(card)
 const image = refObj<GameObjects.Image>()
 const cardOutline = refObj<GameObjects.Rectangle>()
@@ -239,6 +243,11 @@ function overlayClick(command: (card: Card) => void) {
 }
 
 function playCardFromHand(card: Card) {
+    const minion = primedMinion.value
+    if (minion && card instanceof LibraryCard && card.type && ACTION_TYPES.includes(card.type)) {
+        declareActionCardFromHand(minion, card)
+        return
+    }
     playCard({ card, actingMinion: gameState.action?.minionAction.actingMinion })
 }
 
@@ -337,7 +346,6 @@ function onDragEndFromHand(
  * Glow effect on usable card, depending on the phase of the turn.
  */
 
-const { glowInHandEnabled } = useUIFeatures()
 const showGlowEffect = computed(
     () => glowInHandEnabled.value && selfCanPlay(card) && !dragAttrs.isDragging,
 )

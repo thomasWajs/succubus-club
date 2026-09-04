@@ -45,13 +45,18 @@ export function useCardOutline(
     const isInCardGroupCandidate = computed(() => {
         return gameBus.cardGroupCandidate && gameBus.cardGroupCandidate.has(cardRef.value.oid)
     })
+    const isActingMinionCandidate = computed(() => {
+        return gameBus.actingMinionCandidate?.oid == cardRef.value.oid
+    })
     const isIndirectHovered = computed(() => {
         return gameBus.indirectHoveredCards.includes(cardRef.value.oid)
     })
 
     const getCardOutlineColor = computed(() => {
         const card = cardRef.value
-        if (isInCardGroupCandidate.value) {
+        if (isActingMinionCandidate.value) {
+            return Colors.ACTION_DECLARATION_OUTLINE.color
+        } else if (isInCardGroupCandidate.value) {
             return Colors.CARD_GROUP_OUTLINE.color
         } else if (isHovered.value || isUnderSelectionArea()) {
             return Colors.CARD_OUTLINE_HOVER.color

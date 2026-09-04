@@ -1,7 +1,12 @@
 import { Card, LibraryCard, Minion } from '@/shared/model/Card.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
-import { Discipline, LEAVE_TORPOR_COST, LibraryCardType } from '@/shared/const/model.ts'
+import {
+    ACTION_TYPES,
+    Discipline,
+    LEAVE_TORPOR_COST,
+    LibraryCardType,
+} from '@/shared/const/model.ts'
 import {
     ActionCardFromHandAction,
     ActionModifier,
@@ -118,8 +123,8 @@ export function createActionCardAction(
     actionCard: LibraryCard,
     usage: LibraryCardUsage,
 ): ActionCardFromHandAction {
-    if (actionCard.type != LibraryCardType.Action) {
-        throw new Error("ActionCardAction needs a LibraryCard with type 'Action'")
+    if (!actionCard.type || !ACTION_TYPES.includes(actionCard.type)) {
+        throw new Error('ActionCardAction needs a LibraryCard with an action type')
     }
 
     return {

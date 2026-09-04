@@ -1,4 +1,5 @@
 import {
+    ACTION_DECLARATION_OUTLINE_COLOR,
     ALIGNMENT_GUIDE_COLOR,
     ARROW_COLOR,
     BLACK,
@@ -32,6 +33,7 @@ import Phaser from 'phaser'
 const toColor = (value: string) => Phaser.Display.Color.RGBStringToColor(value)
 
 export const Colors = {
+    ACTION_DECLARATION_OUTLINE: toColor(ACTION_DECLARATION_OUTLINE_COLOR),
     ALIGNMENT_GUIDE: toColor(ALIGNMENT_GUIDE_COLOR),
     ARROW: toColor(ARROW_COLOR),
     BLACK: toColor(BLACK),

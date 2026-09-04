@@ -1,4 +1,4 @@
-import { Card } from '@/shared/model/Card.ts'
+import { Card, LibraryCard, Minion } from '@/shared/model/Card.ts'
 import { ComputedRef, reactive, Ref } from 'vue'
 import Phaser from 'phaser'
 import { CardMovement, gameMutations } from '@/shared/state/gameMutations.ts'
@@ -17,7 +17,9 @@ import { ALIGNMENT_GUIDE_THRESHOLD, GRID_SIZE } from '@/shared/const/game.ts'
 import { AnyCardRegion } from '@/shared/types/model.ts'
 import { Snap } from '@/shared/utils.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
-import { playCard } from '@/client/game/declaration.ts'
+import { declareActionCardFromHand, playCard } from '@/client/game/declaration.ts'
+import { ACTION_TYPES } from '@/shared/const/model.ts'
+import { useGameStateStore } from '@/client/store/gameState.ts'
 import Pointer = Phaser.Input.Pointer
 import Rectangle = Phaser.Geom.Rectangle
 
@@ -26,6 +28,7 @@ export function useCardDragDrop(
     cardAttrsRef: ComputedRef<CardAttrs>,
     bringToTop: VoidFunction,
 ) {
+    const gameState = useGameStateStore()
     const players = usePlayersStore()
     const gameBus = useGameBusStore()
 
@@ -89,6 +92,39 @@ export function useCardDragDrop(
     }
 
     /**
+     * Proximity detection
+     */
+
+    // Among `candidates`, the card whose rectangle overlaps the most with the
+    // dragged card at (posX, posY) expressed in the region referential. Shared
+    // by card grouping and action-declaration drop detection.
+    function findCardByProximity<T extends Card>(
+        cardRegion: AnyCardRegion,
+        posX: number,
+        posY: number,
+        candidates: T[],
+    ): T | null {
+        let cardRectangle = getCardRectangleAt(cardRegion, posX, posY)
+        // Dilate by 1px to also detect cards that are exactly on the border.
+        cardRectangle = dilateRectangle(cardRectangle, 1)
+        let maxAreaIntersection = 0
+        let cardCandidate: T | null = null
+        for (const otherCard of candidates) {
+            let otherCardRectangle = getCardRectangle(otherCard)
+            otherCardRectangle = dilateRectangle(otherCardRectangle, 1)
+            const intersectionArea = Rectangle.Area(
+                Rectangle.Intersection(cardRectangle, otherCardRectangle),
+            )
+            if (intersectionArea > maxAreaIntersection) {
+                maxAreaIntersection = intersectionArea
+                cardCandidate = otherCard
+            }
+        }
+
+        return cardCandidate
+    }
+
+    /**
      * Card Groups
      */
 
@@ -117,29 +153,61 @@ export function useCardDragDrop(
             return null
         }
 
-        let cardRectangle = getCardRectangleAt(cardRegion, posX, posY)
-        // Dilate by 1px to also detect cards that are exactly on the border.
-        cardRectangle = dilateRectangle(cardRectangle, 1)
-        let maxAreaIntersection = 0
-        let cardCandidate = null
-        for (const otherCard of otherCards) {
-            let otherCardRectangle = getCardRectangle(otherCard)
-            otherCardRectangle = dilateRectangle(otherCardRectangle, 1)
-            const intersectionArea = Rectangle.Area(
-                Rectangle.Intersection(cardRectangle, otherCardRectangle),
-            )
-            if (intersectionArea > maxAreaIntersection) {
-                maxAreaIntersection = intersectionArea
-                cardCandidate = otherCard
-            }
-        }
-
+        const cardCandidate = findCardByProximity(cardRegion, posX, posY, otherCards)
         if (cardCandidate) {
             const existing = gameBus.cardGroupsByCard[cardCandidate.oid]
             return existing ?? new Set([cardCandidate.oid])
         }
 
         return null
+    }
+
+    /**
+     * Action declaration by drag
+     *
+     * Dragging one of our action cards out of hand and dropping it onto one of
+     * our minions declares an action with that minion & card, instead of just
+     * moving the card. While such a drag is in progress, card grouping is
+     * suppressed in favour of the acting-minion hint.
+     */
+
+    const { actionDeclarationEnabled } = useUIFeatures()
+
+    // The dragged card when it is one of our action cards being dragged from
+    // hand, or null otherwise.
+    function draggedActionCard(): LibraryCard | null {
+        const card = cardRef.value
+        if (
+            actionDeclarationEnabled.value &&
+            !gameState.action &&
+            !gameState.combat &&
+            card instanceof LibraryCard &&
+            !!card.type &&
+            ACTION_TYPES.includes(card.type) &&
+            card.region == card.controller.hand &&
+            card.controller.oid == players.selfPlayer?.oid
+        ) {
+            return card
+        }
+        return null
+    }
+
+    function findActingMinionCandidate(
+        cardRegion: AnyCardRegion,
+        posX: number,
+        posY: number,
+    ): Minion | null {
+        // Acting minions can only be our own ready, unlocked minions.
+        if (
+            !cardRegion.owner ||
+            cardRegion.owner.oid != players.selfPlayer?.oid ||
+            !cardRegion.is.ready
+        ) {
+            return null
+        }
+
+        const minions = cardRegion.cards.filter((c): c is Minion => c.isMinion() && !c.isLocked)
+        return findCardByProximity(cardRegion, posX, posY, minions)
     }
 
     /**
@@ -180,6 +248,7 @@ export function useCardDragDrop(
 
         gameBus.cardGroupCandidate = null
         gameBus.cardPendingIntoGroup = null
+        gameBus.actingMinionCandidate = null
         if (!originCard || card == originCard) {
             gameBus.dragAttrs = dragAttrs
         }
@@ -296,8 +365,20 @@ export function useCardDragDrop(
                 localY = Snap.ceil(localY, GRID_SIZE)
             }
 
-            // Card group outline
-            gameBus.cardGroupCandidate = findCardGroupCandidate(cardRegion, localX, localY)
+            // Dragging an action card from hand onto a minion declares an
+            // action : highlight the acting-minion candidate and suppress the
+            // card group outline. Otherwise, look for a card group candidate.
+            if (draggedActionCard()) {
+                gameBus.actingMinionCandidate = findActingMinionCandidate(
+                    cardRegion,
+                    localX,
+                    localY,
+                )
+                gameBus.cardGroupCandidate = null
+            } else {
+                gameBus.cardGroupCandidate = findCardGroupCandidate(cardRegion, localX, localY)
+                gameBus.actingMinionCandidate = null
+            }
 
             dragAttrs.localX = localX
             dragAttrs.localY = localY
@@ -318,6 +399,7 @@ export function useCardDragDrop(
         dragAttrs.deltaY = 0
         dragAttrs.cardScale = cardAttrsRef.value.scale
         gameBus.dragAttrs = null
+        gameBus.actingMinionCandidate = null
     }
 
     /**
@@ -334,6 +416,15 @@ export function useCardDragDrop(
             !gameBus.dragOver.gameObjects.target ||
             !gameBus.dragOver.cardRegion
         ) {
+            return
+        }
+
+        // Declaring an action : an action card dropped onto one of our minions
+        // declares the action ( which plays the card ) rather than moving it.
+        const actionCard = draggedActionCard()
+        if (actionCard && gameBus.actingMinionCandidate) {
+            declareActionCardFromHand(gameBus.actingMinionCandidate, actionCard)
+            gameBus.actingMinionCandidate = null
             return
         }
 
