@@ -72,6 +72,7 @@
         <!-- Right-anchored controls, aligned under the phases block -->
         <div class="right-controls">
             <CommandButton
+                v-if="players.isPlayer"
                 class="unlock-all-button"
                 :command="commands.UnlockAll"
             >
@@ -146,6 +147,10 @@ function pingCardsDuringCurrentPhase() {
     // Anchor the group to the right so it stays in place even when
     // .game-mutations is hidden (non-player view).
     margin-left: auto;
+    // Keep the contents right-anchored inside the fixed width. A no-op while the
+    // flex:1 Unlock All button fills the row, but for spectators ( button hidden
+    // via v-if ) it pushes the lone cards indicator to the right edge.
+    justify-content: flex-end;
     // Match the fixed width of .phases (2 nav buttons + 5 phase boxes) so the
     // group's left edge lines up with the left edge of the phases block above.
     width: 262px;
