@@ -51,7 +51,7 @@
         v-if="cardRegion.is.ashHeap && players.isPlayer && isHovered && !dragAttrs.isDragging"
     >
         <!-- Move To Library -->
-        <ButtonGo
+        <ButtonGO
             ref="moveToLibraryButton"
             name="moveToLibraryButton"
             :x="buttons.centerX"
@@ -66,7 +66,7 @@
         />
 
         <!-- Move To Hand -->
-        <ButtonGo
+        <ButtonGO
             ref="moveToHandButton"
             name="moveToHandButton"
             :x="buttons.centerX"
@@ -81,7 +81,7 @@
         />
 
         <!-- Move Into Play -->
-        <ButtonGo
+        <ButtonGO
             ref="moveIntoPlayButton"
             name="moveIntoPlayButton"
             :x="buttons.centerX"
@@ -123,7 +123,7 @@ import { getCardScale, reorderCardIndex } from '@/client/game/utils.ts'
 import { useCardTexture } from '@/client/game/composables/useCardTexture.ts'
 import { AnyCardRegion } from '@/shared/types/model.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
-import ButtonGo from '@/client/game/objects/ButtonGo.vue'
+import ButtonGO from '@/client/game/objects/ButtonGO.vue'
 import { playCard } from '@/client/game/declaration.ts'
 
 const STACK_CARD_Y = 15
@@ -142,9 +142,9 @@ const { displayedTexture } = useCardTexture(card)
 const image = refObj<GameObjects.Image>()
 const dragPlaceholder = refObj<GameObjects.Image>()
 const cardOutline = refObj<GameObjects.Rectangle>()
-const moveToLibraryButton = ref<typeof ButtonGo>()
-const moveToHandButton = ref<typeof ButtonGo>()
-const moveIntoPlayButton = ref<typeof ButtonGo>()
+const moveToLibraryButton = ref<typeof ButtonGO>()
+const moveToHandButton = ref<typeof ButtonGO>()
+const moveIntoPlayButton = ref<typeof ButtonGO>()
 
 const key = computed(() => `wield${card.oid.toString()}`)
 

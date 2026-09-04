@@ -43,7 +43,7 @@
     <!-- Hovered buttons -->
     <template v-if="isHovered && !dragAttrs.isDragging">
         <!-- Play -->
-        <ButtonGo
+        <ButtonGO
             ref="playButton"
             name="playButton"
             :x="overlays.play.x"
@@ -57,7 +57,7 @@
         />
 
         <!-- Discard -->
-        <ButtonGo
+        <ButtonGO
             ref="discardButton"
             name="discardButton"
             :x="overlays.ashHeap.x"
@@ -71,7 +71,7 @@
         />
 
         <!-- Move to Bottom of Library -->
-        <ButtonGo
+        <ButtonGO
             ref="moveToBottomButton"
             name="moveToBottomButton"
             :x="overlays.moveToBottom.x"
@@ -111,7 +111,7 @@ import { usePlayersStore } from '@/client/state/players.ts'
 import { useCommands } from '@/client/game/composables/useCommands.ts'
 import { CardAttrs, PhaserDataKey, RegionCategory } from '@/client/game/types.ts'
 import { useCardDragDrop } from '@/client/game/composables/useCardDragDrop.ts'
-import ButtonGo from '@/client/game/objects/ButtonGo.vue'
+import ButtonGO from '@/client/game/objects/ButtonGO.vue'
 import { useCardClick } from '@/client/game/composables/useCardClick.ts'
 import { useCardOutline } from '@/client/game/composables/useCardOutline.ts'
 import {
@@ -139,9 +139,9 @@ const commands = useCommands()
 const { displayedTexture } = useCardTexture(card)
 const image = refObj<GameObjects.Image>()
 const cardOutline = refObj<GameObjects.Rectangle>()
-const playButton = ref<typeof ButtonGo>()
-const discardButton = ref<typeof ButtonGo>()
-const moveToBottomButton = ref<typeof ButtonGo>()
+const playButton = ref<typeof ButtonGO>()
+const discardButton = ref<typeof ButtonGO>()
+const moveToBottomButton = ref<typeof ButtonGO>()
 
 const key = computed(() => `hand${card.oid.toString()}`)
 

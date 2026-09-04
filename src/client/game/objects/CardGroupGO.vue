@@ -15,7 +15,7 @@
         />
 
         <template v-if="target.type == TargetType.Selected || target.type == TargetType.Pending">
-            <ButtonGo
+            <ButtonGO
                 name="cardGroupIcon"
                 :originX="0.5"
                 :originY="0"
@@ -42,7 +42,7 @@
                     :displayWidth="CARD_GROUP_ICON_WIDTH * 0.8"
                     :displayHeight="CARD_GROUP_ICON_HEIGHT * 0.8"
                 />
-            </ButtonGo>
+            </ButtonGO>
         </template>
         <template v-else>
             <Image
@@ -91,7 +91,7 @@ import {
     CARD_GROUP_ICON_WIDTH,
     CARD_OUTLINE_THICKNESS,
 } from '@/shared/const/game.ts'
-import ButtonGo from '@/client/game/objects/ButtonGo.vue'
+import ButtonGo from '@/client/game/objects/ButtonGO.vue'
 import { CardGroup } from '@/client/game/types.ts'
 import { Card } from '@/shared/model/Card.ts'
 import { AnyCardRegion } from '@/shared/types/model.ts'

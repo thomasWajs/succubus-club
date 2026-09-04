@@ -103,7 +103,7 @@
         <!-- Hovered change blood -->
         <template v-if="showOverlay">
             <!-- Burn Blood -->
-            <ButtonGo
+            <ButtonGO
                 ref="burnBloodButton"
                 :key="key + 'burnBloodButton'"
                 name="burnBloodButton"
@@ -119,7 +119,7 @@
             />
 
             <!-- Gain Blood -->
-            <ButtonGo
+            <ButtonGO
                 ref="gainBloodButton"
                 :key="key + 'gainBloodButton'"
                 name="gainBloodButton"
@@ -139,7 +139,7 @@
     <!-- Hovered buttons -->
     <template v-if="showOverlay">
         <!-- Ash Heap -->
-        <ButtonGo
+        <ButtonGO
             v-if="card.isIn.controlled && !card.isMinion()"
             ref="ashHeapButton"
             :key="key + 'ashHeapButton'"
@@ -156,7 +156,7 @@
         />
 
         <!-- Influence -->
-        <ButtonGo
+        <ButtonGO
             v-if="
                 card.isIn.uncontrolled && card.isMinion() && card.controller == players.selfPlayer
             "
@@ -287,7 +287,7 @@ import { CardAttrs, CardDragEvent, PhaserDataKey, RegionCategory } from '@/clien
 import { useCardClick } from '@/client/game/composables/useCardClick.ts'
 import { useCardOutline } from '@/client/game/composables/useCardOutline.ts'
 import { getCardScale, getOverlappingCards, getRegionScale } from '@/client/game/utils.ts'
-import ButtonGo from '@/client/game/objects/ButtonGo.vue'
+import ButtonGO from '@/client/game/objects/ButtonGO.vue'
 import { useCommands } from '@/client/game/composables/useCommands.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
@@ -322,10 +322,10 @@ const orangeCounterText = refObj<GameObjects.Text>()
 const markersRectangles = [] as (GameObjects.Rectangle | null)[]
 const markersTexts = [] as (GameObjects.Text | null)[]
 
-const burnBloodButton = ref<typeof ButtonGo>()
-const gainBloodButton = ref<typeof ButtonGo>()
-const ashHeapButton = ref<typeof ButtonGo>()
-const influenceButton = ref<typeof ButtonGo>()
+const burnBloodButton = ref<typeof ButtonGO>()
+const gainBloodButton = ref<typeof ButtonGO>()
+const ashHeapButton = ref<typeof ButtonGO>()
+const influenceButton = ref<typeof ButtonGO>()
 
 function registerMarkersRectangles(index: number, rectangle: typeof Rectangle | null) {
     markersRectangles[index] = rectangle?.object ?? null

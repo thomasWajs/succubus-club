@@ -64,7 +64,7 @@
         />
 
         <!-- Arrows -->
-        <ArrowGo
+        <ArrowGO
             v-for="(arrow, index) in arrows"
             :key="'arrow' + index"
             :arrow="arrow"
@@ -107,7 +107,7 @@ import { useCoreStore } from '@/client/store/core.ts'
 import { Arrow, GameType } from '@/shared/types/state.ts'
 import { setupKeyboardHandlers, setupPointerHandlers } from '@/client/game/input.ts'
 import { setupCamera } from '@/client/game/camera.ts'
-import ArrowGo from '@/client/game/objects/ArrowGo.vue'
+import ArrowGO from '@/client/game/objects/ArrowGO.vue'
 import ChangePoolMenu from '@/client/ui/ingame/ChangePoolMenu.vue'
 import HandGO from '@/client/game/objects/HandGO.vue'
 import SelectionArea from '@/client/game/objects/SelectionArea.vue'

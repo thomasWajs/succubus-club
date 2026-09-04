@@ -28,7 +28,7 @@
     />
 
     <!-- Minus Pool -->
-    <ButtonGo
+    <ButtonGO
         v-if="players.isPlayer"
         :x="x + width / 2 - 35"
         :y="y + height / 2"
@@ -68,7 +68,7 @@
     />
 
     <!-- Plus Pool -->
-    <ButtonGo
+    <ButtonGO
         v-if="players.isPlayer"
         :x="x + width / 2 + 35"
         :y="y + height / 2"
@@ -134,7 +134,7 @@ import { COUNTER_OUTLINE_THICKNESS, COUNTER_TEXT_STYLE } from '@/shared/const/ga
 import { usePlayersStore } from '@/client/state/players.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
-import ButtonGo from '@/client/game/objects/ButtonGo.vue'
+import ButtonGO from '@/client/game/objects/ButtonGO.vue'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
 import { getPlayerColor } from '@/client/game/utils.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'

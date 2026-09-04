@@ -179,7 +179,7 @@
             }"
         />
 
-        <ButtonGo
+        <ButtonGO
             v-if="player.isOusted"
             ref="hidePLayAreaButton"
             name="hidePLayAreaButton"
@@ -259,7 +259,7 @@ import CardGroupGO from '@/client/game/objects/CardGroupGO.vue'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
 import { Snap } from '@/shared/utils.ts'
 import { getPlayerColor } from '@/client/game/utils.ts'
-import ButtonGo from '@/client/game/objects/ButtonGo.vue'
+import ButtonGO from '@/client/game/objects/ButtonGO.vue'
 import RegionTheEdgeGO from '@/client/game/objects/RegionTheEdgeGO.vue'
 
 const { player } = defineProps<{
@@ -271,7 +271,7 @@ const players = usePlayersStore()
 
 const oustedOverlay = refObj<GameObjects.Rectangle>()
 const oustedText = refObj<GameObjects.Text>()
-const hidePLayAreaButton = ref<typeof ButtonGo>()
+const hidePLayAreaButton = ref<typeof ButtonGO>()
 function onContainerCreate(container: GameObjects.Container) {
     container.setData(PhaserDataKey.Player, player)
 
