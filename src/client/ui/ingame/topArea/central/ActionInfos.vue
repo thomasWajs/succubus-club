@@ -58,7 +58,10 @@
                 />
             </span>
 
-            <span class="action-property">
+            <span
+                v-if="actions.isBleed(action.minionAction) || actions.isHunt(action.minionAction)"
+                class="action-property"
+            >
                 <ActionPropertyStepper
                     v-if="actions.isBleed(action.minionAction)"
                     :property="ActionProperty.bleed"
@@ -196,7 +199,7 @@ const selfHasImpulse = computed(() => props.action.impulsePlayer == players.self
 
     .action-properties {
         display: flex;
-        justify-content: space-between;
+        justify-content: space-around;
     }
 
     .action-property {
