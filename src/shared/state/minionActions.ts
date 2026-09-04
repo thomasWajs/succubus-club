@@ -27,17 +27,30 @@ import {
     ACTION_MODIFIER_CARD_IMPLEMENTATIONS,
 } from '@/shared/cardImpl'
 
-function getImplementationACA(action: ActionCardFromHandAction) {
+// Returns the hand-written implementation for an action card, or null when the
+// card has none. Only a handful of ( bot-deck ) cards are implemented ; a human
+// can play any of the ~4000 cards, most of which fall here.
+function tryGetImplementationACA(action: ActionCardFromHandAction) {
     if (!action.card.krcgId) {
-        throw new Error('ActionCardAction has no krcgId')
+        return null
     }
     const ImplementationClass = ACTION_CARD_IMPLEMENTATIONS[action.card.krcgId]
 
     if (!ImplementationClass) {
-        throw new Error('ActionCardAction has no implementation')
+        return null
     }
 
     return new ImplementationClass(action.card.owner, action.usage)
+}
+
+// Same as tryGetImplementationACA, but throws when there is no implementation.
+// Use it only where an implementation is expected ( bot behaviours ).
+function getImplementationACA(action: ActionCardFromHandAction) {
+    const implementation = tryGetImplementationACA(action)
+    if (!implementation) {
+        throw new Error('ActionCardAction has no implementation')
+    }
+    return implementation
 }
 
 function getImplementationAM(actionModifier: ActionModifier) {
@@ -188,27 +201,39 @@ export function isDirected(action: MinionAction): boolean {
 }
 
 export function getDefaultStealth(action: MinionAction): number {
-    if (
-        action.actingMinion.controller.isBot &&
-        action.type == MinionActionType.ActionCardFromHand
-    ) {
-        return getImplementationACA(action).getStealth()
+    if (action.type == MinionActionType.ActionCardFromHand) {
+        const implementation = tryGetImplementationACA(action)
+        if (implementation) {
+            return implementation.getStealth()
+        }
+        // No implementation ( any card a human plays ) : infer the stealth from
+        // the card text, falling back to the directed / undirected default.
+        const textStealth = action.card.textStealth
+        if (textStealth !== null) {
+            return textStealth
+        }
     }
     return isUndirected(action) ? 1 : 0
 }
 
 export function isBleed(action: MinionAction): boolean {
-    return (
-        action.type == MinionActionType.Bleed ||
-        (action.type == MinionActionType.ActionCardFromHand && getImplementationACA(action).isBleed)
-    )
+    if (action.type == MinionActionType.Bleed) {
+        return true
+    }
+    if (action.type == MinionActionType.ActionCardFromHand) {
+        return tryGetImplementationACA(action)?.isBleed ?? false
+    }
+    return false
 }
 
 export function isHunt(action: MinionAction): boolean {
-    return (
-        action.type == MinionActionType.Hunt ||
-        (action.type == MinionActionType.ActionCardFromHand && getImplementationACA(action).isHunt)
-    )
+    if (action.type == MinionActionType.Hunt) {
+        return true
+    }
+    if (action.type == MinionActionType.ActionCardFromHand) {
+        return tryGetImplementationACA(action)?.isHunt ?? false
+    }
+    return false
 }
 
 /**

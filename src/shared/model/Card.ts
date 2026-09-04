@@ -360,6 +360,15 @@ export class LibraryCard extends Card {
         return this.resource?.discipline.split('/') ?? []
     }
 
+    // Stealth granted when the card text opens with e.g. "+1 stealth action",
+    // or null when it has no such prefix. Used to infer an action's stealth for
+    // the ~4000 cards that have no hand-written implementation. Stealth granted
+    // only at inf / sup is ignored for now.
+    get textStealth(): number | null {
+        const match = this.text.match(/^\s*\+(\d+)\s+stealth\s+action\b/i)
+        return match ? Number(match[1]) : null
+    }
+
     initMinionAttrs() {
         if (!this.resource) {
             return

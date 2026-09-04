@@ -3,28 +3,32 @@
         v-if="hasHint"
         class="declaration-hint"
     >
-        <template v-if="gameBus.actionDeclaration.type && gameBus.actionDeclaration.validTargets">
-            Select
-            <strong>{{ MinionActionNames[gameBus.actionDeclaration.type] }}</strong> target
-        </template>
+        <div>
+            <template
+                v-if="gameBus.actionDeclaration.type && gameBus.actionDeclaration.validTargets"
+            >
+                Select
+                <strong>{{ MinionActionNames[gameBus.actionDeclaration.type] }}</strong> target
+            </template>
 
-        <template
-            v-if="
-                gameBus.actionDeclaration.type == MinionActionType.ActionCardFromHand &&
-                gameBus.actionDeclaration.actingMinion
-            "
-        >
-            Choose an <strong>action card</strong> from your <strong>hand</strong>
-        </template>
+            <template
+                v-if="
+                    gameBus.actionDeclaration.type == MinionActionType.ActionCardFromHand &&
+                    gameBus.actionDeclaration.actingMinion
+                "
+            >
+                Choose an <strong>action card</strong> from your <strong>hand</strong>
+            </template>
 
-        <template
-            v-if="
-                gameBus.actionDeclaration.type == MinionActionType.ActionInPlay &&
-                gameBus.actionDeclaration.actingMinion
-            "
-        >
-            Choose a <strong>card in play</strong> that provides an action
-        </template>
+            <template
+                v-if="
+                    gameBus.actionDeclaration.type == MinionActionType.ActionInPlay &&
+                    gameBus.actionDeclaration.actingMinion
+                "
+            >
+                Choose a <strong>card in play</strong> that provides an action
+            </template>
+        </div>
     </CentralPanel>
 </template>
 
@@ -50,8 +54,10 @@ const hasHint = computed(() => {
 
 <style lang="scss">
 .central-panel.declaration-hint {
+    padding: 1rem 2rem;
     font-size: 20px;
     color: $midnight-blue;
     text-decoration: underline;
+    text-align: center;
 }
 </style>

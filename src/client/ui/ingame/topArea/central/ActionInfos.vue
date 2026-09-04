@@ -44,10 +44,12 @@
             </div>
         </div>
 
-        <div
-            v-if="fullDisplay"
-            class="action-properties"
-        >
+        <!--
+        Stealth / bleed / intercept are shown for every action ( human or bot )
+        so any player can adjust them as the action plays out. The block /
+        impulse decision below stays bot-only ( fullDisplay ).
+        -->
+        <div class="action-properties">
             <span class="action-property">
                 <ActionPropertyStepper
                     :property="ActionProperty.stealth"
