@@ -253,3 +253,16 @@ select {
     color: $ghost-white;
     font-weight: 600;
 }
+
+.game-tooltip {
+    position: absolute;
+    padding: 8px 12px;
+    border: solid 1px black;
+
+    background: $ash-grey;
+    color: $ghost-white;
+
+    white-space: nowrap;
+    pointer-events: none;
+    user-select: none;
+}

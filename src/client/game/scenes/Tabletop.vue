@@ -55,6 +55,7 @@
             <ContextMenu v-show="sceneReady" />
             <ContextSubmenu v-show="sceneReady" />
             <FloatingActionsCloud />
+            <ActionDropTooltip />
         </template>
 
         <!-- Card Stack -->
@@ -112,6 +113,7 @@ import ChangePoolMenu from '@/client/ui/ingame/ChangePoolMenu.vue'
 import HandGO from '@/client/game/objects/HandGO.vue'
 import SelectionArea from '@/client/game/objects/SelectionArea.vue'
 import FloatingActionsCloud from '@/client/ui/context/floating/FloatingActionsCloud.vue'
+import ActionDropTooltip from '@/client/ui/context/floating/ActionDropTooltip.vue'
 import { CardOid, PlayerOid, Point2D } from '@/shared/types/model.ts'
 import { setupDisplayWatcher } from '@/client/game/display.ts'
 import { Player } from '@/shared/model/Player.ts'

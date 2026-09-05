@@ -89,7 +89,7 @@
 
     <div
         v-show="drawHoverAttrs.isHovered && !cardRegion.isEmpty"
-        class="tooltip"
+        class="game-tooltip"
         :style="{
             left: drawHoverAttrs.x - 40 + 'px',
             top: `${drawHoverAttrs.y + 40}px`,
@@ -280,13 +280,3 @@ function closeUpAshHeap() {
     }
 }
 </script>
-
-<style lang="scss">
-.tooltip {
-    padding: 10px;
-    position: absolute;
-    border: solid 1px black;
-    background: $bone-grey;
-    color: white;
-}
-</style>
