@@ -18,6 +18,15 @@ export function createActionState(minionAction: MinionAction): ActionState {
     }
 }
 
+/**
+ * Wipe the ongoing action, whatever brought it to an end : the End action
+ * button, or the closing of the referendum a political action put to the table.
+ */
+export function endAction(gameState: GameState): void {
+    gameState.action = null
+    gameState.targetDeclarations = []
+}
+
 export function getBlockingMinion(gameState: GameState): Minion | null {
     const blockingDecision = gameState.action?.blockingDecision
     return blockingDecision instanceof Card && blockingDecision.isMinion() ?

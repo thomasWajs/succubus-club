@@ -42,6 +42,13 @@
                 ref="gameMenu"
                 label="Game"
             >
+                <button
+                    class="game-button"
+                    :disabled="!!gameState.referendum"
+                    @click="callReferendum"
+                >
+                    Call Referendum
+                </button>
                 <CommandButton :command="commands.DiscardAtRandom">
                     Discard At Random
                 </CommandButton>
@@ -104,6 +111,7 @@ import PopupMenu from '@/client/ui/components/PopupMenu.vue'
 import { useHistoryStore } from '@/client/store/history.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
 import { rollRandomResult } from '@/client/state/gameMutations.ts'
+import { gameMutations } from '@/shared/state/gameMutations.ts'
 
 const gameState = useGameStateStore()
 const gameBus = useGameBusStore()
@@ -118,6 +126,11 @@ const gameMenu = ref<InstanceType<typeof PopupMenu> | null>(null)
 function openSecretInterface() {
     gameMenu.value?.close()
     gameBus.secretInterfaceShown = true
+}
+
+function callReferendum() {
+    gameMenu.value?.close()
+    gameMutations.REFERENDUM_call.actSelf({})
 }
 
 /**

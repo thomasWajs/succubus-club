@@ -54,6 +54,47 @@ export type ActionState = {
     impulsePlayer: Player
 }
 
+/** Referendum state **/
+
+export enum VoteSide {
+    InFavour = 'InFavour',
+    Against = 'Against',
+}
+
+// Both sides, to iterate over a VoteCount
+export const VOTE_SIDES = [VoteSide.InFavour, VoteSide.Against] as const
+
+/**
+ * The votes a single vampire brings to a referendum.
+ *
+ * `side` is null while the vampire has not picked a side yet. Such a vote is
+ * still kept ( so a tweaked amount survives ) but it is not tallied.
+ */
+export type CastVote = {
+    side: VoteSide | null
+    amount: number
+}
+
+// A number of votes on each side : a player's extra votes, or a whole tally
+export type VoteCount = Record<VoteSide, number>
+
+export type ReferendumState = {
+    // CardOid of the voting vampire ==> the votes it casts
+    votes: Record<CardOid, CastVote>
+    /**
+     * PlayerOid ==> the votes that player brings without a vampire behind them :
+     * burning the edge, discarding a political card, activating a card in play...
+     *
+     * We deliberately don't model where they come from, only how many go to each
+     * side : the sources are too varied to enumerate, and the referendum
+     * interface tallies what players announce rather than deriving it. One
+     * counter per side, because a player may split them in opposite directions.
+     */
+    playerVotes: Record<PlayerOid, VoteCount>
+    // Author's Date.now() when the last call countdown started ( null = no last call pending )
+    lastCallStartTime: number | null
+}
+
 /** Combat state **/
 export type CombatantMinion = {
     minion: Minion

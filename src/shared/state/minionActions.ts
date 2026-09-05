@@ -241,6 +241,16 @@ export function isHunt(action: MinionAction): boolean {
     return false
 }
 
+export function isPoliticalAction(action: MinionAction): boolean {
+    if (
+        action.type != MinionActionType.ActionCardFromHand &&
+        action.type != MinionActionType.ActionInPlay
+    ) {
+        return false
+    }
+    return action.card instanceof LibraryCard && action.card.type == LibraryCardType.PoliticalAction
+}
+
 /**
  * Behaviours
  */

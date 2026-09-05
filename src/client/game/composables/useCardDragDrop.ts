@@ -181,6 +181,7 @@ export function useCardDragDrop(
             actionDeclarationEnabled.value &&
             !gameState.action &&
             !gameState.combat &&
+            gameState.activePlayer == players.selfPlayer &&
             card instanceof LibraryCard &&
             !!card.type &&
             ACTION_TYPES.includes(card.type) &&

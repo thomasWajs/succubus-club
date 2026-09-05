@@ -51,10 +51,10 @@
         -->
         <div class="action-properties">
             <span class="action-property">
-                <ActionPropertyStepper
-                    :property="ActionProperty.stealth"
+                <PropertyStepper
                     :value="action.stealth"
                     label="Stealth"
+                    @change="changeProperty(ActionProperty.stealth, $event)"
                 />
             </span>
 
@@ -62,32 +62,40 @@
                 v-if="actions.isBleed(action.minionAction) || actions.isHunt(action.minionAction)"
                 class="action-property"
             >
-                <ActionPropertyStepper
+                <PropertyStepper
                     v-if="actions.isBleed(action.minionAction)"
-                    :property="ActionProperty.bleed"
                     :value="action.bleed"
                     label="Bleed"
+                    @change="changeProperty(ActionProperty.bleed, $event)"
                 />
 
-                <ActionPropertyStepper
+                <PropertyStepper
                     v-if="actions.isHunt(action.minionAction)"
-                    :property="ActionProperty.hunt"
                     :value="action.hunt"
                     label="Hunt"
+                    @change="changeProperty(ActionProperty.hunt, $event)"
                 />
             </span>
 
             <span class="action-property">
-                <ActionPropertyStepper
-                    :property="ActionProperty.intercept"
+                <PropertyStepper
                     :value="action.intercept"
                     label="Intercept"
+                    @change="changeProperty(ActionProperty.intercept, $event)"
                 />
             </span>
         </div>
 
         <div class="action-impulse">
-            <div>
+            <div class="action-buttons">
+                <button
+                    v-if="isPoliticalAction"
+                    class="game-button"
+                    @click="gameMutations.REFERENDUM_call.actSelf({})"
+                >
+                    Start referendum
+                </button>
+
                 <button
                     class="game-button is-danger"
                     @click="gameMutations.ACTION_endAction.actSelf({})"
@@ -155,7 +163,7 @@ import {
 } from '@/shared/types/state.ts'
 import * as actions from '@/shared/state/minionActions.ts'
 import { selfSecureName } from '@/client/state/self.ts'
-import ActionPropertyStepper from '@/client/ui/ingame/topArea/central/ActionPropertyStepper.vue'
+import PropertyStepper from '@/client/ui/components/PropertyStepper.vue'
 import CentralPanel from '@/client/ui/ingame/topArea/central/CentralPanel.vue'
 
 const props = defineProps<{
@@ -165,7 +173,12 @@ const props = defineProps<{
 const gameState = useGameStateStore()
 const players = usePlayersStore()
 
+function changeProperty(propertyName: ActionProperty, amount: number) {
+    gameMutations.ACTION_changeProperty.actSelf({ propertyName, amount })
+}
+
 const fullDisplay = computed(() => props.action.minionAction.actingMinion.controller.isBot)
+const isPoliticalAction = computed(() => actions.isPoliticalAction(props.action.minionAction))
 const blockingMinion = computed(() => getBlockingMinion(gameState))
 const selfHasImpulse = computed(() => props.action.impulsePlayer == players.selfPlayer)
 </script>
@@ -211,6 +224,12 @@ const selfHasImpulse = computed(() => props.action.impulsePlayer == players.self
         display: flex;
         justify-content: center;
         align-items: center;
+
+        .action-buttons {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
 
         .impulse-decision {
             border: dotted 2px $purple-grey;

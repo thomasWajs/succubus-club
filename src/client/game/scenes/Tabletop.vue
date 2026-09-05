@@ -56,6 +56,7 @@
             <ContextSubmenu v-show="sceneReady" />
             <FloatingActionsCloud />
             <ActionDropTooltip />
+            <ReferendumVoteBoxes v-if="gameState.referendum" />
         </template>
 
         <!-- Card Stack -->
@@ -114,6 +115,7 @@ import HandGO from '@/client/game/objects/HandGO.vue'
 import SelectionArea from '@/client/game/objects/SelectionArea.vue'
 import FloatingActionsCloud from '@/client/ui/context/floating/FloatingActionsCloud.vue'
 import ActionDropTooltip from '@/client/ui/context/floating/ActionDropTooltip.vue'
+import ReferendumVoteBoxes from '@/client/ui/context/floating/ReferendumVoteBoxes.vue'
 import { CardOid, PlayerOid, Point2D } from '@/shared/types/model.ts'
 import { setupDisplayWatcher } from '@/client/game/display.ts'
 import { Player } from '@/shared/model/Player.ts'

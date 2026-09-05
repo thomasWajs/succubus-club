@@ -14,8 +14,14 @@
 
         <!-- Action Infos -->
         <ActionInfos
-            v-if="gameState.action"
+            v-if="gameState.action && !gameState.referendum"
             :action="gameState.action"
+        />
+
+        <!-- Referendum Infos -->
+        <ReferendumInfos
+            v-if="gameState.referendum"
+            :referendum="gameState.referendum"
         />
 
         <!-- Combat Infos -->
@@ -56,6 +62,7 @@ import TheEdgeHint from '@/client/ui/ingame/topArea/central/TheEdgeHint.vue'
 import DeclarationHint from '@/client/ui/ingame/topArea/central/DeclarationHint.vue'
 import SecretChoice from '@/client/ui/ingame/topArea/central/SecretChoice.vue'
 import ActionInfos from '@/client/ui/ingame/topArea/central/ActionInfos.vue'
+import ReferendumInfos from '@/client/ui/ingame/topArea/central/ReferendumInfos.vue'
 import TimerSetup from '@/client/ui/ingame/topArea/central/TimerSetup.vue'
 import NextTurn from '@/client/ui/ingame/topArea/central/NextTurn.vue'
 import TurnNotification from '@/client/ui/ingame/topArea/central/TurnNotification.vue'

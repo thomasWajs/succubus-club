@@ -27,6 +27,8 @@ import {
     TargetDeclaration,
     VALID,
     Validity,
+    VoteCount,
+    VoteSide,
 } from '@/shared/types/state.ts'
 import {
     MutationSyncMode,
@@ -38,11 +40,21 @@ import { isRevealedToViewer, secureName } from '@/shared/state/cardVisibility.ts
 import { useTimer } from '@/shared/state/useTimer.ts'
 import {
     createActionState,
+    endAction,
     getBlockingMinion,
     passImpulse,
     regainImpulse,
 } from '@/shared/state/actionState.ts'
 import { createCombatState, inflictDamage } from '@/shared/state/combatState.ts'
+import {
+    createReferendumState,
+    createVoteCount,
+    getCastVote,
+    getPlayerVotes,
+    interruptLastCall,
+    interruptsReferendumLastCall,
+    tallyVotes,
+} from '@/shared/state/referendumState.ts'
 import * as actions from '@/shared/state/minionActions.ts'
 import { GameState } from '@/shared/state/gameState.ts'
 import { AnyCardRegion, CardOid, GameId } from '@/shared/types/model.ts'
@@ -161,6 +173,9 @@ export abstract class GameMutation<ParamsType extends GameMutationParams> {
         // either before or after updating the gameState
         const visionBefore = this.card?.getPlayerVision() ?? { public: false }
         this.updateGameState(this.gameState)
+
+        interruptsReferendumLastCall(this)
+
         const visionAfter = this.card?.getPlayerVision() ?? { public: false }
 
         this.playerVision = {} as PlayerVision
@@ -1772,8 +1787,7 @@ class EndAction extends GameMutation<EmptyParams> {
             this.previousState.actionName = actions.getName(gameState.action.minionAction)
         }
 
-        gameState.action = null
-        gameState.targetDeclarations = []
+        endAction(gameState)
     }
 
     formatForLog() {
@@ -1884,6 +1898,240 @@ export class ResolveBlock extends GameMutation<EmptyParams> {
         return this.previousState.isBlockSuccessful ?
                 `Block successful. !! TEMPORARY !! : Combat resolved as hand strikes for 1`
             :   `Block failed`
+    }
+}
+
+/**
+ * Referendum
+ *
+ * The referendum interface only tallies what players announce : it never
+ * decides anything by itself. Every change goes through one of these mutations
+ * so that all clients see the same tally.
+ *
+ * None of them takes part in the cancel stack ( isIgnoredForCancel ) : a wrong
+ * vote is fixed by voting again, and the referendum is transient enough that
+ * having it block the cancel of a real game action would be a nuisance.
+ */
+
+abstract class ReferendumMutation<
+    ParamsType extends GameMutationParams,
+> extends GameMutation<ParamsType> {
+    _isUserCancellable = false
+    isIgnoredForCancel = true
+    readonly syncMode = MutationSyncMode.Merge
+
+    protected getValidity(gameState: GameState) {
+        return gameState.referendum ? VALID : Invalid('Must be applied during a referendum')
+    }
+
+    // Guarded accessor, so subclasses don't repeat the null check
+    protected getReferendum(gameState: GameState) {
+        const referendum = gameState.referendum
+        if (!referendum) {
+            throw new Error('gameState.referendum is null')
+        }
+        return referendum
+    }
+}
+
+/**
+ * Referendum : Call a referendum
+ */
+
+class CallReferendum extends ReferendumMutation<EmptyParams> {
+    protected getValidity(gameState: GameState) {
+        return gameState.referendum ? Invalid('A referendum is already in progress') : VALID
+    }
+
+    protected updateGameState(gameState: GameState) {
+        gameState.referendum = createReferendumState()
+    }
+
+    formatForLog() {
+        return `Call a referendum`
+    }
+}
+
+/**
+ * Referendum : Close the referendum
+ */
+
+class CloseReferendum extends ReferendumMutation<EmptyParams> {
+    declare public previousState: { tally: VoteCount; actionName: string | null }
+
+    protected updateGameState(gameState: GameState) {
+        // Store for use in formatForLog()
+        this.previousState.tally =
+            gameState.referendum ? tallyVotes(gameState.referendum) : createVoteCount()
+        this.previousState.actionName =
+            gameState.action ? actions.getName(gameState.action.minionAction) : null
+
+        gameState.referendum = null
+
+        // A political action stays in progress for the whole referendum, and
+        // ends with it. A referendum called on its own has no action to end.
+        endAction(gameState)
+    }
+
+    formatForLog() {
+        const tally = this.previousState.tally
+        const ending =
+            this.previousState.actionName ? ` and end ${this.previousState.actionName}` : ''
+        return `Close the referendum ( ${tally[VoteSide.InFavour]} in favour / ${tally[VoteSide.Against]} against )${ending}`
+    }
+}
+
+/**
+ * Referendum : the votes of a single vampire
+ *
+ * A vampire votes for its own controller, so only that player announces its
+ * vote. The interface enforces it for everyone ; strict games make it a rule.
+ */
+
+interface VampireVoteParams extends GameMutationParams {
+    vampire: Card
+}
+
+abstract class VampireVoteMutation<
+    ParamsType extends VampireVoteParams,
+> extends ReferendumMutation<ParamsType> {
+    get card() {
+        return this.params.vampire
+    }
+
+    protected getStrictValidity(): Validity {
+        return this.params.vampire.controller?.oid == this.author.oid ?
+                VALID
+            :   Invalid(`Players can only vote with their own vampires`)
+    }
+}
+
+/**
+ * Referendum : Cast a vote
+ *
+ * Clicking the side a vampire already voted for retracts its vote, so a
+ * mis-click is fixed with a second click.
+ */
+
+interface CastVoteParams extends VampireVoteParams {
+    side: VoteSide
+}
+
+class CastReferendumVote extends VampireVoteMutation<CastVoteParams> {
+    protected updateGameState(gameState: GameState) {
+        const referendum = this.getReferendum(gameState)
+        const castVote = getCastVote(referendum, this.params.vampire)
+
+        referendum.votes[this.params.vampire.oid] = {
+            ...castVote,
+            side: castVote.side == this.params.side ? null : this.params.side,
+        }
+    }
+
+    formatForLog() {
+        const castVote = this.gameState.referendum?.votes[this.params.vampire.oid]
+        if (!castVote?.side) {
+            return `Retract the vote of ${CARD_LOG_PLACEHOLDER}`
+        }
+        const side = castVote.side == VoteSide.InFavour ? 'in favour' : 'against'
+        return `${CARD_LOG_PLACEHOLDER} votes ${castVote.amount} ${side}`
+    }
+}
+
+/**
+ * Referendum : Change the number of votes a vampire casts
+ */
+
+interface ChangeVotesParams extends VampireVoteParams {
+    amount: number
+}
+
+class ChangeReferendumVotes extends VampireVoteMutation<ChangeVotesParams> {
+    protected updateGameState(gameState: GameState) {
+        const referendum = this.getReferendum(gameState)
+        const castVote = getCastVote(referendum, this.params.vampire)
+
+        referendum.votes[this.params.vampire.oid] = {
+            ...castVote,
+            // A vampire can bring no vote at all, but never a negative one
+            amount: Math.max(0, castVote.amount + this.params.amount),
+        }
+    }
+
+    formatForLog() {
+        const votes = this.gameState.referendum?.votes[this.params.vampire.oid]?.amount ?? 0
+        return `${CARD_LOG_PLACEHOLDER} now casts ${votes} vote(s)`
+    }
+}
+
+/**
+ * Referendum : Change the extra votes a player casts
+ *
+ * These are the votes that don't come from a vampire : burning the edge,
+ * discarding a political card, activating a card in play... The player performs
+ * the cost with the usual game mutations, then announces the votes here.
+ */
+
+interface ChangePlayerVotesParams extends GameMutationParams {
+    player: Player
+    side: VoteSide
+    amount: number
+}
+
+class ChangePlayerVotes extends ReferendumMutation<ChangePlayerVotesParams> {
+    protected getStrictValidity(): Validity {
+        return this.params.player.oid == this.author.oid ?
+                VALID
+            :   Invalid(`Players can only cast their own votes`)
+    }
+
+    protected updateGameState(gameState: GameState) {
+        const referendum = this.getReferendum(gameState)
+        const playerVotes = getPlayerVotes(referendum, this.params.player)
+
+        referendum.playerVotes[this.params.player.oid] = {
+            ...playerVotes,
+            // A player can bring no extra vote at all, but never a negative one
+            [this.params.side]: Math.max(0, playerVotes[this.params.side] + this.params.amount),
+        }
+    }
+
+    formatForLog() {
+        const votes =
+            this.gameState.referendum?.playerVotes[this.params.player.oid]?.[this.params.side] ?? 0
+        const side = this.params.side == VoteSide.InFavour ? 'in favour' : 'against'
+        return `${this.params.player.shortName} now casts ${votes} extra vote(s) ${side}`
+    }
+}
+
+/**
+ * Referendum : Last call
+ *
+ * The countdown is shared as the timestamp it started at, so every client
+ * settles the outcome on its own without further broadcasting.
+ */
+
+interface LastCallParams extends GameMutationParams {
+    date: Date
+}
+
+class StartReferendumLastCall extends ReferendumMutation<LastCallParams> {
+    protected updateGameState(gameState: GameState) {
+        this.getReferendum(gameState).lastCallStartTime = this.params.date.getTime()
+    }
+
+    formatForLog() {
+        return `Last call for the referendum`
+    }
+}
+
+class InterruptReferendumLastCall extends ReferendumMutation<EmptyParams> {
+    protected updateGameState(gameState: GameState) {
+        interruptLastCall(gameState)
+    }
+
+    formatForLog() {
+        return `Interrupt the last call`
     }
 }
 
@@ -2215,6 +2463,17 @@ export const gameMutations = {
     ACTION_endAction: defineMutation(EndAction),
     ACTION_resolveAction: defineMutation(ResolveAction),
     ACTION_resolveBlock: defineMutation(ResolveBlock),
+
+    /**
+     * Referendum mutations
+     */
+    REFERENDUM_call: defineMutation(CallReferendum),
+    REFERENDUM_close: defineMutation(CloseReferendum),
+    REFERENDUM_castVote: defineMutation(CastReferendumVote),
+    REFERENDUM_changeVotes: defineMutation(ChangeReferendumVotes),
+    REFERENDUM_changePlayerVotes: defineMutation(ChangePlayerVotes),
+    REFERENDUM_startLastCall: defineMutation(StartReferendumLastCall),
+    REFERENDUM_interruptLastCall: defineMutation(InterruptReferendumLastCall),
 
     /**
      * UI mutations

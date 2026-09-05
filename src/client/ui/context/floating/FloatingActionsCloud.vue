@@ -55,6 +55,7 @@ const focusedCard = computed(() => {
         gameBus.dragAttrs ||
         gameState.action ||
         gameState.combat ||
+        gameState.referendum ||
         gameState.activePlayer != players.selfPlayer
     ) {
         return

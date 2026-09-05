@@ -17,6 +17,7 @@ import {
     CombatState,
     GameType,
     KnownCards,
+    ReferendumState,
     TargetDeclaration,
 } from '@/shared/types/state.ts'
 import { PermanentId } from '@/shared/types/multiplayer.ts'
@@ -85,6 +86,9 @@ export class GameState {
     /** Action and combat state for the bot **/
     action: ActionState | null = null
     combat: CombatState | null = null
+
+    /** Referendum state **/
+    referendum: ReferendumState | null = null
 
     // Getters
 
