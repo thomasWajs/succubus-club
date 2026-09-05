@@ -71,19 +71,43 @@ const focusedCard = computed(() => {
         return singleCard.value
     }
 
+    // Alternate case : a card in play calls a referendum by cardtext
+    if (singleCard.value && readyToCallReferendum(singleCard.value)) {
+        return singleCard.value
+    }
+
     return undefined
 })
 
-const floatingActions = computed(() => {
+// Cards that call a referendum by cardtext only do it from their place in play.
+// A locked one still can : it is not an action it takes.
+function readyToCallReferendum(card: Card): boolean {
+    return card.isIn.ready && card.canCallReferendum()
+}
+
+const floatingActions = computed<FloatingActionData[]>(() => {
     const card = focusedCard.value
-    if (card) {
-        if (card.isEmbraceLike()) {
-            return getEmbraceLikeActions(card)
-        } else if (card.isMinion()) {
-            return getActingMinionActions(card)
-        }
+    if (!card) {
+        return []
     }
-    return []
+
+    const actions: FloatingActionData[] = []
+
+    if (card.isEmbraceLike()) {
+        actions.push(...getEmbraceLikeActions(card))
+    }
+    // Only a primed minion gets the action buttons, and focusedCard returns it
+    // first, so this is that same card
+    else if (primedMinion.value) {
+        actions.push(...getActingMinionActions(primedMinion.value))
+    }
+
+    // Comes on top of whatever the card can do otherwise, minion or not
+    if (readyToCallReferendum(card)) {
+        actions.push(...getCallReferendumActions(card))
+    }
+
+    return actions
 })
 
 function getPositionning(card: Card) {
@@ -102,10 +126,12 @@ function getPositionning(card: Card) {
     const rect = getCardRectangle(card)
 
     const cardTop = y - (rect.height * scale) / 2
+    const cardBottom = y + (rect.height * scale) / 2
     const cardRight = x + (rect.width * scale) / 2
     const cardLeft = x - (rect.width * scale) / 2
 
     const northActionsTop = cardTop - cardActionHeight - cardActionGap
+    const southActionsTop = cardBottom + cardActionGap
     const eastActionsLeft = cardRight + cardActionGap
     const westActionsRight = cardLeft - cardActionGap
 
@@ -115,9 +141,11 @@ function getPositionning(card: Card) {
         x,
         y,
         cardTop,
+        cardBottom,
         cardRight,
         cardLeft,
         northActionsTop,
+        southActionsTop,
         eastActionsLeft,
         westActionsRight,
     }
@@ -269,6 +297,28 @@ function getActingMinionActions(actingMinion: Minion): FloatingActionData[] {
     }
 
     return actions
+}
+
+function getCallReferendumActions(card: Card): FloatingActionData[] {
+    const positionning = getPositionning(card)
+    if (!positionning) {
+        return []
+    }
+    const { x, northActionsTop, southActionsTop } = positionning
+
+    return [
+        {
+            label: 'Call Referendum',
+            left: x,
+            translate: 'translateX(-50%)',
+            // Above the card, like the embrace-like action. A minion already
+            // has its action buttons up there, so it takes the free slot below.
+            top: card.isMinion() ? southActionsTop : northActionsTop,
+            onClick: () => {
+                gameMutations.REFERENDUM_call.actSelf({})
+            },
+        },
+    ]
 }
 
 function getEmbraceLikeActions(embraceLike: Card): FloatingActionData[] {

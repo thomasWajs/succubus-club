@@ -245,6 +245,11 @@ export abstract class Card extends BaseModel implements PropertiesInPlay {
     isEmbraceLike() {
         return new RegExp(`becomes a.*(\\d[ -]|same.*)capacity`, 'i').test(this.text)
     }
+
+    // Can this card put a referendum to the table by cardtext ?
+    canCallReferendum() {
+        return new RegExp(`(can|may) call .* referendum`, 'i').test(this.text)
+    }
 }
 
 export class CryptCard extends Card {
