@@ -13,6 +13,7 @@ import {
     ActionProperty,
     ALL_PLAYERS,
     ANY_PLAYER,
+    CardBaseAttribute,
     CardRevelationTarget,
     CardRevelationViewer,
     GameType,
@@ -24,6 +25,7 @@ import {
     NO_BLOCK,
     NO_REACTION,
     PlayerVision,
+    ReferendumState,
     TargetDeclaration,
     VALID,
     Validity,
@@ -36,6 +38,7 @@ import {
     VersioningId,
     VersioningTarget,
 } from '@/shared/types/multiplayer.ts'
+import { getCardAttribute, setCardAttribute } from '@/shared/state/cardAttributes.ts'
 import { isRevealedToViewer, secureName } from '@/shared/state/cardVisibility.ts'
 import { useTimer } from '@/shared/state/useTimer.ts'
 import {
@@ -49,10 +52,12 @@ import { createCombatState, inflictDamage } from '@/shared/state/combatState.ts'
 import {
     createReferendumState,
     createVoteCount,
+    getCastBallot,
     getCastVote,
     getPlayerVotes,
     interruptLastCall,
     interruptsReferendumLastCall,
+    isBallotVampire,
     tallyVotes,
 } from '@/shared/state/referendumState.ts'
 import * as actions from '@/shared/state/minionActions.ts'
@@ -538,6 +543,57 @@ class ChangeMarker extends GameMutation<ChangeMarkerParams> {
             card: this.params.card,
             marker: this.params.marker,
             operation: this.params.operation == 'Add' ? 'Remove' : 'Add',
+        })
+    }
+}
+
+/**
+ * Change a card attribute
+ *
+ * A manual override for the numeric attributes the interface can't always
+ * derive : a minion's bleed, stealth, intercept and strength, a vampire's hunt,
+ * votes and ballots.
+ */
+interface ChangeCardAttributeParams extends GameMutationParams {
+    card: Card
+    attribute: CardBaseAttribute
+    amount: number
+}
+
+class ChangeCardAttribute extends GameMutation<ChangeCardAttributeParams> {
+    readonly syncMode = MutationSyncMode.Merge
+
+    get card() {
+        return this.params.card
+    }
+
+    getValidity() {
+        const value = getCardAttribute(this.params.card, this.params.attribute)
+        if (value === null) {
+            return Invalid(
+                `${secureName(this.params.card, this.author)} : cannot edit ${this.params.attribute}`,
+            )
+        }
+        return VALID
+    }
+
+    protected updateGameState() {
+        const value = getCardAttribute(this.params.card, this.params.attribute)
+        if (value !== null) {
+            setCardAttribute(this.params.card, this.params.attribute, value + this.params.amount)
+        }
+    }
+
+    formatForLog() {
+        const value = getCardAttribute(this.params.card, this.params.attribute) ?? 0
+        return `${this.params.amount > 0 ? '+' : ''}${this.params.amount} base ${this.params.attribute} on ${CARD_LOG_PLACEHOLDER} (now: ${value})`
+    }
+
+    getCancelMutation(): AnyGameMutation {
+        return gameMutations.changeCardAttribute.createCancelMutation(this, {
+            card: this.params.card,
+            attribute: this.params.attribute,
+            amount: this.params.amount * -1,
         })
     }
 }
@@ -2016,6 +2072,22 @@ abstract class VampireVoteMutation<
                 VALID
             :   Invalid(`Players can only vote with their own vampires`)
     }
+
+    // A priscus casts into the subreferendum ( ballots ), everyone else into the
+    // main referendum ( votes ). Both stores hold the same CastVote shape.
+    protected get castsBallots() {
+        return isBallotVampire(this.params.vampire)
+    }
+
+    protected getVoteStore(referendum: ReferendumState) {
+        return this.castsBallots ? referendum.ballots : referendum.votes
+    }
+
+    protected getCurrentCast(referendum: ReferendumState) {
+        return this.castsBallots ?
+                getCastBallot(referendum, this.params.vampire)
+            :   getCastVote(referendum, this.params.vampire)
+    }
 }
 
 /**
@@ -2032,21 +2104,29 @@ interface CastVoteParams extends VampireVoteParams {
 class CastReferendumVote extends VampireVoteMutation<CastVoteParams> {
     protected updateGameState(gameState: GameState) {
         const referendum = this.getReferendum(gameState)
-        const castVote = getCastVote(referendum, this.params.vampire)
+        const store = this.getVoteStore(referendum)
+        const castVote = this.getCurrentCast(referendum)
 
-        referendum.votes[this.params.vampire.oid] = {
+        store[this.params.vampire.oid] = {
             ...castVote,
             side: castVote.side == this.params.side ? null : this.params.side,
         }
     }
 
     formatForLog() {
-        const castVote = this.gameState.referendum?.votes[this.params.vampire.oid]
+        const isBallot = this.castsBallots
+        const referendum = this.gameState.referendum
+        const store = referendum ? this.getVoteStore(referendum) : {}
+        const castVote = store[this.params.vampire.oid]
         if (!castVote?.side) {
-            return `Retract the vote of ${CARD_LOG_PLACEHOLDER}`
+            return isBallot ?
+                    `Retract the ballot of ${CARD_LOG_PLACEHOLDER}`
+                :   `Retract the vote of ${CARD_LOG_PLACEHOLDER}`
         }
         const side = castVote.side == VoteSide.InFavour ? 'in favour' : 'against'
-        return `${CARD_LOG_PLACEHOLDER} votes ${castVote.amount} ${side}`
+        return isBallot ?
+                `${CARD_LOG_PLACEHOLDER} casts ${castVote.amount} ballot(s) ${side} in the subreferendum`
+            :   `${CARD_LOG_PLACEHOLDER} votes ${castVote.amount} ${side}`
     }
 }
 
@@ -2061,9 +2141,10 @@ interface ChangeVotesParams extends VampireVoteParams {
 class ChangeReferendumVotes extends VampireVoteMutation<ChangeVotesParams> {
     protected updateGameState(gameState: GameState) {
         const referendum = this.getReferendum(gameState)
-        const castVote = getCastVote(referendum, this.params.vampire)
+        const store = this.getVoteStore(referendum)
+        const castVote = this.getCurrentCast(referendum)
 
-        referendum.votes[this.params.vampire.oid] = {
+        store[this.params.vampire.oid] = {
             ...castVote,
             // A vampire can bring no vote at all, but never a negative one
             amount: Math.max(0, castVote.amount + this.params.amount),
@@ -2071,8 +2152,13 @@ class ChangeReferendumVotes extends VampireVoteMutation<ChangeVotesParams> {
     }
 
     formatForLog() {
-        const votes = this.gameState.referendum?.votes[this.params.vampire.oid]?.amount ?? 0
-        return `${CARD_LOG_PLACEHOLDER} now casts ${votes} vote(s)`
+        const isBallot = this.castsBallots
+        const referendum = this.gameState.referendum
+        const store = referendum ? this.getVoteStore(referendum) : {}
+        const amount = store[this.params.vampire.oid]?.amount ?? 0
+        return isBallot ?
+                `${CARD_LOG_PLACEHOLDER} now casts ${amount} ballot(s)`
+            :   `${CARD_LOG_PLACEHOLDER} now casts ${amount} vote(s)`
     }
 }
 
@@ -2436,6 +2522,7 @@ export const gameMutations = {
     becomeVampire: defineMutation(BecomeVampire),
     becomeVampireInverse: defineMutation(BecomeVampireInverse),
     changeBlood: defineMutation(ChangeBlood),
+    changeCardAttribute: defineMutation(ChangeCardAttribute),
     changeGreenCounter: defineMutation(ChangeGreenCounter),
     changeOrangeCounter: defineMutation(ChangeOrangeCounter),
     changeMarker: defineMutation(ChangeMarker),

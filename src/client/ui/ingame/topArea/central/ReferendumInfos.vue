@@ -69,6 +69,37 @@
                     </div>
                 </div>
 
+                <!--
+                Priscii subreferendum : always on the panel so the room is
+                reserved, whether ballots were cast or not. Once a side carries
+                it, its count is highlighted and the grant it earns is spelled
+                out at the end of the line.
+                -->
+                <div class="subreferendum">
+                    <span class="subreferendum-title">Priscii</span>
+
+                    <span
+                        class="subreferendum-side in-favour"
+                        :class="{ 'is-winner': subWinner == VoteSide.InFavour }"
+                    >
+                        {{ subTally[VoteSide.InFavour] }} in favour
+                    </span>
+
+                    <span
+                        class="subreferendum-side against"
+                        :class="{ 'is-winner': subWinner == VoteSide.Against }"
+                    >
+                        {{ subTally[VoteSide.Against] }} against
+                    </span>
+
+                    <span
+                        v-if="subWinner"
+                        class="subreferendum-grant"
+                    >
+                        Grants {{ SUBREFERENDUM_VOTE_GRANT }}
+                    </span>
+                </div>
+
                 <div class="referendum-controls">
                     <!--
                     Fixed slots : the Interrupt button takes the place of the
@@ -136,8 +167,11 @@ import { ReferendumState, VoteSide } from '@/shared/types/state.ts'
 import {
     getLastCallRemainingTime,
     getPlayerVotes,
+    getSubReferendumWinner,
     getWinningSide,
     isLastCallOver,
+    SUBREFERENDUM_VOTE_GRANT,
+    tallySubReferendum,
     tallyVotes,
 } from '@/shared/state/referendumState.ts'
 import { Player } from '@/shared/model/Player.ts'
@@ -208,6 +242,19 @@ const tally = computed(() => tallyVotes(props.referendum))
 
 // Nothing is highlighted until an uninterrupted last call settles the outcome
 const winningSide = computed(() => (outcomeReached.value ? getWinningSide(props.referendum) : null))
+
+/**
+ * Priscii subreferendum
+ *
+ * Priscii cast ballots into a subreferendum of their own, whose winning side
+ * then grants a fixed number of votes to the main tally ( none on a tie ). The
+ * block only appears once at least one ballot has been cast, since there is no
+ * subreferendum to speak of otherwise. The grant is already folded into the
+ * main tally by tallyVotes, so this only spells out where those votes came from.
+ */
+
+const subTally = computed(() => tallySubReferendum(props.referendum))
+const subWinner = computed(() => getSubReferendumWinner(props.referendum))
 
 /**
  * Methuselah votes
@@ -344,6 +391,56 @@ function changePlayerVotes(player: Player, side: VoteSide, amount: number) {
             border-color: $shadow-grey;
             background: rgba($ghost-white, 0.9);
         }
+    }
+
+    /**
+     * Priscii subreferendum
+     */
+
+    // The whole subreferendum on a single dense line : label, then both counts
+    .subreferendum {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 2px 4px;
+        border: solid 1px $royal-purple;
+    }
+
+    .subreferendum-title {
+        font-size: 11px;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: $royal-purple;
+    }
+
+    .subreferendum-side {
+        font-size: 12px;
+        font-weight: bold;
+        font-variant-numeric: tabular-nums;
+        padding: 0 3px;
+        border: solid 1px transparent;
+
+        &.in-favour {
+            color: $dark-forest;
+        }
+
+        &.against {
+            color: $wine-crimson;
+        }
+
+        // The side that carried the subreferendum, and so granted its votes
+        &.is-winner {
+            border-color: $royal-purple;
+        }
+    }
+
+    // The votes the winning side earns, tacked onto the end of the line
+    .subreferendum-grant {
+        font-size: 11px;
+        font-weight: bold;
+        color: $royal-purple;
     }
 
     // Both controls share one width, at the right edge of the panel

@@ -83,6 +83,14 @@
 
         <SubmenuContextMenuButton
             v-if="firstCard.isIn.controlled"
+            :disabled="!singleMinion"
+            :submenuComponent="AttributesSubmenu"
+        >
+            Base attributes
+        </SubmenuContextMenuButton>
+
+        <SubmenuContextMenuButton
+            v-if="firstCard.isIn.controlled"
             :submenuComponent="InfrequentMenuButtons"
         >
             More...
@@ -101,6 +109,7 @@ import CommandContextMenuButton from '@/client/ui/context/menu/CommandContextMen
 import SubmenuContextMenuButton from '@/client/ui/context/menu/SubmenuContextMenuButton.vue'
 import MarkersSubmenu from '@/client/ui/context/menu/MarkersSubmenu.vue'
 import CountersSubmenu from '@/client/ui/context/menu/CountersSubmenu.vue'
+import AttributesSubmenu from '@/client/ui/context/menu/AttributesSubmenu.vue'
 import { selfCanAttemptBlock } from '@/shared/state/actionState.ts'
 import InfrequentMenuButtons from '@/client/ui/context/menu/InfrequentMenuButtons.vue'
 import { shuffleCardRegion } from '@/client/state/gameMutations.ts'

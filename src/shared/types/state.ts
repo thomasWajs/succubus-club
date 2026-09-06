@@ -35,13 +35,26 @@ export const NO_ACTION_MODIFIER = 'NO_ACTION_MODIFIER' as const // No action mod
 export const NO_COMBAT = 'NO_COMBAT' as const // No combat card for this impulse
 export const NO_REACTION = 'NO_REACTION' as const // No reaction for this impulse
 
+/**
+ * Card attributes a player can adjust by hand during play.
+ */
+export enum CardBaseAttribute {
+    Bleed = 'bleed',
+    Stealth = 'stealth',
+    Intercept = 'intercept',
+    Strength = 'strength',
+    Hunt = 'hunt',
+    Vote = 'vote',
+    Ballot = 'ballot',
+}
+
 /** Action state **/
 
 export enum ActionProperty {
-    stealth = 'stealth',
-    intercept = 'intercept',
-    bleed = 'bleed',
-    hunt = 'hunt',
+    Stealth = CardBaseAttribute.Stealth,
+    Intercept = CardBaseAttribute.Intercept,
+    Bleed = CardBaseAttribute.Bleed,
+    Hunt = CardBaseAttribute.Hunt,
 }
 
 export type ActionState = {
@@ -81,6 +94,13 @@ export type VoteCount = Record<VoteSide, number>
 export type ReferendumState = {
     // CardOid of the voting vampire ==> the votes it casts
     votes: Record<CardOid, CastVote>
+    /**
+     * CardOid of a ballot-bearing vampire ( a priscus ) ==> the ballots it casts
+     * in the priscii subreferendum. Priscii bring ballots instead of votes : the
+     * subreferendum is tallied on its own, and its winning side then grants a
+     * fixed number of votes to the main referendum ( none on a tie ).
+     */
+    ballots: Record<CardOid, CastVote>
     /**
      * PlayerOid ==> the votes that player brings without a vampire behind them :
      * burning the edge, discarding a political card, activating a card in play...

@@ -13,7 +13,7 @@ export function createActionState(minionAction: MinionAction): ActionState {
         stealth: actingMinion.minionAttrs.stealth + actions.getDefaultStealth(minionAction),
         intercept: 0,
         bleed: actingMinion.minionAttrs.bleed,
-        hunt: actingMinion.minionAttrs.hunt,
+        hunt: actingMinion.isVampire() ? actingMinion.vampireAttrs.hunt : 0,
         impulsePlayer: actingMinion.controller,
     }
 }

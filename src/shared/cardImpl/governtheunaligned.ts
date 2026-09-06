@@ -47,7 +47,7 @@ export class GovernTheUnaligned extends ActionCardImplementation {
     declare() {
         if (this.usage.level == DisciplineLevel.INFERIOR) {
             gameMutations.ACTION_changeProperty.act(this.player, {
-                propertyName: ActionProperty.bleed,
+                propertyName: ActionProperty.Bleed,
                 amount: 2,
             })
         }

@@ -3,7 +3,7 @@
         v-for="voteBox in voteBoxes"
         :key="voteBox.vampire.oid"
         class="referendum-vote-box"
-        :class="{ 'is-read-only': !voteBox.isSelfControlled }"
+        :class="{ 'is-read-only': !voteBox.isSelfControlled, 'is-ballot': voteBox.isBallot }"
         :style="voteBox.style"
     >
         <div class="vote-sides">
@@ -48,11 +48,13 @@
             <PropertyStepper
                 v-if="voteBox.isSelfControlled"
                 :value="voteBox.castVote.amount"
-                label="votes"
+                :label="voteBox.isBallot ? 'ballots' : 'votes'"
                 @change="changeVotes(voteBox.vampire, $event)"
             />
 
-            <strong v-else>{{ voteBox.castVote.amount }} votes</strong>
+            <strong v-else>
+                {{ voteBox.castVote.amount }} {{ voteBox.isBallot ? 'ballots' : 'votes' }}
+            </strong>
         </div>
     </div>
 </template>
@@ -75,7 +77,7 @@ import { usePlayersStore } from '@/client/state/players.ts'
 import { display } from '@/client/game/display.ts'
 import { getCardRectangle, getScreenPoint } from '@/client/game/utils.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
-import { getCastVote } from '@/shared/state/referendumState.ts'
+import { getCastBallot, getCastVote, isBallotVampire } from '@/shared/state/referendumState.ts'
 import { CastVote, VoteSide } from '@/shared/types/state.ts'
 import { Vampire } from '@/shared/model/Card.ts'
 import PropertyStepper from '@/client/ui/components/PropertyStepper.vue'
@@ -91,6 +93,8 @@ type VoteBoxData = {
     vampire: Vampire
     castVote: CastVote
     isSelfControlled: boolean
+    // A priscus casts ballots into the subreferendum rather than plain votes
+    isBallot: boolean
     style: Record<string, string>
 }
 
@@ -126,10 +130,15 @@ const voteBoxes = computed<VoteBoxData[]>(() => {
             const style = getBoxStyle(vampire)
             // A vampire whose game object is not on the tabletop yet gets no box
             if (style) {
+                const isBallot = isBallotVampire(vampire)
                 boxes.push({
                     vampire,
-                    castVote: getCastVote(referendum, vampire),
+                    castVote:
+                        isBallot ?
+                            getCastBallot(referendum, vampire)
+                        :   getCastVote(referendum, vampire),
                     isSelfControlled,
+                    isBallot,
                     style,
                 })
             }
@@ -200,6 +209,11 @@ function changeVotes(vampire: Vampire, amount: number) {
     // Nothing to click on : keep the box discreet
     &.is-read-only {
         background: rgba($pearl-grey, 0.75);
+    }
+
+    // Priscii cast ballots into the subreferendum : set their boxes apart
+    &.is-ballot {
+        border-color: $royal-purple;
     }
 }
 </style>

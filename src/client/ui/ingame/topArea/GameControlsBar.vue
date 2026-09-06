@@ -224,12 +224,12 @@ function pingCardsDuringCurrentPhase() {
     }
 
     .scale-controls {
-        background-color: $purple-grey;
+        // background-color: $purple-grey;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 45px;
-        padding: 4px 5px;
+        gap: 35px;
+        padding: 2px 5px;
         color: white;
         font-size: 12px;
         font-weight: 600;
@@ -253,8 +253,18 @@ function pingCardsDuringCurrentPhase() {
 
             .game-button {
                 flex: 1;
-                min-width: 20px;
                 justify-content: center;
+                min-width: 26px;
+
+                padding: 3px 0;
+                border: 1px solid $silver-grey;
+                background: $dark-teal;
+                color: white;
+                cursor: pointer;
+
+                &:hover {
+                    filter: brightness(1.25);
+                }
             }
         }
     }

@@ -54,7 +54,7 @@
                 <PropertyStepper
                     :value="action.stealth"
                     label="Stealth"
-                    @change="changeProperty(ActionProperty.stealth, $event)"
+                    @change="changeProperty(ActionProperty.Stealth, $event)"
                 />
             </span>
 
@@ -66,14 +66,14 @@
                     v-if="actions.isBleed(action.minionAction)"
                     :value="action.bleed"
                     label="Bleed"
-                    @change="changeProperty(ActionProperty.bleed, $event)"
+                    @change="changeProperty(ActionProperty.Bleed, $event)"
                 />
 
                 <PropertyStepper
                     v-if="actions.isHunt(action.minionAction)"
                     :value="action.hunt"
                     label="Hunt"
-                    @change="changeProperty(ActionProperty.hunt, $event)"
+                    @change="changeProperty(ActionProperty.Hunt, $event)"
                 />
             </span>
 
@@ -81,7 +81,7 @@
                 <PropertyStepper
                     :value="action.intercept"
                     label="Intercept"
-                    @change="changeProperty(ActionProperty.intercept, $event)"
+                    @change="changeProperty(ActionProperty.Intercept, $event)"
                 />
             </span>
         </div>

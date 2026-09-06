@@ -34,13 +34,13 @@ class MinionAttributes {
     stealth = DEFAULT_CARD_ATTRS.Stealth
     intercept = DEFAULT_CARD_ATTRS.Intercept
     strength = DEFAULT_CARD_ATTRS.Strength
-    hunt = DEFAULT_CARD_ATTRS.Hunt
 }
 
 class VampireAttributes {
     clan = ''
     sect = ''
     title = ''
+    hunt = DEFAULT_CARD_ATTRS.Hunt
     vote = DEFAULT_CARD_ATTRS.Vote
     ballot = DEFAULT_CARD_ATTRS.Ballot
     //traits: Trait[]
