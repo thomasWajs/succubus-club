@@ -241,14 +241,19 @@ export function isHunt(action: MinionAction): boolean {
     return false
 }
 
-export function isPoliticalAction(action: MinionAction): boolean {
+export function getPoliticalActionCard(action: MinionAction): LibraryCard | null {
     if (
         action.type != MinionActionType.ActionCardFromHand &&
         action.type != MinionActionType.ActionInPlay
     ) {
-        return false
+        return null
     }
-    return action.card instanceof LibraryCard && action.card.type == LibraryCardType.PoliticalAction
+    const card = action.card
+    return card instanceof LibraryCard && card.type == LibraryCardType.PoliticalAction ? card : null
+}
+
+export function isPoliticalAction(action: MinionAction): boolean {
+    return getPoliticalActionCard(action) !== null
 }
 
 /**

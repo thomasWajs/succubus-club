@@ -89,9 +89,9 @@
         <div class="action-impulse">
             <div class="action-buttons">
                 <button
-                    v-if="isPoliticalAction"
+                    v-if="politicalActionCard"
                     class="game-button"
-                    @click="gameMutations.REFERENDUM_call.actSelf({})"
+                    @click="callReferendum"
                 >
                     Start referendum
                 </button>
@@ -178,7 +178,17 @@ function changeProperty(propertyName: ActionProperty, amount: number) {
 }
 
 const fullDisplay = computed(() => props.action.minionAction.actingMinion.controller.isBot)
-const isPoliticalAction = computed(() => actions.isPoliticalAction(props.action.minionAction))
+const politicalActionCard = computed(() =>
+    actions.getPoliticalActionCard(props.action.minionAction),
+)
+
+// The political action card is what the referendum is logged as coming from
+function callReferendum() {
+    const card = politicalActionCard.value
+    if (card) {
+        gameMutations.REFERENDUM_call.actSelf({ card })
+    }
+}
 const blockingMinion = computed(() => getBlockingMinion(gameState))
 const selfHasImpulse = computed(() => props.action.impulsePlayer == players.selfPlayer)
 </script>

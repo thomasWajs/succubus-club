@@ -1938,7 +1938,17 @@ abstract class ReferendumMutation<
  * Referendum : Call a referendum
  */
 
-class CallReferendum extends ReferendumMutation<EmptyParams> {
+interface CallReferendumParams extends GameMutationParams {
+    // What puts the referendum to the table, when something does : the game
+    // menu calls one with no card behind it.
+    card?: Card
+}
+
+class CallReferendum extends ReferendumMutation<CallReferendumParams> {
+    get card() {
+        return this.params.card ?? null
+    }
+
     protected getValidity(gameState: GameState) {
         return gameState.referendum ? Invalid('A referendum is already in progress') : VALID
     }
@@ -1948,7 +1958,9 @@ class CallReferendum extends ReferendumMutation<EmptyParams> {
     }
 
     formatForLog() {
-        return `Call a referendum`
+        return this.params.card ?
+                `Call a referendum from ${CARD_LOG_PLACEHOLDER}`
+            :   `Call a referendum`
     }
 }
 

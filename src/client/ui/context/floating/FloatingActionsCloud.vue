@@ -308,14 +308,14 @@ function getCallReferendumActions(card: Card): FloatingActionData[] {
 
     return [
         {
-            label: 'Call Referendum',
+            label: 'Start Referendum',
             left: x,
             translate: 'translateX(-50%)',
             // Above the card, like the embrace-like action. A minion already
             // has its action buttons up there, so it takes the free slot below.
             top: card.isMinion() ? southActionsTop : northActionsTop,
             onClick: () => {
-                gameMutations.REFERENDUM_call.actSelf({})
+                gameMutations.REFERENDUM_call.actSelf({ card })
             },
         },
     ]
