@@ -9,7 +9,7 @@
         </slot>
 
         <template #right>
-            <kbd v-if="command.repr">{{ command.repr }}</kbd>
+            <kbd v-if="command.repr && !hideKeyBinding">{{ command.repr }}</kbd>
         </template>
     </ContextMenuButton>
 </template>
@@ -21,6 +21,7 @@ import { Command } from '@/client/game/composables/useCommands.ts'
 const { command, closeOnClick } = defineProps<{
     command: Command
     closeOnClick?: boolean
+    hideKeyBinding?: boolean
 }>()
 </script>
 

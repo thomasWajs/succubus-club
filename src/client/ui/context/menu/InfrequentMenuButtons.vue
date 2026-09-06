@@ -22,6 +22,7 @@
         v-if="!firstCard.isIn.ashHeap && !firstCard.isIn.removed"
         :command="commands.MoveToAshHeap"
         :closeOnClick="true"
+        :hideKeyBinding="gameBus.contextMenu.fromStackRegion"
     >
         <template
             v-if="
@@ -42,6 +43,7 @@
         v-if="!firstCard.isIn.uncontrolled && !firstCard.isIn.crypt"
         :command="commands.MoveToLibBottom"
         :closeOnClick="true"
+        :hideKeyBinding="gameBus.contextMenu.fromStackRegion"
     >
         Move to Bottom of Library
     </CommandContextMenuButton>
@@ -50,6 +52,7 @@
         v-if="!firstCard.isIn.removed"
         :command="commands.RemoveFromGame"
         :closeOnClick="true"
+        :hideKeyBinding="gameBus.contextMenu.fromStackRegion"
     />
 
     <ContextMenuButton

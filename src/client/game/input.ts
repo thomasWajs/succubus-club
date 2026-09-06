@@ -86,6 +86,7 @@ function onPointerDown(pointer: Pointer, gameObjects: GameObjects.GameObject[]) 
         // clear card selection, context menu, declaring target,
         gameBus.selectedCards = []
         gameBus.contextMenu.cards = []
+        gameBus.contextMenu.fromStackRegion = false
         gameBus.hideContextMenu()
         gameBus.cardGroupCandidate = null
         gameBus.cardPendingIntoGroup = null

@@ -261,6 +261,7 @@ function onImagePointerDown(pointer: Pointer) {
         gameBus.selectedCards = [topCard.value]
         gameBus.contextMenu.cards = [topCard.value]
         gameBus.contextMenu.show = true
+        gameBus.contextMenu.fromStackRegion = true
         const setXY = (x: number, y: number) => {
             gameBus.contextMenu.x = x
             gameBus.contextMenu.y = y

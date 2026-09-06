@@ -153,6 +153,7 @@ export const useGameBusStore = defineStore('gameBus', {
             cards: [] as Card[],
             x: 0,
             y: 0,
+            fromStackRegion: false,
             submenu: {
                 show: false,
                 component: null as Raw<Component> | null,
