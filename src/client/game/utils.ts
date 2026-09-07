@@ -6,6 +6,9 @@ import {
     CARD_WIDTH,
     DEFAULT_PLAYER_SCALE,
     GRID_SIZE,
+    HORIZONTAL_SEPARATOR_DEFAULT_Y,
+    PLAY_AREA_WIDTH,
+    PLAYER_BAR_HEIGHT,
     WIELD_CARD_SCALE,
 } from '@/shared/const/game.ts'
 import Phaser, { GameObjects } from 'phaser'
@@ -247,6 +250,92 @@ export function getOverlappingCards(card: Card) {
         }
     }
     return overlappingCards
+}
+
+// Overlap above this fraction of a card's own area is too much : the played card
+// would sit too hidden behind the one already in place.
+const MAX_PLAY_OVERLAP_RATIO = 0.1
+
+// Step and reach of the outward search, in pixels / rings. Kept small so a
+// played card stays visibly close to where it was aimed.
+const PLAY_SEARCH_STEP = 2 * GRID_SIZE
+const PLAY_SEARCH_MAX_RING = 15
+
+/**
+ * Where to drop `card` into `cardRegion` when playing it near a target.
+ *
+ * Starts from ( x0, y0 ) and, when that overlaps existing cards too much,
+ * searches outward on the grid for the closest spot with an acceptable overlap,
+ * without straying too far from the start nor leaving the play area. Falls back
+ * to the clamped start position when nothing better is found.
+ */
+export function findFreePlayPosition(
+    cardRegion: AnyCardRegion,
+    card: Card,
+    x0: number,
+    y0: number,
+): { x: number; y: number } {
+    const scale = getCardScale(RegionCategory.Table, cardRegion)
+    const cardWidth = CARD_WIDTH * scale
+    const cardHeight = CARD_HEIGHT * scale
+    const cardArea = cardWidth * cardHeight
+
+    // Play area bounds in the region referential : the ready region spans the
+    // controlled zone, from its top down to the player's horizontal separator.
+    const separatorY = cardRegion.owner?.separators.horizontalY ?? HORIZONTAL_SEPARATOR_DEFAULT_Y
+    const maxX = Math.max(0, PLAY_AREA_WIDTH - cardWidth)
+    const maxY = Math.max(0, separatorY - PLAYER_BAR_HEIGHT - cardHeight)
+    const clampX = (x: number) => Math.min(Math.max(x, 0), maxX)
+    const clampY = (y: number) => Math.min(Math.max(y, 0), maxY)
+
+    const otherCards = cardRegion.cards.filter(c => c.oid != card.oid)
+
+    // Largest overlap of a card placed at ( x, y ) with any card already in the
+    // region, as a fraction of the card's own area.
+    function maxOverlapRatio(x: number, y: number): number {
+        const rect = new Rectangle(x, y, cardWidth, cardHeight)
+        let worst = 0
+        for (const other of otherCards) {
+            const area = Rectangle.Area(Rectangle.Intersection(rect, getCardRectangle(other)))
+            worst = Math.max(worst, area / cardArea)
+        }
+        return worst
+    }
+
+    const startX = clampX(Snap.to(x0, GRID_SIZE))
+    const startY = clampY(Snap.to(y0, GRID_SIZE))
+
+    // Expand ring by ring, keeping the closest acceptable spot of the first ring
+    // that has one. Ties are broken towards the right, then towards the start
+    // row, so played cards spread out rightwards rather than up and to the left.
+    let best: { x: number; y: number; distance: number } | null = null
+    for (let ring = 0; ring <= PLAY_SEARCH_MAX_RING && !best; ring++) {
+        for (let dx = -ring; dx <= ring; dx++) {
+            for (let dy = -ring; dy <= ring; dy++) {
+                // Only the perimeter of the current ring
+                if (ring != 0 && Math.max(Math.abs(dx), Math.abs(dy)) != ring) {
+                    continue
+                }
+                const x = clampX(startX + dx * PLAY_SEARCH_STEP)
+                const y = clampY(startY + dy * PLAY_SEARCH_STEP)
+                if (maxOverlapRatio(x, y) > MAX_PLAY_OVERLAP_RATIO) {
+                    continue
+                }
+                const distance = (x - startX) ** 2 + (y - startY) ** 2
+                if (
+                    !best ||
+                    distance < best.distance ||
+                    (distance === best.distance &&
+                        (x > best.x ||
+                            (x === best.x && Math.abs(y - startY) < Math.abs(best.y - startY))))
+                ) {
+                    best = { x, y, distance }
+                }
+            }
+        }
+    }
+
+    return best ? { x: best.x, y: best.y } : { x: startX, y: startY }
 }
 
 export function getPlayerColor(player: Player) {

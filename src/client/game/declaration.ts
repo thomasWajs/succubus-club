@@ -7,6 +7,7 @@ import { Card, LibraryCard, Minion } from '@/shared/model/Card.ts'
 import { GRID_SIZE, PLAY_AREA_WIDTH } from '@/shared/const/game.ts'
 import { selfSecureName } from '@/client/state/self.ts'
 import { createActionCardAction } from '@/shared/state/minionActions.ts'
+import { findFreePlayPosition } from '@/client/game/utils.ts'
 
 export function playCard({
     card,
@@ -21,12 +22,26 @@ export function playCard({
     const gameBus = useGameBusStore()
     const player = card.controller
 
+    let x: number
+    let y: number
+    if (movement?.x !== undefined && movement.y !== undefined) {
+        // Explicit drop position chosen by the user : respect it.
+        x = movement.x
+        y = movement.y
+    } else {
+        // Auto placement near the acting minion ( or a default spot ), nudged to
+        // avoid sitting on top of cards already in play.
+        const x0 = actingMinion ? actingMinion.x : PLAY_AREA_WIDTH / 2 - 4 * GRID_SIZE
+        const y0 = actingMinion ? actingMinion.y - 12 * GRID_SIZE : 8 * GRID_SIZE
+        ;({ x, y } = findFreePlayPosition(player.ready, card, x0, y0))
+    }
+
     gameMutations.moveCardToRegion.act(player, {
         card,
         fromCardRegion: card.region,
         toCardRegion: player.ready,
-        x: movement?.x ?? (actingMinion ? actingMinion.x : PLAY_AREA_WIDTH / 2 - 4 * GRID_SIZE),
-        y: movement?.y ?? (actingMinion ? actingMinion.y - 12 * GRID_SIZE : 8 * GRID_SIZE),
+        x,
+        y,
     })
 
     if (player.oid == players.selfPlayerOid) {
