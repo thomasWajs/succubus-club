@@ -18,7 +18,7 @@ import { AnyCardRegion } from '@/shared/types/model.ts'
 import { Snap } from '@/shared/utils.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
 import { declareActionCardFromHand, playCard } from '@/client/game/declaration.ts'
-import { ACTION_TYPES } from '@/shared/const/model.ts'
+import { ACTION_TYPES, LibraryCardType } from '@/shared/const/model.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import Pointer = Phaser.Input.Pointer
 import Rectangle = Phaser.Geom.Rectangle
@@ -163,31 +163,57 @@ export function useCardDragDrop(
     }
 
     /**
-     * Action declaration by drag
+     * Playing a card onto a minion by drag
      *
-     * Dragging one of our action cards out of hand and dropping it onto one of
-     * our minions declares an action with that minion & card, instead of just
-     * moving the card. While such a drag is in progress, card grouping is
-     * suppressed in favour of the acting-minion hint.
+     * Dragging one of our cards out of hand and dropping it onto one of our
+     * minions plays it with that minion, instead of just moving the card :
+     * - an action card ( on our turn, no action in progress ) declares an
+     *   action ;
+     * - an action modifier ( on our turn ), a reaction ( on someone else's
+     *   turn ) or a combat card ( anyone's turn ) is simply played next to the
+     *   minion, whether or not an action is in progress.
+     * While such a drag is in progress, card grouping is suppressed in favour of
+     * the acting-minion hint.
      */
 
     const { actionDeclarationEnabled } = useUIFeatures()
 
-    // The dragged card when it is one of our action cards being dragged from
-    // hand, or null otherwise.
-    function draggedActionCard(): LibraryCard | null {
+    // The dragged card when it is one of our cards that can be played onto a
+    // minion, or null otherwise.
+    function draggedMinionCard(): LibraryCard | null {
         const card = cardRef.value
         if (
-            actionDeclarationEnabled.value &&
+            !actionDeclarationEnabled.value ||
+            !(card instanceof LibraryCard) ||
+            !card.type ||
+            card.region != card.controller.hand ||
+            card.controller.oid != players.selfPlayer?.oid
+        ) {
+            return null
+        }
+
+        const selfActive = gameState.activePlayer == players.selfPlayer
+
+        // Action card : declared as a new action, on our turn, only when no
+        // action is already in progress.
+        if (
+            selfActive &&
             !gameState.action &&
             !gameState.combat &&
-            gameState.activePlayer == players.selfPlayer &&
-            card instanceof LibraryCard &&
-            !!card.type &&
-            ACTION_TYPES.includes(card.type) &&
-            card.region == card.controller.hand &&
-            card.controller.oid == players.selfPlayer?.oid
+            ACTION_TYPES.includes(card.type)
         ) {
+            return card
+        }
+        // Action modifier : played on our turn, with or without an ongoing action.
+        if (selfActive && card.type == LibraryCardType.ActionModifier) {
+            return card
+        }
+        // Reaction : played on someone else's turn, with or without an ongoing action.
+        if (!selfActive && card.type == LibraryCardType.Reaction) {
+            return card
+        }
+        // Combat card : played on anyone's turn, with or without an ongoing action.
+        if (card.type == LibraryCardType.Combat) {
             return card
         }
         return null
@@ -198,7 +224,7 @@ export function useCardDragDrop(
         posX: number,
         posY: number,
     ): Minion | null {
-        // Acting minions can only be our own ready, unlocked minions.
+        // Acting minions can only be our own ready minions.
         if (
             !cardRegion.owner ||
             cardRegion.owner.oid != players.selfPlayer?.oid ||
@@ -207,7 +233,14 @@ export function useCardDragDrop(
             return null
         }
 
-        const minions = cardRegion.cards.filter((c): c is Minion => c.isMinion() && !c.isLocked)
+        // Declaring an action needs an unlocked minion ; playing an action
+        // modifier, a reaction or a combat card can be done with a locked one.
+        const card = cardRef.value
+        const requiresUnlocked =
+            card instanceof LibraryCard && !!card.type && ACTION_TYPES.includes(card.type)
+        const minions = cardRegion.cards.filter(
+            (c): c is Minion => c.isMinion() && (!requiresUnlocked || !c.isLocked),
+        )
         return findCardByProximity(cardRegion, posX, posY, minions)
     }
 
@@ -366,10 +399,10 @@ export function useCardDragDrop(
                 localY = Snap.ceil(localY, GRID_SIZE)
             }
 
-            // Dragging an action card from hand onto a minion declares an
-            // action : highlight the acting-minion candidate and suppress the
-            // card group outline. Otherwise, look for a card group candidate.
-            if (draggedActionCard()) {
+            // Dragging a card from hand onto a minion plays it with that minion :
+            // highlight the acting-minion candidate and suppress the card group
+            // outline. Otherwise, look for a card group candidate.
+            if (draggedMinionCard()) {
                 gameBus.actingMinionCandidate = findActingMinionCandidate(
                     cardRegion,
                     localX,
@@ -420,12 +453,18 @@ export function useCardDragDrop(
             return
         }
 
-        // Declaring an action : an action card dropped onto one of our minions
-        // declares the action ( which plays the card ) rather than moving it.
-        const actionCard = draggedActionCard()
-        if (actionCard && gameBus.actingMinionCandidate) {
-            declareActionCardFromHand(gameBus.actingMinionCandidate, actionCard)
+        // Playing onto a minion : a card dropped onto one of our minions is
+        // played with it rather than moved. Action cards declare an action ;
+        // action modifiers and reactions are simply played next to the minion.
+        const minionCard = draggedMinionCard()
+        if (minionCard && minionCard.type && gameBus.actingMinionCandidate) {
+            const actingMinion = gameBus.actingMinionCandidate
             gameBus.actingMinionCandidate = null
+            if (ACTION_TYPES.includes(minionCard.type)) {
+                declareActionCardFromHand(actingMinion, minionCard)
+            } else {
+                playCard({ card: minionCard, actingMinion })
+            }
             return
         }
 

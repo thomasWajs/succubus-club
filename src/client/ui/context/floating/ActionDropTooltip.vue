@@ -26,7 +26,9 @@ const content = computed(() => {
         return null
     }
     return {
-        verb: ActionVerb[card.type as keyof typeof ActionVerb],
+        // Action cards have a dedicated verb ; modifiers and reactions, which
+        // are just played onto the minion, fall back to a generic "Plays".
+        verb: ActionVerb[card.type as keyof typeof ActionVerb] ?? 'Plays',
         cardName: card.name,
         minionName: minion.name,
     }
