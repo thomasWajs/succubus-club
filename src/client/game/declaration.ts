@@ -11,12 +11,16 @@ import { findFreePlayPosition } from '@/client/game/utils.ts'
 
 export function playCard({
     card,
-    actingMinion,
+    byMinion,
     movement,
+    logActingMinion = false,
 }: {
     card: Card
-    actingMinion?: Minion
+    byMinion?: Minion
     movement?: CardMovement
+    // Log the play as "Play [card] with [minion]". Used when the card is played
+    // onto a minion without being declared as an action.
+    logActingMinion?: boolean
 }) {
     const players = usePlayersStore()
     const gameBus = useGameBusStore()
@@ -31,8 +35,8 @@ export function playCard({
     } else {
         // Auto placement near the acting minion ( or a default spot ), nudged to
         // avoid sitting on top of cards already in play.
-        const x0 = actingMinion ? actingMinion.x : PLAY_AREA_WIDTH / 2 - 4 * GRID_SIZE
-        const y0 = actingMinion ? actingMinion.y - 12 * GRID_SIZE : 8 * GRID_SIZE
+        const x0 = byMinion ? byMinion.x : PLAY_AREA_WIDTH / 2 - 4 * GRID_SIZE
+        const y0 = byMinion ? byMinion.y - 12 * GRID_SIZE : 8 * GRID_SIZE
         ;({ x, y } = findFreePlayPosition(player.ready, card, x0, y0))
     }
 
@@ -42,6 +46,7 @@ export function playCard({
         toCardRegion: player.ready,
         x,
         y,
+        byMinion: logActingMinion ? byMinion : undefined,
     })
 
     if (player.oid == players.selfPlayerOid) {
@@ -90,7 +95,7 @@ export function declareAction(action: MinionAction, player?: Player) {
         action.card.region == player.hand &&
         !player.isBot
     ) {
-        playCard({ card: action.card, actingMinion: action.actingMinion })
+        playCard({ card: action.card, byMinion: action.actingMinion })
     }
 }
 

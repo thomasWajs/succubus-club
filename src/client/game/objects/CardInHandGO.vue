@@ -248,7 +248,7 @@ function playCardFromHand(card: Card) {
         declareActionCardFromHand(minion, card)
         return
     }
-    playCard({ card, actingMinion: gameState.action?.minionAction.actingMinion })
+    playCard({ card, byMinion: gameState.action?.minionAction.actingMinion })
 }
 
 /**

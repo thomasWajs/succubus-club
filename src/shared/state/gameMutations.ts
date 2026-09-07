@@ -1036,6 +1036,9 @@ interface MoveCardToRegionParams extends CardMovement {
     fromCardRegion: AnyCardRegion
     toCardRegion: AnyCardRegion
     propsInPlay?: PropertiesInPlay
+    // Minion the card is played with, when it isn't declared as an action ( a
+    // played action modifier, reaction or combat card ). Log only.
+    byMinion?: Minion
 }
 
 class MoveCardToRegion extends GameMutation<MoveCardToRegionParams> {
@@ -1092,7 +1095,9 @@ class MoveCardToRegion extends GameMutation<MoveCardToRegionParams> {
     formatForLog() {
         if (this.params.fromCardRegion.is.hand) {
             if (this.params.toCardRegion.is.ready) {
-                return `Play ${CARD_LOG_PLACEHOLDER}`
+                return this.params.byMinion ?
+                        `${secureName(this.params.byMinion, this.author)} plays ${CARD_LOG_PLACEHOLDER}`
+                    :   `Play ${CARD_LOG_PLACEHOLDER}${this.params.byMinion}`
             }
             if (this.params.toCardRegion.is.ashHeap) {
                 return `Discard ${CARD_LOG_PLACEHOLDER} ${this.formatPlayerHand(this.params.card.controller)}`

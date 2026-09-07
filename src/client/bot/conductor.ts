@@ -48,8 +48,8 @@ export class Conductor {
         )
     }
 
-    playCardFromHand(card: LibraryCard, actingMinion?: Minion) {
-        playCard({ card, actingMinion })
+    playCardFromHand(card: LibraryCard, byMinion?: Minion) {
+        playCard({ card, byMinion })
 
         // Draw to replace the action card
         // This won't handle the "do not replace until..." card text

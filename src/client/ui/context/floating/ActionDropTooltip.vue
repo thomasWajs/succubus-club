@@ -20,7 +20,7 @@ import { display } from '@/client/game/display.ts'
 const gameBus = useGameBusStore()
 
 const content = computed(() => {
-    const minion = gameBus.actingMinionCandidate
+    const minion = gameBus.dropMinionCandidate
     const card = gameBus.dragOver?.card
     if (!minion || !(card instanceof LibraryCard) || !card.type) {
         return null
@@ -36,7 +36,7 @@ const content = computed(() => {
 
 // Anchored just below the highlighted minion, centered on it.
 const style = computed(() => {
-    const minion = gameBus.actingMinionCandidate
+    const minion = gameBus.dropMinionCandidate
     const worldPoint = minion && gameBus.cardsInGame[minion.oid]?.getWorldPosition()
     if (!minion || !worldPoint) {
         return { display: 'none' }

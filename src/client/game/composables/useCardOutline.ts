@@ -46,7 +46,7 @@ export function useCardOutline(
         return gameBus.cardGroupCandidate && gameBus.cardGroupCandidate.has(cardRef.value.oid)
     })
     const isActingMinionCandidate = computed(() => {
-        return gameBus.actingMinionCandidate?.oid == cardRef.value.oid
+        return gameBus.dropMinionCandidate?.oid == cardRef.value.oid
     })
     const isIndirectHovered = computed(() => {
         return gameBus.indirectHoveredCards.includes(cardRef.value.oid)

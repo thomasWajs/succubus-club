@@ -113,9 +113,8 @@ export const useGameBusStore = defineStore('gameBus', {
         cardPendingIntoGroup: null as Card | null,
 
         /** Action declaration by drag **/
-        // Minion highlighted while dragging an action card from hand over it :
-        // dropping the card declares an action with this minion.
-        actingMinionCandidate: null as Minion | null,
+        // Minion highlighted while dragging a playable card from hand over it
+        dropMinionCandidate: null as Minion | null,
 
         /** Alignment guides **/
         dragOver: null as DragOver | null,

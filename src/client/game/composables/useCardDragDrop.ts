@@ -219,7 +219,7 @@ export function useCardDragDrop(
         return null
     }
 
-    function findActingMinionCandidate(
+    function findDropMinionCandidate(
         cardRegion: AnyCardRegion,
         posX: number,
         posY: number,
@@ -282,7 +282,7 @@ export function useCardDragDrop(
 
         gameBus.cardGroupCandidate = null
         gameBus.cardPendingIntoGroup = null
-        gameBus.actingMinionCandidate = null
+        gameBus.dropMinionCandidate = null
         if (!originCard || card == originCard) {
             gameBus.dragAttrs = dragAttrs
         }
@@ -403,15 +403,11 @@ export function useCardDragDrop(
             // highlight the acting-minion candidate and suppress the card group
             // outline. Otherwise, look for a card group candidate.
             if (draggedMinionCard()) {
-                gameBus.actingMinionCandidate = findActingMinionCandidate(
-                    cardRegion,
-                    localX,
-                    localY,
-                )
+                gameBus.dropMinionCandidate = findDropMinionCandidate(cardRegion, localX, localY)
                 gameBus.cardGroupCandidate = null
             } else {
                 gameBus.cardGroupCandidate = findCardGroupCandidate(cardRegion, localX, localY)
-                gameBus.actingMinionCandidate = null
+                gameBus.dropMinionCandidate = null
             }
 
             dragAttrs.localX = localX
@@ -433,7 +429,7 @@ export function useCardDragDrop(
         dragAttrs.deltaY = 0
         dragAttrs.cardScale = cardAttrsRef.value.scale
         gameBus.dragAttrs = null
-        gameBus.actingMinionCandidate = null
+        gameBus.dropMinionCandidate = null
     }
 
     /**
@@ -457,13 +453,13 @@ export function useCardDragDrop(
         // played with it rather than moved. Action cards declare an action ;
         // action modifiers and reactions are simply played next to the minion.
         const minionCard = draggedMinionCard()
-        if (minionCard && minionCard.type && gameBus.actingMinionCandidate) {
-            const actingMinion = gameBus.actingMinionCandidate
-            gameBus.actingMinionCandidate = null
+        if (minionCard && minionCard.type && gameBus.dropMinionCandidate) {
+            const byMinion = gameBus.dropMinionCandidate
+            gameBus.dropMinionCandidate = null
             if (ACTION_TYPES.includes(minionCard.type)) {
-                declareActionCardFromHand(actingMinion, minionCard)
+                declareActionCardFromHand(byMinion, minionCard)
             } else {
-                playCard({ card: minionCard, actingMinion })
+                playCard({ card: minionCard, byMinion, logActingMinion: true })
             }
             return
         }
