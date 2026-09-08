@@ -255,6 +255,18 @@
             :scale="scale"
         />
     </template>
+
+    <!-- Floating cost indicator ( automatic cost payment ) -->
+    <FxCardCost
+        v-if="cardCost"
+        :key="key + 'cost' + cardCost.seq"
+        :blood="cardCost.blood"
+        :pool="cardCost.pool"
+        :x="cardAttrs.x"
+        :y="cardAttrs.y - (cardAttrs.offsetY ?? 0) - 8 * scale"
+        :riseDistance="(cardAttrs.offsetY ?? 0) * 1.6"
+        :scale="scale"
+    />
 </template>
 
 <script setup lang="ts">
@@ -294,6 +306,7 @@ import { usePlayersStore } from '@/client/state/players.ts'
 import { useCardDragDrop } from '@/client/game/composables/useCardDragDrop.ts'
 import { useCoreStore } from '@/client/store/core.ts'
 import FxPingCard from './FxPingCard.vue'
+import FxCardCost from './FxCardCost.vue'
 import { useCardTexture } from '@/client/game/composables/useCardTexture.ts'
 import Pointer = Phaser.Input.Pointer
 
@@ -336,6 +349,9 @@ function registerMarkersTexts(index: number, text: typeof Text | null) {
 
 const scale = computed(() => getRegionScale(card.region))
 const cardScale = computed(() => getCardScale(RegionCategory.Table, card.region))
+
+// Floating cost indicator for this card ( automatic cost payment )
+const cardCost = computed(() => gameBus.cardCosts[card.oid])
 
 // This is available in image.value.displayWidth and image.value.displayHeight
 // but it's not reactive, so we need to recompute it every time the card size changes

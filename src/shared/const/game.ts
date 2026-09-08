@@ -57,6 +57,18 @@ export const CARD_PING_DURATION = 2000 // Total duration of the ping animation i
 export const CARD_PING_NB_BEATS = 4 // Number of ping beats
 export const CARD_PING_COLOR = 'rgb(152,32,56)'
 
+// Floating cost indicator ( automatic cost payment ) : the cost rises above the
+// card and fades out.
+export const CARD_COST_FX_DURATION = 1200 // Total duration of the rise/fade in ms
+const CARD_COST_FX_TEXT_STYLE_BASE = {
+    fontStyle: 'bold',
+    fontSize: '24px',
+    stroke: 'black',
+    strokeThickness: 4,
+}
+export const BLOOD_COST_FX_TEXT_STYLE = { ...CARD_COST_FX_TEXT_STYLE_BASE, color: 'rgb(220,40,40)' }
+export const POOL_COST_FX_TEXT_STYLE = { ...CARD_COST_FX_TEXT_STYLE_BASE, color: 'white' }
+
 /**
  * Play Area Dimensions
  */

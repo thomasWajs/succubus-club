@@ -25,5 +25,8 @@ export function useUIFeatures() {
         actionDeclarationEnabled: computed(() => (preferences.value.actionDeclaration ?? 1) === 1),
         turnNotificationEnabled: computed(() => (preferences.value.turnNotification ?? 1) === 1),
         showBleedTargetEnabled: computed(() => (preferences.value.showBleedTarget ?? 1) === 1),
+        automaticCostPaymentEnabled: computed(
+            () => (preferences.value.automaticCostPayment ?? 0) === 1,
+        ),
     }
 }

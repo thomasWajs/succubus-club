@@ -359,14 +359,14 @@ const behaviors: Partial<Behaviors> = {
         },
         resolve(action: ActionCardFromHandAction) {
             // Pay blood cost
-            if (action.card.bloodCost) {
+            if (action.card.bloodCost > 0) {
                 gameMutations.changeBlood.act(action.actingMinion.controller, {
                     card: action.actingMinion,
                     amount: -action.card.bloodCost,
                 })
             }
             // Pay pool cost
-            if (action.card.poolCost) {
+            if (action.card.poolCost > 0) {
                 gameMutations.changePool.act(action.actingMinion.controller, {
                     player: action.actingMinion.controller,
                     amount: -action.card.poolCost,

@@ -122,6 +122,14 @@
                 </button>
 
                 <button
+                    v-if="payableActionCard"
+                    class="game-button"
+                    @click="payActionCost"
+                >
+                    Pay action cost
+                </button>
+
+                <button
                     class="game-button is-danger"
                     @click="gameMutations.ACTION_endAction.actSelf({})"
                 >
@@ -181,7 +189,7 @@
 import { computed } from 'vue'
 import { usePlayersStore } from '@/client/state/players.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
-import { ActionVerb } from '@/shared/const/model.ts'
+import { ACTION_TYPES, ActionVerb } from '@/shared/const/model.ts'
 import {
     ActionProperty,
     ActionState,
@@ -195,6 +203,9 @@ import PropertyStepper from '@/client/ui/components/PropertyStepper.vue'
 import CentralPanel from '@/client/ui/ingame/topArea/central/CentralPanel.vue'
 import { getBlockingDecision } from '@/shared/state/actionState.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
+import { LibraryCard } from '@/shared/model/Card.ts'
+import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
+import { useGameBusStore } from '@/client/store/bus.ts'
 
 const props = defineProps<{
     action: ActionState
@@ -202,9 +213,67 @@ const props = defineProps<{
 
 const gameState = useGameStateStore()
 const players = usePlayersStore()
+const gameBus = useGameBusStore()
+const { automaticCostPaymentEnabled } = useUIFeatures()
 
 function changeProperty(propertyName: ActionProperty, amount: number) {
     gameMutations.ACTION_changeProperty.actSelf({ propertyName, amount })
+}
+
+/**
+ * "Automatic cost payment" preference ( experimental ) : action cards.
+ *
+ * An action's cost is paid only if it goes through ( unblocked ), so it cannot
+ * be paid automatically. Instead the acting player gets a "Pay action cost"
+ * button that spends the cost and shows the floating indicator above the card.
+ */
+
+// The action's card when it is an action card ( ACTION_TYPES ) with a cost the
+// self player ( the acting controller ) can pay by hand.
+const payableActionCard = computed<LibraryCard | null>(() => {
+    if (!automaticCostPaymentEnabled.value) {
+        return null
+    }
+
+    const minionAction = props.action.minionAction
+    if (
+        minionAction.type != MinionActionType.ActionCardFromHand ||
+        minionAction.actingMinion.controller.oid != players.selfPlayer?.oid
+    ) {
+        return null
+    }
+
+    const card = minionAction.card
+    if (!(card instanceof LibraryCard) || !card.type || !ACTION_TYPES.includes(card.type)) {
+        return null
+    }
+
+    if (card.bloodCost <= 0 && card.poolCost <= 0) {
+        return null
+    }
+
+    return card
+})
+
+function payActionCost() {
+    const card = payableActionCard.value
+    if (!card) {
+        return
+    }
+
+    const actingMinion = props.action.minionAction.actingMinion
+    // Only the costs actually spent are shown : a mutation is rejected when the
+    // minion has not enough blood or the player not enough pool.
+    const bloodPaid =
+        card.bloodCost > 0 &&
+        gameMutations.changeBlood.actSelf({ card: actingMinion, amount: -card.bloodCost }).isValid
+    const poolPaid =
+        card.poolCost > 0 &&
+        gameMutations.changePool.actSelf({
+            player: actingMinion.controller,
+            amount: -card.poolCost,
+        }).isValid
+    gameBus.showCardCost(card.oid, bloodPaid ? card.bloodCost : 0, poolPaid ? card.poolCost : 0)
 }
 
 const botDisplay = computed(() => props.action.minionAction.actingMinion.controller.isBot)

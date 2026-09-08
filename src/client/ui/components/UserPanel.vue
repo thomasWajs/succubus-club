@@ -71,55 +71,120 @@
                     v-if="activeTab === 'preferences'"
                     class="tab-content"
                 >
-                    <div
-                        v-for="preference in preferences"
-                        :key="preference.key"
-                        class="preference"
-                    >
-                        <!-- Checkbox Preference -->
-                        <label
-                            v-if="preference.type === UserPreferenceType.Checkbox"
-                            class="checkbox-label"
+                    <div class="preferences">
+                        <div
+                            v-for="preference in preferences"
+                            :key="preference.key"
+                            class="preference"
                         >
-                            <input
-                                v-model="(preference as CheckboxPreference).value.value"
-                                type="checkbox"
-                            />
-                            <span class="input-label preference-label">{{ preference.label }}</span>
-                            <span
-                                v-if="savedFeedbacks.preferences[preference.key]"
-                                class="save-feedback success"
+                            <!-- Checkbox Preference -->
+                            <label
+                                v-if="preference.type === UserPreferenceType.Checkbox"
+                                class="checkbox-label"
                             >
-                                ✓ Saved
-                            </span>
-                        </label>
-
-                        <!-- Select Preference -->
-                        <div v-else-if="preference.type === UserPreferenceType.Select">
-                            <div class="label-container">
-                                <div class="input-label preference-label">
-                                    {{ preference.label }}
-                                </div>
-                                <div
+                                <input
+                                    v-model="(preference as CheckboxPreference).value.value"
+                                    type="checkbox"
+                                />
+                                <span class="input-label preference-label">{{
+                                    preference.label
+                                }}</span>
+                                <span
                                     v-if="savedFeedbacks.preferences[preference.key]"
                                     class="save-feedback success"
                                 >
                                     ✓ Saved
-                                </div>
-                            </div>
+                                </span>
+                            </label>
 
-                            <select
-                                v-model="(preference as SelectPreference).value.value"
-                                class="preference-select"
-                            >
-                                <option
-                                    v-for="option in (preference as SelectPreference).options"
-                                    :key="option.value"
-                                    :value="option.value"
+                            <!-- Select Preference -->
+                            <div v-else-if="preference.type === UserPreferenceType.Select">
+                                <div class="label-container">
+                                    <div class="input-label preference-label">
+                                        {{ preference.label }}
+                                    </div>
+                                    <div
+                                        v-if="savedFeedbacks.preferences[preference.key]"
+                                        class="save-feedback success"
+                                    >
+                                        ✓ Saved
+                                    </div>
+                                </div>
+
+                                <select
+                                    v-model="(preference as SelectPreference).value.value"
+                                    class="preference-select"
                                 >
-                                    {{ option.label }}
-                                </option>
-                            </select>
+                                    <option
+                                        v-for="option in (preference as SelectPreference).options"
+                                        :key="option.value"
+                                        :value="option.value"
+                                    >
+                                        {{ option.label }}
+                                    </option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Experimental Preferences -->
+                    <div class="experimental-separator">
+                        <span>EXPERIMENTAL</span>
+                    </div>
+
+                    <div class="experimental-preferences">
+                        <div
+                            v-for="preference in experimentalPreferences"
+                            :key="preference.key"
+                            class="preference"
+                        >
+                            <!-- Checkbox Preference -->
+                            <label
+                                v-if="preference.type === UserPreferenceType.Checkbox"
+                                class="checkbox-label"
+                            >
+                                <input
+                                    v-model="(preference as CheckboxPreference).value.value"
+                                    type="checkbox"
+                                />
+                                <span class="input-label preference-label">{{
+                                    preference.label
+                                }}</span>
+                                <span
+                                    v-if="savedFeedbacks.preferences[preference.key]"
+                                    class="save-feedback success"
+                                >
+                                    ✓ Saved
+                                </span>
+                            </label>
+
+                            <!-- Select Preference -->
+                            <div v-else-if="preference.type === UserPreferenceType.Select">
+                                <div class="label-container">
+                                    <div class="input-label preference-label">
+                                        {{ preference.label }}
+                                    </div>
+                                    <div
+                                        v-if="savedFeedbacks.preferences[preference.key]"
+                                        class="save-feedback success"
+                                    >
+                                        ✓ Saved
+                                    </div>
+                                </div>
+
+                                <select
+                                    v-model="(preference as SelectPreference).value.value"
+                                    class="preference-select"
+                                >
+                                    <option
+                                        v-for="option in (preference as SelectPreference).options"
+                                        :key="option.value"
+                                        :value="option.value"
+                                    >
+                                        {{ option.label }}
+                                    </option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -431,13 +496,17 @@ interface SelectPreference extends BasePreference {
 
 type Preference = CheckboxPreference | SelectPreference
 
-function createCheckboxPreference(key: PreferenceKey, label: string): CheckboxPreference {
+function createCheckboxPreference(
+    key: PreferenceKey,
+    label: string,
+    defaultOn = true,
+): CheckboxPreference {
     return {
         type: UserPreferenceType.Checkbox,
         key,
         label,
         value: computed({
-            get: () => (core.userProfile.preferences[key] ?? 1) === 1,
+            get: () => (core.userProfile.preferences[key] ?? (defaultOn ? 1 : 0)) === 1,
             set: async (value: boolean) => {
                 core.userProfile.preferences[key] = (value ? 1 : 0) as any
                 await core.userProfile.save()
@@ -481,6 +550,10 @@ const preferences: Preference[] = [
     createCheckboxPreference('actionDeclaration', 'Enable action/block declaration'),
     createCheckboxPreference('turnNotification', 'Show new turn notification'),
     createCheckboxPreference('showBleedTarget', 'Show bleed target'),
+]
+
+const experimentalPreferences: Preference[] = [
+    createCheckboxPreference('automaticCostPayment', 'Automatic cost paiement', false),
 ]
 
 /** Keyboard shortcuts **/
@@ -623,10 +696,33 @@ $max-width: 1200px;
     padding-bottom: 20px;
     margin-bottom: 20px;
     border-bottom: 1px solid $bone-grey;
+
+    &:last-child {
+        border-bottom: 0;
+    }
 }
 
 .preference-label {
     font-size: 17px;
+}
+
+.experimental-separator {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    max-width: 550px;
+    margin-bottom: 20px;
+    color: $warm-coral;
+    font-size: 13px;
+    letter-spacing: 2px;
+
+    &::before,
+    &::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background-color: $warm-coral;
+    }
 }
 
 .preference-select {

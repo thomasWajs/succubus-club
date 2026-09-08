@@ -6,7 +6,7 @@ import { Player } from '@/shared/model/Player.ts'
 import { SavingState } from '@/client/gateway/savedGames.ts'
 import { AlignmentGuide, LibraryCardUsage, MinionActionType } from '@/shared/types/state.ts'
 import { CardGroup, CardInGame, DragAttrs, DragOver, PlayerInGame } from '@/client/game/types.ts'
-import { CARD_PING_DURATION } from '@/shared/const/game.ts'
+import { CARD_COST_FX_DURATION, CARD_PING_DURATION } from '@/shared/const/game.ts'
 import { selfCanSeeOrPeek } from '@/client/state/self.ts'
 import { AnyCardRegion, CardOid, PlayerOid, Point2D } from '@/shared/types/model.ts'
 import Rectangle = Phaser.Geom.Rectangle
@@ -137,6 +137,12 @@ export const useGameBusStore = defineStore('gameBus', {
 
         /** Card ping **/
         pingedCards: [] as CardOid[],
+
+        /** Floating cost indicator ( automatic cost payment ) **/
+        // Per card, the cost to briefly display above it. `seq` forces a fresh
+        // animation when the same card is played again.
+        cardCosts: {} as Record<CardOid, { blood: number; pool: number; seq: number }>,
+        cardCostSeq: 0,
 
         /** Hand **/
         handDropGapPosition: null as null | number,
@@ -310,6 +316,22 @@ export const useGameBusStore = defineStore('gameBus', {
             setTimeout(() => {
                 this.pingedCards = this.pingedCards.filter(c => c != cardOid)
             }, CARD_PING_DURATION * 2)
+        },
+
+        // Show a floating cost indicator above a card. Only the acting player
+        // calls this ; it is a purely local visual, not a broadcast mutation.
+        showCardCost(cardOid: CardOid, blood: number, pool: number) {
+            if (blood <= 0 && pool <= 0) {
+                return
+            }
+            const seq = ++this.cardCostSeq
+            this.cardCosts[cardOid] = { blood, pool, seq }
+            // Remove the indicator once the animation is over.
+            setTimeout(() => {
+                if (this.cardCosts[cardOid]?.seq == seq) {
+                    delete this.cardCosts[cardOid]
+                }
+            }, CARD_COST_FX_DURATION)
         },
 
         toggleFocusMode() {

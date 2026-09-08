@@ -30,10 +30,12 @@ export interface CryptCardResource extends CardResource {
 }
 
 export interface LibraryCardResource extends CardResource {
-    blood: number
+    // Usually a number, but variable costs are stored as the string "X"
+    // ( e.g. "burn X blood" ).
+    blood: number | 'X'
     // conviction: number,
     discipline: string
-    pool: number
+    pool: number | 'X'
     requirement: string
     type: LibraryCardType
 }

@@ -345,12 +345,14 @@ export class LibraryCard extends Card {
         return this.resource?.type
     }
 
-    get bloodCost() {
-        return this.resource?.blood
+    get bloodCost(): number {
+        const bcost = this.resource?.blood ?? 0
+        return bcost == 'X' ? 0 : bcost
     }
 
-    get poolCost() {
-        return this.resource?.pool
+    get poolCost(): number {
+        const pcost = this.resource?.pool ?? 0
+        return pcost == 'X' ? 0 : pcost
     }
 
     get clan() {

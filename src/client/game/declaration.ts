@@ -8,6 +8,72 @@ import { GRID_SIZE, PLAY_AREA_WIDTH } from '@/shared/const/game.ts'
 import { selfSecureName } from '@/client/state/self.ts'
 import { createActionCardAction } from '@/shared/state/minionActions.ts'
 import { findFreePlayPosition } from '@/client/game/utils.ts'
+import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
+import { LibraryCardType } from '@/shared/const/model.ts'
+
+/**
+ * "Automatic cost payment" preference ( experimental ).
+ *
+ * When the local user has enabled it, playing one of their own cards also emits
+ * the mutations that pay its cost, so they don't have to adjust pool/blood by
+ * hand :
+ * - a Master played from hand pays its pool cost ;
+ * - an Action Modifier / Reaction / Combat card played on a minion pays its
+ *   blood cost ( on the minion ) and its pool cost ( on the minion controller ).
+ * Only the activated user's client emits these ; other players just receive the
+ * mutations like any other.
+ */
+function applyAutomaticCost(card: Card, byMinion: Minion | undefined) {
+    const players = usePlayersStore()
+    const gameBus = useGameBusStore()
+    const { automaticCostPaymentEnabled } = useUIFeatures()
+
+    if (
+        !automaticCostPaymentEnabled.value ||
+        !(card instanceof LibraryCard) ||
+        card.controller.oid != players.selfPlayerOid
+    ) {
+        return
+    }
+
+    // Master played from hand : pay its pool cost. Only show the indicator if the
+    // pool was actually spent ( the mutation is rejected when pool is too low ).
+    if (card.type == LibraryCardType.Master) {
+        if (card.poolCost > 0) {
+            const paid = gameMutations.changePool.actSelf({
+                player: card.controller,
+                amount: -card.poolCost,
+            })
+            if (paid.isValid) {
+                gameBus.showCardCost(card.oid, 0, card.poolCost)
+            }
+        }
+        return
+    }
+
+    // Action modifier / reaction / combat played on a minion : pay its blood cost
+    // ( on the minion ) and its pool cost ( on the minion controller ). Only the
+    // costs actually spent are shown : a mutation is rejected when the minion has
+    // not enough blood or the player not enough pool, and showing an unpaid cost
+    // would be incoherent.
+    if (
+        byMinion &&
+        (card.type == LibraryCardType.ActionModifier ||
+            card.type == LibraryCardType.Reaction ||
+            card.type == LibraryCardType.Combat)
+    ) {
+        const bloodPaid =
+            card.bloodCost > 0 &&
+            gameMutations.changeBlood.actSelf({ card: byMinion, amount: -card.bloodCost }).isValid
+        const poolPaid =
+            card.poolCost > 0 &&
+            gameMutations.changePool.actSelf({
+                player: byMinion.controller,
+                amount: -card.poolCost,
+            }).isValid
+        gameBus.showCardCost(card.oid, bloodPaid ? card.bloodCost : 0, poolPaid ? card.poolCost : 0)
+    }
+}
 
 export function playCard({
     card,
@@ -44,6 +110,8 @@ export function playCard({
         y,
         byMinion,
     })
+
+    applyAutomaticCost(card, byMinion)
 
     if (player.oid == players.selfPlayerOid) {
         gameBus.selectedCards = [card]

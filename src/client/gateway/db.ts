@@ -39,6 +39,7 @@ export type UserPreferences = {
     actionDeclaration?: number // We cannot index boolean with Dexie, so fallback on 0=false / 1=true
     turnNotification?: number // We cannot index boolean with Dexie, so fallback on 0=false / 1=true
     showBleedTarget?: number // We cannot index boolean with Dexie, so fallback on 0=false / 1=true
+    automaticCostPayment?: number // We cannot index boolean with Dexie, so fallback on 0=false / 1=true
     // CommandName ==> character
     keyBindings?: Record<string, { repr: string; keyCode: number }>
 }
