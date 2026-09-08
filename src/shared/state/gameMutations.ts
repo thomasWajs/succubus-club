@@ -1097,7 +1097,7 @@ class MoveCardToRegion extends GameMutation<MoveCardToRegionParams> {
             if (this.params.toCardRegion.is.ready) {
                 return this.params.byMinion ?
                         `${secureName(this.params.byMinion, this.author)} plays ${CARD_LOG_PLACEHOLDER}`
-                    :   `Play ${CARD_LOG_PLACEHOLDER}${this.params.byMinion}`
+                    :   `Play ${CARD_LOG_PLACEHOLDER}`
             }
             if (this.params.toCardRegion.is.ashHeap) {
                 return `Discard ${CARD_LOG_PLACEHOLDER} ${this.formatPlayerHand(this.params.card.controller)}`
@@ -1753,7 +1753,9 @@ class DeclareActionModifier extends GameMutation<DeclareActionModifierParams> {
  */
 
 interface DeclareBlockParams extends GameMutationParams {
-    block: Minion | typeof NO_BLOCK
+    // A minion attempting the block, NO_BLOCK to decline, or null to end the
+    // block ( remove this player's decision, back to "no decision yet" ).
+    block: Minion | typeof NO_BLOCK | null
 }
 
 class DeclareBlock extends GameMutation<DeclareBlockParams> {
@@ -1774,22 +1776,40 @@ class DeclareBlock extends GameMutation<DeclareBlockParams> {
         if (!gameState.action) {
             throw new Error('gameState.action is null')
         }
-        // One decision per player : a player revising their choice overwrites it.
-        const blockingPLayer =
-            this.params.block == NO_BLOCK ? this.author : this.params.block.controller
+        const block = this.params.block
+        // The block decision belongs to the minion's controller, else the author.
+        const blockingPLayer = block instanceof Card ? block.controller : this.author
 
         const decisions = gameState.action.blockingDecisions
-        const existing = decisions.find(decision => decision.player.oid == blockingPLayer.oid)
-        if (existing) {
-            existing.block = this.params.block
+        const index = decisions.findIndex(decision => decision.player.oid == blockingPLayer.oid)
+
+        if (block === null) {
+            // End block : drop this player's decision entirely.
+            if (index >= 0) {
+                decisions.splice(index, 1)
+            }
+        } else if (index >= 0) {
+            // One decision per player : a player revising their choice overwrites it.
+            decisions[index].block = block
         } else {
-            decisions.push({ player: blockingPLayer, block: this.params.block })
+            decisions.push({ player: blockingPLayer, block })
         }
+
+        // Seed the action intercept from the attempting minion, or reset it once
+        // no minion is attempting the block anymore.
+        if (block instanceof Card) {
+            gameState.action.intercept = block.minionAttrs.intercept
+        } else if (!getBlockingMinion(gameState)) {
+            gameState.action.intercept = 0
+        }
+
         regainImpulse(gameState)
     }
 
     formatForLog() {
-        if (this.params.block === NO_BLOCK) {
+        if (this.params.block === null) {
+            return `End block`
+        } else if (this.params.block === NO_BLOCK) {
             return `No Block`
         } else {
             return `Block attempt with ${CARD_LOG_PLACEHOLDER}`
@@ -1797,7 +1817,7 @@ class DeclareBlock extends GameMutation<DeclareBlockParams> {
     }
 
     get card() {
-        return this.params.block == NO_BLOCK ? null : this.params.block
+        return this.params.block instanceof Card ? this.params.block : null
     }
 }
 

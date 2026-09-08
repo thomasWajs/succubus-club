@@ -56,7 +56,7 @@
                     v-else
                     class="waiting-block-decision"
                 >
-                    No block decision yet
+                    No block declaration
                 </div>
             </div>
         </div>
@@ -95,7 +95,14 @@
                 />
             </span>
 
-            <span class="action-property">
+            <!--
+            Kept in the flow but only made visible once a minion attempts the
+            block, so revealing it does not shift the other steppers.
+            -->
+            <span
+                class="action-property"
+                :style="{ visibility: hasBlockingMinion ? 'visible' : 'hidden' }"
+            >
                 <PropertyStepper
                     :value="action.intercept"
                     label="Intercept"
@@ -227,6 +234,11 @@ const blockingDecisions = computed(() =>
         minionName: decision.block === NO_BLOCK ? null : decision.block.name,
     })),
 )
+
+// The intercept only matters once a minion is actually attempting the block.
+const hasBlockingMinion = computed(() =>
+    blockingDecisions.value.some(decision => decision.minionName !== null),
+)
 </script>
 
 <style lang="scss">
@@ -320,7 +332,7 @@ const blockingDecisions = computed(() =>
         }
     }
 
-    &.full-display {
+    &.bot-display {
         .action-impulse {
             justify-content: space-between;
         }

@@ -459,7 +459,7 @@ export function useCardDragDrop(
             if (ACTION_TYPES.includes(minionCard.type)) {
                 declareActionCardFromHand(byMinion, minionCard)
             } else {
-                playCard({ card: minionCard, byMinion, logActingMinion: true })
+                playCard({ card: minionCard, byMinion })
             }
             return
         }

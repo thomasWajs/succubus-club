@@ -1,7 +1,7 @@
 <template>
     <div
         class="floating-action"
-        :class="{ disabled }"
+        :class="{ disabled, small }"
         :style="style"
         @click="disabled ? null : emit('click')"
     >
@@ -13,11 +13,12 @@
 import { computed } from 'vue'
 import { display } from '@/client/game/display.ts'
 
-const { top, left, translate, disabled } = defineProps<{
+const { top, left, translate, disabled, small } = defineProps<{
     top: number
     left: number
     translate?: string
     disabled?: boolean
+    small?: boolean
 }>()
 
 const style = computed(() => {
@@ -67,6 +68,12 @@ const emit = defineEmits(['click'])
     letter-spacing: 0.3px;
 
     z-index: 1049;
+
+    &.small {
+        height: 26px;
+        padding: 4px 5px;
+        font-size: 11px;
+    }
 
     &.disabled {
         background: #505050;

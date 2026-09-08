@@ -13,14 +13,10 @@ export function playCard({
     card,
     byMinion,
     movement,
-    logActingMinion = false,
 }: {
     card: Card
     byMinion?: Minion
     movement?: CardMovement
-    // Log the play as "Play [card] with [minion]". Used when the card is played
-    // onto a minion without being declared as an action.
-    logActingMinion?: boolean
 }) {
     const players = usePlayersStore()
     const gameBus = useGameBusStore()
@@ -46,7 +42,7 @@ export function playCard({
         toCardRegion: player.ready,
         x,
         y,
-        byMinion: logActingMinion ? byMinion : undefined,
+        byMinion,
     })
 
     if (player.oid == players.selfPlayerOid) {

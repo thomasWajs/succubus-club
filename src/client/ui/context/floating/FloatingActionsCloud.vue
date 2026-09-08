@@ -7,6 +7,7 @@
             :left="action.left"
             :translate="action.translate"
             :disabled="action.disabled"
+            :small="action.small"
             @click="action.onClick"
         >
             {{ action.label }}
@@ -22,7 +23,7 @@ import { getCardRectangle, getScreenPoint } from '@/client/game/utils.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
 import { display } from '@/client/game/display.ts'
-import { MinionActionType } from '@/shared/types/state.ts'
+import { MinionActionType, NO_BLOCK } from '@/shared/types/state.ts'
 import { declareAction, startTargetDeclaration } from '@/client/game/declaration.ts'
 import { ACTION_TYPES } from '@/shared/const/model.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
@@ -30,6 +31,7 @@ import { useSelection } from '@/client/game/composables/useSelection.ts'
 import { Card, Minion } from '@/shared/model/Card.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
 import { selfCanAttemptBlock } from '@/client/state/self.ts'
+import { getBlockingDecision } from '@/shared/state/actionState.ts'
 
 const gameBus = useGameBusStore()
 const gameState = useGameStateStore()
@@ -43,6 +45,7 @@ type FloatingActionData = {
     left: number
     translate?: string
     disabled?: boolean
+    small?: boolean
     onClick: VoidFunction
 }
 
@@ -104,6 +107,17 @@ const blockingMinions = computed<Minion[]>(() => {
     return selfPlayer?.minionsReady
 })
 
+// The minion we are currently attempting the block with, if any. While one is
+// set, it is the only minion that keeps a floating action ( to stop the block ).
+const selfBlockingMinion = computed<Minion | null>(() => {
+    const selfPlayer = players.selfPlayer
+    if (!selfPlayer) {
+        return null
+    }
+    const decision = getBlockingDecision(gameState, selfPlayer)
+    return decision && decision.block !== NO_BLOCK ? decision.block : null
+})
+
 const floatingActions = computed<FloatingActionData[]>(() => {
     const actions: FloatingActionData[] = []
 
@@ -126,9 +140,17 @@ const floatingActions = computed<FloatingActionData[]>(() => {
 
     // Block attempts live outside focusedCard : they happen during another
     // player's action, which focusedCard deliberately excludes, and show under
-    // every eligible minion rather than only the selected one.
+    // every eligible minion rather than only the selected one. Once a minion is
+    // attempting the block, only that one keeps a button ( to stop the block ).
+    const blocking = selfBlockingMinion.value
     for (const minion of blockingMinions.value) {
-        actions.push(...getBlockActions(minion))
+        if (blocking) {
+            if (minion.oid == blocking.oid) {
+                actions.push(...getBlockActions(minion, true))
+            }
+        } else {
+            actions.push(...getBlockActions(minion, false))
+        }
     }
 
     return actions
@@ -159,6 +181,8 @@ function getPositionning(card: Card) {
     const eastActionsLeft = cardRight + cardActionGap
     const westActionsRight = cardLeft - cardActionGap
 
+    const northActionsTopSmall = northActionsTop + cardActionGap * 2
+
     return {
         cardActionGap,
         cardActionHeight,
@@ -172,6 +196,7 @@ function getPositionning(card: Card) {
         southActionsTop,
         eastActionsLeft,
         westActionsRight,
+        northActionsTopSmall,
     }
 }
 
@@ -345,7 +370,7 @@ function getCallReferendumActions(card: Card): FloatingActionData[] {
     ]
 }
 
-function getBlockActions(minion: Minion): FloatingActionData[] {
+function getBlockActions(minion: Minion, isBlocking: boolean): FloatingActionData[] {
     if (!actionDeclarationEnabled.value) {
         return []
     }
@@ -354,17 +379,16 @@ function getBlockActions(minion: Minion): FloatingActionData[] {
     if (!positionning) {
         return []
     }
-    const { x, northActionsTop } = positionning
+    const { x, northActionsTopSmall } = positionning
     return [
         {
-            label: 'Attempt Block',
+            label: isBlocking ? 'End Block' : 'Attempt Block',
             left: x,
             translate: 'translateX(-50%)',
-            top: northActionsTop,
+            top: northActionsTopSmall,
+            small: true,
             onClick: () => {
-                gameMutations.ACTION_declareBlock.actSelf({
-                    block: minion,
-                })
+                gameMutations.ACTION_declareBlock.actSelf({ block: isBlocking ? null : minion })
             },
         },
     ]
@@ -375,13 +399,13 @@ function getEmbraceLikeActions(embraceLike: Card): FloatingActionData[] {
     if (!positionning) {
         return []
     }
-    const { x, northActionsTop } = positionning
+    const { x, northActionsTopSmall } = positionning
     return [
         {
             label: 'Become Vampire',
             left: x,
             translate: 'translateX(-50%)',
-            top: northActionsTop,
+            top: northActionsTopSmall,
             onClick: () => {
                 gameMutations.becomeVampire.actSelf({
                     card: embraceLike,
