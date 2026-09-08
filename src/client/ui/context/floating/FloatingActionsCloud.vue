@@ -29,6 +29,7 @@ import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
 import { useSelection } from '@/client/game/composables/useSelection.ts'
 import { Card, Minion } from '@/shared/model/Card.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
+import { selfCanAttemptBlock } from '@/client/state/self.ts'
 
 const gameBus = useGameBusStore()
 const gameState = useGameStateStore()
@@ -85,26 +86,49 @@ function readyToCallReferendum(card: Card): boolean {
     return card.isIn.ready && card.canCallReferendum()
 }
 
-const floatingActions = computed<FloatingActionData[]>(() => {
-    const card = focusedCard.value
-    if (!card) {
+// Every ready minion of our own can attempt to block the ongoing action, no
+// selection needed, when we are an eligible blocker. This is distinct from
+// focusedCard, which only lives on our own turn with nothing in progress : a
+// block happens during another player's action, so it has its own gating.
+const blockingMinions = computed<Minion[]>(() => {
+    const selfPlayer = players.selfPlayer
+    if (
+        gameBus.contextMenu.show ||
+        gameBus.declaringTargetOrigin ||
+        gameBus.dragAttrs ||
+        !selfPlayer ||
+        !selfCanAttemptBlock()
+    ) {
         return []
     }
+    return selfPlayer?.minionsReady
+})
 
+const floatingActions = computed<FloatingActionData[]>(() => {
     const actions: FloatingActionData[] = []
 
-    if (card.isEmbraceLike()) {
-        actions.push(...getEmbraceLikeActions(card))
-    }
-    // Only a primed minion gets the action buttons, and focusedCard returns it
-    // first, so this is that same card
-    else if (primedMinion.value) {
-        actions.push(...getActingMinionActions(primedMinion.value))
+    const card = focusedCard.value
+    if (card) {
+        if (card.isEmbraceLike()) {
+            actions.push(...getEmbraceLikeActions(card))
+        }
+        // Only a primed minion gets the action buttons, and focusedCard returns
+        // it first, so this is that same card
+        else if (primedMinion.value) {
+            actions.push(...getActingMinionActions(primedMinion.value))
+        }
+
+        // Comes on top of whatever the card can do otherwise, minion or not
+        if (readyToCallReferendum(card)) {
+            actions.push(...getCallReferendumActions(card))
+        }
     }
 
-    // Comes on top of whatever the card can do otherwise, minion or not
-    if (readyToCallReferendum(card)) {
-        actions.push(...getCallReferendumActions(card))
+    // Block attempts live outside focusedCard : they happen during another
+    // player's action, which focusedCard deliberately excludes, and show under
+    // every eligible minion rather than only the selected one.
+    for (const minion of blockingMinions.value) {
+        actions.push(...getBlockActions(minion))
     }
 
     return actions
@@ -316,6 +340,31 @@ function getCallReferendumActions(card: Card): FloatingActionData[] {
             top: card.isMinion() ? southActionsTop : northActionsTop,
             onClick: () => {
                 gameMutations.REFERENDUM_call.actSelf({ card })
+            },
+        },
+    ]
+}
+
+function getBlockActions(minion: Minion): FloatingActionData[] {
+    if (!actionDeclarationEnabled.value) {
+        return []
+    }
+
+    const positionning = getPositionning(minion)
+    if (!positionning) {
+        return []
+    }
+    const { x, northActionsTop } = positionning
+    return [
+        {
+            label: 'Attempt Block',
+            left: x,
+            translate: 'translateX(-50%)',
+            top: northActionsTop,
+            onClick: () => {
+                gameMutations.ACTION_declareBlock.actSelf({
+                    block: minion,
+                })
             },
         },
     ]

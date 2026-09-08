@@ -1,10 +1,10 @@
 <template>
     <CentralPanel
         class="action-infos"
-        :class="{ 'full-display': fullDisplay }"
+        :class="{ 'bot-display': botDisplay }"
     >
         <div class="action-minions">
-            <div>
+            <div class="acting-minion">
                 <span
                     :class="action.minionAction.actingMinion.isCrypt ? 'cryptCard' : 'libraryCard'"
                 >
@@ -32,22 +32,40 @@
 
             <!-- <span>Is directed ? : {{ action.minionAction?.isDirected }}</span> -->
             <!--  <span>Target : {{ action.minionAction.target?.name }}</span> -->
-            <div
-                v-if="fullDisplay"
-                class="blocking-minion"
-            >
-                <template v-if="blockingMinion">
-                    <strong>Block</strong> with
-                    <span class="cryptCard">{{ blockingMinion.name }}</span>
+            <div class="blocking-minion">
+                <template v-if="blockingDecisions.length">
+                    <div
+                        v-for="decision in blockingDecisions"
+                        :key="decision.player.oid"
+                        class="block-decision"
+                    >
+                        <strong
+                            class="inline-player-name block-decision-player"
+                            :style="{ backgroundColor: decision.player.rgbaColor }"
+                        >
+                            {{ decision.player.shortName }}
+                        </strong>
+                        <template v-if="decision.minionName">
+                            <strong>Block</strong> with
+                            <span class="cryptCard">{{ decision.minionName }}</span>
+                        </template>
+                        <strong v-else> No Block </strong>
+                    </div>
                 </template>
-                <template v-else> No Block </template>
+                <div
+                    v-else
+                    class="waiting-block-decision"
+                >
+                    No block decision yet
+                </div>
             </div>
         </div>
 
         <!--
         Stealth / bleed / intercept are shown for every action ( human or bot )
-        so any player can adjust them as the action plays out. The block /
-        impulse decision below stays bot-only ( fullDisplay ).
+        so any player can adjust them as the action plays out. The block state
+        and the No block button are shown to every non-active player too ; only
+        the impulse sequencing below stays bot-only ( fullDisplay ).
         -->
         <div class="action-properties">
             <span class="action-property">
@@ -105,10 +123,13 @@
             </div>
 
             <div
-                v-if="fullDisplay"
+                v-if="botDisplay || selfCanAttemptBlock()"
                 class="impulse-decision"
             >
-                <span class="impulse-player">
+                <span
+                    v-if="botDisplay"
+                    class="impulse-player"
+                >
                     Impulse
                     <strong
                         :style="{
@@ -120,11 +141,12 @@
                 </span>
 
                 <button
+                    v-if="selfCanAttemptBlock()"
+                    :disabled="botDisplay && selfDeclinedBlock"
                     class="game-button"
-                    :disabled="!selfHasImpulse || !selfCanAttemptBlock(gameState)"
                     @click="
                         gameMutations.ACTION_declareBlock.actSelf({
-                            blockingMinion: NO_BLOCK,
+                            block: NO_BLOCK,
                         })
                     "
                 >
@@ -132,8 +154,9 @@
                 </button>
 
                 <button
+                    v-if="botDisplay"
                     class="game-button"
-                    :disabled="!selfHasImpulse || selfCanAttemptBlock(gameState)"
+                    :disabled="!selfHasImpulse || !selfCanAttemptBlock()"
                     @click="
                         gameMutations.ACTION_declareReaction.actSelf({
                             reaction: NO_REACTION,
@@ -149,11 +172,9 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useGameStateStore } from '@/client/store/gameState.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
 import { ActionVerb } from '@/shared/const/model.ts'
-import { getBlockingMinion, selfCanAttemptBlock } from '@/shared/state/actionState.ts'
 import {
     ActionProperty,
     ActionState,
@@ -162,9 +183,11 @@ import {
     NO_REACTION,
 } from '@/shared/types/state.ts'
 import * as actions from '@/shared/state/minionActions.ts'
-import { selfSecureName } from '@/client/state/self.ts'
+import { selfCanAttemptBlock, selfSecureName } from '@/client/state/self.ts'
 import PropertyStepper from '@/client/ui/components/PropertyStepper.vue'
 import CentralPanel from '@/client/ui/ingame/topArea/central/CentralPanel.vue'
+import { getBlockingDecision } from '@/shared/state/actionState.ts'
+import { useGameStateStore } from '@/client/store/gameState.ts'
 
 const props = defineProps<{
     action: ActionState
@@ -177,7 +200,7 @@ function changeProperty(propertyName: ActionProperty, amount: number) {
     gameMutations.ACTION_changeProperty.actSelf({ propertyName, amount })
 }
 
-const fullDisplay = computed(() => props.action.minionAction.actingMinion.controller.isBot)
+const botDisplay = computed(() => props.action.minionAction.actingMinion.controller.isBot)
 const politicalActionCard = computed(() =>
     actions.getPoliticalActionCard(props.action.minionAction),
 )
@@ -189,8 +212,21 @@ function callReferendum() {
         gameMutations.REFERENDUM_call.actSelf({ card })
     }
 }
-const blockingMinion = computed(() => getBlockingMinion(gameState))
 const selfHasImpulse = computed(() => props.action.impulsePlayer == players.selfPlayer)
+const selfDeclinedBlock = computed(
+    () =>
+        !!players.selfPlayer &&
+        getBlockingDecision(gameState, players.selfPlayer)?.block == NO_BLOCK,
+)
+
+// Every recorded block decision, flattened for display : the declaring player
+// and the blocking minion name, or null when they declined.
+const blockingDecisions = computed(() =>
+    props.action.blockingDecisions.map(decision => ({
+        player: decision.player,
+        minionName: decision.block === NO_BLOCK ? null : decision.block.name,
+    })),
+)
 </script>
 
 <style lang="scss">
@@ -200,6 +236,7 @@ const selfHasImpulse = computed(() => props.action.impulsePlayer == players.self
     // space-between ( properties, minions ) can spread across the full width.
     align-items: stretch;
     gap: 1rem;
+    padding: 0.5rem;
 
     .cryptCard {
         color: $crypt-orange;
@@ -212,11 +249,40 @@ const selfHasImpulse = computed(() => props.action.impulsePlayer == players.self
 
     .action-minions {
         display: flex;
-        justify-content: center;
-        font-size: 20px;
+        font-size: 18px;
+        gap: 0.5rem;
+
+        // Fixed 50 - 50 split, independent of content : flex-basis 0 with equal
+        // grow, and min-width 0 so a growing block list never widens the column.
+        .acting-minion {
+            flex: 1 1 0;
+            min-width: 0;
+        }
 
         .blocking-minion {
-            min-width: 130px;
+            flex: 1 1 0;
+            min-width: 0;
+            border-left: solid 1px rgba($shadow-grey, 0.4);
+            padding-left: 0.5rem;
+            text-align: left;
+
+            .waiting-block-decision {
+                text-align: center;
+            }
+
+            // Decisions stack ; keep each on its own line and small so the row
+            // stays compact, letting a long name overflow past the ellipsis.
+            .block-decision {
+                font-size: 14px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                margin-bottom: 0.25rem;
+
+                .block-decision-player {
+                    margin-right: 4px;
+                }
+            }
         }
     }
 
@@ -242,7 +308,6 @@ const selfHasImpulse = computed(() => props.action.impulsePlayer == players.self
         }
 
         .impulse-decision {
-            border: dotted 2px $purple-grey;
             padding: 5px;
 
             .impulse-player {
@@ -256,13 +321,18 @@ const selfHasImpulse = computed(() => props.action.impulsePlayer == players.self
     }
 
     &.full-display {
-        .action-minions,
         .action-impulse {
             justify-content: space-between;
         }
 
         .action-minions {
             font-size: 18px;
+        }
+
+        // The impulse sequencing is only wired for bots ; its dotted frame
+        // would look out of place around the lone No block button a human sees.
+        .impulse-decision {
+            border: dotted 2px $purple-grey;
         }
     }
 }

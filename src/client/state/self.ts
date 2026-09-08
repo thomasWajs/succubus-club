@@ -11,6 +11,7 @@ import { secureName } from '@/shared/state/cardVisibility.ts'
 import { ACTION_TYPES, LibraryCardType, TurnPhase } from '@/shared/const/model.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { GameType } from '@/shared/types/state.ts'
+import { playerCanAttemptBlock } from '@/shared/state/actionState.ts'
 
 /**
  * A judge oversees the game : they see and peek every card.
@@ -84,6 +85,12 @@ export function selfCanPlay(card: LibraryCard): boolean {
         }
     }
     return false
+}
+
+export function selfCanAttemptBlock() {
+    const gameState = useGameStateStore()
+    const players = usePlayersStore()
+    return !!players.selfPlayer && playerCanAttemptBlock(gameState, players.selfPlayer)
 }
 
 export function selfSecureName(target: Card | Player): string {

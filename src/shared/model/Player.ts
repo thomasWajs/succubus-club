@@ -179,20 +179,12 @@ export class Player extends BaseModel {
         return this.minionsReady.filter(c => !c.isLocked)
     }
 
-    get minionsReadyLocked() {
-        return this.minionsReady.filter(c => c.isLocked)
-    }
-
     get vampiresReady() {
         return this.ready.cards.filter(c => c.isVampire()) as Vampire[]
     }
 
     get vampiresReadyUnlocked() {
         return this.vampiresReady.filter(c => !c.isLocked)
-    }
-
-    get vampiresReadyLocked() {
-        return this.vampiresReady.filter(c => c.isLocked)
     }
 
     get vampiresInTorpor() {

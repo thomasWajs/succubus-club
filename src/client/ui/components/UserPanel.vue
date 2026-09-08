@@ -478,7 +478,7 @@ const preferences: Preference[] = [
     createCheckboxPreference('snapToGrid', 'Snap cards to grid'),
     createCheckboxPreference('alignmentGuides', 'Show alignment guides'),
     createCheckboxPreference('cardGrouping', 'Enable card grouping'),
-    createCheckboxPreference('actionDeclaration', 'Enable action declaration'),
+    createCheckboxPreference('actionDeclaration', 'Enable action/block declaration'),
     createCheckboxPreference('turnNotification', 'Show new turn notification'),
 ]
 

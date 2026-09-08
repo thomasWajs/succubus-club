@@ -37,14 +37,16 @@
         />
 
         <ContextMenuButton
-            v-if="firstCard.isIn.controlled && gameState.gameType == GameType.TrainBot"
+            v-if="firstCard.isIn.controlled"
             :closeOnClick="true"
-            :disabled="!singleMinion || !selfCanAttemptBlock(gameState)"
+            :disabled="!singleMinion || !minionCanAttemptBlock(gameState, singleMinion)"
             :cardAction="
                 () =>
-                    gameMutations.ACTION_declareBlock.actSelf({
-                        blockingMinion: singleMinion ?? NO_BLOCK,
-                    })
+                    singleMinion ?
+                        gameMutations.ACTION_declareBlock.actSelf({
+                            block: singleMinion,
+                        })
+                    :   null
             "
         >
             Attempt block
@@ -103,14 +105,13 @@
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
 import { Card } from '@/shared/model/Card.ts'
-import { GameType, NO_BLOCK } from '@/shared/types/state.ts'
 import ContextMenuButton from '@/client/ui/context/menu/ContextMenuButton.vue'
 import CommandContextMenuButton from '@/client/ui/context/menu/CommandContextMenuButton.vue'
 import SubmenuContextMenuButton from '@/client/ui/context/menu/SubmenuContextMenuButton.vue'
 import MarkersSubmenu from '@/client/ui/context/menu/MarkersSubmenu.vue'
 import CountersSubmenu from '@/client/ui/context/menu/CountersSubmenu.vue'
 import AttributesSubmenu from '@/client/ui/context/menu/AttributesSubmenu.vue'
-import { selfCanAttemptBlock } from '@/shared/state/actionState.ts'
+import { minionCanAttemptBlock } from '@/shared/state/actionState.ts'
 import InfrequentMenuButtons from '@/client/ui/context/menu/InfrequentMenuButtons.vue'
 import { shuffleCardRegion } from '@/client/state/gameMutations.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'

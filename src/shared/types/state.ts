@@ -57,9 +57,17 @@ export enum ActionProperty {
     Hunt = CardBaseAttribute.Hunt,
 }
 
+// A single player's block decision : either a minion attempting the block, or
+// NO_BLOCK when they decline. Several players may decide on the same action
+// ( e.g. on an undirected action, prey declines while predator blocks ).
+export type BlockingDecision = {
+    player: Player
+    block: Minion | typeof NO_BLOCK
+}
+
 export type ActionState = {
     minionAction: MinionAction
-    blockingDecision: Minion | typeof NO_BLOCK | null
+    blockingDecisions: BlockingDecision[]
     stealth: number
     intercept: number
     bleed: number

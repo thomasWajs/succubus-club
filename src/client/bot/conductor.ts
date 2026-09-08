@@ -284,7 +284,7 @@ export class Conductor {
         } else if (decision == NO_BLOCK) {
             this.applyGameMutation(
                 gameMutations.ACTION_declareBlock.createMutation(botPlayer, {
-                    blockingMinion: NO_BLOCK,
+                    block: NO_BLOCK,
                 }),
             )
         } else if (decision == NO_COMBAT) {

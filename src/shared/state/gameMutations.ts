@@ -1753,7 +1753,7 @@ class DeclareActionModifier extends GameMutation<DeclareActionModifierParams> {
  */
 
 interface DeclareBlockParams extends GameMutationParams {
-    blockingMinion: Minion | typeof NO_BLOCK
+    block: Minion | typeof NO_BLOCK
 }
 
 class DeclareBlock extends GameMutation<DeclareBlockParams> {
@@ -1761,7 +1761,9 @@ class DeclareBlock extends GameMutation<DeclareBlockParams> {
     readonly syncMode = MutationSyncMode.Exclusive
 
     get allowedPlayer() {
-        return this.gameState.action?.impulsePlayer ?? null
+        // Relax the rules here, we don't handle impulse in multiplayer
+        // return this.gameState.action?.impulsePlayer ?? null
+        return ANY_PLAYER
     }
 
     getValidity(gameState: GameState) {
@@ -1772,12 +1774,22 @@ class DeclareBlock extends GameMutation<DeclareBlockParams> {
         if (!gameState.action) {
             throw new Error('gameState.action is null')
         }
-        gameState.action.blockingDecision = this.params.blockingMinion
+        // One decision per player : a player revising their choice overwrites it.
+        const blockingPLayer =
+            this.params.block == NO_BLOCK ? this.author : this.params.block.controller
+
+        const decisions = gameState.action.blockingDecisions
+        const existing = decisions.find(decision => decision.player.oid == blockingPLayer.oid)
+        if (existing) {
+            existing.block = this.params.block
+        } else {
+            decisions.push({ player: blockingPLayer, block: this.params.block })
+        }
         regainImpulse(gameState)
     }
 
     formatForLog() {
-        if (this.params.blockingMinion === NO_BLOCK) {
+        if (this.params.block === NO_BLOCK) {
             return `No Block`
         } else {
             return `Block attempt with ${CARD_LOG_PLACEHOLDER}`
@@ -1785,7 +1797,7 @@ class DeclareBlock extends GameMutation<DeclareBlockParams> {
     }
 
     get card() {
-        return this.params.blockingMinion == NO_BLOCK ? null : this.params.blockingMinion
+        return this.params.block == NO_BLOCK ? null : this.params.block
     }
 }
 
@@ -1802,7 +1814,9 @@ class DeclareReaction extends GameMutation<DeclareReactionParams> {
     readonly syncMode = MutationSyncMode.Exclusive
 
     get allowedPlayer() {
-        return this.gameState.action?.impulsePlayer ?? null
+        // Relax the rules here, we don't handle impulse in multiplayer
+        // return this.gameState.action?.impulsePlayer ?? null
+        return ANY_PLAYER
     }
 
     getValidity(gameState: GameState) {
@@ -1897,7 +1911,9 @@ export class ResolveBlock extends GameMutation<EmptyParams> {
     readonly syncMode = MutationSyncMode.Exclusive
 
     get allowedPlayer() {
-        return this.gameState.activePlayer
+        // Relax the rules here, we don't handle impulse in multiplayer
+        // return this.gameState.activePlayer
+        return ANY_PLAYER
     }
 
     getValidity(gameState: GameState) {
@@ -1949,7 +1965,7 @@ export class ResolveBlock extends GameMutation<EmptyParams> {
         else {
             this.previousState.isBlockSuccessful = false
 
-            action.blockingDecision = null
+            action.blockingDecisions = []
             action.impulsePlayer = gameState.activePlayer
             action.intercept = 0
         }
