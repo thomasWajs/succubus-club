@@ -480,6 +480,7 @@ const preferences: Preference[] = [
     createCheckboxPreference('cardGrouping', 'Enable card grouping'),
     createCheckboxPreference('actionDeclaration', 'Enable action/block declaration'),
     createCheckboxPreference('turnNotification', 'Show new turn notification'),
+    createCheckboxPreference('showBleedTarget', 'Show bleed target'),
 ]
 
 /** Keyboard shortcuts **/

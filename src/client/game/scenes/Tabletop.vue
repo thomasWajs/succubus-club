@@ -106,10 +106,12 @@ import ContextMenu from '@/client/ui/context/menu/ContextMenu.vue'
 import ContextSubmenu from '@/client/ui/context/menu/ContextSubmenu.vue'
 import WieldCardStack from '@/client/game/objects/WieldCardStack.vue'
 import { useCoreStore } from '@/client/store/core.ts'
-import { Arrow, GameType } from '@/shared/types/state.ts'
+import { Arrow, GameType, TargetDeclaration } from '@/shared/types/state.ts'
+import { isBleed } from '@/shared/state/minionActions.ts'
 import { setupKeyboardHandlers, setupPointerHandlers } from '@/client/game/input.ts'
 import { setupCamera } from '@/client/game/camera.ts'
 import ArrowGO from '@/client/game/objects/ArrowGO.vue'
+import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
 import ChangePoolMenu from '@/client/ui/ingame/ChangePoolMenu.vue'
 import HandGO from '@/client/game/objects/HandGO.vue'
 import SelectionArea from '@/client/game/objects/SelectionArea.vue'
@@ -125,6 +127,7 @@ const core = useCoreStore()
 const gameState = useGameStateStore()
 const players = usePlayersStore()
 const gameBus = useGameBusStore()
+const { showBleedTargetEnabled } = useUIFeatures()
 
 const sceneReady = ref(false)
 let scene: Phaser.Scene | undefined
@@ -456,6 +459,19 @@ function getWorldPosition(objectId?: CardOid | PlayerOid): Point2D | null {
     return null
 }
 
+// When the "Show bleed target" preference is off, hide the arrow pointing at
+// the target of a declared bleed action.
+function isHiddenBleedTarget(tg: TargetDeclaration): boolean {
+    if (showBleedTargetEnabled.value) {
+        return false
+    }
+    const minionAction = gameState.action?.minionAction
+    if (!minionAction || !isBleed(minionAction)) {
+        return false
+    }
+    return tg.targetOid === minionAction.target?.oid
+}
+
 const arrows = ref<Arrow[]>([])
 function computeArrows() {
     const _arrows = [
@@ -468,12 +484,14 @@ function computeArrows() {
             },
         },
         // The already declared targets
-        ...gameState.targetDeclarations.map(tg => {
-            return {
-                from: getWorldPosition(tg.originOid),
-                to: getWorldPosition(tg.targetOid),
-            }
-        }),
+        ...gameState.targetDeclarations
+            .filter(tg => !isHiddenBleedTarget(tg))
+            .map(tg => {
+                return {
+                    from: getWorldPosition(tg.originOid),
+                    to: getWorldPosition(tg.targetOid),
+                }
+            }),
     ]
     arrows.value = _arrows.filter(arrow => arrow.from && arrow.to) as Arrow[]
 }

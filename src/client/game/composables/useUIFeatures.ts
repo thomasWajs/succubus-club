@@ -24,5 +24,6 @@ export function useUIFeatures() {
         cardGroupingEnabled: computed(() => (preferences.value.cardGrouping ?? 1) === 1),
         actionDeclarationEnabled: computed(() => (preferences.value.actionDeclaration ?? 1) === 1),
         turnNotificationEnabled: computed(() => (preferences.value.turnNotification ?? 1) === 1),
+        showBleedTargetEnabled: computed(() => (preferences.value.showBleedTarget ?? 1) === 1),
     }
 }
