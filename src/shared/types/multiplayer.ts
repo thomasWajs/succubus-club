@@ -405,6 +405,10 @@ export type ScsGameStateMessage = {
 export type ScsMutationRejectedMessage = {
     type: MultiplayerMessageType.MutationRejected
     gameMutationId: GameMutationId
+    // The object this mutation was versioning, and the server's authoritative clock for it.
+    // The rejected client uses them to reconcile its own clock and converge (self-healing).
+    versioningId: VersioningId
+    version: VectorClockVersion
 }
 
 export type ScsServerMessage =

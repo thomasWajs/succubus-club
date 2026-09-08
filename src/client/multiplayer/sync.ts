@@ -461,7 +461,18 @@ export async function receiveRejectedMutation(message: ScsMutationRejectedMessag
 }
 
 function _unsafeReceiveRejectedMutation(message: ScsMutationRejectedMessage) {
+    const multiplayer = useMultiplayerStore()
     const history = useHistoryStore()
+
+    // Reconcile our object clock with the server's authoritative version. We overwrite
+    // rather than merge : our own component may sit on a burned tick from the rejected
+    // send, and keeping it would leave a hole in the accepted stream that stalls other
+    // clients' isNextMutation. Resetting to the server's value lets our next send reuse
+    // that tick, so the broadcast stream stays contiguous and everyone converges.
+    if (message.version) {
+        multiplayer.objectClocks[message.versioningId] = new VectorClock(message.version)
+    }
+
     const mutationEntry = history.gameMutationsMap[message.gameMutationId]
 
     if (!mutationEntry) {

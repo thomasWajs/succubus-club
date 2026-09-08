@@ -283,6 +283,10 @@ export async function handleGameMutation(
                 const rejectionMessage: ScsMutationRejectedMessage = {
                     type: MultiplayerMessageType.MutationRejected,
                     gameMutationId: message.gameMutationId,
+                    // Hand the sender our authoritative clock so it can reconcile and converge,
+                    // instead of endlessly resending mutations that stay concurrent.
+                    versioningId: mutation.versioningId,
+                    version: clock.version,
                 }
                 send(connection.webSocket, rejectionMessage)
                 return
