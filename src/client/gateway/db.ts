@@ -37,6 +37,7 @@ export type UserPreferences = {
     alignmentGuides?: number // We cannot index boolean with Dexie, so fallback on 0=false / 1=true
     cardGrouping?: number // We cannot index boolean with Dexie, so fallback on 0=false / 1=true
     actionDeclaration?: number // We cannot index boolean with Dexie, so fallback on 0=false / 1=true
+    usageEditor?: number // We cannot index boolean with Dexie, so fallback on 0=false / 1=true
     turnNotification?: number // We cannot index boolean with Dexie, so fallback on 0=false / 1=true
     showBleedTarget?: number // We cannot index boolean with Dexie, so fallback on 0=false / 1=true
     automaticCostPayment?: number // We cannot index boolean with Dexie, so fallback on 0=false / 1=true

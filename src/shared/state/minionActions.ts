@@ -4,6 +4,7 @@ import { gameMutations } from '@/shared/state/gameMutations.ts'
 import {
     ACTION_TYPES,
     Discipline,
+    DisciplineLevel,
     LEAVE_TORPOR_COST,
     LibraryCardType,
 } from '@/shared/const/model.ts'
@@ -180,14 +181,9 @@ export function isReaction(value: unknown): value is Reaction {
     return hasType(value, [ReactionType])
 }
 
-export function getCardUsageDisplay(card: LibraryCard, usage: LibraryCardUsage) {
-    const level = ['', ' inf', ' SUP'][usage.level ?? 0]
-    return `${card.name}${level}`
-}
-
 export function getName(action: MinionAction) {
     if (action.type == MinionActionType.ActionCardFromHand) {
-        return getCardUsageDisplay(action.card, action.usage)
+        return action.card.name
     }
     return MinionActionNames[action.type]
 }
@@ -254,6 +250,28 @@ export function getPoliticalActionCard(action: MinionAction): LibraryCard | null
 
 export function isPoliticalAction(action: MinionAction): boolean {
     return getPoliticalActionCard(action) !== null
+}
+
+// A usage built from a single discipline at a single level ( with an optional
+// target ). Covers the common case where a card is played with just one
+// discipline, sparing callers the nested disciplines array.
+export function singleDisciplineUsage(
+    discipline: Discipline,
+    level: DisciplineLevel,
+    target?: Card | Player,
+): LibraryCardUsage {
+    return { disciplines: [{ discipline, level }], target }
+}
+
+// Whether two usages declare the same set of discipline uses ( order-independent ),
+// ignoring the target. Used to skip no-op usage updates in the log.
+export function sameDisciplineUses(a: LibraryCardUsage, b: LibraryCardUsage): boolean {
+    const key = (usage: LibraryCardUsage) =>
+        (usage.disciplines ?? [])
+            .map(use => `${use.discipline}:${use.level}`)
+            .sort()
+            .join('|')
+    return key(a) == key(b)
 }
 
 /**
@@ -344,15 +362,19 @@ const behaviors: Partial<Behaviors> = {
                 return Invalid('Action card has no resource')
             }
 
-            // Check for discipline compatibility if needed
-            // For now, don't take into account multi-discipline cards
+            // Check the acting vampire actually has each declared discipline
+            // use. Multi-discipline cards declare several uses ; the vampire must
+            // satisfy them all.
             const cardDiscipline = action.card.resource.discipline as Discipline
             if (cardDiscipline) {
-                if (!action.usage.level) {
-                    return Invalid('Usage has no level')
+                const disciplineUses = action.usage.disciplines ?? []
+                if (disciplineUses.length == 0) {
+                    return Invalid('Usage has no discipline')
                 }
-                if (!action.actingMinion.hasDiscipline(cardDiscipline, action.usage.level)) {
-                    return Invalid("Acting vampire doesn't have corresponding discipline level")
+                for (const use of disciplineUses) {
+                    if (!action.actingMinion.hasDiscipline(use.discipline, use.level)) {
+                        return Invalid("Acting vampire doesn't have corresponding discipline level")
+                    }
                 }
             }
             return getImplementationACA(action).canDeclare(action.actingMinion)

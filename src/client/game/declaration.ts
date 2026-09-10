@@ -3,6 +3,7 @@ import { MinionAction, MinionActionNames, MinionActionType } from '@/shared/type
 import { Player } from '@/shared/model/Player.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
 import { useBusStore, useGameBusStore } from '@/client/store/bus.ts'
+import { useGameStateStore } from '@/client/store/gameState.ts'
 import { Card, LibraryCard, Minion } from '@/shared/model/Card.ts'
 import { GRID_SIZE, PLAY_AREA_WIDTH } from '@/shared/const/game.ts'
 import { selfSecureName } from '@/client/state/self.ts'
@@ -174,8 +175,33 @@ export function startTargetDeclaration(card: Card) {
 
 export function validateTargetDeclaration(target: Card | Player) {
     const gameBus = useGameBusStore()
+    const gameState = useGameStateStore()
 
     if (!gameBus.declaringTargetOrigin) {
+        return
+    }
+
+    // Declaring the target(s) of the action card already in progress : several
+    // targets can be declared, each adding its own arrow. Record the target in
+    // the action usage and draw the arrow, skipping an exact duplicate.
+    const action = gameState.action
+    if (
+        action &&
+        action.minionAction.type == MinionActionType.ActionCardFromHand &&
+        gameBus.declaringTargetOrigin.oid == action.minionAction.card.oid
+    ) {
+        const origin = action.minionAction.card
+        const alreadyDeclared = gameState.targetDeclarations.some(
+            declaration =>
+                declaration.originOid == origin.oid && declaration.targetOid == target.oid,
+        )
+        if (!alreadyDeclared) {
+            gameMutations.ACTION_updateUsage.actSelf({
+                usage: { ...action.minionAction.usage, target },
+            })
+            gameMutations.UI_addTargetDeclaration.actSelf({ origin, target })
+        }
+        resetDeclaration()
         return
     }
 

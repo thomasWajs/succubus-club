@@ -15,6 +15,14 @@
                 </template>
 
                 <strong>{{ actions.getName(action.minionAction) }}</strong>
+                <template v-if="action.minionAction.type == MinionActionType.ActionCardFromHand">
+                    <DisciplineIcon
+                        v-for="use in action.minionAction.usage.disciplines ?? []"
+                        :key="`${use.discipline}:${use.level}`"
+                        :discipline="use.discipline"
+                        :level="use.level"
+                    />
+                </template>
                 <template v-if="action.minionAction.target">
                     {{ ' on ' + selfSecureName(action.minionAction.target) }}
                 </template>
@@ -200,6 +208,7 @@ import {
 import * as actions from '@/shared/state/minionActions.ts'
 import { selfCanAttemptBlock, selfSecureName } from '@/client/state/self.ts'
 import PropertyStepper from '@/client/ui/components/PropertyStepper.vue'
+import DisciplineIcon from '@/client/ui/components/DisciplineIcon.vue'
 import CentralPanel from '@/client/ui/ingame/topArea/central/CentralPanel.vue'
 import { getBlockingDecision } from '@/shared/state/actionState.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'

@@ -55,6 +55,7 @@
             <ContextMenu v-show="sceneReady" />
             <ContextSubmenu v-show="sceneReady" />
             <FloatingActionsCloud />
+            <ActionUsageEditor />
             <ActionDropTooltip />
             <ReferendumVoteBoxes v-if="gameState.referendum" />
         </template>
@@ -116,6 +117,7 @@ import ChangePoolMenu from '@/client/ui/ingame/ChangePoolMenu.vue'
 import HandGO from '@/client/game/objects/HandGO.vue'
 import SelectionArea from '@/client/game/objects/SelectionArea.vue'
 import FloatingActionsCloud from '@/client/ui/context/floating/FloatingActionsCloud.vue'
+import ActionUsageEditor from '@/client/ui/context/floating/ActionUsageEditor.vue'
 import ActionDropTooltip from '@/client/ui/context/floating/ActionDropTooltip.vue'
 import ReferendumVoteBoxes from '@/client/ui/context/floating/ReferendumVoteBoxes.vue'
 import { CardOid, PlayerOid, Point2D } from '@/shared/types/model.ts'

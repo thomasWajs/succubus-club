@@ -145,6 +145,38 @@ export enum Discipline {
     Visceratika = 'Visceratika',
 }
 
+export const DisciplineCode: Record<string, Discipline> = {
+    abo: Discipline.Abombwe,
+    ani: Discipline.Animalism,
+    aus: Discipline.Auspex,
+    tha: Discipline.BloodSorcery,
+    cel: Discipline.Celerity,
+    chi: Discipline.Chimerstry,
+    dai: Discipline.Daimoinon,
+    dem: Discipline.Dementation,
+    dom: Discipline.Dominate,
+    for: Discipline.Fortitude,
+    mel: Discipline.Melpominee,
+    myt: Discipline.Mytherceria,
+    nec: Discipline.Necromancy,
+    obe: Discipline.Obeah,
+    obf: Discipline.Obfuscate,
+    obl: Discipline.Oblivion,
+    obt: Discipline.Obtenebration,
+    pot: Discipline.Potence,
+    pre: Discipline.Presence,
+    pro: Discipline.Protean,
+    qui: Discipline.Quietus,
+    san: Discipline.Sanguinus,
+    ser: Discipline.Serpentis,
+    spi: Discipline.Spiritus,
+    tem: Discipline.Temporis,
+    thn: Discipline.Thanatosis,
+    val: Discipline.Valeren,
+    vic: Discipline.Vicissitude,
+    vis: Discipline.Visceratika,
+}
+
 export enum DisciplineLevel {
     INFERIOR = 1,
     SUPERIOR = 2,

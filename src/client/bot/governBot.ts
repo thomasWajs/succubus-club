@@ -10,6 +10,7 @@ import {
     createActionCardAction,
     createActionModifier,
     createHuntAction,
+    singleDisciplineUsage,
 } from '@/shared/state/minionActions.ts'
 import { NEXT_PHASE, NEXT_TURN } from '@/shared/const/bot.ts'
 import { DeckList } from '@/shared/types/gateway.ts'
@@ -82,10 +83,15 @@ export class GovernBot extends Bot {
                         vampire.minionAttrs.capacity - vampire.blood > 3
                     ) {
                         // govern sup
-                        return createActionCardAction(actingVampire, govern, {
-                            level: DisciplineLevel.SUPERIOR,
-                            target: vampire,
-                        })
+                        return createActionCardAction(
+                            actingVampire,
+                            govern,
+                            singleDisciplineUsage(
+                                Discipline.Dominate,
+                                DisciplineLevel.SUPERIOR,
+                                vampire,
+                            ),
+                        )
                     }
                 }
             }
@@ -96,10 +102,15 @@ export class GovernBot extends Bot {
                 DisciplineLevel.INFERIOR
             ) {
                 // govern inf
-                return createActionCardAction(actingVampire, govern, {
-                    level: DisciplineLevel.INFERIOR,
-                    target: this.player.prey,
-                })
+                return createActionCardAction(
+                    actingVampire,
+                    govern,
+                    singleDisciplineUsage(
+                        Discipline.Dominate,
+                        DisciplineLevel.INFERIOR,
+                        this.player.prey,
+                    ),
+                )
             }
         }
 
@@ -180,9 +191,13 @@ export class GovernBot extends Bot {
             gameState.action.intercept >= gameState.action.stealth &&
             gameState.action.stealth <= 1
         ) {
-            return createActionModifier(lostInCrowds, {
-                level: actingVampire.minionAttrs.disciplines[Discipline.Obfuscate],
-            })
+            return createActionModifier(
+                lostInCrowds,
+                singleDisciplineUsage(
+                    Discipline.Obfuscate,
+                    actingVampire.minionAttrs.disciplines[Discipline.Obfuscate],
+                ),
+            )
         }
 
         return NO_ACTION_MODIFIER

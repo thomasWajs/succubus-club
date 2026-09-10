@@ -40,7 +40,7 @@
                     :key="ruling.text"
                     class="ruling-text"
                 >
-                    {{ ruling.text }}
+                    <span v-html="rulingHtml(ruling.text)" />
                     <br />
                     <a
                         v-for="(refUrl, refName) of ruling.refs"
@@ -90,9 +90,26 @@ import {
     setCloseUpHeight,
     setRightColumnWidth,
 } from '@/client/game/display.ts'
+import { DisciplineCode, DisciplineLevel } from '@/shared/const/model.ts'
+import { disciplineIconImg } from '@/shared/disciplineIcons.ts'
+import { simpleEscapeHtml } from '@/shared/utils.ts'
 
 const core = useCoreStore()
 const gameBus = useGameBusStore()
+
+// Rulings use the card-text discipline codes ( [pot] inferior, [POT] superior ).
+// Render those as icons ; escape the rest, since rulings come from external data.
+function rulingHtml(text: string): string {
+    return simpleEscapeHtml(text).replace(/\[([A-Za-z]{3})\]/g, (whole, code: string) => {
+        const discipline = DisciplineCode[code.toLowerCase()]
+        if (!discipline) {
+            return whole
+        }
+        const level =
+            code === code.toUpperCase() ? DisciplineLevel.SUPERIOR : DisciplineLevel.INFERIOR
+        return disciplineIconImg(discipline, level)
+    })
+}
 
 const showRuling = ref(false)
 

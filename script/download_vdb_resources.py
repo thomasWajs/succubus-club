@@ -8,7 +8,8 @@ import requests
 import json
 import hashlib
 from const import DOWNLOAD_BASE_URL, FILES_TO_DOWNLOAD, RESOURCES_DIR, LOCAL_CARD_IMAGE_DIR, DOWNLOAD_CARDS_IMAGE_URL, \
-    CARDS_IMAGE_API_URL, IMAGE_CACHE_FILE
+    CARDS_IMAGE_API_URL, IMAGE_CACHE_FILE, LOCAL_DISCIPLINE_IMAGE_DIR, DOWNLOAD_DISCIPLINE_IMAGE_URL, \
+    DISCIPLINE_IMAGE_API_URL
 
 
 def download_one_file(url, local_path):
@@ -80,6 +81,66 @@ def download_vdb_resource_files():
         return 1
     else:
         print("All files downloaded successfully!")
+        return 0
+
+
+def download_vdb_discipline_images():
+    """Download all discipline images from VDB into the local disciplines directory."""
+    print("Downloading discipline images...")
+    print(f"Local directory: {os.path.abspath(LOCAL_DISCIPLINE_IMAGE_DIR)}")
+    print(f"Remote source: {DOWNLOAD_DISCIPLINE_IMAGE_URL}")
+    print("-" * 50)
+
+    # Create local directory if it doesn't exist
+    os.makedirs(LOCAL_DISCIPLINE_IMAGE_DIR, exist_ok=True)
+
+    try:
+        # Get list of remote files using GitHub Contents API (lists a single directory)
+        print("Fetching remote file list from GitHub Contents API...")
+
+        response = requests.get(DISCIPLINE_IMAGE_API_URL)
+        response.raise_for_status()
+
+        contents = response.json()
+
+        # Keep only files (blobs), skip nested subdirectories
+        remote_files = [item['name'] for item in contents if item.get('type') == 'file']
+
+        print(f"Found {len(remote_files)} files in the disciplines directory")
+
+    except requests.RequestException as e:
+        print(f"✗ Error fetching remote file list: {e}")
+        return 1
+    except (ValueError, KeyError) as e:
+        print(f"✗ Error parsing remote file list: {e}")
+        return 1
+
+    if not remote_files:
+        print("No discipline images found on remote repository.")
+        return 1
+
+    print("-" * 50)
+
+    successful_downloads = 0
+    failed_downloads = 0
+
+    for filename in sorted(remote_files):
+        remote_url = f"{DOWNLOAD_DISCIPLINE_IMAGE_URL}/{filename}"
+        local_path = os.path.join(LOCAL_DISCIPLINE_IMAGE_DIR, filename)
+
+        if download_one_file(remote_url, local_path):
+            successful_downloads += 1
+        else:
+            failed_downloads += 1
+
+    print("-" * 50)
+    print(f"Discipline image download complete: {successful_downloads} downloaded, {failed_downloads} failed")
+
+    if failed_downloads > 0:
+        print("Some downloads failed. Please check the error messages above.")
+        return 1
+    else:
+        print("All discipline images downloaded successfully!")
         return 0
 
 

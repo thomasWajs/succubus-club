@@ -18,6 +18,9 @@ INPUT_CARDS_DIR = ASSETS_DIR + '/cards/en-EN'
 
 OUTPUT_CARDBASE_PATH = ASSETS_DIR + '/cardbase.json'
 OUTPUT_ATLAS_DIR = ASSETS_DIR + '/atlas'
+OUTPUT_DISCIPLINE_SPRITE_PATH = ASSETS_DIR + '/disciplines.svg'
+
+LOCAL_DISCIPLINE_IMAGE_DIR = RESOURCES_DIR + "/disciplines"
 
 SETS_AND_PRECONS_PATH = ASSETS_DIR + '/' + SETS_AND_PRECONS_FILE_NAME
 
@@ -27,7 +30,10 @@ SETS_AND_PRECONS_PATH = ASSETS_DIR + '/' + SETS_AND_PRECONS_FILE_NAME
 
 DOWNLOAD_BASE_URL = "https://raw.githubusercontent.com/smeea/vdb/master"
 DOWNLOAD_CARDS_IMAGE_URL = DOWNLOAD_BASE_URL + "/frontend/public/images/cards/en-EN"
+DOWNLOAD_DISCIPLINE_IMAGE_URL = DOWNLOAD_BASE_URL + "/frontend/public/images/disciplines"
 CARDS_IMAGE_API_URL = "https://api.github.com/repos/smeea/vdb/git/trees/master"
+DISCIPLINE_IMAGE_API_URL = \
+    "https://api.github.com/repos/smeea/vdb/contents/frontend/public/images/disciplines?ref=master"
 
 # Files to download with their source paths and target filenames
 FILES_TO_DOWNLOAD = [
@@ -102,3 +108,43 @@ LIB_KEYS = [
     'text',
     'type',
 ]
+
+##########
+# Disciplines
+##########
+
+# 3-letter discipline code by icon filename ( the lowercased discipline name,
+# which is how the SVGs are named ). Mirrors the client's DisciplineCode in
+# src/shared/const/model.ts. Used to build the sprite symbol ids : the lowercase
+# code for the inferior icon, the uppercase code for the superior one ( pot / POT ).
+DISCIPLINE_CODE_BY_NAME = {
+    "abombwe": "abo",
+    "animalism": "ani",
+    "auspex": "aus",
+    "bloodsorcery": "tha",
+    "celerity": "cel",
+    "chimerstry": "chi",
+    "daimoinon": "dai",
+    "dementation": "dem",
+    "dominate": "dom",
+    "fortitude": "for",
+    "melpominee": "mel",
+    "mytherceria": "myt",
+    "necromancy": "nec",
+    "obeah": "obe",
+    "obfuscate": "obf",
+    "oblivion": "obl",
+    "obtenebration": "obt",
+    "potence": "pot",
+    "presence": "pre",
+    "protean": "pro",
+    "quietus": "qui",
+    "sanguinus": "san",
+    "serpentis": "ser",
+    "spiritus": "spi",
+    "temporis": "tem",
+    "thanatosis": "thn",
+    "valeren": "val",
+    "vicissitude": "vic",
+    "visceratika": "vis",
+}

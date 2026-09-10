@@ -19,6 +19,7 @@ import {
     GameType,
     getViewerKey,
     Invalid,
+    LibraryCardUsage,
     MinionAction,
     MinionActionType,
     NO_ACTION_MODIFIER,
@@ -66,6 +67,7 @@ import { AnyCardRegion, CardOid, GameId } from '@/shared/types/model.ts'
 import { getGameState, getMutationTrigger } from '@/shared/registries.ts'
 import { hashObject, rehydrateCard, serializeObject } from '@/shared/serialization.ts'
 import { simpleEscapeHtml } from '@/shared/utils.ts'
+import { disciplineUsesImg } from '@/shared/disciplineIcons.ts'
 
 export type GameMutationId = number
 export interface GameMutationParams {
@@ -1666,11 +1668,13 @@ class DeclareAction extends GameMutation<DeclareActionParams> {
     formatForLog() {
         let actionVerb = ''
         let actionCard = ''
+        let disciplines = ''
         if (
             this.params.minionAction.type == MinionActionType.ActionCardFromHand &&
             this.params.minionAction.card.type
         ) {
             actionVerb = `${ActionVerb[this.params.minionAction.card.type as keyof typeof ActionVerb]} `
+            disciplines = disciplineUsesImg(this.params.minionAction.usage.disciplines ?? [])
         }
         if (
             this.params.minionAction.type == MinionActionType.ActionInPlay &&
@@ -1678,7 +1682,7 @@ class DeclareAction extends GameMutation<DeclareActionParams> {
         ) {
             actionCard = ` ( ${this.params.minionAction.card.name} )`
         }
-        return `Declare ${actionVerb}${actions.getName(this.params.minionAction)}${actionCard} with ${CARD_LOG_PLACEHOLDER}`
+        return `Declare ${actionVerb}${actions.getName(this.params.minionAction)}${disciplines}${actionCard} with ${CARD_LOG_PLACEHOLDER}`
     }
 
     getCancelMutation(): AnyGameMutation {
@@ -1702,6 +1706,73 @@ class DeclareActionInverse extends GameMutation<DeclareActionParams> {
 
     formatForLog() {
         return `Cancel ${actions.getName(this.params.minionAction)}`
+    }
+}
+
+/**
+ * Action: Update usage
+ *
+ * Refine the usage ( declared disciplines and/or target ) of the action card
+ * currently in progress. Declaration is non-blocking, so the acting player fills
+ * this in ( or amends it ) after the action itself is declared, and may keep
+ * changing it while the action lasts. Each change is its own appended mutation,
+ * consistent with the append-only history.
+ */
+interface UpdateActionUsageParams extends GameMutationParams {
+    usage: LibraryCardUsage
+}
+
+class UpdateActionUsage extends GameMutation<UpdateActionUsageParams> {
+    readonly syncMode = MutationSyncMode.Exclusive
+
+    get allowedPlayer() {
+        return this.gameState.activePlayer
+    }
+
+    get card(): Card | null {
+        const minionAction = this.gameState.action?.minionAction
+        return minionAction?.type == MinionActionType.ActionCardFromHand ? minionAction.card : null
+    }
+
+    getValidity(gameState: GameState) {
+        if (!gameState.action) {
+            return Invalid('Must be applied during an action')
+        }
+        if (gameState.action.minionAction.type != MinionActionType.ActionCardFromHand) {
+            return Invalid('Usage can only be set for an action card')
+        }
+        return VALID
+    }
+
+    protected updateGameState(gameState: GameState) {
+        const minionAction = gameState.action?.minionAction
+        if (!minionAction || minionAction.type != MinionActionType.ActionCardFromHand) {
+            throw new Error('No action card in progress')
+        }
+        this.previousState.usage = minionAction.usage
+        minionAction.usage = this.params.usage
+        minionAction.target = this.params.usage.target
+    }
+
+    formatForLog() {
+        const minionAction = this.gameState.action?.minionAction
+        if (!minionAction || minionAction.type != MinionActionType.ActionCardFromHand) {
+            return null
+        }
+        // Only report the discipline / level here : target changes are logged by
+        // their target-declaration arrow, mirroring how the initial declaration
+        // splits the two. Nothing to say when the disciplines did not change.
+        const previous = this.previousState.usage as LibraryCardUsage | undefined
+        if (previous && actions.sameDisciplineUses(previous, this.params.usage)) {
+            return null
+        }
+        return `Use ${disciplineUsesImg(this.params.usage.disciplines ?? [])} ( ${minionAction.card.name} )`
+    }
+
+    getCancelMutation(): AnyGameMutation {
+        return gameMutations.ACTION_updateUsage.createCancelMutation(this, {
+            usage: this.previousState.usage as LibraryCardUsage,
+        })
     }
 }
 
@@ -1737,7 +1808,7 @@ class DeclareActionModifier extends GameMutation<DeclareActionModifierParams> {
             return `No Action Modifier`
         } else {
             const am = this.params.actionModifier
-            return `Action modifier : ${actions.getCardUsageDisplay(am.card, am.usage)}`
+            return `Declare ${am.card.name} ${disciplineUsesImg(am.usage.disciplines ?? [])}`
         }
     }
 
@@ -2597,6 +2668,7 @@ export const gameMutations = {
     ACTION_changeProperty: defineMutation(ChangeActionProperty),
     ACTION_declareAction: defineMutation(DeclareAction),
     ACTION_declareActionInverse: defineMutation(DeclareActionInverse),
+    ACTION_updateUsage: defineMutation(UpdateActionUsage),
     ACTION_declareActionModifier: defineMutation(DeclareActionModifier),
     ACTION_declareBlock: defineMutation(DeclareBlock),
     ACTION_declareReaction: defineMutation(DeclareReaction),

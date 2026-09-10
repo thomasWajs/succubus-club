@@ -545,9 +545,10 @@ const preferences: Preference[] = [
     createCheckboxPreference('glowInHand', 'Highlight playable cards in hand'),
     createCheckboxPreference('glowInPlay', 'Highlight cards in play with a "during X do Y" effect'),
     createCheckboxPreference('snapToGrid', 'Snap cards to grid'),
-    createCheckboxPreference('alignmentGuides', 'Show alignment guides'),
+    createCheckboxPreference('alignmentGuides', 'Enable alignment guides'),
     createCheckboxPreference('cardGrouping', 'Enable card grouping'),
     createCheckboxPreference('actionDeclaration', 'Enable action/block declaration'),
+    createCheckboxPreference('usageEditor', 'Enable card usage declaration'),
     createCheckboxPreference('turnNotification', 'Show new turn notification'),
     createCheckboxPreference('showBleedTarget', 'Show bleed target'),
 ]

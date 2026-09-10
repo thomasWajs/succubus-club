@@ -10,7 +10,8 @@ from PIL import Image
 
 from const import CARD_WIDTH, CARD_HEIGHT, IMAGE_MODE, INPUT_CARDBASE_LIB_PATH, \
     INPUT_CARDBASE_CRYPT_PATH, \
-    CRYPT_KEYS, LIB_KEYS, OUTPUT_CARDBASE_PATH, OUTPUT_ATLAS_DIR, INPUT_CARDS_DIR
+    CRYPT_KEYS, LIB_KEYS, OUTPUT_CARDBASE_PATH, OUTPUT_ATLAS_DIR, INPUT_CARDS_DIR, \
+    LOCAL_DISCIPLINE_IMAGE_DIR, OUTPUT_DISCIPLINE_SPRITE_PATH, DISCIPLINE_CODE_BY_NAME
 from script.const import FREQUENT_CARDS_ATLAS_SIZE, RECENT_CARDS_ATLAS_SIZE, TWD_DECKS_PATH, \
     TWD_DATE_CUTOFF, NB_ATLAS_FILE, RECENT_CARDS_DATE_CUTOFF, SETS_AND_PRECONS_PATH
 
@@ -99,7 +100,74 @@ def generate_atlas_files(cards, cardbase, output_name):
         json.dump(atlas_json_hash, output_atlas_file)
 
 
+# Matches the root <svg ...> ... </svg> ; the discipline icons are single-root
+# SVGs, so a capture of the attributes and the inner markup is enough.
+_SVG_RE = re.compile(r'<svg\b([^>]*)>(.*)</svg>', re.DOTALL)
+_VIEWBOX_RE = re.compile(r'viewBox="([^"]*)"')
+_ROOT_FILL_RE = re.compile(r'\sfill="([^"]*)"')
+
+
+def get_discipline_symbol_id(base_name):
+    """Sprite symbol id for a discipline icon file ( name without extension ).
+
+    Code-based ( pot / POT ) for a known discipline, else the filename itself so
+    icons not yet mapped to a code ( vision, striga... ) stay available in the
+    sprite for future use.
+    """
+    code = DISCIPLINE_CODE_BY_NAME.get(base_name)
+    if code:
+        return code
+    if base_name.endswith("sup"):
+        code = DISCIPLINE_CODE_BY_NAME.get(base_name[:-3])
+        if code:
+            return code.upper()
+    return base_name
+
+
+def generate_discipline_sprite():
+    """Bundle every discipline SVG into a single sprite file of <symbol>s.
+
+    The client injects this one file and references each icon via
+    <use href="#id">, avoiding one network request per icon on first display.
+    """
+    symbols = []
+    for svg_path in sorted(glob.glob(f'{LOCAL_DISCIPLINE_IMAGE_DIR}/*.svg')):
+        base_name = os.path.splitext(os.path.basename(svg_path))[0]
+
+        with open(svg_path, 'r', encoding='utf-8') as svg_file:
+            content = svg_file.read()
+
+        match = _SVG_RE.search(content)
+        if not match:
+            continue
+        attributes, inner = match.group(1), match.group(2).strip()
+
+        viewbox_match = _VIEWBOX_RE.search(attributes)
+        viewbox = f' viewBox="{viewbox_match.group(1)}"' if viewbox_match else ''
+        # A fill on the root ( rare ) would be lost when we keep only the inner
+        # markup, so carry it onto the symbol.
+        fill_match = _ROOT_FILL_RE.search(attributes)
+        fill = f' fill="{fill_match.group(1)}"' if fill_match else ''
+
+        symbol_id = get_discipline_symbol_id(base_name)
+        symbols.append(f'<symbol id="{symbol_id}"{viewbox}{fill}>{inner}</symbol>')
+
+    sprite = (
+        '<svg xmlns="http://www.w3.org/2000/svg" style="display:none">'
+        + ''.join(symbols)
+        + '</svg>'
+    )
+
+    os.makedirs(os.path.dirname(OUTPUT_DISCIPLINE_SPRITE_PATH), exist_ok=True)
+    # newline='' keeps LF endings on Windows ( the repo mandates LF ) instead of
+    # letting Python rewrite them to CRLF.
+    with open(OUTPUT_DISCIPLINE_SPRITE_PATH, 'w', encoding='utf-8', newline='') as sprite_file:
+        sprite_file.write(sprite)
+
+
 def generate_resource_files():
+    generate_discipline_sprite()
+
     with (
         open(INPUT_CARDBASE_LIB_PATH, 'r') as cardbase_lib_file,
         open(INPUT_CARDBASE_CRYPT_PATH, 'r') as cardbase_crypt_file,

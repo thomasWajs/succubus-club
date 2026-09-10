@@ -7,29 +7,26 @@ import { ActionProperty, Invalid, VALID } from '@/shared/types/state.ts'
 
 export class GovernTheUnaligned extends ActionCardImplementation {
     getStealth() {
-        return this.usage.level == DisciplineLevel.SUPERIOR ? 1 : 0
+        return this.level == DisciplineLevel.SUPERIOR ? 1 : 0
     }
 
     get isBleed() {
-        return this.usage.level == DisciplineLevel.INFERIOR
+        return this.level == DisciplineLevel.INFERIOR
     }
 
     canDeclare(actingMinion: Minion) {
-        if (!this.usage.level) {
+        if (!this.level) {
             return Invalid('Usage has no level')
         }
         if (!this.usage.target) {
             return Invalid('Usage has no target')
         }
 
-        if (
-            this.usage.level == DisciplineLevel.INFERIOR &&
-            !(this.usage.target instanceof Player)
-        ) {
+        if (this.level == DisciplineLevel.INFERIOR && !(this.usage.target instanceof Player)) {
             return Invalid('[inf] Target must be a player')
         }
 
-        if (this.usage.level == DisciplineLevel.SUPERIOR) {
+        if (this.level == DisciplineLevel.SUPERIOR) {
             if (!(this.usage.target instanceof Card && this.usage.target.isVampire())) {
                 return Invalid('[SUP] Target must be a vampire')
             }
@@ -45,7 +42,7 @@ export class GovernTheUnaligned extends ActionCardImplementation {
     }
 
     declare() {
-        if (this.usage.level == DisciplineLevel.INFERIOR) {
+        if (this.level == DisciplineLevel.INFERIOR) {
             gameMutations.ACTION_changeProperty.act(this.player, {
                 propertyName: ActionProperty.Bleed,
                 amount: 2,
@@ -54,7 +51,7 @@ export class GovernTheUnaligned extends ActionCardImplementation {
     }
 
     resolve() {
-        if (this.usage.level == DisciplineLevel.SUPERIOR) {
+        if (this.level == DisciplineLevel.SUPERIOR) {
             gameMutations.changeBlood.act(this.player, {
                 card: this.usage.target as CryptCard,
                 amount: 3,

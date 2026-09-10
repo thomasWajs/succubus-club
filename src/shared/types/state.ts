@@ -1,7 +1,7 @@
 /** Game types **/
 import { Player } from '@/shared/model/Player.ts'
 import { Card, LibraryCard, Minion } from '@/shared/model/Card.ts'
-import { DisciplineLevel } from '@/shared/const/model.ts'
+import { Discipline, DisciplineLevel } from '@/shared/const/model.ts'
 import { AnyCardRegion, CardOid, CardRegionOid, PlayerOid, Point2D } from '@/shared/types/model.ts'
 import { KrcgId } from '@/shared/types/gateway.ts'
 
@@ -165,9 +165,19 @@ export const MinionActionNames = {
     ActionInPlay: 'Action In Play',
 }
 
-// Needs to be evolved to account for multi-discipline cards and multi-type cards
+// A single discipline used at a given level to play a card, e.g. Potence at
+// inferior. Derived from the card text's bracket codes ( [pot] / [POT] ).
+export type DisciplineUse = {
+    discipline: Discipline
+    level: DisciplineLevel
+}
+
+// How a card is played : the discipline(s) the player declares using ( most
+// cards need a single choice, a few allow several at once ) and the target of a
+// directed action. Both are optional : declaration is non-blocking, so a usage
+// may be filled in ( or amended ) after the action is declared, or left empty.
 export type LibraryCardUsage = {
-    level?: DisciplineLevel
+    disciplines?: DisciplineUse[]
     target?: Card | Player
 }
 

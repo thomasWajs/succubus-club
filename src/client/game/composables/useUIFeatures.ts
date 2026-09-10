@@ -23,6 +23,7 @@ export function useUIFeatures() {
         alignmentGuidesEnabled: computed(() => (preferences.value.alignmentGuides ?? 1) === 1),
         cardGroupingEnabled: computed(() => (preferences.value.cardGrouping ?? 1) === 1),
         actionDeclarationEnabled: computed(() => (preferences.value.actionDeclaration ?? 1) === 1),
+        usageEditorEnabled: computed(() => (preferences.value.usageEditor ?? 1) === 1),
         turnNotificationEnabled: computed(() => (preferences.value.turnNotification ?? 1) === 1),
         showBleedTargetEnabled: computed(() => (preferences.value.showBleedTarget ?? 1) === 1),
         automaticCostPaymentEnabled: computed(
