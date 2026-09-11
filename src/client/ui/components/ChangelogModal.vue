@@ -7,6 +7,17 @@
             <h2>What's New in v{{ latestChangelog.version }}</h2>
             <p class="release-date">Released on {{ latestChangelog.date }}</p>
 
+            <div class="version-warning">
+                <p class="version-warning-title">This is a massive update!</p>
+                <p>
+                    Some new content may not work properly. If you run into a problem, please use
+                    the "Report bug" widget in the bottom-right corner.
+                </p>
+                <p>
+                    You can also opt in or out of the new features from the user preferences panel.
+                </p>
+            </div>
+
             <div class="changelog-content">
                 <div
                     v-if="latestChangelog.features && latestChangelog.features.length > 0"
@@ -131,6 +142,28 @@ onMounted(() => {
     font-size: 0.9rem;
     margin-bottom: 1.5rem;
     opacity: 0.8;
+}
+
+.version-warning {
+    background: rgba($royal-purple, 0.25);
+    border: 1px solid $royal-purple;
+    color: $ghost-white;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1.5rem;
+    font-size: 0.9rem;
+    line-height: 1.5;
+
+    p {
+        margin: 0.35rem 0;
+    }
+}
+
+.version-warning-title {
+    font-weight: bold;
+    color: $pearl-grey;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    letter-spacing: 0.05em;
 }
 
 .changelog-content {
