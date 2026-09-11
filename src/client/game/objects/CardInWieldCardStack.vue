@@ -94,6 +94,47 @@
             @pointerout="onPointerOut"
             @click="overlayClick(moveIntoPlay)"
         />
+
+        <!-- Move To Removed -->
+        <ButtonGO
+            ref="moveToRemovedButton"
+            name="moveToRemovedButton"
+            :x="buttons.centerX"
+            :y="buttons.moveToRemovedY"
+            :width="buttons.width"
+            :height="BUTTON_HEIGHT"
+            text="To Removed"
+            :textStyle="{ fontSize: '12px' }"
+            @pointerover="onPointerOver"
+            @pointerout="onPointerOut"
+            @click="overlayClick(moveToRemoved)"
+        />
+    </template>
+
+    <!-- Hovered button on non-ash-heap stacks -->
+    <template
+        v-if="
+            !cardRegion.is.ashHeap &&
+            !cardRegion.is.removed &&
+            players.isPlayer &&
+            isHovered &&
+            !dragAttrs.isDragging
+        "
+    >
+        <!-- Move To Ash Heap -->
+        <ButtonGO
+            ref="moveToAshHeapButton"
+            name="moveToAshHeapButton"
+            :x="buttons.centerX"
+            :y="buttons.moveToAshHeapY"
+            :width="buttons.width"
+            :height="BUTTON_HEIGHT"
+            text="To Ash Heap"
+            :textStyle="{ fontSize: '12px' }"
+            @pointerover="onPointerOver"
+            @pointerout="onPointerOut"
+            @click="overlayClick(moveToAshHeap)"
+        />
     </template>
 </template>
 
@@ -145,6 +186,8 @@ const cardOutline = refObj<GameObjects.Rectangle>()
 const moveToLibraryButton = ref<typeof ButtonGO>()
 const moveToHandButton = ref<typeof ButtonGO>()
 const moveIntoPlayButton = ref<typeof ButtonGO>()
+const moveToRemovedButton = ref<typeof ButtonGO>()
+const moveToAshHeapButton = ref<typeof ButtonGO>()
 
 const key = computed(() => `wield${card.oid.toString()}`)
 
@@ -181,9 +224,11 @@ const buttons = computed(() => {
     return {
         width,
         centerX,
-        moveToLibraryY: bottomEdge - BUTTON_HEIGHT * 2.5,
-        moveToHandY: bottomEdge - BUTTON_HEIGHT * 1.5,
-        moveIntoPlayY: bottomEdge - BUTTON_HEIGHT * 0.5,
+        moveToLibraryY: bottomEdge - BUTTON_HEIGHT * 3.5,
+        moveToHandY: bottomEdge - BUTTON_HEIGHT * 2.5,
+        moveIntoPlayY: bottomEdge - BUTTON_HEIGHT * 1.5,
+        moveToRemovedY: bottomEdge - BUTTON_HEIGHT * 0.5,
+        moveToAshHeapY: bottomEdge - BUTTON_HEIGHT * 0.5,
     }
 })
 
@@ -215,6 +260,24 @@ function moveIntoPlay() {
     playCard({ card })
 }
 
+function moveToRemoved() {
+    gameMutations.moveCardToRegion.act(card.owner, {
+        card,
+        fromCardRegion: card.region,
+        toCardRegion: card.owner.removed,
+        position: 0,
+    })
+}
+
+function moveToAshHeap() {
+    gameMutations.moveCardToRegion.act(card.owner, {
+        card,
+        fromCardRegion: card.region,
+        toCardRegion: card.owner.ashHeap,
+        position: 0,
+    })
+}
+
 /**
  * Save Card model on the Image Game Object
  */
@@ -241,7 +304,13 @@ function bringToTop() {
     if (cardOutline.value) {
         container.bringToTop(cardOutline.value)
     }
-    for (const button of [moveToLibraryButton, moveToHandButton, moveIntoPlayButton]) {
+    for (const button of [
+        moveToLibraryButton,
+        moveToHandButton,
+        moveIntoPlayButton,
+        moveToRemovedButton,
+        moveToAshHeapButton,
+    ]) {
         button.value?.bringToTop()
     }
 }
