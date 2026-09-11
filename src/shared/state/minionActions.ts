@@ -263,6 +263,19 @@ export function singleDisciplineUsage(
     return { disciplines: [{ discipline, level }], target }
 }
 
+// Resolve a card's raw cost ( which may be the variable "X" ) to the number to
+// actually spend. A declared X value is used when the cost is "X" ; an undeclared
+// X falls back to 0.
+export function resolveCost(cost: number | 'X', declaredX?: number): number {
+    return cost == 'X' ? (declaredX ?? 0) : cost
+}
+
+// The " X=n " fragment appended to usage log lines, or an empty string when no X
+// value has been declared.
+export function usageXLog(usage: LibraryCardUsage): string {
+    return usage.x !== undefined ? ` X=${usage.x}` : ''
+}
+
 // Whether two usages declare the same set of discipline uses ( order-independent ),
 // ignoring the target. Used to skip no-op usage updates in the log.
 export function sameDisciplineUses(a: LibraryCardUsage, b: LibraryCardUsage): boolean {
@@ -380,18 +393,20 @@ const behaviors: Partial<Behaviors> = {
             return getImplementationACA(action).canDeclare(action.actingMinion)
         },
         resolve(action: ActionCardFromHandAction) {
-            // Pay blood cost
-            if (action.card.bloodCost > 0) {
+            // Pay blood cost. A variable "X" cost uses the declared value, or 0.
+            const bloodCost = resolveCost(action.card.bloodCost, action.usage.x)
+            if (bloodCost > 0) {
                 gameMutations.changeBlood.act(action.actingMinion.controller, {
                     card: action.actingMinion,
-                    amount: -action.card.bloodCost,
+                    amount: -bloodCost,
                 })
             }
-            // Pay pool cost
-            if (action.card.poolCost > 0) {
+            // Pay pool cost. A variable "X" cost uses the declared value, or 0.
+            const poolCost = resolveCost(action.card.poolCost, action.usage.x)
+            if (poolCost > 0) {
                 gameMutations.changePool.act(action.actingMinion.controller, {
                     player: action.actingMinion.controller,
-                    amount: -action.card.poolCost,
+                    amount: -poolCost,
                 })
             }
             getImplementationACA(action).resolve()

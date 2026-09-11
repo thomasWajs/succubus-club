@@ -22,6 +22,9 @@
                         :discipline="use.discipline"
                         :level="use.level"
                     />
+                    <template v-if="action.minionAction.usage.x !== undefined">
+                        {{ ' X=' + action.minionAction.usage.x }}
+                    </template>
                 </template>
                 <template v-if="action.minionAction.target">
                     {{ ' on ' + selfSecureName(action.minionAction.target) }}
@@ -257,7 +260,11 @@ const payableActionCard = computed<LibraryCard | null>(() => {
         return null
     }
 
-    if (card.bloodCost <= 0 && card.poolCost <= 0) {
+    // A variable "X" cost resolves to the declared value, or 0 while undeclared,
+    // in which case there is nothing to pay yet.
+    const bloodCost = actions.resolveCost(card.bloodCost, minionAction.usage.x)
+    const poolCost = actions.resolveCost(card.poolCost, minionAction.usage.x)
+    if (bloodCost <= 0 && poolCost <= 0) {
         return null
     }
 
@@ -266,23 +273,26 @@ const payableActionCard = computed<LibraryCard | null>(() => {
 
 function payActionCost() {
     const card = payableActionCard.value
-    if (!card) {
+    const minionAction = props.action.minionAction
+    if (!card || minionAction.type != MinionActionType.ActionCardFromHand) {
         return
     }
 
-    const actingMinion = props.action.minionAction.actingMinion
+    const actingMinion = minionAction.actingMinion
+    const bloodCost = actions.resolveCost(card.bloodCost, minionAction.usage.x)
+    const poolCost = actions.resolveCost(card.poolCost, minionAction.usage.x)
     // Only the costs actually spent are shown : a mutation is rejected when the
     // minion has not enough blood or the player not enough pool.
     const bloodPaid =
-        card.bloodCost > 0 &&
-        gameMutations.changeBlood.actSelf({ card: actingMinion, amount: -card.bloodCost }).isValid
+        bloodCost > 0 &&
+        gameMutations.changeBlood.actSelf({ card: actingMinion, amount: -bloodCost }).isValid
     const poolPaid =
-        card.poolCost > 0 &&
+        poolCost > 0 &&
         gameMutations.changePool.actSelf({
             player: actingMinion.controller,
-            amount: -card.poolCost,
+            amount: -poolCost,
         }).isValid
-    gameBus.showCardCost(card.oid, bloodPaid ? card.bloodCost : 0, poolPaid ? card.poolCost : 0)
+    gameBus.showCardCost(card.oid, bloodPaid ? bloodCost : 0, poolPaid ? poolCost : 0)
 }
 
 const botDisplay = computed(() => props.action.minionAction.actingMinion.controller.isBot)

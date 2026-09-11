@@ -345,14 +345,15 @@ export class LibraryCard extends Card {
         return this.resource?.type
     }
 
-    get bloodCost(): number {
-        const bcost = this.resource?.blood ?? 0
-        return bcost == 'X' ? 0 : bcost
+    // The card's raw cost, keeping the variable "X" as-is ( e.g. "burn X blood" ).
+    // Callers that need to spend it must resolve X to a declared value : see
+    // resolveCost() in minionActions.ts.
+    get bloodCost(): number | 'X' {
+        return this.resource?.blood ?? 0
     }
 
-    get poolCost(): number {
-        const pcost = this.resource?.pool ?? 0
-        return pcost == 'X' ? 0 : pcost
+    get poolCost(): number | 'X' {
+        return this.resource?.pool ?? 0
     }
 
     get clan() {

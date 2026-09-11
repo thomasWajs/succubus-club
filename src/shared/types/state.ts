@@ -179,6 +179,9 @@ export type DisciplineUse = {
 export type LibraryCardUsage = {
     disciplines?: DisciplineUse[]
     target?: Card | Player
+    // The chosen value of a variable "X" cost ( blood or pool ) when the card's
+    // cost is "X". Undefined means "not declared yet", like target / disciplines.
+    x?: number
 }
 
 export type Declaration = {

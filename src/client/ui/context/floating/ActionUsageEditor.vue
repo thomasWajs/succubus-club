@@ -12,6 +12,8 @@
     >
         <div class="usage-title">{{ actions.getName(gameState.action.minionAction) }}</div>
 
+        <div class="usage-divider" />
+
         <div
             v-if="editor.chips.length > 0"
             class="discipline-options"
@@ -32,11 +34,51 @@
             </div>
         </div>
 
+        <!-- Variable "X" cost : editable select, or a read-only value for the
+        other players once it has been declared. -->
+        <template v-if="editor.editable && editor.hasXCost">
+            <div
+                v-if="editor.chips.length > 0"
+                class="usage-divider"
+            />
+            <div class="usage-x">
+                <span class="usage-x-label">X =</span>
+                <select
+                    class="usage-x-select"
+                    :value="editor.xValue ?? ''"
+                    @change="updateX"
+                >
+                    <option
+                        value=""
+                        disabled
+                    >
+                        -
+                    </option>
+                    <option
+                        v-for="value in X_OPTIONS"
+                        :key="value"
+                        :value="value"
+                    >
+                        {{ value }}
+                    </option>
+                </select>
+            </div>
+        </template>
+        <template v-else-if="!editor.editable && editor.xValue !== undefined">
+            <div
+                v-if="editor.chips.length > 0"
+                class="usage-divider"
+            />
+            <div class="usage-x">
+                <span class="usage-x-label">X = {{ editor.xValue }}</span>
+            </div>
+        </template>
+
         <!-- Editable : target declaration button. Each click declares an
         additional target, so a card can be aimed at several targets. -->
         <template v-if="editor.editable && editor.directable">
             <div
-                v-if="editor.chips.length > 0"
+                v-if="editor.chips.length > 0 || editor.hasXCost"
                 class="usage-divider"
             />
             <div
@@ -128,7 +170,7 @@ function onDragStart(event: PointerEvent) {
     // The whole box is a drag surface, except the interactive controls : a
     // pointerdown starting on a chip or the target button must stay a click.
     const source = event.target as HTMLElement
-    if (source.closest('.discipline-chip, .usage-target-button, .usage-end-button')) {
+    if (source.closest('.discipline-chip, .usage-target-button, .usage-end-button, .usage-x')) {
         return
     }
     const element = event.currentTarget as HTMLElement
@@ -180,8 +222,9 @@ const editor = computed(() => {
 
     const editable = !!selfPlayer && minionAction.actingMinion.controller.oid == selfPlayer.oid
 
-    // Other players / spectators only get the box once a discipline is chosen.
-    if (!editable && selectedUses.length == 0) {
+    // Other players / spectators only get the box once a discipline or an X value
+    // is chosen.
+    if (!editable && selectedUses.length == 0 && usage.x === undefined) {
         return null
     }
 
@@ -226,10 +269,16 @@ const editor = computed(() => {
     // so the target button is hidden.
     const directable = card.type == LibraryCardType.Action
 
+    // A variable "X" cost ( blood or pool ) lets the player declare the value of
+    // X. The select is offered only when the card actually has such a cost.
+    const hasXCost = card.bloodCost == 'X' || card.poolCost == 'X'
+
     return {
         editable,
         directable,
         chips,
+        hasXCost,
+        xValue: usage.x,
         style: {
             top: `${minionBottom + dragOffset.value.y}px`,
             left: `${x + dragOffset.value.x}px`,
@@ -285,6 +334,19 @@ function declareTarget() {
     // Reuse the board target-declaration flow : the player then clicks a card or
     // player, which validateTargetDeclaration records into the action usage.
     startTargetDeclaration(gameState.action.minionAction.card)
+}
+
+// The value of a variable "X" cost can be declared from 0 to 12.
+const X_OPTIONS = Array.from({ length: 13 }, (_, value) => value)
+
+function updateX(event: Event) {
+    const usage = currentUsage()
+    const x = Number((event.target as HTMLSelectElement).value)
+    if (usage.x !== x) {
+        gameMutations.ACTION_updateUsage.actSelf({
+            usage: { ...usage, x },
+        })
+    }
 }
 </script>
 
@@ -357,8 +419,8 @@ function declareTarget() {
 
     // Separates the discipline choice from the target declaration.
     .usage-divider {
-        height: 2px;
-        margin: 4px 0;
+        height: 1px;
+        margin: 3px 0;
         background: rgba($ghost-white, 0.4);
     }
 
@@ -375,6 +437,25 @@ function declareTarget() {
         &:hover {
             background: $shadow-teal;
             color: $ghost-white;
+        }
+    }
+
+    .usage-x {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        font-size: 12px;
+        color: $silver-grey;
+
+        .usage-x-select {
+            padding: 2px 4px;
+            font-size: 12px;
+            cursor: pointer;
+
+            background: $slate-grey;
+            color: $ghost-white;
+            border: 1px solid rgba($ghost-white, 0.15);
         }
     }
 

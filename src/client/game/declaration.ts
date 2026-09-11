@@ -7,7 +7,7 @@ import { useGameStateStore } from '@/client/store/gameState.ts'
 import { Card, LibraryCard, Minion } from '@/shared/model/Card.ts'
 import { GRID_SIZE, PLAY_AREA_WIDTH } from '@/shared/const/game.ts'
 import { selfSecureName } from '@/client/state/self.ts'
-import { createActionCardAction } from '@/shared/state/minionActions.ts'
+import { createActionCardAction, resolveCost } from '@/shared/state/minionActions.ts'
 import { findFreePlayPosition } from '@/client/game/utils.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
 import { LibraryCardType } from '@/shared/const/model.ts'
@@ -39,14 +39,16 @@ function applyAutomaticCost(card: Card, byMinion: Minion | undefined) {
 
     // Master played from hand : pay its pool cost. Only show the indicator if the
     // pool was actually spent ( the mutation is rejected when pool is too low ).
+    // A variable "X" cost has no declared value here, so it resolves to 0.
     if (card.type == LibraryCardType.Master) {
-        if (card.poolCost > 0) {
+        const poolCost = resolveCost(card.poolCost)
+        if (poolCost > 0) {
             const paid = gameMutations.changePool.actSelf({
                 player: card.controller,
-                amount: -card.poolCost,
+                amount: -poolCost,
             })
             if (paid.isValid) {
-                gameBus.showCardCost(card.oid, 0, card.poolCost)
+                gameBus.showCardCost(card.oid, 0, poolCost)
             }
         }
         return
@@ -63,16 +65,19 @@ function applyAutomaticCost(card: Card, byMinion: Minion | undefined) {
             card.type == LibraryCardType.Reaction ||
             card.type == LibraryCardType.Combat)
     ) {
+        // A variable "X" cost has no declared value here, so it resolves to 0.
+        const bloodCost = resolveCost(card.bloodCost)
+        const poolCost = resolveCost(card.poolCost)
         const bloodPaid =
-            card.bloodCost > 0 &&
-            gameMutations.changeBlood.actSelf({ card: byMinion, amount: -card.bloodCost }).isValid
+            bloodCost > 0 &&
+            gameMutations.changeBlood.actSelf({ card: byMinion, amount: -bloodCost }).isValid
         const poolPaid =
-            card.poolCost > 0 &&
+            poolCost > 0 &&
             gameMutations.changePool.actSelf({
                 player: byMinion.controller,
-                amount: -card.poolCost,
+                amount: -poolCost,
             }).isValid
-        gameBus.showCardCost(card.oid, bloodPaid ? card.bloodCost : 0, poolPaid ? card.poolCost : 0)
+        gameBus.showCardCost(card.oid, bloodPaid ? bloodCost : 0, poolPaid ? poolCost : 0)
     }
 }
 

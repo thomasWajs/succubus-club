@@ -1674,7 +1674,9 @@ class DeclareAction extends GameMutation<DeclareActionParams> {
             this.params.minionAction.card.type
         ) {
             actionVerb = `${ActionVerb[this.params.minionAction.card.type as keyof typeof ActionVerb]} `
-            disciplines = disciplineUsesImg(this.params.minionAction.usage.disciplines ?? [])
+            disciplines =
+                disciplineUsesImg(this.params.minionAction.usage.disciplines ?? []) +
+                actions.usageXLog(this.params.minionAction.usage)
         }
         if (
             this.params.minionAction.type == MinionActionType.ActionInPlay &&
@@ -1759,14 +1761,20 @@ class UpdateActionUsage extends GameMutation<UpdateActionUsageParams> {
         if (!minionAction || minionAction.type != MinionActionType.ActionCardFromHand) {
             return null
         }
-        // Only report the discipline / level here : target changes are logged by
-        // their target-declaration arrow, mirroring how the initial declaration
-        // splits the two. Nothing to say when the disciplines did not change.
+        // Report the discipline / level and the declared X value here : target
+        // changes are logged by their target-declaration arrow, mirroring how the
+        // initial declaration splits the two. Nothing to say when neither the
+        // disciplines nor the X value changed.
         const previous = this.previousState.usage as LibraryCardUsage | undefined
-        if (previous && actions.sameDisciplineUses(previous, this.params.usage)) {
+        if (
+            previous &&
+            actions.sameDisciplineUses(previous, this.params.usage) &&
+            previous.x === this.params.usage.x
+        ) {
             return null
         }
-        return `Use ${disciplineUsesImg(this.params.usage.disciplines ?? [])} ( ${minionAction.card.name} )`
+        const disciplines = disciplineUsesImg(this.params.usage.disciplines ?? [])
+        return `Use ${disciplines}${actions.usageXLog(this.params.usage)} ( ${minionAction.card.name} )`
     }
 
     getCancelMutation(): AnyGameMutation {
@@ -1808,7 +1816,7 @@ class DeclareActionModifier extends GameMutation<DeclareActionModifierParams> {
             return `No Action Modifier`
         } else {
             const am = this.params.actionModifier
-            return `Declare ${am.card.name} ${disciplineUsesImg(am.usage.disciplines ?? [])}`
+            return `Declare ${am.card.name} ${disciplineUsesImg(am.usage.disciplines ?? [])}${actions.usageXLog(am.usage)}`
         }
     }
 
