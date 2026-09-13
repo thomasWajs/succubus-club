@@ -34,10 +34,10 @@ const zoomedCardTexture = computed(() => {
         return null
     }
 
-    const { displayedTexture } = useCardTexture(zoomedCard.value)
+    const { peekTexture } = useCardTexture(zoomedCard.value)
     return core.phaserGame.textures.getBase64(
-        displayedTexture.value.textureName,
-        displayedTexture.value.frameName,
+        peekTexture.value.textureName,
+        peekTexture.value.frameName,
     )
 })
 

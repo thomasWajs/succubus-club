@@ -5,6 +5,8 @@ import {
     CARD_IN_STACK_SCALE,
     CARD_WIDTH,
     DEFAULT_PLAYER_SCALE,
+    FREE_TABLE_HEIGHT,
+    FREE_TABLE_WIDTH,
     GRID_SIZE,
     HORIZONTAL_SEPARATOR_DEFAULT_Y,
     PLAY_AREA_WIDTH,
@@ -15,7 +17,7 @@ import Phaser, { GameObjects } from 'phaser'
 import { PhaserDataKey, RegionCategory } from '@/client/game/types.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { Card } from '@/shared/model/Card.ts'
-import { getTabletopScene } from '@/client/game/camera.ts'
+import { cameraTick, getTabletopScene } from '@/client/game/camera.ts'
 import { AnyCardRegion } from '@/shared/types/model.ts'
 import { Snap } from '@/shared/utils.ts'
 import { Player } from '@/shared/model/Player.ts'
@@ -26,9 +28,14 @@ import Rectangle = Phaser.Geom.Rectangle
  * Given x,y on screen, return the corresponding world coordinates.
  * Will take into account camera zoom ( display.scale ) + camera scroll.
  * Useful to convert pointer coordinates to game coordinates.
+ *
+ * Defaults to the main camera, but accepts an explicit one for content that
+ * isn't rendered through it - e.g. Free Table's pinned UI camera, which
+ * hosts the Hand and the stack browser at a fixed zoom/scroll independent of
+ * the main camera's pan/zoom over the shared table.
  */
-export function getWorldPoint(x: number, y: number) {
-    return getTabletopScene().cameras.main.getWorldPoint(x, y)
+export function getWorldPoint(x: number, y: number, camera?: Phaser.Cameras.Scene2D.Camera) {
+    return (camera ?? getTabletopScene().cameras.main).getWorldPoint(x, y)
 }
 
 /**
@@ -39,9 +46,18 @@ export function getWorldPoint(x: number, y: number) {
  * This is the inverse operation of camera.getWorldPoint(),
  * which surprinsignly does not exist in Phaser,
  * so let's do some math !
+ *
+ * Defaults to the main camera, but accepts an explicit one : in Free Table the
+ * Hand and the stack browser render through the pinned UI camera, so their
+ * world <-> screen mapping differs from the main ( pannable/zoomable ) one.
  */
-export function getScreenPoint(x: number, y: number) {
-    const camera = getTabletopScene().cameras.main
+export function getScreenPoint(x: number, y: number, camera?: Phaser.Cameras.Scene2D.Camera) {
+    // Read-only dependency : Free Table's main camera pans/zooms outside of
+    // Vue's reactivity, so this registers the Vue computed calling in here as
+    // a dependent of cameraTick, which camera.ts bumps on every pan/zoom.
+    void cameraTick.value
+
+    camera ??= getTabletopScene().cameras.main
 
     // @ts-expect-error - rotation is private but needed for coordinate transformation
     const { rotation, zoom, scrollX, scrollY } = camera
@@ -71,6 +87,50 @@ export function getScreenPoint(x: number, y: number) {
         x: sx - (scrollX * cos - scrollY * sin) * zoom,
         y: sy - (scrollX * sin + scrollY * cos) * zoom,
     }
+}
+
+/**
+ * The current world-to-screen scale factor : how many screen pixels a single
+ * world unit maps to, i.e. the camera's own zoom. In standard mode this is
+ * always `display.scale`, since resetCamera() sets the ( fixed ) main
+ * camera's zoom to exactly that. Free Table's camera zooms independently of
+ * `display.scale` though ( see camera.ts's wheel handler ), so anything
+ * converting a card's world-space size/gap into on-screen pixels ( floating
+ * actions, the referendum vote boxes, the action drop tooltip... ) must read
+ * this instead of `display.scale` directly, or it drifts out of sync with the
+ * card's actual on-screen size as soon as the user zooms.
+ */
+export function getScreenScale(camera?: Phaser.Cameras.Scene2D.Camera) {
+    void cameraTick.value
+    return (camera ?? getTabletopScene().cameras.main).zoom
+}
+
+/**
+ * A Game Object's on-screen bounding box : its world bounds ( getBounds() ),
+ * with each corner mapped through getScreenPoint(). Free Table's camera can
+ * be rotated per player ( see camera.ts ), so an object's screen-space
+ * footprint isn't just its world bounds scaled by zoom - this accounts for
+ * that rotation too. Still an axis-aligned box on screen : same AABB
+ * approximation getBounds() itself already makes for a rotated Game Object
+ * in world space.
+ */
+export function getScreenBounds(
+    image: GameObjects.Image,
+    camera?: Phaser.Cameras.Scene2D.Camera,
+): Rectangle {
+    const worldBounds = image.getBounds()
+    const corners = [
+        getScreenPoint(worldBounds.x, worldBounds.y, camera),
+        getScreenPoint(worldBounds.right, worldBounds.y, camera),
+        getScreenPoint(worldBounds.x, worldBounds.bottom, camera),
+        getScreenPoint(worldBounds.right, worldBounds.bottom, camera),
+    ]
+    const xs = corners.map(c => c.x)
+    const ys = corners.map(c => c.y)
+    const minX = Math.min(...xs)
+    const minY = Math.min(...ys)
+
+    return new Rectangle(minX, minY, Math.max(...xs) - minX, Math.max(...ys) - minY)
 }
 
 /**
@@ -105,12 +165,13 @@ export function dropCoordinates(
     centerWithScale?: number,
     isLocked = false,
     snapToGrid = false,
+    camera?: Phaser.Cameras.Scene2D.Camera,
 ) {
     if (!pointer || !toContainer) {
         return { x: 0, y: 0 }
     }
 
-    const worldPoint = getWorldPoint(pointer.x, pointer.y)
+    const worldPoint = getWorldPoint(pointer.x, pointer.y, camera)
     let { x, y } = toContainer.getLocalPoint(worldPoint.x, worldPoint.y)
 
     // Keep the card centered on the pointer.
@@ -240,6 +301,21 @@ export function getCardRectangle(card: Card) {
     return getCardRectangleAt(card.region, card.x, card.y)
 }
 
+// A tapped ( locked ) card is rendered rotated 90°, so its true visual
+// footprint is CARD_HEIGHT wide / CARD_WIDTH tall instead of the other way
+// around - the half-extents to use as the rotation pivot / centering offset
+// swap accordingly.
+export function cardHalfExtents(
+    card: Card,
+    scale: number,
+): { halfWidth: number; halfHeight: number } {
+    const halfWidth = (CARD_WIDTH * scale) / 2
+    const halfHeight = (CARD_HEIGHT * scale) / 2
+    return card.isLocked ?
+            { halfWidth: halfHeight, halfHeight: halfWidth }
+        :   { halfWidth, halfHeight }
+}
+
 export function getOverlappingCards(card: Card) {
     const overlappingCards: Card[] = []
     const rectangle = getCardRectangle(card)
@@ -281,10 +357,17 @@ export function findFreePlayPosition(
     const cardArea = cardWidth * cardHeight
 
     // Play area bounds in the region referential : the ready region spans the
-    // controlled zone, from its top down to the player's horizontal separator.
+    // controlled zone, from its top down to the player's horizontal separator ;
+    // the shared Free Table region spans the whole table instead.
     const separatorY = cardRegion.owner?.separators.horizontalY ?? HORIZONTAL_SEPARATOR_DEFAULT_Y
-    const maxX = Math.max(0, PLAY_AREA_WIDTH - cardWidth)
-    const maxY = Math.max(0, separatorY - PLAYER_BAR_HEIGHT - cardHeight)
+    const maxX =
+        cardRegion.is.table ?
+            Math.max(0, FREE_TABLE_WIDTH - cardWidth)
+        :   Math.max(0, PLAY_AREA_WIDTH - cardWidth)
+    const maxY =
+        cardRegion.is.table ?
+            Math.max(0, FREE_TABLE_HEIGHT - cardHeight)
+        :   Math.max(0, separatorY - PLAYER_BAR_HEIGHT - cardHeight)
     const clampX = (x: number) => Math.min(Math.max(x, 0), maxX)
     const clampY = (y: number) => Math.min(Math.max(y, 0), maxY)
 

@@ -11,7 +11,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { display } from '@/client/game/display.ts'
+import { getScreenScale } from '@/client/game/utils.ts'
 
 const { top, left, translate, disabled, small } = defineProps<{
     top: number
@@ -22,7 +22,7 @@ const { top, left, translate, disabled, small } = defineProps<{
 }>()
 
 const style = computed(() => {
-    let transform = `scale(${display.scale})`
+    let transform = `scale(${getScreenScale()})`
     if (translate) {
         transform += ` ${translate}`
     }

@@ -24,7 +24,9 @@ export function useSelection(cards: () => Card[]) {
     )
     // The single selected minion capable of performing an action right now :
     // a controlled unlocked minion, on our turn, with action declaration
-    // enabled and nothing else in progress.
+    // enabled and nothing else in progress. On the shared Free Table there is
+    // no separate Torpor region, so a flipped ( torpor'd ) minion is excluded
+    // here instead - only the ready-equivalent case is supported for now.
     const primedMinion = computed<Minion | null>(() => {
         const minion = singleMinion.value
         if (
@@ -35,7 +37,8 @@ export function useSelection(cards: () => Card[]) {
             gameState.activePlayer == players.selfPlayer &&
             !minion.isLocked &&
             minion.isIn.controlled &&
-            minion.controller.oid == players.selfPlayer?.oid
+            minion.controller.oid == players.selfPlayer?.oid &&
+            (!gameState.isFreeTable || !minion.isFlipped)
         ) {
             return minion
         }

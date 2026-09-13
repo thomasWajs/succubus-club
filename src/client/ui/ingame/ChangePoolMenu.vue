@@ -53,25 +53,16 @@
 import { computed, ref, watch } from 'vue'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
-import {
-    CONTROLLED_ZONE_HEIGHT,
-    PLAY_AREA_WIDTH,
-    PLAY_AREA_X,
-    PLAY_AREA_Y,
-    PLAYER_BAR_HEIGHT,
-} from '@/shared/const/game.ts'
 import { display } from '@/client/game/display.ts'
 
 const gameBus = useGameBusStore()
 const changePoolRef = ref<HTMLElement | null>(null)
 
 const style = computed(() => {
-    const top = (PLAY_AREA_Y + PLAYER_BAR_HEIGHT + CONTROLLED_ZONE_HEIGHT / 2 - 50) * display.scale
-    const left = (PLAY_AREA_X + PLAY_AREA_WIDTH / 2) * display.scale
     return {
-        top: `${top}px`,
-        left: `${left}px`,
-        transform: `translate(-50%, -50%) scale(${display.scale}) `,
+        top: '40%',
+        left: `${display.actualWidth / 2}px`,
+        transform: `translate(-50%, -50%) scale(${display.scale})`,
     }
 })
 

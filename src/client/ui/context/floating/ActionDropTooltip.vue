@@ -14,8 +14,7 @@ import { computed } from 'vue'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { LibraryCard } from '@/shared/model/Card.ts'
 import { ActionVerb } from '@/shared/const/model.ts'
-import { getCardRectangle, getScreenPoint } from '@/client/game/utils.ts'
-import { display } from '@/client/game/display.ts'
+import { getCardRectangle, getScreenPoint, getScreenScale } from '@/client/game/utils.ts'
 
 const gameBus = useGameBusStore()
 
@@ -43,10 +42,11 @@ const style = computed(() => {
     }
     const { x, y } = getScreenPoint(worldPoint.x, worldPoint.y)
     const rect = getCardRectangle(minion)
+    const scale = getScreenScale()
     return {
         left: `${x}px`,
-        top: `${y + (rect.height * display.scale) / 2 + 10}px`,
-        transform: `scale(${display.scale}) translateX(-50%)`,
+        top: `${y + (rect.height * scale) / 2 + 10}px`,
+        transform: `scale(${scale}) translateX(-50%)`,
     }
 })
 </script>

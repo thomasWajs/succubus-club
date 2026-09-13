@@ -224,14 +224,7 @@ const showFullscreenHint = computed(() => {
 }
 
 .new-badge {
-    align-self: flex-start;
-    margin-left: -0.35rem;
-    color: lighten($neon-purple, 3%);
-
-    font-size: 0.7rem;
-    font-weight: 700;
-    letter-spacing: 0.5px;
-    line-height: 1;
+    @include new-badge;
 }
 
 .deck-display.no-deck {

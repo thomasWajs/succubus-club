@@ -1,9 +1,11 @@
 import { computed, Ref, ref } from 'vue'
 import Phaser, { GameObjects } from 'phaser'
 import { useGameBusStore } from '@/client/store/bus.ts'
+import { useGameStateStore } from '@/client/store/gameState.ts'
 import { Colors } from '@/client/colors.ts'
 import { Card } from '@/shared/model/Card.ts'
 import { useScene } from 'phavuer'
+import { getScreenBounds } from '@/client/game/utils.ts'
 import RectangleToRectangle = Phaser.Geom.Intersects.RectangleToRectangle
 
 export function useCardOutline(
@@ -13,14 +15,31 @@ export function useCardOutline(
 ) {
     const scene = useScene()
     const gameBus = useGameBusStore()
+    const gameState = useGameStateStore()
 
     const isHovered = ref(false)
 
     const isUnderSelectionArea = () => {
-        if (!withSelectionArea || !image.value || !gameBus.selectionAreaRect) {
+        if (!withSelectionArea || !image.value) {
             return false
         }
 
+        // Free Table's selection rectangle is tracked in screen coordinates
+        // ( see SelectionArea.vue ) - compare in that same space here, rather
+        // than against the card's world bounds.
+        if (gameState.isFreeTable) {
+            if (!gameBus.selectionAreaScreenRect) {
+                return false
+            }
+            return RectangleToRectangle(
+                gameBus.selectionAreaScreenRect,
+                getScreenBounds(image.value, scene.cameras.main),
+            )
+        }
+
+        if (!gameBus.selectionAreaRect) {
+            return false
+        }
         return RectangleToRectangle(gameBus.selectionAreaRect, image.value.getBounds())
     }
 

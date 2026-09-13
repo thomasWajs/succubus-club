@@ -154,6 +154,8 @@ async function continueSavedGame(savedGame: DbSavedGame) {
             savedGame.communication,
             !!savedGame.isCasual,
             !!savedGame.allowSpectators,
+            // Free Table mode comes from the restored gameState itself, not the room.
+            false,
             savedGame,
         )
         core.userProfile.setLastMultiGame(savedGame.roomName)

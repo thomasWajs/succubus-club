@@ -283,6 +283,17 @@
     background: $twilight-blue;
 }
 
+@mixin new-badge {
+    align-self: flex-start;
+    margin-left: -0.35rem;
+    color: lighten($neon-purple, 3%);
+
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    line-height: 1;
+}
+
 @mixin active-language {
     display: inline-block;
     padding: 0.1rem 0.6rem;

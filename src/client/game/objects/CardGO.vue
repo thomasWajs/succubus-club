@@ -87,6 +87,7 @@
             :x="overlays.blood.x"
             :y="overlays.blood.y"
             :scale="scale"
+            :rotation="ownerFacingRotation"
         />
         <!-- Number text -->
         <Text
@@ -98,6 +99,7 @@
             :x="overlays.blood.x"
             :y="overlays.blood.y"
             :scale="scale"
+            :rotation="ownerFacingRotation"
         />
 
         <!-- Hovered change blood -->
@@ -112,6 +114,7 @@
                 :width="OVERLAY_BUTTON_SIZE"
                 :height="OVERLAY_BUTTON_SIZE"
                 :scale="scale"
+                :rotation="ownerFacingRotation"
                 text="-"
                 @pointerover="onPointerOver"
                 @pointerout="onPointerOut"
@@ -128,6 +131,7 @@
                 :width="OVERLAY_BUTTON_SIZE"
                 :height="OVERLAY_BUTTON_SIZE"
                 :scale="scale"
+                :rotation="ownerFacingRotation"
                 text="+"
                 @pointerover="onPointerOver"
                 @pointerout="onPointerOut"
@@ -149,6 +153,7 @@
             :width="OVERLAY_BUTTON_SIZE"
             :height="OVERLAY_BUTTON_SIZE"
             :scale="scale"
+            :rotation="ownerFacingRotation"
             text="🔥"
             @pointerover="onPointerOver"
             @pointerout="onPointerOut"
@@ -157,9 +162,7 @@
 
         <!-- Influence -->
         <ButtonGO
-            v-if="
-                card.isIn.uncontrolled && card.isMinion() && card.controller == players.selfPlayer
-            "
+            v-if="card.canBeInfluenced() && card.controller == players.selfPlayer"
             ref="influenceButton"
             :key="key + 'influenceButton'"
             name="influenceButton"
@@ -168,6 +171,7 @@
             :width="CARD_WIDTH * CARD_IN_PLAY_BASE_SCALE * 0.95"
             :height="OVERLAY_BUTTON_SIZE"
             :scale="scale"
+            :rotation="ownerFacingRotation"
             text="Influence"
             :textStyle="{ fontSize: '12px' }"
             @pointerover="onPointerOver"
@@ -189,6 +193,7 @@
             :x="overlays.greenCounters.x"
             :y="overlays.greenCounters.y"
             :scale="scale"
+            :rotation="ownerFacingRotation"
         />
         <Text
             ref="greenCounterText"
@@ -199,6 +204,7 @@
             :x="overlays.greenCounters.x"
             :y="overlays.greenCounters.y"
             :scale="scale"
+            :rotation="ownerFacingRotation"
         />
     </template>
 
@@ -215,6 +221,7 @@
             :x="overlays.orangeCounters.x"
             :y="overlays.orangeCounters.y"
             :scale="scale"
+            :rotation="ownerFacingRotation"
         />
         <Text
             ref="orangeCounterText"
@@ -225,6 +232,7 @@
             :x="overlays.orangeCounters.x"
             :y="overlays.orangeCounters.y"
             :scale="scale"
+            :rotation="ownerFacingRotation"
         />
     </template>
 
@@ -236,23 +244,25 @@
             :ref="el => registerMarkersRectangles(index, el as typeof Rectangle | null)"
             :originX="0.5"
             :originY="0.5"
-            :x="markersPosition.x"
-            :y="markersPosition.y + (MARKER_HEIGHT + 2) * index + MARKER_MARGIN_TOP"
+            :x="getMarkerPosition(index).x"
+            :y="getMarkerPosition(index).y"
             :width="MARKER_WIDTH_PER_CHAR * marker.length + MARKER_PADDING"
             :height="MARKER_HEIGHT"
             :fillColor="Colors.MARKERS_FILL.color"
             :fillAlpha="Colors.MARKERS_FILL.alphaGL"
             :scale="scale"
+            :rotation="ownerFacingRotation"
         />
         <Text
             :ref="el => registerMarkersTexts(index, el as typeof Text | null)"
             :originX="0.5"
             :originY="0.5"
-            :x="markersPosition.x"
-            :y="markersPosition.y + (MARKER_HEIGHT + 2) * index + MARKER_MARGIN_TOP"
+            :x="getMarkerPosition(index).x"
+            :y="getMarkerPosition(index).y"
             :text="marker"
             :style="MARKERS_TEXT_STYLE"
             :scale="scale"
+            :rotation="ownerFacingRotation"
         />
     </template>
 
@@ -294,11 +304,18 @@ import {
     OVERLAY_BUTTON_SIZE,
 } from '@/shared/const/game.ts'
 import { Card } from '@/shared/model/Card.ts'
+import { Point2D } from '@/shared/types/model.ts'
+import { rotateAroundPivot } from '@/shared/state/freeTableLayout.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { CardAttrs, CardDragEvent, PhaserDataKey, RegionCategory } from '@/client/game/types.ts'
 import { useCardClick } from '@/client/game/composables/useCardClick.ts'
 import { useCardOutline } from '@/client/game/composables/useCardOutline.ts'
-import { getCardScale, getOverlappingCards, getRegionScale } from '@/client/game/utils.ts'
+import {
+    cardHalfExtents,
+    getCardScale,
+    getOverlappingCards,
+    getRegionScale,
+} from '@/client/game/utils.ts'
 import ButtonGO from '@/client/game/objects/ButtonGO.vue'
 import { useCommands } from '@/client/game/composables/useCommands.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
@@ -362,9 +379,14 @@ const displaySize = computed(() => {
     }
 })
 
+// The card's own controller-facing rotation, in Free Table mode, toward the
+// table center - purely cosmetic ( see PlayerWidget.vue / freeTableLayout.ts ).
+// Layered on top of the tap rotation below ; doesn't affect offsetX/offsetY,
+// so the logical center used for overlap/grid-snap stays axis-aligned.
+const ownerFacingRotation = computed(() => card.facingRotation())
+
 const cardAttrs = computed((): CardAttrs => {
-    const offsetX = card.isLocked ? displaySize.value.height / 2 : displaySize.value.width / 2
-    const offsetY = card.isLocked ? displaySize.value.width / 2 : displaySize.value.height / 2
+    const { halfWidth: offsetX, halfHeight: offsetY } = cardHalfExtents(card, cardScale.value ?? 0)
 
     return {
         category: RegionCategory.Table,
@@ -372,7 +394,7 @@ const cardAttrs = computed((): CardAttrs => {
         y: card.y + offsetY,
         offsetX,
         offsetY,
-        rotation: card.isLocked ? Math.PI / 2 : 0,
+        rotation: ownerFacingRotation.value + (card.isLocked ? Math.PI / 2 : 0),
         scale: cardScale.value,
     }
 })
@@ -483,6 +505,18 @@ function overlayClick(pointer: Pointer, command: (card: Card) => void) {
     }
 }
 
+// Overlay positions ( counters, buttons, markers ) are computed in the card's own
+// unrotated frame ( corners of the axis-aligned bounding box ). In Free Table mode,
+// the card image is spun in place around its center via ownerFacingRotation, so those
+// points need the same rotation applied around that center to stay glued to their corner.
+function rotateAroundCardCenter(point: Point2D): Point2D {
+    return rotateAroundPivot(
+        point,
+        { x: cardAttrs.value.x, y: cardAttrs.value.y },
+        ownerFacingRotation.value,
+    )
+}
+
 // Positions for overlays
 const overlays = computed(() => {
     const counterRadius = (COUNTER_RADIUS + COUNTER_OUTLINE_THICKNESS) * scale.value
@@ -529,34 +563,13 @@ const overlays = computed(() => {
     }
 
     return {
-        blood: {
-            x: bloodX,
-            y: bloodY,
-        },
-        greenCounters: {
-            x: card.x + counterRadius,
-            y: greenCounterY,
-        },
-        orangeCounters: {
-            x: orangeCounterX,
-            y: orangeCounterY,
-        },
-        burnBlood: {
-            x: bloodX - changeBloodOffset,
-            y: bloodY,
-        },
-        gainBlood: {
-            x: bloodX + changeBloodOffset,
-            y: bloodY,
-        },
-        ashHeap: {
-            x: ashHeapX,
-            y: ashHeapY,
-        },
-        influence: {
-            x: influenceX,
-            y: influenceY,
-        },
+        blood: rotateAroundCardCenter({ x: bloodX, y: bloodY }),
+        greenCounters: rotateAroundCardCenter({ x: card.x + counterRadius, y: greenCounterY }),
+        orangeCounters: rotateAroundCardCenter({ x: orangeCounterX, y: orangeCounterY }),
+        burnBlood: rotateAroundCardCenter({ x: bloodX - changeBloodOffset, y: bloodY }),
+        gainBlood: rotateAroundCardCenter({ x: bloodX + changeBloodOffset, y: bloodY }),
+        ashHeap: rotateAroundCardCenter({ x: ashHeapX, y: ashHeapY }),
+        influence: rotateAroundCardCenter({ x: influenceX, y: influenceY }),
     }
 })
 
@@ -580,6 +593,13 @@ const markersPosition = computed(() => {
         }
     }
 })
+
+function getMarkerPosition(index: number): Point2D {
+    return rotateAroundCardCenter({
+        x: markersPosition.value.x,
+        y: markersPosition.value.y + (MARKER_HEIGHT + 2) * index + MARKER_MARGIN_TOP,
+    })
+}
 
 /**
  * Outline on pointer over / selection area

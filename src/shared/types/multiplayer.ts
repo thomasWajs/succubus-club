@@ -64,6 +64,7 @@ export type GameRoom = {
     passwordHash: string
     isCasual: boolean // Casual play shows hints/aids ; competitive hides them for stricter sanctionned play
     allowSpectators: boolean
+    isFreeTable: boolean
     players: PermanentId[] // permanentId in arbitrary order
     competingPlayers: PermanentId[] // Non-ousted players, in the order of the turn
     seating?: Seating // permanentId in the order of the seating
@@ -107,6 +108,9 @@ export enum VersioningTarget {
     Scale = 'Scale',
     Separator = 'Separator',
     Timer = 'Timer',
+    WidgetPosition = 'WidgetPosition',
+    TheEdgeWidgetPosition = 'TheEdgeWidgetPosition',
+    TakeControl = 'TakeControl',
 }
 
 /**
@@ -350,6 +354,9 @@ export type ScsSetupGameMessage = {
     // The seats, as held by the host. Seats are frozen once the game is started,
     // so this launch-time map stays true for the whole game.
     seats: RoomSeats
+    // Ignored when relaunching a saved game : its own gameState already carries
+    // the mode it was created with.
+    isFreeTable: boolean
 }
 
 export type ScsGameMutationMessage = GameMutationMessage & {

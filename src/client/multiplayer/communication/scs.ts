@@ -201,6 +201,7 @@ export const scsCommunication: ScsCommunication = {
         getScsClient().send({
             type: MultiplayerMessageType.SetupGame,
             seats: getRoomSeats(gameRoom),
+            isFreeTable: gameRoom.isFreeTable,
         })
         gameRoom.isStarted = true
         multiplayer.restoringSavedGame = null

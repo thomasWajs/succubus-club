@@ -310,4 +310,9 @@ export interface AlignmentGuide {
     dragY: number
     scale: number
     withCards: Card[]
+    // Owner-facing rotation shared by every card this guide compares against
+    // ( 0 outside Free Table ). The guide's own geometry is built in
+    // unrotated table space, so RegionGO.vue must apply this when rendering
+    // it to match the ( rotated ) cards it aligns with.
+    rotation: number
 }

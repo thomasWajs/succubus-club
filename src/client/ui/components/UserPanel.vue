@@ -544,7 +544,7 @@ const preferences: Preference[] = [
     ]),
     createCheckboxPreference('glowInHand', 'Highlight playable cards in hand'),
     createCheckboxPreference('glowInPlay', 'Highlight cards in play with a "during X do Y" effect'),
-    createCheckboxPreference('snapToGrid', 'Snap cards to grid'),
+    createCheckboxPreference('snapToGrid', 'Snap cards to grid ( structured mode only )'),
     createCheckboxPreference('alignmentGuides', 'Enable alignment guides'),
     createCheckboxPreference('cardGrouping', 'Enable card grouping'),
     createCheckboxPreference('actionDeclaration', 'Enable action/block declaration'),

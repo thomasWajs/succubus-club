@@ -102,17 +102,16 @@ import {
 } from '@/shared/const/game.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import PlayAreaGO from '@/client/game/objects/PlayAreaGO.vue'
-import { computed, ref, watch, watchEffect } from 'vue'
+import { computed, ref } from 'vue'
 import ContextMenu from '@/client/ui/context/menu/ContextMenu.vue'
 import ContextSubmenu from '@/client/ui/context/menu/ContextSubmenu.vue'
 import WieldCardStack from '@/client/game/objects/WieldCardStack.vue'
 import { useCoreStore } from '@/client/store/core.ts'
-import { Arrow, GameType, TargetDeclaration } from '@/shared/types/state.ts'
-import { isBleed } from '@/shared/state/minionActions.ts'
+import { GameType } from '@/shared/types/state.ts'
 import { setupKeyboardHandlers, setupPointerHandlers } from '@/client/game/input.ts'
 import { setupCamera } from '@/client/game/camera.ts'
 import ArrowGO from '@/client/game/objects/ArrowGO.vue'
-import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
+import { useTargetArrows } from '@/client/game/composables/useTargetArrows.ts'
 import ChangePoolMenu from '@/client/ui/ingame/ChangePoolMenu.vue'
 import HandGO from '@/client/game/objects/HandGO.vue'
 import SelectionArea from '@/client/game/objects/SelectionArea.vue'
@@ -120,7 +119,6 @@ import FloatingActionsCloud from '@/client/ui/context/floating/FloatingActionsCl
 import ActionUsageEditor from '@/client/ui/context/floating/ActionUsageEditor.vue'
 import ActionDropTooltip from '@/client/ui/context/floating/ActionDropTooltip.vue'
 import ReferendumVoteBoxes from '@/client/ui/context/floating/ReferendumVoteBoxes.vue'
-import { CardOid, PlayerOid, Point2D } from '@/shared/types/model.ts'
 import { setupDisplayWatcher } from '@/client/game/display.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { Colors } from '@/client/colors.ts'
@@ -129,7 +127,6 @@ const core = useCoreStore()
 const gameState = useGameStateStore()
 const players = usePlayersStore()
 const gameBus = useGameBusStore()
-const { showBleedTargetEnabled } = useUIFeatures()
 
 const sceneReady = ref(false)
 let scene: Phaser.Scene | undefined
@@ -439,67 +436,8 @@ const puppetsHandsDelimiters = computed(() => puppetsHands.value.slice(1).map(s 
  * Arrows
  */
 
-function getWorldPosition(objectId?: CardOid | PlayerOid): Point2D | null {
-    if (!objectId) {
-        return null
-    }
-
-    if (objectId in gameBus.cardsInGame) {
-        return gameBus.cardsInGame[objectId].getWorldPosition()
-    }
-
-    if (objectId in gameBus.playersInGame) {
-        const pos = gameBus.playersInGame[objectId].getWorldPosition()
-        // The arrow land at the bottom of the pool diamond,
-        // so as to not hide the pool count.
-        if (pos) {
-            pos.y += 10
-        }
-        return pos
-    }
-
-    return null
-}
-
-// When the "Show bleed target" preference is off, hide the arrow pointing at
-// the target of a declared bleed action.
-function isHiddenBleedTarget(tg: TargetDeclaration): boolean {
-    if (showBleedTargetEnabled.value) {
-        return false
-    }
-    const minionAction = gameState.action?.minionAction
-    if (!minionAction || !isBleed(minionAction)) {
-        return false
-    }
-    return tg.targetOid === minionAction.target?.oid
-}
-
-const arrows = ref<Arrow[]>([])
-function computeArrows() {
-    const _arrows = [
-        // The current declarating target, if any
-        {
-            from: getWorldPosition(gameBus.declaringTargetOrigin?.oid),
-            to: {
-                x: gameBus.pointerPosition?.x ?? 0,
-                y: gameBus.pointerPosition?.y ?? 0,
-            },
-        },
-        // The already declared targets
-        ...gameState.targetDeclarations
-            .filter(tg => !isHiddenBleedTarget(tg))
-            .map(tg => {
-                return {
-                    from: getWorldPosition(tg.originOid),
-                    to: getWorldPosition(tg.targetOid),
-                }
-            }),
-    ]
-    arrows.value = _arrows.filter(arrow => arrow.from && arrow.to) as Arrow[]
-}
-
-watchEffect(computeArrows)
-// watchEffect doesn't know it needs to recompute when focusMode changes the playArea positionning,
-// so we need a separate watcher
-watch(playerSeats, computeArrows, { deep: true })
+// watchEffect (inside the composable) doesn't know it needs to recompute when
+// focusMode changes the playArea positioning, so pass playerSeats as an extra
+// dependency to watch.
+const { arrows } = useTargetArrows(() => playerSeats.value)
 </script>

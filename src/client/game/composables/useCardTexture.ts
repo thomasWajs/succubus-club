@@ -1,6 +1,6 @@
 import { computed } from 'vue'
 import { Card } from '@/shared/model/Card.ts'
-import { selfCanSee } from '@/client/state/self.ts'
+import { selfCanSee, selfCanSeeOrPeek } from '@/client/state/self.ts'
 import {
     getAtlasForCard,
     isTextureLoaded,
@@ -48,5 +48,9 @@ export function useCardTexture(card: Card) {
         return selfCanSee(card) ? texture.value : backTexture
     })
 
-    return { texture, backTexture, displayedTexture }
+    const peekTexture = computed(() => {
+        return selfCanSeeOrPeek(card) ? texture.value : backTexture
+    })
+
+    return { texture, backTexture, displayedTexture, peekTexture }
 }

@@ -43,6 +43,7 @@ import { computed, nextTick, ref } from 'vue'
 import { Colors } from '@/client/colors.ts'
 import { HAND_HEIGHT, HAND_WIDTH, HAND_X, HAND_Y } from '@/shared/const/game.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
+import { useGameStateStore } from '@/client/store/gameState.ts'
 import { PhaserDataKey, RegionCategory } from '@/client/game/types.ts'
 
 import {
@@ -51,6 +52,7 @@ import {
     getPlayerColor,
     getWorldPoint,
 } from '@/client/game/utils.ts'
+import { getFreeTableUICamera } from '@/client/game/camera.ts'
 import { display } from '@/client/game/display.ts'
 import { CardOid } from '@/shared/types/model.ts'
 import FxHighlightRegionDrop from '@/client/game/objects/FxHighlightRegionDrop.vue'
@@ -77,6 +79,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const players = usePlayersStore()
 const gameBus = useGameBusStore()
+const gameState = useGameStateStore()
 const isDraggedOver = ref(false)
 
 // Can't link directly to hand because resync will change the object
@@ -150,6 +153,12 @@ function onBoundariesCreate(boundaries: GameObjects.Arc) {
     /**
      * Handle reordering for cards in hand
      */
+    // Free Table : the Hand lives in the pinned Container, rendered through
+    // the UI camera, not the main one - pointer <-> world conversions must go
+    // through that same camera, or they resolve against the wrong ( panned/
+    // zoomed ) view. See camera.ts's getFreeTableUICamera().
+    const handCamera = gameState.isFreeTable ? getFreeTableUICamera() : undefined
+
     scene.input.on(Phaser.Input.Events.DRAG, (pointer: Pointer, {}, {}, {}) => {
         const VERTICAL_MARGIN = 25
 
@@ -158,13 +167,20 @@ function onBoundariesCreate(boundaries: GameObjects.Arc) {
         // Add some margin to reorder when the pointer is atop of the cards
         bounds.y -= VERTICAL_MARGIN / display.scale
 
-        const worldPoint = getWorldPoint(pointer.x, pointer.y)
+        const worldPoint = getWorldPoint(pointer.x, pointer.y, handCamera)
         if (
             boundaries.parentContainer &&
             // Reorder only if we're in the bounds of the hand zone
             bounds.contains(worldPoint.x, worldPoint.y)
         ) {
-            const coord = dropCoordinates(pointer, boundaries.parentContainer)
+            const coord = dropCoordinates(
+                pointer,
+                boundaries.parentContainer,
+                undefined,
+                false,
+                false,
+                handCamera,
+            )
             gameBus.handDropGapPosition = 0
             for (const [i, card] of getOrderedCardsInHand().entries()) {
                 if (card.cardAttrs.x < coord.x) {

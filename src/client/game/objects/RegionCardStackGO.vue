@@ -69,11 +69,11 @@
         :y="y + (image ? image.displayWidth / 2 : 0) + 5"
         :scale="CARD_IN_STACK_SCALE"
         :rotation="Math.PI / 2"
-        @create="onImageCreate"
-        @pointermove="onImagePointerMove"
-        @pointerover="onImagePointerOver"
-        @pointerout="onImagePointerOut"
-        @pointerdown="onImagePointerDown"
+        @create="topCardInteractions.onCreate"
+        @pointermove="topCardInteractions.onPointerMove"
+        @pointerover="topCardInteractions.onPointerOver"
+        @pointerout="topCardInteractions.onPointerOut"
+        @pointerdown="topCardInteractions.onPointerDown"
     />
 
     <Rectangle
@@ -100,23 +100,19 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, ref } from 'vue'
 import Phaser, { GameObjects } from 'phaser'
 import { Image, Rectangle, refObj, Text } from 'phavuer'
 import { Colors } from '@/client/colors.ts'
 import { CARD_IN_STACK_SCALE, CARD_OUTLINE_THICKNESS } from '@/shared/const/game.ts'
-import { gameMutations } from '@/shared/state/gameMutations.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { PhaserDataKey, RegionCategory } from '@/client/game/types.ts'
-import { positionContextMenu } from '@/client/game/utils.ts'
 import { AnyCardRegion } from '@/shared/types/model.ts'
 import { useCardTexture } from '@/client/game/composables/useCardTexture.ts'
+import { useStackTopCard } from '@/client/game/composables/useStackTopCard.ts'
 import FxHighlightRegionDrop from './FxHighlightRegionDrop.vue'
-import { GameType } from '@/shared/types/state.ts'
-import { useGameStateStore } from '@/client/store/gameState.ts'
 import Color = Phaser.Display.Color
-import Pointer = Phaser.Input.Pointer
 
 const { color, cardRegion, draw } = defineProps<{
     x: number
@@ -129,7 +125,6 @@ const { color, cardRegion, draw } = defineProps<{
     draw?: 'crypt' | 'library'
 }>()
 
-const gameState = useGameStateStore()
 const players = usePlayersStore()
 const gameBus = useGameBusStore()
 
@@ -141,6 +136,13 @@ const displayedTexture = computed(() => {
             useCardTexture(topCard.value).displayedTexture.value
         :   { textureName: undefined, frameName: undefined }
 })
+
+const topCardInteractions = useStackTopCard({
+    cardRegion: () => cardRegion,
+    topCard: () => topCard.value,
+    draw: () => draw,
+})
+const { drawHoverAttrs, closeUpAshHeap } = topCardInteractions
 
 const isRegionHovered = ref(false)
 const regionhigHlightColor = computed(() => {
@@ -193,91 +195,5 @@ const stackSizeWidth = computed(() => {
 function onBoundariesPointerDown() {
     gameBus.wieldCardStack.show = true
     gameBus.wieldCardStack.cardRegion = cardRegion
-}
-
-/**
- * Outline stack + tooltip on pointer over
- */
-
-const drawHoverAttrs = reactive({
-    isHovered: false,
-    x: 0,
-    y: 0,
-})
-
-function onImagePointerMove(pointer: Pointer) {
-    if (canDraw.value) {
-        drawHoverAttrs.isHovered = true
-        drawHoverAttrs.x = pointer.x
-        drawHoverAttrs.y = pointer.y
-    }
-}
-
-function onImagePointerOver() {
-    closeUpAshHeap()
-}
-
-function onImagePointerOut() {
-    drawHoverAttrs.isHovered = false
-    gameBus.assignPinnedCloseUpCard()
-}
-
-function onImageCreate(image: GameObjects.Image) {
-    if (canDraw.value) {
-        image.setInteractive({ draggable: false, cursor: 'pointer' })
-    }
-}
-
-/**
- * Draw card on click
- */
-
-// Normally, players can only draw from their own stacks.
-// But in Puppeteer mode, the user can make anyone draw
-const canDraw = computed(() => {
-    return (
-        draw &&
-        (cardRegion.owner == players.selfPlayer || gameState.gameType === GameType.Puppeteer)
-    )
-})
-
-function onImagePointerDown(pointer: Pointer) {
-    const stackOwner = cardRegion.owner
-    if (!canDraw.value || !stackOwner || !topCard.value) {
-        return
-    }
-
-    if (pointer.leftButtonDown()) {
-        if (draw == 'library') {
-            gameMutations.drawLibrary.actSelf({
-                player: stackOwner,
-            })
-        } else if (draw == 'crypt') {
-            gameMutations.drawCrypt.actSelf({
-                player: stackOwner,
-            })
-        }
-    } else if (pointer.rightButtonDown()) {
-        gameBus.selectedCards = [topCard.value]
-        gameBus.contextMenu.cards = [topCard.value]
-        gameBus.contextMenu.show = true
-        gameBus.contextMenu.fromStackRegion = true
-        const setXY = (x: number, y: number) => {
-            gameBus.contextMenu.x = x
-            gameBus.contextMenu.y = y
-        }
-        positionContextMenu(pointer.x, pointer.y, pointer.y, '.context-menu', setXY)
-    }
-}
-
-/**
- * Closeup for stacks
- */
-
-function closeUpAshHeap() {
-    // Close up top card of the ash heap
-    if (cardRegion.is.ashHeap && cardRegion.length > 0 && !gameBus.dragOver) {
-        gameBus.setCloseUpCard(cardRegion.firstCard)
-    }
 }
 </script>

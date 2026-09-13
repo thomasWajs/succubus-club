@@ -8,6 +8,7 @@ export enum RegionName {
     Torpor = 'Torpor',
     Ready = 'Ready',
     Limbo = 'Limbo',
+    Table = 'Table',
 }
 
 export enum CardRegionVisibility {

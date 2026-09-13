@@ -14,7 +14,10 @@
             </CommandButton>
 
             <PopupMenu label="Display">
-                <div class="scale-controls">
+                <div
+                    v-if="!gameState.isFreeTable"
+                    class="scale-controls"
+                >
                     <span class="scale-label">Card Scale</span>
                     <div class="scale-buttons">
                         <CommandButton :command="commands.DecreaseScale"> - </CommandButton>
@@ -25,11 +28,19 @@
                     </div>
                 </div>
                 <CommandButton
+                    v-if="!gameState.isFreeTable"
                     :command="commands.FocusMode"
                     class="align-center"
                 >
                     Focus Mode
                 </CommandButton>
+                <button
+                    v-if="gameState.isFreeTable"
+                    class="game-button align-center"
+                    @click="resetFreeTableCamera"
+                >
+                    Reset Camera
+                </button>
                 <button
                     class="game-button align-center"
                     @click="resetLayout"
@@ -105,6 +116,7 @@ import { useGameBusStore } from '@/client/store/bus.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
 import { resetLayout } from '@/client/game/display.ts'
+import { resetFreeTableCamera } from '@/client/game/camera.ts'
 import { useCommands } from '@/client/game/composables/useCommands.ts'
 import CommandButton from '@/client/ui/ingame/CommandButton.vue'
 import PopupMenu from '@/client/ui/components/PopupMenu.vue'

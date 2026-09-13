@@ -7,28 +7,45 @@
     <div
         v-if="!bus.isResyncing"
         v-show="!gameBus.wieldCardStack.show"
-        id="GameTopArea"
-        :style="style"
-        @pointermove="forwardPointerEvent"
-        @pointerdown="forwardPointerEvent"
-        @pointerup="forwardPointerEvent"
+        class="game-top-area-wrapper"
+        :class="{ 'free-table': gameState.isFreeTable }"
     >
-        <TurnControls />
+        <button
+            v-if="gameState.isFreeTable"
+            class="camera-trigger top-area-trigger"
+            :title="isCollapsed ? 'Show game controls' : 'Hide game controls'"
+            @click="isCollapsed = !isCollapsed"
+        >
+            {{ isCollapsed ? '▶' : '◀' }}
+        </button>
 
-        <GameControlsBar />
+        <div
+            v-if="!gameState.isFreeTable || !isCollapsed"
+            id="GameTopArea"
+            :class="{ 'top-area-positioned': !gameState.isFreeTable }"
+            :style="style"
+            @pointermove="forwardPointerEvent"
+            @pointerdown="forwardPointerEvent"
+            @pointerup="forwardPointerEvent"
+        >
+            <TurnControls />
 
-        <CentralBox />
+            <GameControlsBar />
+
+            <CentralBox />
+        </div>
     </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useBusStore, useGameBusStore } from '@/client/store/bus.ts'
 import { TOP_AREA_HEIGHT, TOP_AREA_WIDTH, TOP_AREA_X, WORLD_WIDTH } from '@/shared/const/game.ts'
 import { display } from '@/client/game/display.ts'
 import { useCoreStore } from '@/client/store/core.ts'
 import { WorldAlignment } from '@/client/gateway/db.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
+import { useGameStateStore } from '@/client/store/gameState.ts'
 import TurnControls from '@/client/ui/ingame/topArea/TurnControls.vue'
 import GameControlsBar from '@/client/ui/ingame/topArea/GameControlsBar.vue'
 import CentralBox from '@/client/ui/ingame/topArea/CentralBox.vue'
@@ -36,10 +53,25 @@ import CentralBox from '@/client/ui/ingame/topArea/CentralBox.vue'
 const core = useCoreStore()
 const bus = useBusStore()
 const gameBus = useGameBusStore()
+const gameState = useGameStateStore()
+
+const isCollapsed = ref(false)
 
 const { worldAlignment } = useUIFeatures()
 
 const style = computed(() => {
+    const baseStyle = {
+        width: `${TOP_AREA_WIDTH}px`,
+        maxWidth: `${TOP_AREA_WIDTH}px`,
+        height: `${TOP_AREA_HEIGHT}px`,
+        maxHeight: `${TOP_AREA_HEIGHT}px`,
+        transform: `scale(${display.scale})`,
+    }
+
+    if (gameState.isFreeTable) {
+        return baseStyle
+    }
+
     let offsetLeft, top
     if (worldAlignment.value == WorldAlignment.TopRight) {
         offsetLeft = display.actualWidth - (WORLD_WIDTH + display.horizontalPadding) * display.scale
@@ -52,13 +84,9 @@ const style = computed(() => {
     const left = TOP_AREA_X * display.scale + offsetLeft
 
     return {
-        width: `${TOP_AREA_WIDTH}px`,
-        maxWidth: `${TOP_AREA_WIDTH}px`,
-        height: `${TOP_AREA_HEIGHT}px`,
-        maxHeight: `${TOP_AREA_HEIGHT}px`,
+        ...baseStyle,
         top: `${top}px`,
         left: `${left}px`,
-        transform: `scale(${display.scale})`,
     }
 })
 
@@ -135,8 +163,22 @@ function forwardPointerEvent(event: PointerEvent) {
 </script>
 
 <style lang="scss">
+.game-top-area-wrapper {
+    display: contents;
+
+    &.free-table {
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 1001;
+        display: flex;
+        flex-direction: row;
+        align-items: flex-start;
+        gap: 4px;
+    }
+}
+
 #GameTopArea {
-    position: absolute;
     box-sizing: border-box;
     background-color: transparent;
     padding: 6px 0;
@@ -144,5 +186,9 @@ function forwardPointerEvent(event: PointerEvent) {
     flex-direction: column;
     transform-origin: top left;
     overflow: hidden;
+}
+
+.top-area-positioned {
+    position: absolute;
 }
 </style>

@@ -27,6 +27,24 @@ export type AlertMessage = {
 let transitionTimer: ReturnType<typeof setTimeout> | null = null
 let columnTimer: ReturnType<typeof setTimeout> | null = null
 
+// Normalizes a drag's two opposite corners ( origin, current ) into a
+// positive-width/height Rectangle, regardless of drag direction.
+function rectFromCorners(origin: Point2D, current: Point2D): Rectangle {
+    let { x, y } = origin
+    let [width, height] = [current.x - x, current.y - y]
+
+    if (width < 0) {
+        x += width
+        width *= -1
+    }
+    if (height < 0) {
+        y += height
+        height *= -1
+    }
+
+    return new Rectangle(x, y, width, height)
+}
+
 export const useBusStore = defineStore('bus', {
     state: () => ({
         alert: null as AlertMessage | null,
@@ -105,6 +123,11 @@ export const useGameBusStore = defineStore('gameBus', {
         selectionArea: {
             show: false,
             origin: null as Point2D | null, // Expressed in world coordinates
+            // Screen-coordinate counterparts of origin/pointerPosition, for the
+            // visual rectangle only ( selectionAreaScreenRect ) : Free Table's
+            // per-player camera rotation would otherwise render it tilted.
+            originScreen: null as Point2D | null,
+            currentScreen: null as Point2D | null,
         },
 
         /** Card groups **/
@@ -192,19 +215,23 @@ export const useGameBusStore = defineStore('gameBus', {
                 return null
             }
 
-            let { x, y } = state.selectionArea.origin
-            let [width, height] = [state.pointerPosition.x - x, state.pointerPosition.y - y]
-
-            if (width < 0) {
-                x += width
-                width *= -1
+            return rectFromCorners(state.selectionArea.origin, state.pointerPosition)
+        },
+        // Screen-space counterpart of selectionAreaRect, for the visual
+        // rectangle in Free Table ( see SelectionArea.vue ).
+        selectionAreaScreenRect(state) {
+            if (
+                !state.selectionArea.show ||
+                !state.selectionArea.currentScreen ||
+                !state.selectionArea.originScreen
+            ) {
+                return null
             }
-            if (height < 0) {
-                y += height
-                height *= -1
-            }
 
-            return new Rectangle(x, y, width, height)
+            return rectFromCorners(
+                state.selectionArea.originScreen,
+                state.selectionArea.currentScreen,
+            )
         },
         selectedCardsInGame(state): CardInGame[] {
             return state.selectedCards.map(c => state.cardsInGame[c.oid]).filter(c => c)

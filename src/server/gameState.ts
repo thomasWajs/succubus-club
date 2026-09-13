@@ -82,7 +82,7 @@ function checkRateLimit(permId: PermanentId): boolean {
 /**
  * Create initial game state for launching a game
  */
-export function createGameState(room: Room): GameState {
+export function createGameState(room: Room, isFreeTable: boolean): GameState {
     if (!room.seating || room.seating == EMPTY_SEATING) {
         throw new Error(`No seating in game room`)
     }
@@ -90,6 +90,7 @@ export function createGameState(room: Room): GameState {
     const gameState = new GameState()
     // Games are strict In SCS, that's the whole point
     gameState.isStrictGame = true
+    gameState.isFreeTable = isFreeTable
     const seatedUsers = room.seating.map(permId => getUser(permId))
     setupMultiplayerGameState(gameState, seatedUsers, room.userDecks)
 

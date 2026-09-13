@@ -51,6 +51,9 @@
                 "allowSpectators": {
                     ".validate": "newData.isBoolean()"
                 },
+                "isFreeTable": {
+                    ".validate": "newData.isBoolean()"
+                },
                 "players": {
                     "$index": { ".validate": "newData.isString()" }
                 },

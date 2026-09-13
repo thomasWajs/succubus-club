@@ -29,6 +29,7 @@
         <Play />
         <GameGameRightColumn v-show="display.rightColumnVisible" />
         <GameTopArea />
+        <CameraControls />
         <ZoomedCard />
         <Transition name="focus-overlay">
             <div
@@ -44,6 +45,7 @@
 import Play from '@/client/game/Play.vue'
 import GameGameRightColumn from '@/client/ui/ingame/rightColumn/GameRightColumn.vue'
 import GameTopArea from '@/client/ui/ingame/topArea/GameTopArea.vue'
+import CameraControls from '@/client/ui/ingame/CameraControls.vue'
 import { useCoreStore } from '@/client/store/core.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { display } from '@/client/game/display.ts'

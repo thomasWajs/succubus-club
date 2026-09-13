@@ -113,6 +113,9 @@
                                     {{ gameRoom.isCasual ? 'Casual' : 'Competitive' }}
                                 </span>
                                 <span class="room-setting-badge">
+                                    {{ gameRoom.isFreeTable ? 'Free Table' : 'Structured' }}
+                                </span>
+                                <span class="room-setting-badge">
                                     {{
                                         gameRoom.communication === CommunicationMode.Ably ?
                                             'Direct'
@@ -262,8 +265,31 @@
                             />
                         </div>
 
-                        <!-- Third Row: Create Room Button -->
+                        <!-- Third Row: Table Mode Toggle | Create Room Button -->
                         <div class="create-room-row-3">
+                            <span class="table-mode-toggle-wrapper">
+                                <ToggleSwitch
+                                    v-model="tableMode"
+                                    :disabled="!!multiplayer.currentGameRoom"
+                                    :options="[
+                                        {
+                                            value: 'structured',
+                                            label: 'Structured',
+                                            description: 'Per-player play areas',
+                                            tooltip:
+                                                'Each player gets their own play area, with cards organised into the usual library, hand, ash heap, etc.',
+                                        },
+                                        {
+                                            value: 'free',
+                                            label: 'Free Table',
+                                            description: 'Shared tabletop',
+                                            tooltip:
+                                                'A single shared tabletop with no per-player play areas : players draw, play, and manipulate cards freely, like around a physical table.',
+                                        },
+                                    ]"
+                                />
+                                <span class="new-badge">NEW</span>
+                            </span>
                             <button
                                 class="create-room-btn"
                                 :disabled="!roomName.trim() || !!multiplayer.currentGameRoom"
@@ -435,6 +461,7 @@ const roomPasswords = ref<{ [gameRoomId: string]: string }>({})
 const roomPasswordErrors = ref<{ [gameRoomId: string]: boolean }>({})
 const isCasual = ref(true)
 const allowSpectators = ref(true)
+const isFreeTable = ref(false)
 const communicationMode = ref<CommunicationMode>(CommunicationMode.Ably)
 
 // The casual / competitive toggle is a string switch backed by the isCasual boolean.
@@ -442,6 +469,14 @@ const roomMode = computed({
     get: () => (isCasual.value ? 'casual' : 'competitive'),
     set: mode => {
         isCasual.value = mode === 'casual'
+    },
+})
+
+// The structured / free table toggle is a string switch backed by the isFreeTable boolean.
+const tableMode = computed({
+    get: () => (isFreeTable.value ? 'free' : 'structured'),
+    set: mode => {
+        isFreeTable.value = mode === 'free'
     },
 })
 
@@ -458,6 +493,7 @@ function onCreateGameRoom() {
         communicationMode.value,
         isCasual.value,
         allowSpectators.value,
+        isFreeTable.value,
     )
     roomName.value = ''
     roomPassword.value = ''
@@ -514,7 +550,7 @@ if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
     setTimeout(async () => {
         enterGameRoomWhenReady()
         if (Object.keys(multiplayer.gameRooms).length === 0) {
-            await createGameRoom(devRoom)
+            await createGameRoom(devRoom, '', CommunicationMode.Ably, true, true, true)
         } else {
             await joinGameRoom(multiplayer.gameRooms[devRoom])
         }
@@ -791,7 +827,7 @@ if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
     flex: 1;
     display: flex;
     align-items: center;
-    gap: 1rem;
+    gap: 0.25rem;
 
     .room-lock {
         font-size: 0.75rem;
@@ -803,11 +839,11 @@ if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
 
     .room-setting-badge {
         @include teal-badge;
-        width: 2rem;
+        padding: 0.25rem 0.5rem;
     }
 
     .room-name {
-        margin: 0;
+        margin: 0 0 0 0.5rem;
         font-size: 1.1rem;
         font-weight: 400;
         font-family: serif;
@@ -895,13 +931,34 @@ if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
 
 .create-room-row-2 {
     display: flex;
-    gap: 12rem;
     width: 100%;
+    justify-content: space-between;
+
+    .toggle-switch-container {
+        width: 400px;
+    }
 }
 
 .create-room-row-3 {
     display: flex;
-    justify-content: center;
+    width: 100%;
+    justify-content: space-between;
+
+    .toggle-switch-container {
+        width: 400px;
+    }
+}
+
+.table-mode-toggle-wrapper {
+    display: flex;
+    align-items: flex-start;
+
+    .new-badge {
+        @include new-badge;
+        position: relative;
+        top: 37px;
+        right: 27px;
+    }
 }
 
 .create-room-toggle {

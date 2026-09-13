@@ -19,10 +19,9 @@
 import { computed } from 'vue'
 import FloatingAction from '@/client/ui/context/floating/FloatingAction.vue'
 import { useGameBusStore } from '@/client/store/bus.ts'
-import { getCardRectangle, getScreenPoint } from '@/client/game/utils.ts'
+import { getCardRectangle, getScreenPoint, getScreenScale } from '@/client/game/utils.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
-import { display } from '@/client/game/display.ts'
 import { MinionActionType, NO_BLOCK } from '@/shared/types/state.ts'
 import { declareAction, startTargetDeclaration } from '@/client/game/declaration.ts'
 import { ACTION_TYPES } from '@/shared/const/model.ts'
@@ -83,10 +82,17 @@ const focusedCard = computed(() => {
     return undefined
 })
 
+// A card is "ready" either via the standard Ready region, or ( Free Table ) via
+// a non-flipped presence on the shared table - there is no separate Ready
+// region there.
+function isCardReady(card: Card): boolean {
+    return card.isIn.ready || (gameState.isFreeTable && card.isIn.table && !card.isFlipped)
+}
+
 // Cards that call a referendum by cardtext only do it from their place in play.
 // A locked one still can : it is not an action it takes.
 function readyToCallReferendum(card: Card): boolean {
-    return card.isIn.ready && card.canCallReferendum()
+    return isCardReady(card) && card.canCallReferendum()
 }
 
 // Every ready minion of our own can attempt to block the ongoing action, no
@@ -104,7 +110,16 @@ const blockingMinions = computed<Minion[]>(() => {
     ) {
         return []
     }
-    return selfPlayer?.minionsReady
+
+    // On the shared Free Table there is no separate Ready region : gather our
+    // own non-flipped minions straight from the table instead.
+    if (gameState.isFreeTable && gameState.table) {
+        return gameState.table.cards.filter(
+            (c): c is Minion => c.isMinion() && !c.isFlipped && c.controller.oid == selfPlayer.oid,
+        )
+    }
+
+    return selfPlayer.minionsReady
 })
 
 // The minion we are currently attempting the block with, if any. While one is
@@ -157,7 +172,7 @@ const floatingActions = computed<FloatingActionData[]>(() => {
 })
 
 function getPositionning(card: Card) {
-    const scale = display.scale
+    const scale = getScreenScale()
     const cardActionGap = CARD_ACTION_GAP * scale
     const cardActionHeight = CARD_ACTION_HEIGHT * scale
 
@@ -230,7 +245,7 @@ function getActingMinionActions(actingMinion: Minion): FloatingActionData[] {
     )
     const cardsInPlay = Object.values(gameState.cards).filter(card => card.isIn.controlled)
 
-    if (actingMinion.isIn.ready) {
+    if (isCardReady(actingMinion)) {
         if (prey) {
             actions.push({
                 label: 'Bleed',

@@ -5,12 +5,14 @@ import { usePlayersStore } from '@/client/state/players.ts'
 import { useBusStore, useGameBusStore } from '@/client/store/bus.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { Card, LibraryCard, Minion } from '@/shared/model/Card.ts'
-import { GRID_SIZE, PLAY_AREA_WIDTH } from '@/shared/const/game.ts'
+import { CARD_HEIGHT, CARD_WIDTH, GRID_SIZE, PLAY_AREA_WIDTH } from '@/shared/const/game.ts'
 import { selfSecureName } from '@/client/state/self.ts'
 import { createActionCardAction, resolveCost } from '@/shared/state/minionActions.ts'
-import { findFreePlayPosition } from '@/client/game/utils.ts'
+import { cardHalfExtents, findFreePlayPosition, getCardScale } from '@/client/game/utils.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
 import { LibraryCardType } from '@/shared/const/model.ts'
+import { RegionCategory } from '@/client/game/types.ts'
+import { rotatePoint } from '@/shared/state/freeTableLayout.ts'
 
 /**
  * "Automatic cost payment" preference ( experimental ).
@@ -92,7 +94,12 @@ export function playCard({
 }) {
     const players = usePlayersStore()
     const gameBus = useGameBusStore()
+    const gameState = useGameStateStore()
     const player = card.controller
+
+    // Free Table : there's no per-player Ready region on the shared table.
+    // Played cards land on gameState.table instead, near the player's widget.
+    const toCardRegion = gameState.isFreeTable && gameState.table ? gameState.table : player.ready
 
     let x: number
     let y: number
@@ -101,17 +108,52 @@ export function playCard({
         x = movement.x
         y = movement.y
     } else {
-        // Auto placement near the acting minion ( or a default spot ), nudged to
-        // avoid sitting on top of cards already in play.
-        const x0 = byMinion ? byMinion.x : PLAY_AREA_WIDTH / 2 - 4 * GRID_SIZE
-        const y0 = byMinion ? byMinion.y - 12 * GRID_SIZE : 8 * GRID_SIZE
-        ;({ x, y } = findFreePlayPosition(player.ready, card, x0, y0))
+        // Auto placement near the acting minion ( or a default spot ), nudged
+        // by findFreePlayPosition() to avoid sitting on top of cards already
+        // in play. The default spot is the center of the player's own mat in
+        // standard mode, or their widget on the shared Free Table.
+        const scale = getCardScale(RegionCategory.Table, toCardRegion)
+        const cardHalfWidth = (CARD_WIDTH * scale) / 2
+        const cardHalfHeight = (CARD_HEIGHT * scale) / 2
+
+        let x0: number
+        let y0: number
+        if (byMinion) {
+            // True rendered center of the acting minion ( see cardHalfExtents ).
+            const { halfWidth: minionHalfWidth, halfHeight: minionHalfHeight } = cardHalfExtents(
+                byMinion,
+                scale,
+            )
+            const minionCenterX = byMinion.x + minionHalfWidth
+            const minionCenterY = byMinion.y + minionHalfHeight
+
+            // On Free Table, "directly above the minion" is relative to its
+            // owner-facing rotation ( ownerFacingRotation ), not the world
+            // y-axis - rotate the offset the same way before landing on it in
+            // world coordinates. Standard mode has no such rotation.
+            const rotation = byMinion.facingRotation()
+            const worldOffset = rotatePoint(
+                { x: 0, y: -(minionHalfHeight + cardHalfHeight) },
+                rotation,
+            )
+
+            x0 = minionCenterX + worldOffset.x - cardHalfWidth
+            y0 = minionCenterY + worldOffset.y - cardHalfHeight
+        } else if (gameState.isFreeTable) {
+            x0 = player.widgetPosition.x
+            y0 = player.widgetPosition.y
+        } else {
+            x0 = PLAY_AREA_WIDTH / 2 - 4 * GRID_SIZE
+            y0 = 8 * GRID_SIZE
+        }
+
+        ;({ x, y } = findFreePlayPosition(toCardRegion, card, x0, y0))
     }
 
     gameMutations.moveCardToRegion.act(player, {
         card,
         fromCardRegion: card.region,
-        toCardRegion: player.ready,
+        toCardRegion,
         x,
         y,
         byMinion,

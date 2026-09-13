@@ -177,6 +177,7 @@ function createBot(index, isHost) {
             passwordHash: '',
             isCasual: true,
             allowSpectators: true,
+            isFreeTable: false,
             players: [permId],
             competingPlayers: [],
             spectators: [],

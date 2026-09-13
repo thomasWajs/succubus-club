@@ -256,3 +256,38 @@ export const ALIGNMENT_GUIDE_OVERSHOOT = 20
 
 export const DRAG_DISTANCE_THRESHOLD = 5
 export const CARD_LOG_PLACEHOLDER = '[CARD]'
+
+/**
+ * Free Table
+ */
+
+export const FREE_TABLE_WIDTH = 8000
+export const FREE_TABLE_HEIGHT = 6500
+// Radius of the circle seats are laid out on ( see freeTableLayout.ts ). One
+// value per player count rather than a single shared radius : each seating
+// shape insets its edge midpoints towards the center by a different amount
+// ( a square's by cos(45deg), a triangle's by cos(60deg), face-to-face not at
+// all ), so a single radius put 2 players too far apart and 3 too close.
+// Tuned for a roughly equal felt seat-to-center distance across counts.
+export const FREE_TABLE_LAYOUT_RADIUS: Record<number, number> = {
+    1: 900,
+    2: 400,
+    3: 1200,
+    4: 900,
+    5: 1000,
+}
+// Distance from the pentagon edge to a PlayerWidget's initial anchor position
+export const FREE_TABLE_PERIMETER_MARGIN = 0
+// The PlayerWidget is a disc ( see PlayerWidget.vue ) : its content stacks in a
+// single column with a couple of two-column rows, and it keeps its own
+// orientation regardless of the seat, so a circle reads the same all around.
+export const FREE_TABLE_WIDGET_RADIUS = 118
+// Gap between the edge of a PlayerWidget's disc and its initial face-down crypt cards
+export const FREE_TABLE_CRYPT_CARDS_MARGIN = 20
+// Horizontal spacing between initial face-down crypt cards, in GRID_SIZE units
+export const FREE_TABLE_CRYPT_CARDS_SPACING = 8
+// Screen-space margin ( same pixel space as HAND_HEIGHT / TOP_AREA_WIDTH )
+// kept clear above the seats by the default camera fit ( see
+// resetFreeTableCamera ), so seats don't land flush against the top edge
+export const FREE_TABLE_TOP_MARGIN = 10
+export const FREE_TABLE_BOTTOM_MARGIN = 75

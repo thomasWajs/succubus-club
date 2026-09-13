@@ -1,6 +1,11 @@
 import { Player } from '@/shared/model/Player.ts'
 import { DeckList } from '@/shared/types/gateway.ts'
-import { INITIAL_HAND_SIZE, INITIAL_UNCONTROLLED_SIZE } from '@/shared/const/model.ts'
+import {
+    CardRegionVisibility,
+    INITIAL_HAND_SIZE,
+    INITIAL_UNCONTROLLED_SIZE,
+    RegionName,
+} from '@/shared/const/model.ts'
 import {
     GRID_SIZE,
     ORDERED_PLAYER_COLORS,
@@ -10,10 +15,16 @@ import {
 import { registerGameState } from '@/shared/registries.ts'
 import { GameState } from '@/shared/state/gameState.ts'
 import { User, UserDecks } from '@/shared/types/multiplayer.ts'
-import { generateGameId } from '@/shared/state/ids.ts'
+import { generateCardRegionOid, generateGameId } from '@/shared/state/ids.ts'
 import { isCryptId } from '@/shared/model/Card.ts'
 import { InvalidDeck } from '@/shared/types/errors.ts'
 import { GameType } from '@/shared/types/state.ts'
+import { CardRegion } from '@/shared/model/CardRegion.ts'
+import {
+    computePerimeterLayout,
+    freeTableCryptSlotPosition,
+    PLAY_AREA_CENTER,
+} from '@/shared/state/freeTableLayout.ts'
 
 function loadDeck(gameState: GameState, player: Player, deckList: DeckList) {
     for (const [krcgId, quantity] of Object.entries(deckList)) {
@@ -47,12 +58,27 @@ export function setupPlayArea(gameState: GameState, player: Player, deckList: De
         const card = player.library.firstCard
         gameState.moveCardToRegion(card, player.hand, i)
     }
+
     // Draw 4 crypt cards
-    for (let i = 0; i < INITIAL_UNCONTROLLED_SIZE; i++) {
-        const card = player.crypt.firstCard
-        card.x = VERTICAL_SEPARATOR_DEFAULT_X + 8 * GRID_SIZE * i
-        card.y = TORPOR_ZONE_Y
-        gameState.moveCardToRegion(card, player.uncontrolled)
+    if (gameState.isFreeTable && gameState.table) {
+        // Free Table : face-down, on the shared table ( see
+        // freeTableCryptSlotPosition ) rather than player.uncontrolled, which
+        // isn't displayed in Free Table mode.
+        const table = gameState.table
+        for (let i = 0; i < INITIAL_UNCONTROLLED_SIZE; i++) {
+            const card = player.crypt.firstCard
+            gameState.moveCardToRegion(card, table)
+            const position = freeTableCryptSlotPosition(player, i)
+            card.setCoordinates(position.x, position.y)
+            card.isFlipped = true
+        }
+    } else {
+        for (let i = 0; i < INITIAL_UNCONTROLLED_SIZE; i++) {
+            const card = player.crypt.firstCard
+            card.x = VERTICAL_SEPARATOR_DEFAULT_X + 8 * GRID_SIZE * i
+            card.y = TORPOR_ZONE_Y
+            gameState.moveCardToRegion(card, player.uncontrolled)
+        }
     }
 }
 
@@ -64,6 +90,16 @@ export function setupMultiplayerGameState(
     gameState.gameId = generateGameId()
     gameState.gameType = GameType.Multiplayer
     registerGameState(gameState.gameId, gameState)
+
+    if (gameState.isFreeTable) {
+        gameState.table = new CardRegion(
+            gameState.gameId,
+            generateCardRegionOid(),
+            RegionName.Table,
+            CardRegionVisibility.VisibleToAll,
+        )
+        gameState.theEdgeWidgetPosition = { ...PLAY_AREA_CENTER }
+    }
 
     for (let i = 0; i < seatedUsers.length; i++) {
         const user = seatedUsers[i]
@@ -77,6 +113,12 @@ export function setupMultiplayerGameState(
         }
 
         const player = gameState.createPlayer(user.name, ORDERED_PLAYER_COLORS[i], user.permId)
+
+        if (gameState.isFreeTable) {
+            const { position, rotation } = computePerimeterLayout(seatedUsers.length, i)
+            player.widgetPosition = position
+            player.widgetRotation = rotation
+        }
 
         gameState.usersToPlayer[user.permId] = player.oid
         setupPlayArea(gameState, player, deckList)

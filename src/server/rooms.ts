@@ -312,7 +312,7 @@ function setupSavedGame(room: Room): GameState {
     return gameState
 }
 
-function setupNewGame(room: Room): GameState {
+function setupNewGame(room: Room, isFreeTable: boolean): GameState {
     // Enforce seating: only allow launching if seating is set and matches current players
     if (!room.seating || room.seating === EMPTY_SEATING) {
         throw new Error('Seating must be set before launching the game')
@@ -333,7 +333,7 @@ function setupNewGame(room: Room): GameState {
         throw new Error(`Declared player seats do not match the seating`)
     }
 
-    return createGameState(room)
+    return createGameState(room, isFreeTable)
 }
 
 export async function handleSetupGame(connection: ConnectionInfo, message: ScsSetupGameMessage) {
@@ -347,7 +347,10 @@ export async function handleSetupGame(connection: ConnectionInfo, message: ScsSe
     }
 
     room.seats = message.seats
-    const gameState = room.isSavedGame ? setupSavedGame(room) : setupNewGame(room)
+    // Relaunching a saved game ignores message.isFreeTable : the restored gameState
+    // already carries the mode it was originally created with.
+    const gameState =
+        room.isSavedGame ? setupSavedGame(room) : setupNewGame(room, message.isFreeTable)
 
     broadcastTailored(room.id, permId => ({
         type: MultiplayerMessageType.LaunchGame,

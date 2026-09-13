@@ -9,6 +9,7 @@
         :width="width"
         :height="height"
         :scale="scale"
+        :rotation="rotation"
         :lineWidth="BUTTON_BORDER_WIDTH"
         :strokeColor="borderColor.color"
         :fillColor="bgColor.color"
@@ -28,6 +29,7 @@
         :origin="0.5"
         :x="x"
         :y="y"
+        :rotation="rotation"
         :depth="depth"
     />
 
@@ -55,6 +57,7 @@ const {
     width: number
     height: number
     scale?: number
+    rotation?: number
     text?: string
     textStyle?: object
     backgroundColor?: Color

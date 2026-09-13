@@ -175,6 +175,7 @@ export function serializeGameState(gameState: GameState): SerializedGameState {
         cards: JSON.parse(JSON.stringify(gameState.cards)),
         staleCards: JSON.parse(JSON.stringify(gameState.staleCards)),
         players: JSON.parse(JSON.stringify(gameState.players)),
+        table: gameState.table ? JSON.parse(JSON.stringify(gameState.table)) : null,
     } as unknown as SerializedGameState
 }
 
@@ -228,15 +229,43 @@ export function deserializeGameState(
             playerData.pool,
             playerData.victoryPoints,
             playerData.isOusted,
+            playerData.scale,
+            playerData.separators,
+            playerData.widgetPosition,
+            playerData.widgetRotation,
             // playerData.handSize,
         )
     }
     gameState.players = players
 
+    /** Deserialize the shared Free Table region, if any.
+     * `table` is given the same special treatment as `cards` / `players` in
+     * serializeGameState() : it holds the full CardRegion data, not a bare
+     * "OID_" reference. It must be reconstructed before the generic loop
+     * below, since gameState.table is itself referenced ( via cardRegions /
+     * allStateObjects ) when resolving other "OID_" strings. **/
+    const tableData = serializedGameState.table as unknown as SerializedCardRegion | null
+    gameState.table =
+        tableData ?
+            new CardRegion(
+                gameId,
+                tableData.oid,
+                tableData.name,
+                tableData.visibility,
+                tableData.cardsOid,
+            )
+        :   null
+
     /** Deserialize Other values **/
 
     for (const [key, value] of Object.entries(serializedGameState)) {
-        if (key != 'cards' && key != 'staleCards' && key != 'players' && key in gameState) {
+        if (
+            key != 'cards' &&
+            key != 'staleCards' &&
+            key != 'players' &&
+            key != 'table' &&
+            key in gameState
+        ) {
             Object.assign(gameState, { [key]: deserializeValueRecursive(value, gameId) })
         }
     }

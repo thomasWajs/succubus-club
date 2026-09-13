@@ -206,18 +206,6 @@
             @pointerout="onPointerOut"
         />
 
-        <Line
-            v-for="(line, index) of alignmentLines"
-            :key="index"
-            :origin="0"
-            :x1="line.x1"
-            :y1="line.y1"
-            :x2="line.x2"
-            :y2="line.y2"
-            :lineWidth="ALIGNMENT_GUIDE_WIDTH"
-            :strokeColor="Colors.ALIGNMENT_GUIDE.color"
-        />
-
         <CardGroupGO v-if="player == players.selfPlayer" />
     </Container>
 </template>
@@ -225,16 +213,12 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import Phaser, { GameObjects } from 'phaser'
-import { Container, Line, Rectangle, refObj, Text } from 'phavuer'
+import { Container, Rectangle, refObj, Text } from 'phavuer'
 import { Colors } from '@/client/colors.ts'
 import {
-    ALIGNMENT_GUIDE_OVERSHOOT,
-    ALIGNMENT_GUIDE_WIDTH,
-    CARD_HEIGHT,
     CARD_OUTLINE_THICKNESS,
     CARD_STACKS_HEIGHT,
     CARD_STACKS_Y,
-    CARD_WIDTH,
     CONTROLLED_ZONE_HEIGHT,
     GRID_SIZE,
     HORIZONTAL_SEPARATOR_MAX_Y,
@@ -254,7 +238,6 @@ import PlayerBarGo from '@/client/game/objects/PlayerBarGo.vue'
 import { PhaserDataKey } from '@/client/game/types.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
-import { GUIDE_VERTICAL } from '@/shared/types/state.ts'
 import CardGroupGO from '@/client/game/objects/CardGroupGO.vue'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
 import { Snap } from '@/shared/utils.ts'
@@ -407,51 +390,4 @@ function onHorizontalSeparatorDragEnd() {
     })
     separators.horizontal.dragY = 0
 }
-
-/**
- * Alignment guides
- */
-
-const alignmentLines = computed(() => {
-    if (gameBus.dragOver?.cardRegion?.owner != player) {
-        return []
-    }
-
-    const lines: Phaser.Geom.Line[] = []
-
-    for (const guide of gameBus.alignmentGuides) {
-        // Vertical line
-        if (guide.type === GUIDE_VERTICAL) {
-            const minY = Math.min(guide.dragY, ...guide.withCards.map(card => card.y))
-            const maxY = Math.max(guide.dragY, ...guide.withCards.map(card => card.y))
-            const height = CARD_HEIGHT * guide.scale
-
-            lines.push(
-                new Phaser.Geom.Line(
-                    guide.dragX,
-                    minY - ALIGNMENT_GUIDE_OVERSHOOT,
-                    guide.dragX,
-                    maxY + height + ALIGNMENT_GUIDE_OVERSHOOT,
-                ),
-            )
-        }
-        // Horizontal line
-        else {
-            const minX = Math.min(guide.dragX, ...guide.withCards.map(card => card.x))
-            const maxX = Math.max(guide.dragX, ...guide.withCards.map(card => card.x))
-            const width = CARD_WIDTH * guide.scale
-
-            lines.push(
-                new Phaser.Geom.Line(
-                    minX - ALIGNMENT_GUIDE_OVERSHOOT,
-                    guide.dragY,
-                    maxX + width + ALIGNMENT_GUIDE_OVERSHOOT,
-                    guide.dragY,
-                ),
-            )
-        }
-    }
-
-    return lines
-})
 </script>

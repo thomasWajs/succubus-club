@@ -5,6 +5,7 @@
     />
 
     <Rectangle
+        ref="overlay"
         key="overlay"
         :origin="0"
         :x="-5000"
@@ -134,13 +135,15 @@ import {
     WORLD_HEIGHT,
     WORLD_WIDTH,
 } from '@/shared/const/game.ts'
-import { Container, Rectangle, Text, useScene } from 'phavuer'
+import { Container, Rectangle, refObj, Text, useScene } from 'phavuer'
 import { useGameBusStore } from '@/client/store/bus.ts'
+import { useGameStateStore } from '@/client/store/gameState.ts'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import CardInWieldCardStack from '@/client/game/objects/CardInWieldCardStack.vue'
 import Phaser, { GameObjects } from 'phaser'
 import WieldCardStackActions from '@/client/ui/ingame/WieldCardStackActions.vue'
 import { display, layout } from '@/client/game/display.ts'
+import { getFreeTableUICamera } from '@/client/game/camera.ts'
 import { WorldAlignment } from '@/client/gateway/db.ts'
 import { AnyCardRegion } from '@/shared/types/model.ts'
 import { selfSecureName } from '@/client/state/self.ts'
@@ -155,10 +158,16 @@ const { cardRegion } = defineProps<{
 }>()
 
 const gameBus = useGameBusStore()
+const gameState = useGameStateStore()
 const scene = useScene()
 const { worldAlignment } = useUIFeatures()
 
-const width = WORLD_WIDTH - WIELD_X * 2
+const overlay = refObj<GameObjects.Rectangle>()
+
+// Free Table : this panel's "world" coordinates are raw screen pixels ( see
+// getFreeTableUICamera ), unlike standard mode's fixed-size WORLD_WIDTH world -
+// size it against the actual screen width instead.
+const width = (gameState.isFreeTable ? display.actualWidth : WORLD_WIDTH) - WIELD_X * 2
 const height = WIELD_CARD_STACK_HEIGHT
 
 const wieldsActionsWidth = WIELD_ACTIONS_WIDTH + 4
@@ -177,9 +186,21 @@ const INDICATOR_TEXT_STYLE = {
 /** Wield Actions positioning */
 
 const actionsStyle = computed(() => {
-    let right, top
-
     const rightBase = gameBus.focusMode ? 0 : layout.rightColumnWidth
+
+    // Free Table : the Phaser card panel reserves wieldsActionsWidth raw
+    // pixels ( no display.scale zoom, see getFreeTableUICamera ) for this DOM
+    // panel on its right - match that exactly or cards show through the gap.
+    if (gameState.isFreeTable) {
+        return {
+            width: `${wieldsActionsWidth}px`,
+            height: `${wieldsActionsHeight}px`,
+            top: '0px',
+            right: `${rightBase}px`,
+        }
+    }
+
+    let right, top
     if (worldAlignment.value == WorldAlignment.TopRight) {
         right = rightBase + display.horizontalPadding * display.scale
         top = 0
@@ -282,7 +303,12 @@ function onCardsPanelCreate(cardsPanel_: GameObjects.Container) {
     // Add a mask to hide cards overflowing from the cards panel
     const graphics = scene.make.graphics()
     graphics.fillRect(WIELD_X, WIELD_Y, cardsPanelWidth, cardsPanelHeight)
-    graphics.fillRect(WIELD_X, cardsPanelHeight, width, WORLD_HEIGHT)
+    graphics.fillRect(
+        WIELD_X,
+        cardsPanelHeight,
+        width,
+        gameState.isFreeTable ? display.actualHeight : WORLD_HEIGHT,
+    )
     const mask = new Phaser.Display.Masks.GeometryMask(scene, graphics)
     cardsPanel.setMask(mask)
 
@@ -294,6 +320,11 @@ function onCardsPanelCreate(cardsPanel_: GameObjects.Container) {
      * Handle reordering for cards in the wield card stack
      */
     const stackBounds = new Phaser.Geom.Rectangle(WIELD_X, WIELD_Y, width, height)
+    // Free Table : this panel lives in the pinned Container, rendered through
+    // the UI camera, not the main one - pointer <-> world conversions must go
+    // through that same camera, or they resolve against the wrong ( panned/
+    // zoomed ) view. See camera.ts's getFreeTableUICamera().
+    const stackCamera = gameState.isFreeTable ? getFreeTableUICamera() : undefined
 
     scene.input.on(Phaser.Input.Events.DRAG_START, onStackDragStart)
     scene.input.on(Phaser.Input.Events.DRAG, onStackDrag)
@@ -301,6 +332,12 @@ function onCardsPanelCreate(cardsPanel_: GameObjects.Container) {
 
     function onStackDragStart() {
         gameBus.stackDropGapPosition = null
+        // The full-screen dismiss backdrop, left hit-testable, would shadow
+        // the table's drop zone during a drag ( hitTestPointer stops at the
+        // first camera with any hit, see input.ts ) - disable it for the drag.
+        if (overlay.value?.input) {
+            overlay.value.input.enabled = false
+        }
     }
 
     function onStackDrag(pointer: Pointer) {
@@ -310,11 +347,11 @@ function onCardsPanelCreate(cardsPanel_: GameObjects.Container) {
             return
         }
         // Reorder only when the pointer is within the wield stack window
-        const worldPoint = getWorldPoint(pointer.x, pointer.y)
+        const worldPoint = getWorldPoint(pointer.x, pointer.y, stackCamera)
         if (!stackBounds.contains(worldPoint.x, worldPoint.y)) {
             return
         }
-        const coord = dropCoordinates(pointer, cardsPanel)
+        const coord = dropCoordinates(pointer, cardsPanel, undefined, false, false, stackCamera)
         gameBus.stackDropGapPosition = 0
         for (let i = 0; i < cardRegion.cards.length; i++) {
             const cardX =
@@ -327,6 +364,9 @@ function onCardsPanelCreate(cardsPanel_: GameObjects.Container) {
 
     function onStackDragEnd() {
         gameBus.stackDropGapPosition = null
+        if (overlay.value?.input) {
+            overlay.value.input.enabled = true
+        }
     }
 
     onUnmounted(() => {
@@ -372,7 +412,14 @@ function onScrollbarPointerUp({}) {
     scene.input.off('pointerup', onScrollbarPointerUp)
 }
 
-function onWheel({}, {}, deltaX: number, {}, {}) {
+function onWheel({}, {}, deltaX: number, {}, event: EventData) {
+    // Stop the wheel event here so it doesn't also reach the Free Table
+    // camera's scene-level 'wheel' listener ( see setupCameraControls() in
+    // camera.ts ), which would otherwise zoom the table underneath the panel.
+    // Done unconditionally - even when the stack is too short to scroll - so
+    // scrolling anywhere over the browser never zooms the table.
+    event.stopPropagation()
+
     if (totalCardsWidth.value < cardsPanelWidth) {
         return
     }

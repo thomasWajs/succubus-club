@@ -20,6 +20,7 @@ import {
     GameId,
     PlayerCardRegions,
     PlayerOid,
+    Point2D,
     Separators,
 } from '@/shared/types/model.ts'
 
@@ -41,6 +42,11 @@ export class Player extends BaseModel {
             verticalX: VERTICAL_SEPARATOR_DEFAULT_X,
             horizontalY: HORIZONTAL_SEPARATOR_DEFAULT_Y,
         },
+        // Anchor position of this player's PlayerWidget on the shared table, in Free Table mode.
+        public widgetPosition: Point2D = { x: 0, y: 0 },
+        // Facing rotation of this player's PlayerWidget ( and their cards on the shared
+        // table ), toward the table center. In Free Table mode only, see freeTableLayout.ts.
+        public widgetRotation = 0,
         // Not currently in use
         // public handSize = INITIAL_HAND_SIZE,
     ) {
@@ -180,6 +186,13 @@ export class Player extends BaseModel {
     }
 
     get vampiresReady() {
+        // Free Table has no "ready" region : every vampire this player controls
+        // lives on the shared table instead, face down while still uncontrolled.
+        if (this.gameState.isFreeTable && this.gameState.table) {
+            return this.gameState.table.cards.filter(
+                c => c.controllerOid == this.oid && c.isVampire() && !c.isFlipped,
+            ) as Vampire[]
+        }
         return this.ready.cards.filter(c => c.isVampire()) as Vampire[]
     }
 

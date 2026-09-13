@@ -14,13 +14,16 @@ import { useHistoryStore } from '@/client/store/history.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { resetSync } from '@/client/multiplayer/sync.ts'
 import { startClock, stopClock, useTimer } from '@/shared/state/useTimer.ts'
-import { generateGameId } from '@/shared/state/ids.ts'
+import { generateCardRegionOid, generateGameId } from '@/shared/state/ids.ts'
 import { BOT_NAME, BOT_PERM_ID, NB_BOTS } from '@/shared/const/bot.ts'
 import { hasGameState, registerGameState } from '@/shared/registries.ts'
 import { shuffleArray } from '@/shared/utils.ts'
 import { leaveMultiplayer } from '@/client/multiplayer/lobby.ts'
 import { setupMultiplayerGameState, setupPlayArea } from '@/shared/state/setup.ts'
 import { Puppet } from '@/client/types.ts'
+import { CardRegionVisibility, RegionName } from '@/shared/const/model.ts'
+import { CardRegion } from '@/shared/model/CardRegion.ts'
+import { computePerimeterLayout, PLAY_AREA_CENTER } from '@/shared/state/freeTableLayout.ts'
 
 export function resetState() {
     const core = useCoreStore()
@@ -87,6 +90,62 @@ export function setupTrainGame() {
     core.gameStateIsReady = true
 }
 
+const FREE_TABLE_NB_OPPONENTS = 4
+
+export function setupFreeTableGame() {
+    const core = useCoreStore()
+    const gameState = useGameStateStore()
+
+    if (!core.selfDeck) {
+        throw new Error(`No deck list`)
+    }
+
+    resetState()
+
+    // noinspection JSConstantReassignment
+    gameState.gameId = generateGameId()
+    gameState.gameType = GameType.Puppeteer
+    gameState.isFreeTable = true
+    registerGameState(gameState.gameId, gameState)
+
+    gameState.table = new CardRegion(
+        gameState.gameId,
+        generateCardRegionOid(),
+        RegionName.Table,
+        CardRegionVisibility.VisibleToAll,
+    )
+    gameState.theEdgeWidgetPosition = { ...PLAY_AREA_CENTER }
+
+    const nbPlayers = FREE_TABLE_NB_OPPONENTS + 1
+
+    const selfPlayer = gameState.createPlayer(
+        core.userProfile.playerName,
+        ORDERED_PLAYER_COLORS[0],
+        core.userProfile.permanentId,
+    )
+    const selfLayout = computePerimeterLayout(nbPlayers, 0)
+    selfPlayer.widgetPosition = selfLayout.position
+    selfPlayer.widgetRotation = selfLayout.rotation
+    gameState.usersToPlayer[core.userProfile.permanentId] = selfPlayer.oid
+    setupPlayArea(gameState, selfPlayer, core.selfDeck.cards)
+
+    for (let i = 0; i < FREE_TABLE_NB_OPPONENTS; i++) {
+        const opponent = gameState.createPlayer(
+            `${BOT_NAME}${i + 1}`,
+            ORDERED_PLAYER_COLORS[i + 1],
+            `${BOT_PERM_ID}${i + 1}`,
+        )
+        const opponentLayout = computePerimeterLayout(nbPlayers, i + 1)
+        opponent.widgetPosition = opponentLayout.position
+        opponent.widgetRotation = opponentLayout.rotation
+        setupPlayArea(gameState, opponent, GovernBot.deckList)
+    }
+
+    gameState.setNewTurnResources()
+
+    core.gameStateIsReady = true
+}
+
 export function setupPuppeteerGame(puppets: Puppet[]) {
     const core = useCoreStore()
     const gameState = useGameStateStore()
@@ -140,6 +199,8 @@ export function setupMultiplayerGame(gameRoom: GameRoom) {
     const chatEntries = history.chatLogEntries
 
     resetState()
+    // noinspection JSConstantReassignment
+    gameState.isFreeTable = gameRoom.isFreeTable
     const seatedUsers = gameRoom.seating.map(permId => multiplayer.users[permId])
     setupMultiplayerGameState(gameState, seatedUsers, multiplayer.userDecks)
 

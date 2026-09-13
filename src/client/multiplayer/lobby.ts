@@ -280,6 +280,7 @@ export async function createGameRoom(
     communication: CommunicationMode = CommunicationMode.Ably,
     isCasual: boolean = true,
     allowSpectators: boolean = true,
+    isFreeTable: boolean = false,
     savedGame?: DbSavedGame,
 ) {
     const { multiplayer } = await useLobby()
@@ -313,6 +314,7 @@ export async function createGameRoom(
         passwordHash: key?.hash ?? '',
         isCasual,
         allowSpectators,
+        isFreeTable,
         players: [multiplayer.selfUser.permId],
         competingPlayers: savedGame ? savedGame.competingPlayers : [],
         spectators: [],

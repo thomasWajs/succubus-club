@@ -5,11 +5,12 @@
     >
         <!-- Card group bounding box -->
         <Rectangle
-            :origin="0"
-            :x="target.boundingBox.x"
-            :y="target.boundingBox.y"
+            :origin="0.5"
+            :x="getBoundingBoxCenter(target).x"
+            :y="getBoundingBoxCenter(target).y"
             :width="target.boundingBox.width"
             :height="target.boundingBox.height"
+            :rotation="getControllerFacingRotation(target)"
             :lineWidth="CARD_GROUP_BOUNDING_BOX_THICKNESS"
             :strokeColor="Colors.CARD_GROUP_BOUNDING_BOX.color"
         />
@@ -18,11 +19,12 @@
             <ButtonGO
                 name="cardGroupIcon"
                 :originX="0.5"
-                :originY="0"
-                :x="target.boundingBox.x + target.boundingBox.width / 2"
-                :y="target.boundingBox.y + target.boundingBox.height + CARD_GROUP_ICON_MARGIN"
+                :originY="0.5"
+                :x="getIconCenter(target).x"
+                :y="getIconCenter(target).y"
                 :width="CARD_GROUP_ICON_WIDTH"
                 :height="CARD_GROUP_ICON_HEIGHT"
+                :rotation="getControllerFacingRotation(target)"
                 :backgroundColor="Colors.CARD_GROUP_BACKGROUND"
                 @click="onIconClick(target)"
             >
@@ -31,14 +33,10 @@
                     :texture="
                         target.type == TargetType.Pending ? Texture.CardGroup : Texture.BrokenChain
                     "
-                    :originY="0"
-                    :x="target.boundingBox.x + target.boundingBox.width / 2"
-                    :y="
-                        target.boundingBox.y +
-                        target.boundingBox.height +
-                        CARD_GROUP_ICON_MARGIN +
-                        CARD_GROUP_ICON_HEIGHT * 0.1
-                    "
+                    :origin="0.5"
+                    :x="getIconCenter(target).x"
+                    :y="getIconCenter(target).y + CARD_GROUP_ICON_HEIGHT * 0.1"
+                    :rotation="getControllerFacingRotation(target)"
                     :displayWidth="CARD_GROUP_ICON_WIDTH * 0.8"
                     :displayHeight="CARD_GROUP_ICON_HEIGHT * 0.8"
                 />
@@ -47,10 +45,10 @@
         <template v-else>
             <Image
                 :texture="Texture.CardGroup"
-                :originX="0.5"
-                :originY="0"
-                :x="target.boundingBox.x + target.boundingBox.width / 2"
-                :y="target.boundingBox.y + target.boundingBox.height + CARD_GROUP_ICON_MARGIN"
+                :origin="0.5"
+                :x="getIconCenter(target).x"
+                :y="getIconCenter(target).y"
+                :rotation="getControllerFacingRotation(target)"
                 :displayWidth="CARD_GROUP_ICON_WIDTH"
                 :displayHeight="CARD_GROUP_ICON_HEIGHT"
             />
@@ -59,15 +57,14 @@
         <!-- Dragged card outline -->
         <template v-if="target.type == TargetType.Drag || target.type == TargetType.Pending">
             <Rectangle
-                :origin="0"
-                :x="
-                    target.cardRectangle.x +
-                    (target.card.isLocked ? target.cardRectangle.height : 0)
-                "
-                :y="target.cardRectangle.y"
+                :origin="0.5"
+                :x="getCardRectangleCenter(target).x"
+                :y="getCardRectangleCenter(target).y"
                 :width="target.cardRectangle.width"
                 :height="target.cardRectangle.height"
-                :rotation="target.card.isLocked ? Math.PI / 2 : 0"
+                :rotation="
+                    getControllerFacingRotation(target) + (target.card.isLocked ? Math.PI / 2 : 0)
+                "
                 :lineWidth="CARD_OUTLINE_THICKNESS"
                 :strokeColor="Colors.CARD_GROUP_OUTLINE.color"
             />
@@ -81,7 +78,12 @@ import Phaser from 'phaser'
 import { Image, Rectangle } from 'phavuer'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
-import { dilateRectangle, getCardRectangle, getCardRectangleAt } from '@/client/game/utils.ts'
+import {
+    cardHalfExtents,
+    dilateRectangle,
+    getCardRectangle,
+    getCardRectangleAt,
+} from '@/client/game/utils.ts'
 import { Texture } from '@/client/resources/textures.ts'
 import { Colors } from '@/client/colors.ts'
 import {
@@ -90,11 +92,13 @@ import {
     CARD_GROUP_ICON_MARGIN,
     CARD_GROUP_ICON_WIDTH,
     CARD_OUTLINE_THICKNESS,
+    CARD_WIDTH,
 } from '@/shared/const/game.ts'
 import ButtonGO from '@/client/game/objects/ButtonGO.vue'
 import { CardGroup } from '@/client/game/types.ts'
 import { Card } from '@/shared/model/Card.ts'
-import { AnyCardRegion } from '@/shared/types/model.ts'
+import { AnyCardRegion, Point2D } from '@/shared/types/model.ts'
+import { rotateAroundPivot } from '@/shared/state/freeTableLayout.ts'
 
 const gameState = useGameStateStore()
 const gameBus = useGameBusStore()
@@ -109,10 +113,55 @@ enum TargetType {
 type CardGroupTarget = {
     type: TargetType
     card: Card
+    cardRegion: AnyCardRegion
     cardRectangle: Phaser.Geom.Rectangle
     cardGroup?: CardGroup
     cardGroupRects: Phaser.Geom.Rectangle[]
     boundingBox: Phaser.Geom.Rectangle
+}
+
+// Outline/bounding box/icon are drawn in the same unrotated frame as the
+// cards' stored positions, so they need the same owner-facing rotation to
+// stay aligned instead of appearing tilted. Uses the *destination* region
+// rather than target.card.region : while dragging from Hand onto the table,
+// the card still belongs to Hand until the drop completes even though it's
+// previewed there.
+function getControllerFacingRotation(target: CardGroupTarget): number {
+    return target.card.facingRotation(target.cardRegion)
+}
+
+function getBoundingBoxCenter(target: CardGroupTarget): Point2D {
+    return {
+        x: target.boundingBox.x + target.boundingBox.width / 2,
+        y: target.boundingBox.y + target.boundingBox.height / 2,
+    }
+}
+
+// The group icon sits below the bounding box, in its unrotated local frame -
+// rotate that anchor around the box's own center to keep it glued below the
+// box once the box itself is rotated to face the owner.
+function getIconCenter(target: CardGroupTarget): Point2D {
+    const boxCenter = getBoundingBoxCenter(target)
+    const anchor = {
+        x: boxCenter.x,
+        y:
+            target.boundingBox.y +
+            target.boundingBox.height +
+            CARD_GROUP_ICON_MARGIN +
+            CARD_GROUP_ICON_HEIGHT / 2,
+    }
+    return rotateAroundPivot(anchor, boxCenter, getControllerFacingRotation(target))
+}
+
+// cardRectangle is always built unswapped ( see getCardRectangleAt ), so its
+// width still gives back the card's scale for cardHalfExtents.
+function getCardRectangleCenter(target: CardGroupTarget): Point2D {
+    const rectangle = target.cardRectangle
+    const { halfWidth: offsetX, halfHeight: offsetY } = cardHalfExtents(
+        target.card,
+        rectangle.width / CARD_WIDTH,
+    )
+    return { x: rectangle.x + offsetX, y: rectangle.y + offsetY }
 }
 
 function cardsToRectangles(cards: CardGroup): Phaser.Geom.Rectangle[] {
@@ -149,7 +198,7 @@ function createFutureCardGroupTarget(
     const cardGroupRects = cardsToRectangles(cardGroup)
     cardGroupRects.push(cardRectangle)
     const boundingBox = getBoundingBox(cardGroupRects)
-    return { type, card, cardRectangle, cardGroupRects, boundingBox }
+    return { type, card, cardRegion, cardRectangle, cardGroupRects, boundingBox }
 }
 
 function createExistingCardGroupTarget(type: TargetType, card: Card): CardGroupTarget | null {
@@ -158,7 +207,15 @@ function createExistingCardGroupTarget(type: TargetType, card: Card): CardGroupT
     if (cardGroup) {
         const cardGroupRects = cardsToRectangles(cardGroup)
         const boundingBox = getBoundingBox(cardGroupRects)
-        return { type, card, cardRectangle, cardGroup, cardGroupRects, boundingBox }
+        return {
+            type,
+            card,
+            cardRegion: card.region,
+            cardRectangle,
+            cardGroup,
+            cardGroupRects,
+            boundingBox,
+        }
     }
     return null
 }

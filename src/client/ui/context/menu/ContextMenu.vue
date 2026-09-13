@@ -52,6 +52,12 @@
             Attempt block
         </ContextMenuButton>
 
+        <CommandContextMenuButton
+            v-if="firstCard.isIn.controlled"
+            :closeOnClick="true"
+            :command="commands.TakeControl"
+        />
+
         <ContextMenuButton
             v-if="firstCard.isIn.library || firstCard.isIn.crypt"
             :closeOnClick="true"

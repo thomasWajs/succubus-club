@@ -29,6 +29,7 @@ import {
     GameId,
     ObjectId,
     PlayerOid,
+    Point2D,
 } from '@/shared/types/model.ts'
 import { KrcgId } from '@/shared/types/gateway.ts'
 import { CardRegion } from '@/shared/model/CardRegion.ts'
@@ -37,6 +38,8 @@ export class GameState {
     gameId: GameId = ''
     gameType: GameType = GameType.Unset
     isStrictGame: boolean = false
+    isFreeTable: boolean = false
+    table: AnyCardRegion | null = null
 
     /** Main objects **/
     players: Record<PlayerOid, Player> = {}
@@ -66,6 +69,15 @@ export class GameState {
 
     /** The edge **/
     theEdgeControllerOid: PlayerOid | undefined = undefined
+    // Free Table only : draggable widget anchor, defaulted to PLAY_AREA_CENTER
+    // once the table is set up ( see setupMultiplayerGameState ).
+    theEdgeWidgetPosition: Point2D = { x: 0, y: 0 }
+
+    /**
+     * Explicit "take control" overrides on top of the default controller rules
+     * ( see Card.controllerOid ). Keyed by card oid.
+     */
+    takeovers: Record<CardOid, PlayerOid> = {}
 
     /** Target Declaration **/
     targetDeclarations: TargetDeclaration[] = []
@@ -114,6 +126,9 @@ export class GameState {
             for (const cardRegion of player.allCardRegions) {
                 regions[cardRegion.oid] = cardRegion
             }
+        }
+        if (this.table) {
+            regions[this.table.oid] = this.table
         }
         return regions
     }

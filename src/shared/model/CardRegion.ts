@@ -44,10 +44,13 @@ export class CardRegion<CardType extends Card> extends BaseModel {
     // Shortcuts to check this region
     get is() {
         return {
-            play: [RegionName.Ready, RegionName.Torpor, RegionName.Uncontrolled].includes(
-                this.name,
-            ),
-            controlled: [RegionName.Ready, RegionName.Torpor].includes(this.name),
+            play: [
+                RegionName.Ready,
+                RegionName.Torpor,
+                RegionName.Uncontrolled,
+                RegionName.Table,
+            ].includes(this.name),
+            controlled: [RegionName.Ready, RegionName.Torpor, RegionName.Table].includes(this.name),
             ready: this.name == RegionName.Ready,
             torpor: this.name == RegionName.Torpor,
             uncontrolled: this.name == RegionName.Uncontrolled,
@@ -56,6 +59,7 @@ export class CardRegion<CardType extends Card> extends BaseModel {
             hand: this.name == RegionName.Hand,
             ashHeap: this.name == RegionName.AshHeap,
             removed: this.name == RegionName.Removed,
+            table: this.name == RegionName.Table,
         }
     }
 

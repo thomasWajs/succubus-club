@@ -57,6 +57,6 @@ function preload(scene: Phaser.Scene) {
 }
 
 function create(scene: Phaser.Scene) {
-    scene.scene.start('Tabletop')
+    scene.scene.start(gameState.isFreeTable ? 'FreeTable' : 'Tabletop')
 }
 </script>

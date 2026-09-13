@@ -12,7 +12,7 @@ import { CRYPT_CARD_IMPLEMENTATIONS } from '@/shared/cardImpl'
 import * as cardVisibility from '@/shared/state/cardVisibility.ts'
 import { GRID_SIZE } from '@/shared/const/game.ts'
 import { KrcgId } from '@/shared/types/gateway.ts'
-import { CardOid, GameId, ObjectId, PlayerOid } from '@/shared/types/model.ts'
+import { AnyCardRegion, CardOid, GameId, ObjectId, PlayerOid } from '@/shared/types/model.ts'
 import {
     CardResource,
     CryptCardResource,
@@ -106,10 +106,14 @@ export abstract class Card extends BaseModel implements PropertiesInPlay {
         return this.gameState.players[this.ownerOid]
     }
 
-    // For now, there's no way to explicitely take control of another card
-    // For now, the controller is the owner of the region of the card.
+    // An explicit "take control" overrides the default controller rules below.
+    // Otherwise, the controller is the owner of the region of the card.
     // Except for Master Cards, which most of the time stay under the control of their owner.
     get controllerOid(): ObjectId {
+        const takeoverOid = this.gameState.takeovers[this.oid]
+        if (takeoverOid) {
+            return takeoverOid
+        }
         if (this instanceof LibraryCard && this.resource?.type === LibraryCardType.Master) {
             return this.owner.oid
         }
@@ -249,6 +253,21 @@ export abstract class Card extends BaseModel implements PropertiesInPlay {
     // Can this card put a referendum to the table by cardtext ?
     canCallReferendum() {
         return new RegExp(`(can|may) call .* referendum`, 'i').test(this.text)
+    }
+
+    canBeInfluenced() {
+        return this.isVampire() && (this.isIn.uncontrolled || (this.isIn.table && this.isFlipped))
+    }
+
+    // Rotation to apply so this card visually faces its controller on the
+    // shared Free Table ( same rotation as their PlayerWidget, see
+    // freeTableLayout.ts ) - 0 outside Free Table, or off the shared table.
+    // `region` defaults to this card's own region, but callers previewing a
+    // drag onto a not-yet-applied destination region can pass that instead.
+    facingRotation(region: AnyCardRegion = this.region): number {
+        return this.gameState.isFreeTable && region.is.table ?
+                (this.controller?.widgetRotation ?? 0)
+            :   0
     }
 }
 

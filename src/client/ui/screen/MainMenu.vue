@@ -67,6 +67,14 @@
             >
                 Load a saved game
             </button>
+
+            <button
+                v-if="ENABLE_DEV_FREE_TABLE"
+                class="main-menu-button"
+                @click="startDevFreeTableGame()"
+            >
+                DEV FREE TABLE
+            </button>
         </template>
     </div>
 
@@ -92,7 +100,12 @@
 <script setup lang="ts">
 import { useCoreStore } from '@/client/store/core.ts'
 import { joinLobby } from '@/client/multiplayer/lobby.ts'
-import { setupPuppeteerGame, setupTrainGame, startGame } from '@/client/state/setup.ts'
+import {
+    setupFreeTableGame,
+    setupPuppeteerGame,
+    setupTrainGame,
+    startGame,
+} from '@/client/state/setup.ts'
 import { useRouter } from 'vue-router'
 import TopBar from '@/client/ui/components/TopBar.vue'
 import { waitUntil } from '@/shared/utils.ts'
@@ -115,6 +128,8 @@ const bus = useBusStore()
 const router = useRouter()
 const trainBotDisclaimerRef = ref<InstanceType<typeof TrainBotDisclaimer> | null>(null)
 const puppeteerModalRef = ref<InstanceType<typeof PuppeteerModal> | null>(null)
+
+const ENABLE_DEV_FREE_TABLE = import.meta.env.VITE_ENABLE_DEV_FREE_TABLE
 
 /**
  *  Welcome Sign
@@ -161,6 +176,31 @@ async function startTrainGame() {
         startGame()
         // Trigger first bot turn manually
         setTimeout(() => core.conductor?.runDecisionMaking(), 2000)
+    } catch (error) {
+        let message = 'An error occurred while starting the game'
+        if (error instanceof Error) {
+            message = `${message} : ${error.message}`
+        }
+        bus.alertError(message)
+        if (!(error instanceof InvalidDeck)) {
+            logging.captureException(error)
+        }
+    }
+}
+
+async function startDevFreeTableGame() {
+    if (core.gameIsStarted) {
+        throw new Error(`Game is already started`)
+    }
+
+    if (!core.selfDeck) {
+        bus.alertWarning('You must select a deck before starting a game')
+        return
+    }
+
+    try {
+        setupFreeTableGame()
+        startGame()
     } catch (error) {
         let message = 'An error occurred while starting the game'
         if (error instanceof Error) {

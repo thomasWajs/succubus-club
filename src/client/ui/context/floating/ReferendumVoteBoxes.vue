@@ -70,8 +70,7 @@ import { computed } from 'vue'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
-import { display } from '@/client/game/display.ts'
-import { getCardRectangle, getScreenPoint } from '@/client/game/utils.ts'
+import { getCardRectangle, getScreenPoint, getScreenScale } from '@/client/game/utils.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
 import { getCastBallot, getCastVote, isBallotVampire } from '@/shared/state/referendumState.ts'
 import { CastVote, VoteSide } from '@/shared/types/state.ts'
@@ -103,11 +102,12 @@ function getBoxStyle(vampire: Vampire): Record<string, string> | null {
 
     const { x, y } = getScreenPoint(worldPoint.x, worldPoint.y)
     const rect = getCardRectangle(vampire)
+    const scale = getScreenScale()
 
     return {
         left: `${x}px`,
-        top: `${y + (rect.height * display.scale) / 2 + VOTE_BOX_GAP * display.scale}px`,
-        transform: `scale(${display.scale}) translateX(-50%)`,
+        top: `${y + (rect.height * scale) / 2 + VOTE_BOX_GAP * scale}px`,
+        transform: `scale(${scale}) translateX(-50%)`,
     }
 }
 

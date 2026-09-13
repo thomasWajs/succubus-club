@@ -4,11 +4,14 @@ import Phaser from 'phaser'
 import { CardMovement, gameMutations } from '@/shared/state/gameMutations.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import {
+    cardHalfExtents,
     dilateRectangle,
     dropCoordinates,
     getCardRectangle,
     getCardRectangleAt,
     getCardScale,
+    getScreenPoint,
+    getWorldPoint,
 } from '@/client/game/utils.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
 import { CardAttrs, CardGroup, DragAttrs, RegionCategory } from '@/client/game/types.ts'
@@ -20,6 +23,7 @@ import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
 import { declareActionCardFromHand, playCard } from '@/client/game/declaration.ts'
 import { ACTION_TYPES, LibraryCardType } from '@/shared/const/model.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
+import { getFreeTableUICamera, getTabletopScene } from '@/client/game/camera.ts'
 import Pointer = Phaser.Input.Pointer
 import Rectangle = Phaser.Geom.Rectangle
 
@@ -32,6 +36,41 @@ export function useCardDragDrop(
     const players = usePlayersStore()
     const gameBus = useGameBusStore()
 
+    // Hand/WieldCardStack render through the pinned UI camera, the table
+    // through the main one ( see getFreeTableUICamera ) : conversions/scaling
+    // must use whichever camera actually renders the region in question.
+    function getRegionCamera(category?: RegionCategory): Phaser.Cameras.Scene2D.Camera {
+        if (
+            gameState.isFreeTable &&
+            (category == RegionCategory.Hand || category == RegionCategory.WieldCardStack)
+        ) {
+            return getFreeTableUICamera()
+        }
+        return getTabletopScene().cameras.main
+    }
+
+    /**
+     * On the shared Free Table, a region has no single owner : restrict
+     * comparisons against `card` to cards controlled by the same player. Standard
+     * per-player regions are unaffected ( always true there ).
+     */
+    function isSameTableController(cardRegion: AnyCardRegion, other: Card, card: Card): boolean {
+        return !cardRegion.is.table || other.controllerOid == card.controllerOid
+    }
+
+    /**
+     * Can the self player group with / act through a card sitting in
+     * `cardRegion` : their own ready area, or ( Free Table ) anywhere on the
+     * shared table since it has no single owner - restricted there to `card`'s
+     * own controller.
+     */
+    function isSelfActionableRegion(cardRegion: AnyCardRegion, card: Card): boolean {
+        return (
+            (cardRegion.is.ready && cardRegion.owner?.oid == players.selfPlayer?.oid) ||
+            (cardRegion.is.table && card.controllerOid == players.selfPlayer?.oid)
+        )
+    }
+
     /**
      * Alignment guides
      */
@@ -43,14 +82,24 @@ export function useCardDragDrop(
         posX: number,
         posY: number,
     ): AlignmentGuide[] {
+        const card = cardRef.value
         const guides: AlignmentGuide[] = []
         const otherCards = cardRegion.cards.filter(
             c =>
                 !gameBus.selectedCards.includes(c) &&
-                !gameBus.indirectSelectedCards.includes(c.oid),
+                !gameBus.indirectSelectedCards.includes(c.oid) &&
+                isSameTableController(cardRegion, c, card),
         )
 
         if (otherCards.length === 0) return guides
+
+        // The rotation shared by `card` and every card in `otherCards`
+        // ( guaranteed same controller by the isSameTableController filter above ), same
+        // convention as CardGO's ownerFacingRotation. The guide's own line
+        // geometry is built below in unrotated table space, matching `card.x`/
+        // `card.y` - RegionGO.vue rotates it back for display, to match the
+        // rotation actually applied to the cards it aligns with.
+        const rotation = card.facingRotation(cardRegion)
 
         // Group cards by their positions
         const verticalCards: Card[] = []
@@ -75,6 +124,7 @@ export function useCardDragDrop(
                 dragY: posY,
                 scale: cardAttrsRef.value.scale,
                 withCards: verticalCards,
+                rotation,
             })
         }
 
@@ -85,6 +135,7 @@ export function useCardDragDrop(
                 dragY: horizontalCards[0].y,
                 scale: cardAttrsRef.value.scale,
                 withCards: horizontalCards,
+                rotation,
             })
         }
 
@@ -136,16 +187,18 @@ export function useCardDragDrop(
         posY: number,
     ): CardGroup | null {
         const card = cardRef.value
-        const otherCards = cardRegion.cards.filter(c => c.oid != card.oid)
 
-        // No card grouping possible outside of self ready area
+        const canGroupHere = isSelfActionableRegion(cardRegion, card)
+
+        const otherCards = cardRegion.cards.filter(
+            c => c.oid != card.oid && isSameTableController(cardRegion, c, card),
+        )
+
         // No card grouping possible for multi-drag.
         // No card grouping possible if the card is already in a group
         if (
             !cardGroupingEnabled.value ||
-            !cardRegion.owner ||
-            cardRegion.owner.oid != players.selfPlayer?.oid ||
-            !cardRegion.is.ready ||
+            !canGroupHere ||
             gameBus.selectedCards.length > 1 ||
             card.oid in gameBus.cardGroupsByCard ||
             otherCards.length === 0
@@ -174,6 +227,9 @@ export function useCardDragDrop(
      *   minion, whether or not an action is in progress.
      * While such a drag is in progress, card grouping is suppressed in favour of
      * the acting-minion hint.
+     *
+     * Works the same way on the shared Free Table : minions are just cards on
+     * `gameState.table`, restricted to our own ( see findDropMinionCandidate ).
      */
 
     const { actionDeclarationEnabled } = useUIFeatures()
@@ -224,22 +280,24 @@ export function useCardDragDrop(
         posX: number,
         posY: number,
     ): Minion | null {
-        // Acting minions can only be our own ready minions.
-        if (
-            !cardRegion.owner ||
-            cardRegion.owner.oid != players.selfPlayer?.oid ||
-            !cardRegion.is.ready
-        ) {
+        const card = cardRef.value
+
+        if (!isSelfActionableRegion(cardRegion, card)) {
             return null
         }
 
         // Declaring an action needs an unlocked minion ; playing an action
         // modifier, a reaction or a combat card can be done with a locked one.
-        const card = cardRef.value
         const requiresUnlocked =
             card instanceof LibraryCard && !!card.type && ACTION_TYPES.includes(card.type)
+        // On the shared table, a flipped minion is in torpor ( there is no
+        // separate Torpor region there ) and can't be acted through.
         const minions = cardRegion.cards.filter(
-            (c): c is Minion => c.isMinion() && (!requiresUnlocked || !c.isLocked),
+            (c): c is Minion =>
+                c.isMinion() &&
+                (!requiresUnlocked || !c.isLocked) &&
+                isSameTableController(cardRegion, c, card) &&
+                (!cardRegion.is.table || !c.isFlipped),
         )
         return findCardByProximity(cardRegion, posX, posY, minions)
     }
@@ -337,17 +395,23 @@ export function useCardDragDrop(
             const toContainer = gameBus.dragOver.gameObjects.target.parentContainer
 
             const rawCardScale = getCardScale(regionCategory, cardRegion)
-            const scaleRatio = toContainer.scale / fromContainer.scale
+            // Container scale alone ( toContainer.scale / fromContainer.scale below )
+            // can't capture the zoom difference between the two Free Table cameras,
+            // since neither container is ever scaled - only the camera zoom changes.
+            // Without this, a card dragged out of hand keeps its hand size while
+            // hovering the table instead of matching the zoomed size it will have
+            // once dropped.
+            const zoomRatio =
+                getRegionCamera(regionCategory).zoom / getRegionCamera(cardAttrs.category).zoom
+            const scaleRatio = (toContainer.scale / fromContainer.scale) * zoomRatio
 
             dragAttrs.cardScale = rawCardScale * scaleRatio
 
-            // The preview image (CardGO) lives in the source container but must render at
-            // the destination size. It is drawn centered at
-            //   dragAttrs.x + cardAttrs.offsetX * scaleRatio
-            // where cardAttrs.offsetX is the SOURCE half-card. To land the DESTINATION
-            // half-card there ( keeping the card centered on the pointer ), the multiplier
-            // must be dest/source card scale, whatever the target region ( play area, hand,
-            // stack... ). cardScale already folds in the container ratio, so this is simply
+            // The preview ( CardGO ) lives in the source container but renders at
+            // the destination size, drawn centered at
+            // dragAttrs.x + cardAttrs.offsetX * scaleRatio, where cardAttrs.offsetX
+            // is the SOURCE half-card - so scaleRatio must be dest/source scale.
+            // cardScale already folds in the container ratio, so this is simply
             // cardScale / source scale.
             dragAttrs.scaleRatio = dragAttrs.cardScale / cardAttrs.scale
 
@@ -372,13 +436,19 @@ export function useCardDragDrop(
                     rawCardScale,
                     card.isLocked,
                     snapToGrid,
+                    getRegionCamera(regionCategory),
                 )
                 localX = dropCoord.x
                 localY = dropCoord.y
             }
 
-            // If we're dragging over a ready region, trigger the alignment guides
-            if (alignmentGuidesEnabled.value && cardRegion && cardRegion.is.ready) {
+            // Trigger the alignment guides in a player's own ready region, or
+            // ( Free Table ) on the shared table.
+            if (
+                alignmentGuidesEnabled.value &&
+                cardRegion &&
+                (cardRegion.is.ready || cardRegion.is.table)
+            ) {
                 // Find alignment guides and apply snapping
                 gameBus.alignmentGuides = findAlignmentGuides(cardRegion, localX, localY)
 
@@ -413,10 +483,39 @@ export function useCardDragDrop(
             dragAttrs.localX = localX
             dragAttrs.localY = localY
 
-            const worldPoint = toContainer.getWorldTransformMatrix().transformPoint(localX, localY)
-            const dragPoint = fromContainer.getLocalPoint(worldPoint.x, worldPoint.y)
-            posX = dragPoint.x
-            posY = dragPoint.y
+            // Reproject the drop position back into the source container
+            // ( where the preview image lives ) via screen space, since source
+            // and target may render through different Free Table cameras with
+            // different world<->screen mappings ( identity when they match ).
+            //
+            // Round-trip the card's CENTER, not its corner : re-deriving the
+            // center from a rotated corner via a fixed offset only works when
+            // source/target camera rotations match, which breaks per-seat
+            // rotation on Free Table. The destination-side half-card vector
+            // ( destOffsetX/Y ) is applied before crossing into screen space.
+            const { halfWidth: destOffsetX, halfHeight: destOffsetY } = cardHalfExtents(
+                card,
+                rawCardScale,
+            )
+            const toCamera = getRegionCamera(regionCategory)
+            const fromCamera = getRegionCamera(cardAttrs.category)
+            const worldPoint = toContainer
+                .getWorldTransformMatrix()
+                .transformPoint(localX + destOffsetX, localY + destOffsetY)
+            const screenPoint = getScreenPoint(worldPoint.x, worldPoint.y, toCamera)
+            const fromWorldPoint = getWorldPoint(screenPoint.x, screenPoint.y, fromCamera)
+            const dragCenter = fromContainer.getLocalPoint(fromWorldPoint.x, fromWorldPoint.y)
+
+            // Back to a corner in the SOURCE container's local units. Not
+            // cardAttrs.offsetX/offsetY - that only exists on table attrs and
+            // silently reads 0 for hand/stack. dragAttrs.cardScale is already
+            // the preview's destination-scaled size in source-local units.
+            const { halfWidth: sourceOffsetX, halfHeight: sourceOffsetY } = cardHalfExtents(
+                card,
+                dragAttrs.cardScale,
+            )
+            posX = dragCenter.x - sourceOffsetX
+            posY = dragCenter.y - sourceOffsetY
         }
 
         dragAttrs.x = posX
@@ -504,8 +603,14 @@ export function useCardDragDrop(
         }
         // We change region
         else {
-            // Special case for cards played from hand
-            if (card.region == card.controller.hand && targetCardRegion == card.controller.ready) {
+            // Special case for cards played from hand : the standard target is
+            // the controller's Ready region ; on the shared Free Table there's
+            // no such region, so the target is gameState.table instead.
+            const isPlayTarget =
+                targetCardRegion == card.controller.ready ||
+                (gameState.isFreeTable && targetCardRegion == gameState.table)
+
+            if (card.region == card.controller.hand && isPlayTarget) {
                 playCard({ card, movement })
             }
             // standard case, for other movements

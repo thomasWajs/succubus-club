@@ -7,7 +7,8 @@
         @create="onCreate"
     >
         <Preloader />
-        <Tabletop />
+        <FreeTable v-if="gameState.isFreeTable" />
+        <Tabletop v-else />
     </PhavuerGame>
 </template>
 
@@ -15,16 +16,19 @@
 import { Game as PhavuerGame } from 'phavuer'
 import Phaser from 'phaser'
 import Tabletop from '@/client/game/scenes/Tabletop.vue'
+import FreeTable from '@/client/game/scenes/FreeTable.vue'
 import Preloader from '@/client/game/scenes/Preloader.vue'
 import { onBeforeUnmount, watch } from 'vue'
 import { setPhaserGame, useCoreStore } from '@/client/store/core.ts'
 import { useBusStore } from '@/client/store/bus.ts'
+import { useGameStateStore } from '@/client/store/gameState.ts'
 import { display } from '@/client/game/display.ts'
 import { resetState } from '@/client/state/setup.ts'
 import { tabletopBackgroundStyle } from '@/client/gateway/background.ts'
 
 const core = useCoreStore()
 const bus = useBusStore()
+const gameState = useGameStateStore()
 
 function onCreate(game: Phaser.Game) {
     setPhaserGame(game)

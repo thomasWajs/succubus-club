@@ -338,10 +338,29 @@ function createCommands(): Commands {
                 return gameBus.selectedCards.filter(card => card.isIn.uncontrolled).length == 0
             },
             cardAction: (card: Card) => {
-                if (card.isVampire() && card.isIn.uncontrolled) {
+                if (card.canBeInfluenced() && card.controller == players.selfPlayer) {
                     gameMutations.influence.actSelf({
                         card,
                         amount: 1,
+                    })
+                }
+            },
+        }),
+
+        TakeControl: createCardCommand({
+            name: 'TakeControl',
+            label: 'Take Control',
+            isDisabled: () => {
+                return (
+                    gameBus.selectedCards.filter(card => card.controller != players.selfPlayer)
+                        .length == 0
+                )
+            },
+            cardAction: (card: Card) => {
+                if (players.selfPlayer && card.controller != players.selfPlayer) {
+                    gameMutations.takeControl.actSelf({
+                        card,
+                        controller: players.selfPlayer,
                     })
                 }
             },
