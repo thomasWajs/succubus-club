@@ -43,6 +43,10 @@
         {
             "path": "/api/pruneGameStates",
             "schedule": "0 0 * * *"
+        },
+        {
+            "path": "/api/pruneLobbyChat",
+            "schedule": "0 1 * * *"
         }
     ]
 }

@@ -250,18 +250,33 @@
                 </div>
             </div>
 
-            <LobbyChat
-                class="lobby-chat"
-                title="Lobby Chat"
-                :messages="lobbyMessages"
-                @send="onSendLobbyChat"
-            />
+            <div class="lobby-chat">
+                <div class="language-tabs">
+                    <button
+                        v-for="language in CHAT_LANGUAGES"
+                        :key="language.code"
+                        class="language-tab"
+                        :class="{ 'language-tab-active': activeLanguage === language.code }"
+                        @click="activeLanguage = language.code"
+                    >
+                        <span class="language-short">{{ language.shortName }}</span> -
+                        <span class="language-full">{{ language.fullName }}</span>
+                    </button>
+                </div>
+                <LobbyChat
+                    class="lobby-chat-panel"
+                    :title="activeChatTitle"
+                    :messages="messages"
+                    :cooldownMs="CHAT_SEND_COOLDOWN_MS"
+                    @send="onSendLobbyChat"
+                />
+            </div>
         </div>
     </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import { connectIntoGame, joinGameRoom } from '@/client/multiplayer/room.ts'
 import TopBar from '@/client/ui/components/TopBar.vue'
@@ -273,6 +288,14 @@ import { useBusStore } from '@/client/store/bus.ts'
 import { createGameRoom } from '@/client/multiplayer/lobby.ts'
 import { computeKey } from '@/client/multiplayer/encryption.ts'
 import LobbyChat from '@/client/ui/components/LobbyChat.vue'
+import { CHAT_LANGUAGES, DEFAULT_CHAT_LANGUAGE } from '@/shared/const/languages.ts'
+import {
+    CHAT_SEND_COOLDOWN_MS,
+    LobbyChatMessage,
+    sendLobbyChat,
+    subscribeLobbyChat,
+    warmUpChatAuth,
+} from '@/client/gateway/lobbyChat.ts'
 import ToggleSwitch from '@/client/ui/components/ToggleSwitch.vue'
 import { NotInAGameRoom } from '@/client/types.ts'
 import router, { ROUTES } from '@/client/ui/router.ts'
@@ -282,13 +305,56 @@ const multiplayer = useMultiplayerStore()
 const bus = useBusStore()
 
 /**
- *  Lobby chat ( local echo for now : not wired to send/receive over the network yet )
+ *  Lobby chat. One append-only channel per official language, backed by RTDB and
+ *  selected via the vertical tabs on the right. Only the active channel is
+ *  subscribed : switching tabs re-subscribes and reloads that channel's history.
  */
 
-const lobbyMessages = ref<{ authorName: string; text: string }[]>([])
+const LOBBY_CHAT_LANGUAGE_STORAGE_KEY = 'lobby-chat-language'
+
+function loadStoredLanguage() {
+    const stored = localStorage.getItem(LOBBY_CHAT_LANGUAGE_STORAGE_KEY)
+    if (stored && CHAT_LANGUAGES.some(language => language.code === stored)) {
+        return stored
+    }
+    return DEFAULT_CHAT_LANGUAGE
+}
+
+const activeLanguage = ref(loadStoredLanguage())
+const messages = ref<LobbyChatMessage[]>([])
+let unsubscribeChat: (() => void) | null = null
+
+const activeChatTitle = computed(() => {
+    const language = CHAT_LANGUAGES.find(entry => entry.code === activeLanguage.value)
+    return language ? `Lobby Chat - ${language.fullName}` : 'Lobby Chat'
+})
+
+function subscribeToActiveLanguage() {
+    unsubscribeChat?.()
+    messages.value = []
+    unsubscribeChat = subscribeLobbyChat(activeLanguage.value, message => {
+        messages.value.push(message)
+    })
+}
+
+// Persist the last selected tab and re-subscribe to its channel.
+watch(activeLanguage, language => {
+    localStorage.setItem(LOBBY_CHAT_LANGUAGE_STORAGE_KEY, language)
+    subscribeToActiveLanguage()
+})
+
+onMounted(() => {
+    warmUpChatAuth()
+    subscribeToActiveLanguage()
+})
+
+onUnmounted(() => {
+    unsubscribeChat?.()
+    unsubscribeChat = null
+})
 
 function onSendLobbyChat(text: string) {
-    lobbyMessages.value.push({ authorName: multiplayer.selfUser.name, text })
+    sendLobbyChat(activeLanguage.value, multiplayer.selfUser.name, text)
 }
 
 // Move into the dedicated game room screen as soon as we have a room.
@@ -511,6 +577,56 @@ if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
 
 .lobby-chat {
     grid-area: lobby-chat;
+    display: flex;
+    gap: 0.5rem;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.lobby-chat-panel {
+    flex: 1;
+    min-width: 0;
+}
+
+.language-tabs {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    width: 150px;
+    flex-shrink: 0;
+    overflow-y: auto;
+}
+
+.language-tab {
+    padding: 0.4rem 0.7rem;
+    background: $shadow-grey;
+    border: 1px solid $bone-grey;
+    color: $pearl-grey;
+    cursor: pointer;
+    text-align: left;
+
+    &:hover {
+        background: rgba($bone-grey, 0.65);
+        border-color: $mist-grey;
+    }
+
+    &.language-tab-active {
+        background: rgba($shadow-purple, 0.5);
+        border-color: $mist-grey;
+    }
+
+    .language-short {
+        font-size: 0.9rem;
+        font-weight: 500;
+        font-family: serif;
+        letter-spacing: 0.5px;
+    }
+
+    .language-full {
+        font-size: 0.75rem;
+        color: $silver-grey;
+        white-space: nowrap;
+    }
 }
 
 .panel-title {

@@ -19,11 +19,19 @@ import {
     DataSnapshot,
     get as rtdbGet,
     getDatabase,
+    limitToLast as rtdbLimitToLast,
+    onChildAdded as rtdbOnChildAdded,
     onValue as rtdbOnValue,
+    push as rtdbPush,
+    query as rtdbQuery,
     ref as rtdbRef,
     remove as rtdbRemove,
+    serverTimestamp as rtdbServerTimestamp,
     set as rtdbSet,
+    update as rtdbUpdate,
 } from 'firebase/database'
+import { Auth, getAuth as _getAuth, onAuthStateChanged, signInAnonymously } from 'firebase/auth'
+import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check'
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import {
     AblyMessage,
@@ -268,6 +276,8 @@ export async function detachAndReleaseChannel(channel: Ably.RealtimeChannel) {
 let firebase: FirebaseApp | null = null
 let rtdb: Database | null = null
 let firestore: Firestore | null = null
+let auth: Auth | null = null
+let anonymousAuth: Promise<string> | null = null
 
 export function getFirebase(): FirebaseApp {
     if (!firebase) {
@@ -280,8 +290,30 @@ export function getFirebase(): FirebaseApp {
             messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
             appId: import.meta.env.VITE_FIREBASE_APP_ID,
         })
+        initAppCheck(firebase)
     }
     return firebase
+}
+
+// App Check attests that requests come from our real web app ( via reCAPTCHA v3 ),
+// blocking scripts that hit the Firebase backend directly. It's opt-in through the
+// env var so environments without a site key configured keep working unchanged.
+function initAppCheck(app: FirebaseApp) {
+    const siteKey = import.meta.env.VITE_FIREBASE_APPCHECK_SITE_KEY
+    if (!siteKey) {
+        return
+    }
+    // On localhost, reCAPTCHA can't attest the origin, so use the debug provider :
+    // the token printed in the console must be registered in the Firebase console.
+    if (import.meta.env.DEV) {
+        ;(
+            self as unknown as { FIREBASE_APPCHECK_DEBUG_TOKEN?: boolean }
+        ).FIREBASE_APPCHECK_DEBUG_TOKEN = true
+    }
+    initializeAppCheck(app, {
+        provider: new ReCaptchaV3Provider(siteKey),
+        isTokenAutoRefreshEnabled: true,
+    })
 }
 
 // In firebase terminology, RTDB stands for "Real-Time Database"
@@ -299,6 +331,38 @@ export function getFirestore() {
     return firestore
 }
 
+export function getAuth() {
+    if (!auth) {
+        auth = _getAuth(getFirebase())
+    }
+    return auth
+}
+
+// Ensure an anonymous Firebase session and resolve with its uid. There's no login
+// UX : the uid is an invisible, non-spoofable per-browser identity used to gate and
+// rate-limit chat writes in the security rules. The sign-in is cached so repeated
+// callers share one session.
+export function ensureAnonymousAuth(): Promise<string> {
+    if (!anonymousAuth) {
+        const firebaseAuth = getAuth()
+        anonymousAuth = new Promise<string>((resolve, reject) => {
+            const unsubscribe = onAuthStateChanged(firebaseAuth, user => {
+                if (user) {
+                    unsubscribe()
+                    resolve(user.uid)
+                }
+            })
+            signInAnonymously(firebaseAuth).catch(error => {
+                unsubscribe()
+                anonymousAuth = null
+                reject(error)
+            })
+        })
+    }
+    return anonymousAuth
+}
+
 // Make aliases to avoid name collision with vue ref
 export { DataSnapshot, rtdbRef, rtdbGet, rtdbSet, rtdbRemove, rtdbOnValue }
+export { rtdbPush, rtdbQuery, rtdbLimitToLast, rtdbOnChildAdded, rtdbServerTimestamp, rtdbUpdate }
 export { fsCollection, fsDoc, fsSetDoc, fsGetDoc, fsDeleteDoc, fsOnSnapshot, fsBytes, fsTimestamp }

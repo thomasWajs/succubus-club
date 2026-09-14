@@ -45,7 +45,7 @@
             />
             <button
                 class="chat-send-btn"
-                :disabled="!draft.trim()"
+                :disabled="!draft.trim() || onCooldown"
                 @click="send"
             >
                 Send
@@ -55,7 +55,7 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, ref, watch } from 'vue'
+import { nextTick, onUnmounted, ref, watch } from 'vue'
 
 // A minimal chat entry : the component only needs the author name and the text.
 // Callers can pass richer objects ( e.g. history log entries ), which are compatible.
@@ -69,6 +69,9 @@ const props = defineProps<{
     messages: ChatEntry[]
     disabled?: boolean
     disabledMessage?: string
+    // When set, the send button is disabled for this many ms after each send, to
+    // mirror a server-side rate limit ( used by the lobby chat ).
+    cooldownMs?: number
 }>()
 
 const emit = defineEmits<{
@@ -77,6 +80,8 @@ const emit = defineEmits<{
 
 const draft = ref('')
 const logEl = ref<HTMLElement | null>(null)
+const onCooldown = ref(false)
+let cooldownTimer: ReturnType<typeof setTimeout> | null = null
 
 async function scrollToBottom() {
     await nextTick()
@@ -87,16 +92,30 @@ async function scrollToBottom() {
 
 function send() {
     const text = draft.value.trim()
-    if (props.disabled || !text) {
+    if (props.disabled || onCooldown.value || !text) {
         return
     }
 
     emit('send', text)
     draft.value = ''
+
+    if (props.cooldownMs) {
+        onCooldown.value = true
+        cooldownTimer = setTimeout(() => {
+            onCooldown.value = false
+            cooldownTimer = null
+        }, props.cooldownMs)
+    }
 }
 
 // Keep the log pinned to the bottom as new messages arrive ( sent or received ).
 watch(() => props.messages.length, scrollToBottom)
+
+onUnmounted(() => {
+    if (cooldownTimer) {
+        clearTimeout(cooldownTimer)
+    }
+})
 </script>
 
 <style lang="scss" scoped>
