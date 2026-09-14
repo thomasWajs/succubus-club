@@ -15,6 +15,8 @@ import {
 } from '@/shared/types/multiplayer.ts'
 import { Key } from '@/client/multiplayer/encryption.ts'
 import { getScsClient, MessageHandler } from '@/client/gateway/realtime.ts'
+import { ChatMessage } from '@/shared/types/history.ts'
+import { useHistoryStore } from '@/client/store/history.ts'
 import { ensureGameRoom, receiveLaunchGame } from '@/client/multiplayer/room.ts'
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import { Communication } from '@/client/multiplayer/communication/index.ts'
@@ -212,6 +214,17 @@ export const scsCommunication: ScsCommunication = {
         getScsClient().send({
             type: MultiplayerMessageType.GameMutation,
             ...message,
+        })
+    },
+
+    async sendChat(message: ChatMessage) {
+        // Echo locally for instant feedback ( no server round-trip lag ). The server
+        // rebroadcasts to the room but excludes us, so this does not duplicate.
+        useHistoryStore().addChatMessage(message)
+        // Send only the text : the server sets the authoritative author.
+        getScsClient().send({
+            type: MultiplayerMessageType.Chat,
+            text: message.text,
         })
     },
 

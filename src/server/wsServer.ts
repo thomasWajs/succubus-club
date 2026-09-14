@@ -11,6 +11,7 @@ import {
 } from './rooms'
 
 import {
+    handleChat,
     handleGameMutation,
     handleRandomResultRequest,
     handleRequestResync,
@@ -210,6 +211,10 @@ wsServer.on('connection', (webSocket: WebSocket, request) => {
                     break
                 case MultiplayerMessageType.RequestResync:
                     handleRequestResync(connection)
+                    break
+
+                case MultiplayerMessageType.Chat:
+                    handleChat(connection, message)
                     break
 
                 default:

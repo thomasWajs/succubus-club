@@ -27,6 +27,9 @@ import { setupMultiplayerGame, setupSavedGame, startGame } from '@/client/state/
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import { applyGameResync, makeResyncGameStateMessage } from '@/client/multiplayer/sync.ts'
 import { DbSavedGame } from '@/client/gateway/db.ts'
+import { useHistoryStore } from '@/client/store/history.ts'
+import { serializeObject } from '@/shared/serialization.ts'
+import { ChatMessage } from '@/shared/types/history.ts'
 
 /**
  * Ably Room Management
@@ -181,6 +184,13 @@ export const ablyCommunication: Communication = {
 
     async broadcastGameMutation(message: GameMutationMessage) {
         await ablyPublish(getRoomChannel(), MultiplayerMessageType.GameMutation, message)
+    },
+
+    async sendChat(message: ChatMessage) {
+        // Echo locally ( Ably does not deliver our own messages back to us ), then
+        // publish to the room's peers.
+        useHistoryStore().addChatMessage(message)
+        await ablyPublish(getRoomChannel(), MultiplayerMessageType.Chat, serializeObject(message))
     },
 
     requestResyncGameState,

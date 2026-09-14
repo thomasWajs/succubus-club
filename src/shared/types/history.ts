@@ -1,4 +1,3 @@
-import { Player } from '@/shared/model/Player.ts'
 import { PlayerVision } from '@/shared/types/state.ts'
 import { Card } from '@/shared/model/Card.ts'
 import { GameMutationId } from '@/shared/state/gameMutations.ts'
@@ -25,5 +24,8 @@ export type LogEntry = {
 export type ChatMessage = {
     text: string
     timestamp: Date
-    player: Player
+    authorName: string
+    // Optional : falls back to a neutral colour when the author has no game colour
+    // yet ( e.g. chat sent from the game room, before the game starts ).
+    authorColorRgba?: string
 }

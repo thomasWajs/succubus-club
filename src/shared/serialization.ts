@@ -100,8 +100,6 @@ export function serializeObject<T extends object>(object: T) {
 }
 
 export function deserializeValueRecursive(value: JsonValue, gameId: GameId): unknown {
-    const gameState = getGameState(gameId)
-
     // Handle null
     if (value === null) {
         return null
@@ -113,12 +111,16 @@ export function deserializeValueRecursive(value: JsonValue, gameId: GameId): unk
             return new Date(value.substring(DATE_PREFIX.length))
         }
 
-        const allStateObjects: Record<string, BaseModel> = {
-            ...gameState.allStateObjects,
-            ...gameState.staleCards,
-            limbo: gameState.limboRegion,
-        }
+        // Only reach for the game state when an OID actually needs to be resolved.
+        // This keeps state-object-free payloads ( e.g. chat messages ) deserializable
+        // before any game is registered.
         if (value.startsWith(OID_PREFIX)) {
+            const gameState = getGameState(gameId)
+            const allStateObjects: Record<string, BaseModel> = {
+                ...gameState.allStateObjects,
+                ...gameState.staleCards,
+                limbo: gameState.limboRegion,
+            }
             const oid = value.substring(OID_PREFIX.length)
             const stateObject = allStateObjects[oid]
             if (!stateObject) {

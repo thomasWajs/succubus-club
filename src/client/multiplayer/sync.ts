@@ -122,8 +122,9 @@ export async function receiveChatMessage(serializedMessage: SerializedChatMessag
 }
 
 export function _unsafeReceiveChatMessage(serializedMessage: SerializedChatMessage) {
-    // Chat message received during init or a resync, buffer them for later
-    if (!isReadyToReceive(serializedMessage)) {
+    // In a running game, chat received during init or a resync is buffered for later.
+    // Before the game starts ( game room chat ), it is stored right away.
+    if (useCoreStore().gameIsStarted && !isReadyToReceive(serializedMessage)) {
         return
     }
     const chatMessage = deserializeObject<ChatMessage>(

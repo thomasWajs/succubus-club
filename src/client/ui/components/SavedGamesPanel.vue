@@ -133,7 +133,7 @@ async function deleteSavedGame(id: number) {
     }
 }
 
-function continueSavedGame(savedGame: DbSavedGame) {
+async function continueSavedGame(savedGame: DbSavedGame) {
     if (core.gameIsStarted) {
         throw new Error(`Game is already started`)
     }
@@ -142,13 +142,13 @@ function continueSavedGame(savedGame: DbSavedGame) {
 
     // Multiplayer
     if (savedGame.gameType === GameType.Multiplayer) {
-        joinLobby()
+        await joinLobby()
 
         const multiplayer = useMultiplayerStore()
         // @ts-expect-error known Dexie + TypeScript issue
         multiplayer.restoringSavedGame = savedGame
 
-        createGameRoom(
+        await createGameRoom(
             savedGame.roomName,
             savedGame.password,
             savedGame.communication,
@@ -158,7 +158,14 @@ function continueSavedGame(savedGame: DbSavedGame) {
         )
         core.userProfile.setLastMultiGame(savedGame.roomName)
 
-        router.push({ name: ROUTES.Lobby })
+        if (multiplayer.currentGameRoomId) {
+            router.push({
+                name: ROUTES.GameRoom,
+                params: { roomId: multiplayer.currentGameRoomId },
+            })
+        } else {
+            router.push({ name: ROUTES.Lobby })
+        }
     }
     // Trainbot
     else {

@@ -15,6 +15,10 @@ import { getLogger } from '@/shared/registries.ts'
 const HISTORY_ARCHIVE_THRESHOLD = 150
 const HISTORY_KEEP_RECENT = 100
 
+// Neutral colour for chat authors that have no game colour yet
+// ( e.g. messages sent from the game room, before the game starts ).
+const DEFAULT_CHAT_AUTHOR_COLOR_RGBA = 'rgba(150, 150, 150, 1)'
+
 const authorFromPlayer = (player: Player) => ({
     authorName: player.name,
     authorColorRgba: getAuthorColorRgba(player.rgbaColor),
@@ -112,8 +116,24 @@ export class HistoryStore {
         this.logEntries.push({
             text: chatMessage.text,
             timestamp: chatMessage.timestamp,
-            ...authorFromPlayer(chatMessage.player),
+            authorName: chatMessage.authorName,
+            authorColorRgba: chatMessage.authorColorRgba ?? DEFAULT_CHAT_AUTHOR_COLOR_RGBA,
         })
+    }
+
+    // Chat entries are the log entries without a mutationId ( game log entries always
+    // carry one ). Used to carry game room chat across the game-start reset.
+    get chatLogEntries(): LogEntry[] {
+        return this.logEntries.filter(logEntry => logEntry.mutationId === undefined)
+    }
+
+    // Drop the chat entries while keeping the game log intact.
+    clearChat(): void {
+        for (let i = this.logEntries.length - 1; i >= 0; i--) {
+            if (this.logEntries[i].mutationId === undefined) {
+                this.logEntries.splice(i, 1)
+            }
+        }
     }
 
     setArchiveHistory(archivedHistory: HistoryStore) {

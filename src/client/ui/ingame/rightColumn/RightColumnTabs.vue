@@ -36,7 +36,7 @@
         </div>
 
         <div
-            v-if="players.isPlayer"
+            v-if="players.isPlayer || multiplayer.selfIsJudge"
             class="chat-box"
         >
             <input
@@ -192,18 +192,21 @@ import { useBusStore, useGameBusStore } from '@/client/store/bus.ts'
 import { useHistoryStore } from '@/client/store/history.ts'
 import { saveGame, SavingState } from '@/client/gateway/savedGames.ts'
 import { GameType } from '@/shared/types/state.ts'
-import { broadcastChatMessage, requestResyncGameState } from '@/client/multiplayer/room.ts'
+import { requestResyncGameState, sendChat } from '@/client/multiplayer/room.ts'
 import UserManual from '@/client/ui/ingame/rightColumn/UserManual.vue'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
+import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import LogLine from '@/client/ui/ingame/rightColumn/LogLine.vue'
 import { leaveGame } from '@/client/state/setup.ts'
+import { getAuthorColorRgba } from '@/shared/colors.ts'
 
 const gameState = useGameStateStore()
 const players = usePlayersStore()
 const bus = useBusStore()
 const gameBus = useGameBusStore()
 const history = useHistoryStore()
+const multiplayer = useMultiplayerStore()
 
 /** Tab Management **/
 
@@ -285,21 +288,34 @@ const chatMessageText = ref('')
 const chatInput = ref<HTMLInputElement>()
 
 function sendChatMessage() {
-    // No message to send...
-    if (!chatMessageText.value || !players.selfPlayer) {
+    const text = chatMessageText.value
+    if (!text) {
         return
     }
-    const chatMessage = {
-        text: chatMessageText.value,
-        timestamp: new Date(),
-        player: players.selfPlayer,
+
+    // A seated player chats under their player identity ( name + colour ). A judge has
+    // no player, so they chat under their user name with the default colour.
+    let authorName: string
+    let authorColorRgba: string | undefined
+    if (players.selfPlayer) {
+        authorName = players.selfPlayer.name
+        authorColorRgba = getAuthorColorRgba(players.selfPlayer.rgbaColor)
+    } else if (multiplayer.selfIsJudge) {
+        authorName = multiplayer.selfUser.name
+    } else {
+        return
     }
+
+    const chatMessage = { text, timestamp: new Date(), authorName, authorColorRgba }
     chatMessageText.value = ''
     chatInput.value?.focus()
 
-    history.addChatMessage(chatMessage)
     if (gameState.gameType == GameType.Multiplayer) {
-        broadcastChatMessage(chatMessage)
+        // The transport echoes/delivers ( and, in SCS, the server sets the author ).
+        sendChat(chatMessage)
+    } else {
+        // Solo game ( trainbot / puppeteer ) : chat is local only.
+        history.addChatMessage(chatMessage)
     }
 }
 

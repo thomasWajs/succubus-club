@@ -373,6 +373,13 @@ export type ScsRequestResyncMessage = {
     type: MultiplayerMessageType.RequestResync
 }
 
+// The client only sends the text : the server sets the author ( anti-impersonation )
+// and the timestamp.
+export type ScsSendChatMessage = {
+    type: MultiplayerMessageType.Chat
+    text: string
+}
+
 export type ScsClientMessage =
     | SetUserMessage
     | ScsDeckMessage
@@ -384,6 +391,7 @@ export type ScsClientMessage =
     | ScsShuffleCardRegionMessage
     | ScsRandomResultRequestMessage
     | ScsRequestResyncMessage
+    | ScsSendChatMessage
 
 // Server → Client messages
 export type ScsRollSeatingMessage = {
@@ -411,6 +419,17 @@ export type ScsMutationRejectedMessage = {
     version: VectorClockVersion
 }
 
+// Server → client chat : a flat, serialized chat message tagged with the type so the
+// client dispatches it. Shaped so the shared chat handler ( which deserializes a
+// SerializedChatMessage ) can read it directly, like ScsDeckMessage does for decks.
+export type ScsChatMessage = {
+    type: MultiplayerMessageType.Chat
+    text: string
+    timestamp: string // serialized Date
+    authorName: string
+    authorColorRgba?: string
+}
+
 export type ScsServerMessage =
     | ScsDeckMessage
     | ScsRollSeatingMessage
@@ -418,4 +437,5 @@ export type ScsServerMessage =
     | ScsGameMutationMessage
     | ScsGameStateMessage
     | ScsMutationRejectedMessage
+    | ScsChatMessage
     | ErrorMessage

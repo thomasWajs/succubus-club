@@ -10,8 +10,10 @@ import {
     PermanentId,
     RoomSeat,
     RoomSeats,
+    ScsChatMessage,
     ScsGameMutationMessage,
     ScsGameStateMessage,
+    ScsSendChatMessage,
     SerializedCard,
     ScsMutationRejectedMessage,
     ScsRandomResultRequestMessage,
@@ -31,8 +33,11 @@ import {
     rehydrateCard,
     serializeGameState,
     serializeHistory,
+    serializeValueRecursive,
     unpackGameMutation,
 } from '@/shared/serialization.ts'
+import { getAuthorColorRgba } from '@/shared/colors.ts'
+import { ChatMessage } from '@/shared/types/history.ts'
 import * as persistence from './persistence.ts'
 import { generateCardOid } from '@/shared/state/ids.ts'
 import { CardOid } from '@/shared/types/model.ts'
@@ -43,6 +48,8 @@ import { ClockCompare, VectorClock } from '@/shared/multiplayer/clock.ts'
 
 const RATE_LIMIT_WINDOW = 1000 // 1 second
 const RATE_LIMIT_MAX = 50 // Max mutations per window
+
+const CHAT_MAX_LENGTH = 500 // Max characters per chat message
 
 export class UserNotIdentified extends Error {}
 
@@ -317,6 +324,81 @@ export async function handleGameMutation(
         })
     } catch (error) {
         logger.error(`Error applying mutation: ${error}`)
+        captureException(error)
+        sendError(connection.webSocket, `${error}`)
+    }
+}
+
+/**
+ * Handle a chat message. Chat is allowed both before and during the game, so we
+ * don't require a game state. The message is stored in the room's authoritative
+ * history ( so it is part of resync snapshots and persisted ) and rebroadcast to
+ * everyone in the room, including the sender.
+ */
+export function handleChat(connection: ConnectionInfo, message: ScsSendChatMessage) {
+    try {
+        if (!connection.permId) {
+            throw new UserNotIdentified('User is not identified')
+        }
+        if (!checkRateLimit(connection.permId)) {
+            logger.warn(`Rate limit exceeded for user ${connection.permId}`)
+            throw new Error('Rate limit exceeded')
+        }
+
+        const room = ensureRoom(connection.roomId)
+
+        // Once the game has started, only players and judges may chat. Spectators
+        // ( including users who joined after the start, absent from room.seats ) are muted.
+        if (room.gameState) {
+            const seat = room.seats[connection.permId]
+            if (seat != RoomSeat.Player && seat != RoomSeat.Judge) {
+                sendError(connection.webSocket, 'Spectators cannot chat during the game')
+                return
+            }
+        }
+
+        const text = (message.text ?? '').trim().slice(0, CHAT_MAX_LENGTH)
+        if (!text) {
+            return
+        }
+
+        // The author is set server-side to prevent impersonation : the player's name
+        // and colour once the game is running, otherwise the room user's name.
+        const user = getUser(connection.permId)
+        let authorName = user?.name ?? 'Unknown'
+        let authorColorRgba: string | undefined
+        if (room.gameState) {
+            const player = getPlayer(room.gameState, connection.permId)
+            if (player) {
+                authorName = player.name
+                authorColorRgba = getAuthorColorRgba(player.rgbaColor)
+            }
+        }
+
+        const chatMessage: ChatMessage = {
+            text,
+            timestamp: new Date(),
+            authorName,
+            authorColorRgba,
+        }
+
+        room.history.addChatMessage(chatMessage)
+        persistence.saveRoom(room)
+
+        // Flat wire shape ( like ScsDeckMessage ) so the shared chat handler reads it.
+        const chatServerMessage: ScsChatMessage = {
+            type: MultiplayerMessageType.Chat,
+            text: chatMessage.text,
+            timestamp: serializeValueRecursive(chatMessage.timestamp) as string,
+            authorName: chatMessage.authorName,
+            authorColorRgba: chatMessage.authorColorRgba,
+        }
+        // Skip the sender : they echo their own message locally for instant feedback.
+        broadcastTailored(room.id, permId =>
+            permId == connection.permId ? undefined : chatServerMessage,
+        )
+    } catch (error) {
+        logger.error(`Error handling chat: ${error}`)
         captureException(error)
         sendError(connection.webSocket, `${error}`)
     }

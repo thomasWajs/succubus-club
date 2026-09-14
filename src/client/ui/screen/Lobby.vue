@@ -250,13 +250,18 @@
                 </div>
             </div>
 
-            <CurrentRoom />
+            <LobbyChat
+                class="lobby-chat"
+                title="Lobby Chat"
+                :messages="lobbyMessages"
+                @send="onSendLobbyChat"
+            />
         </div>
     </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import { connectIntoGame, joinGameRoom } from '@/client/multiplayer/room.ts'
 import TopBar from '@/client/ui/components/TopBar.vue'
@@ -267,13 +272,48 @@ import * as logging from '@/client/logging.ts'
 import { useBusStore } from '@/client/store/bus.ts'
 import { createGameRoom } from '@/client/multiplayer/lobby.ts'
 import { computeKey } from '@/client/multiplayer/encryption.ts'
-import CurrentRoom from '@/client/ui/components/CurrentRoom.vue'
+import LobbyChat from '@/client/ui/components/LobbyChat.vue'
 import ToggleSwitch from '@/client/ui/components/ToggleSwitch.vue'
 import { NotInAGameRoom } from '@/client/types.ts'
+import router, { ROUTES } from '@/client/ui/router.ts'
 
 const core = useCoreStore()
 const multiplayer = useMultiplayerStore()
 const bus = useBusStore()
+
+/**
+ *  Lobby chat ( local echo for now : not wired to send/receive over the network yet )
+ */
+
+const lobbyMessages = ref<{ authorName: string; text: string }[]>([])
+
+function onSendLobbyChat(text: string) {
+    lobbyMessages.value.push({ authorName: multiplayer.selfUser.name, text })
+}
+
+// Move into the dedicated game room screen as soon as we have a room.
+// createGameRoom/joinGameRoom set currentGameRoomId early ( before the slower
+// network setup ), so this switches screens near-instantly instead of waiting
+// for the whole join to resolve.
+function enterGameRoomWhenReady() {
+    const existing = multiplayer.currentGameRoomId
+    if (existing) {
+        router.push({ name: ROUTES.GameRoom, params: { roomId: existing } })
+        return
+    }
+    const stop = watch(
+        () => multiplayer.currentGameRoomId,
+        roomId => {
+            if (!roomId) {
+                return
+            }
+            stop()
+            router.push({ name: ROUTES.GameRoom, params: { roomId } })
+        },
+    )
+    // Give up watching if the room never materialises ( e.g. a creation error )
+    setTimeout(stop, 10000)
+}
 
 /**
  *  Reconnection notification
@@ -325,6 +365,7 @@ function onCreateGameRoom() {
         return
     }
 
+    enterGameRoomWhenReady()
     createGameRoom(
         cleanedRoomName,
         roomPassword.value,
@@ -342,12 +383,14 @@ async function onJoinGameRoom(gameRoom: GameRoom) {
         const key = await computeKey(password)
         if (key.hash != gameRoom.passwordHash) {
             roomPasswordErrors.value[gameRoom.id] = true
-        } else {
-            roomPasswordErrors.value[gameRoom.id] = false
-            await joinGameRoom(gameRoom, key)
+            return
         }
+        roomPasswordErrors.value[gameRoom.id] = false
+        enterGameRoomWhenReady()
+        joinGameRoom(gameRoom, key)
     } else {
-        await joinGameRoom(gameRoom)
+        enterGameRoomWhenReady()
+        joinGameRoom(gameRoom)
     }
 }
 
@@ -383,6 +426,7 @@ async function startConnectIntoGame(gameRoom?: any) {
 if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
     const devRoom = 'dev_room'
     setTimeout(async () => {
+        enterGameRoomWhenReady()
         if (Object.keys(multiplayer.gameRooms).length === 0) {
             await createGameRoom(devRoom)
         } else {
@@ -442,23 +486,31 @@ if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
  */
 
 .lobby-content {
+    box-sizing: border-box;
     display: grid;
     grid-template-columns: 300px 1fr;
-    // The current room row grows with its content ( judges and spectators add rows ),
-    // but never shrinks below the height it needs to look right when empty.
-    grid-template-rows: 1fr minmax(380px, auto);
+    // The players / rooms row sizes to its content ( so the room list stays
+    // visible ), and the lobby chat takes the remaining space underneath. The grid
+    // is bounded to the viewport so the panels scroll internally instead of pushing
+    // the page ( and the chat input ) below the fold.
+    grid-template-rows: auto minmax(200px, 1fr);
     grid-template-areas:
         'players-sidebar rooms-section'
-        'current-room current-room';
+        'lobby-chat lobby-chat';
     max-width: 1400px;
     margin: 0 auto;
-    padding: 1.5rem;
+    padding: 1.5rem 1.5rem 0;
     gap: 1.5rem;
-    min-height: calc(100vh - $topbar-height - 4rem);
+    height: calc(100vh - $topbar-height - 1.5rem);
+    overflow: hidden;
 
     &.has-banner {
-        min-height: calc(100vh - $topbar-height - 8rem);
+        height: calc(100vh - $topbar-height - 5.5rem);
     }
+}
+
+.lobby-chat {
+    grid-area: lobby-chat;
 }
 
 .panel-title {
@@ -556,6 +608,7 @@ if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    min-height: 0; // Allow the panel to shrink so the room list scrolls internally
 }
 
 .rooms-header {
@@ -641,6 +694,8 @@ if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
 
     overflow-y: auto;
     flex: 1;
+    // Always show at least 4 rooms
+    min-height: 200px;
 }
 
 .room-item {

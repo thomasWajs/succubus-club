@@ -127,14 +127,24 @@ export function setupPuppeteerGame(puppets: Puppet[]) {
 export function setupMultiplayerGame(gameRoom: GameRoom) {
     const gameState = useGameStateStore()
     const multiplayer = useMultiplayerStore()
+    const history = useHistoryStore()
 
     if (!gameRoom.seating || gameRoom.seating == EMPTY_SEATING) {
         throw new Error(`No seating in game room`)
     }
 
+    // The host builds the game from its own local state and serializes it right after,
+    // so the room chat must survive the reset to be part of that authoritative snapshot.
+    // Other paths ( joiners, SCS host, reconnect ) restore chat from the snapshot they
+    // load, so they don't need this.
+    const chatEntries = history.chatLogEntries
+
     resetState()
     const seatedUsers = gameRoom.seating.map(permId => multiplayer.users[permId])
     setupMultiplayerGameState(gameState, seatedUsers, multiplayer.userDecks)
+
+    history.logEntries.push(...chatEntries)
+
     useCoreStore().gameStateIsReady = true
 }
 

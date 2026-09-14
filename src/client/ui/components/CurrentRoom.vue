@@ -79,7 +79,7 @@
 
             <button
                 class="leave-btn"
-                @click="leaveGameRoom()"
+                @click="onLeaveRoom()"
             >
                 Leave Room
             </button>
@@ -463,13 +463,13 @@ import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import {
     connectIntoGame,
     launchGame,
-    leaveGameRoom,
     leaveSeat,
     pickSeat,
     rollSeating,
     setSelfRoomSeat,
     startPickSeating,
 } from '@/client/multiplayer/room.ts'
+import router, { ROUTES } from '@/client/ui/router.ts'
 import { useCoreStore } from '@/client/store/core.ts'
 import { CommunicationMode, EMPTY_SEATING, RoomSeat, User } from '@/shared/types/multiplayer.ts'
 import { isSeated, ROOM_SEATS } from '@/shared/multiplayer/seats.ts'
@@ -482,6 +482,11 @@ import { MAX_LIB_SIZE, MAX_PLAYERS, MIN_CRYPT_SIZE, MIN_LIB_SIZE } from '@/share
 const core = useCoreStore()
 const multiplayer = useMultiplayerStore()
 const bus = useBusStore()
+
+// Navigate back to the lobby : the router guard leaves the game room for us.
+function onLeaveRoom() {
+    router.push({ name: ROUTES.Lobby })
+}
 
 const isSavedGame = computed(() => {
     return multiplayer.currentGameRoom?.isSavedGame

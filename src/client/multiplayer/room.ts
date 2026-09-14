@@ -29,6 +29,7 @@ import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import { useBusStore } from '@/client/store/bus.ts'
 import * as logging from '@/client/logging.ts'
 import { useCoreStore } from '@/client/store/core.ts'
+import { useHistoryStore } from '@/client/store/history.ts'
 import { resetState, startGame } from '@/client/state/setup.ts'
 import { AnyGameMutation } from '@/shared/state/gameMutations.ts'
 import {
@@ -42,7 +43,6 @@ import {
 import { broadcastGameRoom, deleteGameRoom } from '@/client/multiplayer/lobby.ts'
 import { Key } from '@/client/multiplayer/encryption.ts'
 import { ChatMessage } from '@/shared/types/history.ts'
-import { serializeObject } from '@/shared/serialization.ts'
 import {
     ablyCommunication,
     getRoomChannel,
@@ -151,9 +151,10 @@ export async function joinGameRoom(gameRoom: GameRoom, key?: Key) {
             comm.subscribe(MultiplayerMessageType.LaunchGame, comm.onReceiveLaunchGame),
             comm.subscribe(MultiplayerMessageType.GameMutation, receiveGameMutation),
             comm.subscribe(MultiplayerMessageType.Deck, receiveDeck),
+            // Chat is authoritative per mode : Ably peers in Ably mode, the server in SCS mode
+            comm.subscribe(MultiplayerMessageType.Chat, onReceiveChatMessage),
 
-            // Chat and seat picking is always through ably
-            ablySubscribe(roomChannel, MultiplayerMessageType.Chat, onReceiveChatMessage),
+            // Seat picking is always through ably
             ablySubscribe(
                 roomChannel,
                 MultiplayerMessageType.RequestResync,
@@ -215,6 +216,8 @@ export async function leaveGameRoom() {
     await comm.leaveRoom()
     multiplayer.selfIsReady = false
     multiplayer.currentGameRoomId = null
+    // Wipe the room chat : it belongs to the room we're leaving.
+    useHistoryStore().clearChat()
     // Reset the pending sync message, in case there's still messages in there
     resetPendingSyncMessage()
 }
@@ -573,22 +576,28 @@ export async function receiveLaunchGame(serializedGame: SerializedMultiplayerGam
 
 /** Chat Messages */
 
-export async function broadcastChatMessage(message: ChatMessage) {
+export async function sendChat(message: ChatMessage) {
+    // Chat works both in the game room ( before start ) and in the running game.
     const gameRoom = ensureGameRoom()
-    if (!gameRoom.isStarted) {
-        return
+
+    // Once the game has started, only players and judges may chat. Spectators
+    // ( including users who joined after the start ) are muted. In SCS the server
+    // enforces this too ; in Ably ( no server ) this client guard is the enforcement.
+    if (gameRoom.isStarted) {
+        const seat = getRoomSeat(gameRoom, useMultiplayerStore().selfUser.permId)
+        if (seat != RoomSeat.Player && seat != RoomSeat.Judge) {
+            return
+        }
     }
-    const roomChannel = getRoomChannel()
-    await ablyPublish(roomChannel, MultiplayerMessageType.Chat, serializeObject(message))
+
+    // The transport handles echo and delivery : Ably echoes locally and broadcasts to
+    // peers ; SCS sends to the server, which stores it and rebroadcasts to the room.
+    await getCommunication().sendChat(message)
 }
 
 export async function onReceiveChatMessage(serializedMessage: SerializedChatMessage) {
-    const gameRoom = ensureGameRoom()
-    // Cannot receive chat message if the game is not started
-    if (!gameRoom.isStarted) {
-        return
-    }
-
+    // Chat works both in the game room ( before start ) and in the running game.
+    ensureGameRoom()
     await receiveChatMessage(serializedMessage)
 }
 
