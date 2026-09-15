@@ -1,11 +1,17 @@
 <template>
     <div class="chat-panel">
-        <h3
-            v-if="title"
-            class="panel-title no-margin"
+        <div
+            v-if="title || $slots['title-actions']"
+            class="chat-header"
         >
-            {{ title }}
-        </h3>
+            <h3
+                v-if="title"
+                class="panel-title no-margin"
+            >
+                {{ title }}
+            </h3>
+            <slot name="title-actions" />
+        </div>
 
         <div
             ref="logEl"
@@ -129,6 +135,14 @@ onUnmounted(() => {
     overflow: hidden;
 }
 
+.chat-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+}
+
 .panel-title {
     margin: 0 0 1rem 0;
     font-size: 1.25rem;
@@ -137,7 +151,7 @@ onUnmounted(() => {
     letter-spacing: 0.5px;
 
     &.no-margin {
-        margin: 0 0 0.75rem 0;
+        margin: 0;
     }
 }
 

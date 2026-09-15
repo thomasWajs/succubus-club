@@ -26,6 +26,9 @@
         "src/server",
         "src/client"
     ],
+    "dependencies": {
+        "@vercel/og": "0.11.1"
+    },
     "scripts": {
         "dev": "vite --config vite/config.dev.mjs",
         "preview": "vite preview",

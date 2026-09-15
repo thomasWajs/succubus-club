@@ -3,6 +3,7 @@ import MainMenu from '@/client/ui/screen/MainMenu.vue'
 import Lobby from '@/client/ui/screen/Lobby.vue'
 import GameRoom from '@/client/ui/screen/GameRoom.vue'
 import Game from '@/client/ui/screen/Game.vue'
+import PlayerAvailability from '@/client/ui/screen/PlayerAvailability.vue'
 import { useCoreStore } from '@/client/store/core.ts'
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import About from '@/client/ui/screen/about/About.vue'
@@ -24,6 +25,7 @@ export const ROUTES = {
     Lobby: 'Lobby',
     GameRoom: 'GameRoom',
     Game: 'Game',
+    PlayerAvailability: 'PlayerAvailability',
 } as const
 
 const router = createRouter({
@@ -67,6 +69,13 @@ const router = createRouter({
             ],
         },
 
+        {
+            // Public : reachable standalone from a shared availability link, and
+            // from the lobby / top bar. No lobby-joined guard.
+            path: '/availability',
+            name: ROUTES.PlayerAvailability,
+            component: PlayerAvailability,
+        },
         {
             path: '/lobby',
             name: ROUTES.Lobby,

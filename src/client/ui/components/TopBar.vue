@@ -37,6 +37,16 @@
                 class="topbar-right"
             >
                 <span
+                    v-if="showAvailabilityLink"
+                    class="availability-button"
+                    title="Player Availability"
+                    @click="router.push({ name: ROUTES.PlayerAvailability })"
+                >
+                    Player Availability
+                    <sup class="new-badge">NEW</sup>
+                </span>
+
+                <span
                     class="fullscreen-button"
                     :class="{ 'show-hint-arrow': showFullscreenHint }"
                     @click="isFullscreen ? exitFullscreen() : requestFullscreen()"
@@ -80,6 +90,10 @@ import { display, screenBigEnough } from '@/client/game/display.ts'
 
 const core = useCoreStore()
 const bus = useBusStore()
+
+// Hide the availability link in the game room : navigating away from a room drops
+// the player out of it, so we don't offer that jump from there.
+const showAvailabilityLink = computed(() => router.currentRoute.value.name !== ROUTES.GameRoom)
 
 /**
  * Full Screen handling
@@ -176,6 +190,7 @@ const showFullscreenHint = computed(() => {
 }
 
 .fullscreen-button,
+.availability-button,
 .about-link,
 .user-profile-display,
 .deck-display {
@@ -209,6 +224,17 @@ const showFullscreenHint = computed(() => {
     border: 1px solid $pearl-grey;
     font-size: 14px;
     font-weight: bold;
+}
+
+.new-badge {
+    align-self: flex-start;
+    margin-left: -0.35rem;
+    color: lighten($neon-purple, 3%);
+
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    line-height: 1;
 }
 
 .deck-display.no-deck {

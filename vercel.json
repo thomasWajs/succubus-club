@@ -6,6 +6,10 @@
             "destination": "/api"
         },
         {
+            "source": "/share",
+            "destination": "/api/share"
+        },
+        {
             "source": "/(.*)",
             "destination": "/"
         }
