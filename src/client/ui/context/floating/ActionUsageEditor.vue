@@ -90,7 +90,10 @@
         </template>
 
         <template v-if="editor.editable">
-            <div class="usage-divider" />
+            <div
+                v-if="editor.chips.length > 0 || editor.hasXCost || editor.directable"
+                class="usage-divider"
+            />
             <div
                 class="usage-end-button"
                 @click="gameMutations.ACTION_endAction.actSelf({})"
