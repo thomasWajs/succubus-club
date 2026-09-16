@@ -1,0 +1,56 @@
+rules_version = '2';
+
+// Firestore security rules for Succubus Club.
+//
+// Access posture
+// --------------
+// The Firebase backend is fronted by App Check (reCAPTCHA v3, see initAppCheck in
+// src/client/gateway/realtime.ts), which rejects requests that don't come from our
+// real web app. That is the primary guard against drive-by / bot abuse.
+//
+// - avatars, gameStates : legacy collections, intentionally public (no auth). They
+//   are keyed by the app's own permanentId, not by an auth uid, and the documents
+//   don't store a uid, so per-user ownership cannot be enforced here. Rules below
+//   therefore keep them open but add strict shape validation so a client (or a
+//   compromised App Check token) still cannot write arbitrary/oversized documents.
+// - availability : newer collection, gated on anonymous-auth uid ownership.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Avatars : AvatarDoc = { imageData: string }
+    // Document id is `${permanentId}-${hash(avatar)}` (see gateway/user.ts).
+    match /avatars/{document} {
+      allow read: if true;
+      allow delete: if true;
+      allow create, update: if request.resource.data.keys().hasOnly(['imageData'])
+        && request.resource.data.imageData is string
+        // Firestore caps a document at ~1 MiB anyway ; this rejects blobs earlier.
+        && request.resource.data.imageData.size() <= 1048576;
+    }
+
+    // Game states : GameStateDoc = { encodedGame: bytes, ttl: timestamp }
+    // Document id is `${permanentId}-${gameHash}` (see gateway/gameState.ts).
+    // These are short-lived (pruned by ttl) resync snapshots.
+    match /gameStates/{document} {
+      allow read: if true;
+      allow delete: if true;
+      allow create, update: if request.resource.data.keys().hasOnly(['encodedGame', 'ttl'])
+        && request.resource.data.encodedGame is bytes
+        && request.resource.data.ttl is timestamp;
+    }
+
+    // Player availability : gated on the anonymous-auth uid (ownership).
+    match /availability/{language}/players/{uid} {
+      allow read: if true;
+      allow delete: if request.auth != null && request.auth.uid == uid;
+      allow create, update: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.permId is string
+        && request.resource.data.name is string
+        && request.resource.data.name.size() <= 60
+        && request.resource.data.slots is list
+        && request.resource.data.slots.size() <= 50;
+    }
+  }
+}

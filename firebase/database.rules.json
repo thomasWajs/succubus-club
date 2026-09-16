@@ -1,0 +1,108 @@
+{
+    // Realtime Database security rules for Succubus Club.
+    //
+    // Access posture
+    // --------------
+    // The backend is fronted by App Check (reCAPTCHA v3, see initAppCheck in
+    // src/client/gateway/realtime.ts), which is the primary guard against non-app
+    // clients. gameRooms is a legacy path : intentionally public (no auth) because
+    // it is written before an anonymous session is guaranteed. The rules below add
+    // strict shape validation so a client still cannot write arbitrary data.
+    // lobbyChat / chatCooldown are newer and gated on the anonymous-auth uid.
+
+    "rules": {
+        ".read": false,
+        ".write": false,
+
+        // Legacy lobby game-room list. Each entry is a GameRoom, always written as a
+        // whole object (broadcastGameRoom -> set) or removed. See types/multiplayer.ts.
+        "gameRooms": {
+            ".read": true,
+            "$roomId": {
+                ".write": true,
+                ".validate": "newData.hasChildren(['id', 'name', 'hostId', 'communication', 'isStarted', 'isSavedGame', 'hasPassword', 'enableAids', 'allowSpectators'])",
+                "id": {
+                    ".validate": "newData.isString() && newData.val() === $roomId"
+                },
+                "name": {
+                    ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 100"
+                },
+                "hostId": {
+                    ".validate": "newData.isString()"
+                },
+                "communication": {
+                    ".validate": "newData.isString() && (newData.val() === 'Ably' || newData.val() === 'SCS')"
+                },
+                "isStarted": {
+                    ".validate": "newData.isBoolean()"
+                },
+                "isSavedGame": {
+                    ".validate": "newData.isBoolean()"
+                },
+                "hasPassword": {
+                    ".validate": "newData.isBoolean()"
+                },
+                "passwordHash": {
+                    ".validate": "newData.isString()"
+                },
+                "enableAids": {
+                    ".validate": "newData.isBoolean()"
+                },
+                "allowSpectators": {
+                    ".validate": "newData.isBoolean()"
+                },
+                "players": {
+                    "$index": { ".validate": "newData.isString()" }
+                },
+                "competingPlayers": {
+                    "$index": { ".validate": "newData.isString()" }
+                },
+                "spectators": {
+                    "$index": { ".validate": "newData.isString()" }
+                },
+                "judges": {
+                    "$index": { ".validate": "newData.isString()" }
+                },
+                // Seating is either a list of permanentIds or the 'EMPTY_SEATING' sentinel.
+                "seating": {
+                    ".validate": "newData.isString() || newData.hasChildren()",
+                    "$index": { ".validate": "newData.isString()" }
+                },
+                "$other": {
+                    ".validate": false
+                }
+            }
+        },
+
+        "lobbyChat": {
+            "$lang": {
+                ".read": true,
+                "$messageId": {
+                    ".write": "auth != null && !data.exists()",
+                    ".validate": "newData.hasChildren(['text', 'name', 'authorUid', 'ts'])",
+                    "text": {
+                        ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 500"
+                    },
+                    "name": {
+                        ".validate": "newData.isString() && newData.val().length <= 60"
+                    },
+                    "authorUid": {
+                        ".validate": "newData.isString() && newData.val() === auth.uid"
+                    },
+                    "ts": {
+                        ".validate": "newData.val() === now"
+                    },
+                    "$other": {
+                        ".validate": false
+                    }
+                }
+            }
+        },
+
+        "chatCooldown": {
+            "$uid": {
+                ".write": "auth != null && auth.uid === $uid && newData.val() === now && (!data.exists() || now > data.val() + 1500)"
+            }
+        }
+    }
+}
