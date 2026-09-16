@@ -3,12 +3,18 @@
         v-for="voteBox in voteBoxes"
         :key="voteBox.vampire.oid"
         class="referendum-vote-box"
-        :class="{ 'is-read-only': !voteBox.isSelfControlled, 'is-ballot': voteBox.isBallot }"
+        :class="{
+            'is-read-only': !voteBox.isSelfControlled,
+            'is-ballot': voteBox.isBallot,
+            'voted-in-favour':
+                !voteBox.isSelfControlled && voteBox.castVote.side == VoteSide.InFavour,
+            'voted-against': !voteBox.isSelfControlled && voteBox.castVote.side == VoteSide.Against,
+        }"
         :style="voteBox.style"
     >
-        <div class="vote-sides">
-            <!-- Own vampires : the sides are the way to announce a vote -->
-            <template v-if="voteBox.isSelfControlled">
+        <!-- Own vampires : the sides are the way to announce a vote -->
+        <template v-if="voteBox.isSelfControlled">
+            <div class="vote-sides">
                 <button
                     class="game-button small vote-in-favour"
                     :class="{ 'is-cast': voteBox.castVote.side == VoteSide.InFavour }"
@@ -24,38 +30,28 @@
                 >
                     Against
                 </button>
-            </template>
+            </div>
 
-            <!-- Other players' vampires : same sides, as a read-only state -->
-            <template v-else>
-                <span
-                    class="vote-side-display vote-in-favour"
-                    :class="{ 'is-cast': voteBox.castVote.side == VoteSide.InFavour }"
-                >
-                    In favour
-                </span>
+            <div class="vote-amount">
+                <PropertyStepper
+                    :value="voteBox.castVote.amount"
+                    :label="voteBox.isBallot ? 'ballots' : 'votes'"
+                    @change="changeVotes(voteBox.vampire, $event)"
+                />
+            </div>
+        </template>
 
-                <span
-                    class="vote-side-display vote-against"
-                    :class="{ 'is-cast': voteBox.castVote.side == VoteSide.Against }"
-                >
-                    Against
-                </span>
-            </template>
-        </div>
-
-        <div class="vote-amount">
-            <PropertyStepper
-                v-if="voteBox.isSelfControlled"
-                :value="voteBox.castVote.amount"
-                :label="voteBox.isBallot ? 'ballots' : 'votes'"
-                @change="changeVotes(voteBox.vampire, $event)"
-            />
-
-            <strong v-else>
-                {{ voteBox.castVote.amount }} {{ voteBox.isBallot ? 'ballots' : 'votes' }}
-            </strong>
-        </div>
+        <!--
+        Other players' vampires : a compact read-only badge showing only the
+        number cast. The side is read from the box background alone : neutral
+        when the vampire abstains, green in favour, red against.
+        -->
+        <strong
+            v-else
+            class="vote-badge"
+        >
+            {{ voteBox.castVote.amount }} {{ voteBox.isBallot ? 'ballots' : 'votes' }}
+        </strong>
     </div>
 </template>
 
@@ -87,7 +83,7 @@ const gameBus = useGameBusStore()
 const players = usePlayersStore()
 
 // Gap between the bottom of the card and the top of its box, in world units
-const VOTE_BOX_GAP = 10
+const VOTE_BOX_GAP = 5
 
 type VoteBoxData = {
     vampire: Vampire
@@ -166,9 +162,9 @@ function changeVotes(vampire: Vampire, amount: number) {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
+    gap: 3px;
 
-    padding: 5px 6px;
+    padding: 3px;
     border: solid 2px $shadow-grey;
     background: rgba($pearl-grey, 0.92);
     color: $shadow-grey;
@@ -180,17 +176,22 @@ function changeVotes(vampire: Vampire, amount: number) {
     .vote-amount {
         display: flex;
         align-items: center;
-        gap: 4px;
+        gap: 3px;
+        font-size: 0.75rem;
     }
 
-    // Read-only counterpart of the side buttons, on other players' vampires
-    .vote-side-display {
-        padding: 3px 5px;
-        border: 1px solid transparent;
+    .game-button.small {
+        font-size: 0.72rem;
+        padding: 2px 4px;
+        min-width: 0;
+    }
 
-        font-size: 0.8rem;
-        font-weight: 600;
-        color: $mist-grey;
+    // Compact read-only badge : just the number cast, the side carried by the
+    // box background alone
+    .vote-badge {
+        font-size: 0.95rem;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
     }
 
     // The side this vampire currently votes for
@@ -206,9 +207,26 @@ function changeVotes(vampire: Vampire, amount: number) {
         color: $ghost-white;
     }
 
-    // Nothing to click on : keep the box discreet
+    &:hover {
+        z-index: 1100;
+    }
+
+    // Nothing to click on : keep the box discreet and tight
     &.is-read-only {
+        padding: 2px 6px;
         background: rgba($pearl-grey, 0.75);
+    }
+
+    // Read-only side indicators : the background carries the vote on its own,
+    // overriding the discreet neutral background above
+    &.voted-in-favour {
+        background: $dark-forest;
+        color: $ghost-white;
+    }
+
+    &.voted-against {
+        background: $wine-crimson;
+        color: $ghost-white;
     }
 
     // Priscii cast ballots into the subreferendum : set their boxes apart
