@@ -304,10 +304,10 @@ import { useCommands } from '@/client/game/composables/useCommands.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
 import { useCardDragDrop } from '@/client/game/composables/useCardDragDrop.ts'
-import { useCoreStore } from '@/client/store/core.ts'
 import FxPingCard from './FxPingCard.vue'
 import FxCardCost from './FxCardCost.vue'
 import { useCardTexture } from '@/client/game/composables/useCardTexture.ts'
+import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
 import Pointer = Phaser.Input.Pointer
 
 const { card, regionName } = defineProps<{
@@ -317,12 +317,12 @@ const { card, regionName } = defineProps<{
 
 const key = computed(() => regionName + card.oid.toString())
 
-const core = useCoreStore()
 const gameState = useGameStateStore()
 const players = usePlayersStore()
 const gameBus = useGameBusStore()
 const commands = useCommands()
 const { displayedTexture } = useCardTexture(card)
+const { glowInPlayEnabled } = useUIFeatures()
 
 const image = refObj<GameObjects.Image>()
 const cardOutline = refObj<GameObjects.Rectangle>()
@@ -419,7 +419,6 @@ function startRotationTween(newAttrs: CardAttrs, oldAttrs: CardAttrs) {
  * Glow effect on usable card, depending on the phase of the turn.
  */
 
-const glowInPlayEnabled = computed(() => core.userProfile.preferences.glowInPlay ?? true)
 const showGlowEffect = computed(
     () => glowInPlayEnabled.value && card.isDuringCurrentPhase() && !dragAttrs.isDragging,
 )
