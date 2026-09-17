@@ -8,7 +8,7 @@ export function useUIFeatures() {
     const core = useCoreStore()
     const preferences = computed(() => core.userProfile.preferences)
 
-    const aidsEnabled = computed(() => multiplayer.currentGameRoom?.enableAids ?? true)
+    const aidsEnabled = computed(() => multiplayer.currentGameRoom?.isCasual ?? true)
 
     return {
         aidsEnabled,

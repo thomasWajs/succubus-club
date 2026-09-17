@@ -72,7 +72,7 @@ export async function saveGame(isAutoSave: boolean) {
             password: multiplayer.password,
             communication: gameRoom?.communication ?? CommunicationMode.Ably,
             // We cannot index boolean in Dexie, so fallback on 0=false / 1=true
-            enableAids: gameRoom?.enableAids ? 1 : 0,
+            isCasual: gameRoom?.isCasual ? 1 : 0,
             allowSpectators: gameRoom?.allowSpectators ? 1 : 0,
             seating: toRaw(gameRoom?.seating) ?? EMPTY_SEATING,
             competingPlayers: gameState.competingPlayers.map(p => p.permId),

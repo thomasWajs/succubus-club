@@ -109,7 +109,10 @@
                                 <span class="room-lock">
                                     <template v-if="gameRoom.hasPassword">🔒</template>
                                 </span>
-                                <span class="communication-mode-badge">
+                                <span class="room-setting-badge">
+                                    {{ gameRoom.isCasual ? 'Casual' : 'Competitive' }}
+                                </span>
+                                <span class="room-setting-badge">
                                     {{
                                         gameRoom.communication === CommunicationMode.Ably ?
                                             'Direct'
@@ -176,77 +179,100 @@
                     v-show="!multiplayer.currentGameRoom"
                     class="create-room-section"
                 >
-                    <!-- First Row: Room Name | Password | Enable Aids | Allow Spectators -->
-                    <div class="create-room-row-1">
-                        <input
-                            v-model="roomName"
-                            class="input-field room-name-input"
-                            :disabled="!!multiplayer.currentGameRoom"
-                            placeholder="Enter room name..."
-                            @keydown.enter="onCreateGameRoom"
-                        />
-                        <input
-                            v-model="roomPassword"
-                            type="text"
-                            class="input-field room-password-input"
-                            :disabled="!!multiplayer.currentGameRoom"
-                            placeholder="Password (optional)..."
-                        />
-                        <label
-                            class="checkbox-label"
-                            title='Show hints to players, like "take pool for the edge" or "during X do Y". Disable for stricter sanctionned play.'
-                        >
-                            <input
-                                v-model="enableAids"
-                                type="checkbox"
-                                :disabled="!!multiplayer.currentGameRoom"
-                            />
-                            <span>Enable aids</span>
-                        </label>
-                        <label class="checkbox-label">
-                            <input
-                                v-model="allowSpectators"
-                                type="checkbox"
-                                :disabled="!!multiplayer.currentGameRoom"
-                            />
-                            <span>Allow spectators</span>
-                        </label>
-                    </div>
-
-                    <!-- Second Row: Communication Toggle -->
-                    <div class="create-room-row-2">
-                        <ToggleSwitch
-                            v-model="communicationMode"
-                            :disabled="!!multiplayer.currentGameRoom"
-                            :options="[
-                                {
-                                    value: CommunicationMode.Ably,
-                                    label: 'Direct Connection',
-                                    description: 'Faster, Always Available, No Anti-Cheat',
-                                    tooltip:
-                                        'Players communicate directly between them for faster gameplay, but there\'s no anti-cheat mechanism.',
-                                },
-                                {
-                                    value: CommunicationMode.SCS,
-                                    label: 'Succubus Club Server ( SCS )',
-                                    description: 'Slower, Anti-Cheat',
-                                    tooltip:
-                                        'Use an authoritative server to ensure player can\'t cheat, but slows down the game. May be unavailable.',
-                                },
-                            ]"
-                        />
-                    </div>
-
-                    <!-- Third Row: Create Room Button -->
-                    <div class="create-room-row-3">
+                    <!-- Toggle: the form stays hidden until the player asks to create a room -->
+                    <div
+                        v-if="!showCreateRoomForm"
+                        class="create-room-toggle"
+                    >
                         <button
                             class="create-room-btn"
-                            :disabled="!roomName.trim() || !!multiplayer.currentGameRoom"
-                            @click="onCreateGameRoom"
+                            @click="showCreateRoomForm = true"
                         >
-                            Create Room
+                            Create a room
                         </button>
                     </div>
+
+                    <template v-else>
+                        <!-- First Row: Room Name | Password  | Allow Spectators -->
+                        <div class="create-room-row-1">
+                            <input
+                                v-model="roomName"
+                                class="input-field room-name-input"
+                                :disabled="!!multiplayer.currentGameRoom"
+                                placeholder="Enter room name..."
+                                @keydown.enter="onCreateGameRoom"
+                            />
+                            <input
+                                v-model="roomPassword"
+                                type="text"
+                                class="input-field room-password-input"
+                                :disabled="!!multiplayer.currentGameRoom"
+                                placeholder="Password (optional)..."
+                            />
+                            <label class="checkbox-label">
+                                <input
+                                    v-model="allowSpectators"
+                                    type="checkbox"
+                                    :disabled="!!multiplayer.currentGameRoom"
+                                />
+                                <span>Allow spectators</span>
+                            </label>
+                        </div>
+
+                        <!-- Second Row: Casu/Compet Toggle | Communication Toggle -->
+                        <div class="create-room-row-2">
+                            <ToggleSwitch
+                                v-model="roomMode"
+                                :disabled="!!multiplayer.currentGameRoom"
+                                :options="[
+                                    {
+                                        value: 'casual',
+                                        label: 'Casual',
+                                        description: 'Hints enabled',
+                                        tooltip:
+                                            'Show hints to players, like \'take pool for the edge\' or \'during X do Y\'.',
+                                    },
+                                    {
+                                        value: 'competitive',
+                                        label: 'Competitive',
+                                        description: 'No hints, stricter play',
+                                        tooltip: 'Hides hints for stricter sanctionned play.',
+                                    },
+                                ]"
+                            />
+                            <ToggleSwitch
+                                v-model="communicationMode"
+                                :disabled="!!multiplayer.currentGameRoom"
+                                :options="[
+                                    {
+                                        value: CommunicationMode.Ably,
+                                        label: 'Direct Connection',
+                                        description: 'Faster, No Anti-Cheat',
+                                        tooltip:
+                                            'Players communicate directly between them for faster gameplay, but there\'s no anti-cheat mechanism.',
+                                    },
+                                    {
+                                        value: CommunicationMode.SCS,
+                                        label: 'Succubus Club Server',
+                                        description: 'Slower, Anti-Cheat',
+                                        tooltip:
+                                            'SCS is an authoritative server to ensure player can\'t cheat, but slows down the game. May be unavailable.',
+                                    },
+                                ]"
+                            />
+                        </div>
+
+                        <!-- Third Row: Create Room Button -->
+                        <div class="create-room-row-3">
+                            <button
+                                class="create-room-btn"
+                                :disabled="!roomName.trim() || !!multiplayer.currentGameRoom"
+                                @click="onCreateGameRoom"
+                            >
+                                Create Room
+                            </button>
+                        </div>
+                    </template>
                 </div>
             </div>
 
@@ -418,13 +444,22 @@ onMounted(() => {
  *  Game room creation / join
  */
 
+const showCreateRoomForm = ref(false)
 const roomName = ref('')
 const roomPassword = ref('')
 const roomPasswords = ref<{ [gameRoomId: string]: string }>({})
 const roomPasswordErrors = ref<{ [gameRoomId: string]: boolean }>({})
-const enableAids = ref(true)
+const isCasual = ref(true)
 const allowSpectators = ref(true)
 const communicationMode = ref<CommunicationMode>(CommunicationMode.Ably)
+
+// The casual / competitive toggle is a string switch backed by the isCasual boolean.
+const roomMode = computed({
+    get: () => (isCasual.value ? 'casual' : 'competitive'),
+    set: mode => {
+        isCasual.value = mode === 'casual'
+    },
+})
 
 function onCreateGameRoom() {
     const cleanedRoomName = roomName.value.trim()
@@ -437,7 +472,7 @@ function onCreateGameRoom() {
         cleanedRoomName,
         roomPassword.value,
         communicationMode.value,
-        enableAids.value,
+        isCasual.value,
         allowSpectators.value,
     )
     roomName.value = ''
@@ -732,6 +767,10 @@ if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    // Pin the panel to its "create form open" height so the panel ( and the chat
+    // below it ) keep a constant size. Opening the form then eats into the room
+    // list via its flex sizing, instead of growing the panel and shrinking the chat.
+    height: 400px;
     min-height: 0; // Allow the panel to shrink so the room list scrolls internally
 }
 
@@ -817,9 +856,11 @@ if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
     gap: 0.5rem;
 
     overflow-y: auto;
+    // Take whatever height the pinned panel leaves after the header and the
+    // create-room section. Collapsed create form => taller list ; open form =>
+    // the list shrinks ( down to ~4 rows ) to make room, and scrolls internally.
     flex: 1;
-    // Always show at least 4 rooms
-    min-height: 200px;
+    min-height: 0;
 }
 
 .room-item {
@@ -856,7 +897,7 @@ if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
         width: 0.5rem;
     }
 
-    .communication-mode-badge {
+    .room-setting-badge {
         @extend .teal-badge;
         width: 2rem;
     }
@@ -923,10 +964,13 @@ if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
 
 .create-room-section {
     border-top: 1px solid $bone-grey;
-    padding-top: 1rem;
+    padding-top: 0.75rem;
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 0.5rem;
+    // Keep the form at its natural height ; the room list ( flex ) absorbs the
+    // difference so the overall panel height stays constant.
+    flex-shrink: 0;
 }
 
 .create-room-row-1 {
@@ -947,10 +991,16 @@ if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
 
 .create-room-row-2 {
     display: flex;
+    gap: 12rem;
     width: 100%;
 }
 
 .create-room-row-3 {
+    display: flex;
+    justify-content: center;
+}
+
+.create-room-toggle {
     display: flex;
     justify-content: center;
 }

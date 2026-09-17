@@ -20,7 +20,7 @@
             ".read": true,
             "$roomId": {
                 ".write": true,
-                ".validate": "newData.hasChildren(['id', 'name', 'hostId', 'communication', 'isStarted', 'isSavedGame', 'hasPassword', 'enableAids', 'allowSpectators'])",
+                ".validate": "newData.hasChildren(['id', 'name', 'hostId', 'communication', 'isStarted', 'isSavedGame', 'hasPassword', 'isCasual', 'allowSpectators'])",
                 "id": {
                     ".validate": "newData.isString() && newData.val() === $roomId"
                 },
@@ -45,7 +45,7 @@
                 "passwordHash": {
                     ".validate": "newData.isString()"
                 },
-                "enableAids": {
+                "isCasual": {
                     ".validate": "newData.isBoolean()"
                 },
                 "allowSpectators": {

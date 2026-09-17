@@ -152,7 +152,7 @@ async function continueSavedGame(savedGame: DbSavedGame) {
             savedGame.roomName,
             savedGame.password,
             savedGame.communication,
-            !!savedGame.enableAids,
+            !!savedGame.isCasual,
             !!savedGame.allowSpectators,
             savedGame,
         )

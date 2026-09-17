@@ -146,7 +146,7 @@ export class DbSavedGame extends Entity<SuccubusDb> {
     roomName: string
     password: string
     communication: CommunicationMode
-    enableAids: number // We cannot index boolean with Dexie, so fallback on 0=false / 1=true
+    isCasual: number // We cannot index boolean with Dexie, so fallback on 0=false / 1=true
     allowSpectators: number // We cannot index boolean with Dexie, so fallback on 0=false / 1=true
     seating: Seating
     competingPlayers: PermanentId[]

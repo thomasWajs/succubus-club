@@ -7,6 +7,9 @@
         <div class="current-room-header">
             <div class="room-header-left">
                 <span class="teal-badge">
+                    {{ multiplayer.currentGameRoom.isCasual ? 'Casual' : 'Competitive' }}
+                </span>
+                <span class="teal-badge">
                     {{
                         multiplayer.currentGameRoom.communication === CommunicationMode.Ably ?
                             'Direct'

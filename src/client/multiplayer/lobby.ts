@@ -278,7 +278,7 @@ export async function createGameRoom(
     roomName: string,
     password: string = '',
     communication: CommunicationMode = CommunicationMode.Ably,
-    enableAids: boolean = true,
+    isCasual: boolean = true,
     allowSpectators: boolean = true,
     savedGame?: DbSavedGame,
 ) {
@@ -311,7 +311,7 @@ export async function createGameRoom(
         isSavedGame: !!savedGame,
         hasPassword: password != '',
         passwordHash: key?.hash ?? '',
-        enableAids,
+        isCasual,
         allowSpectators,
         players: [multiplayer.selfUser.permId],
         competingPlayers: savedGame ? savedGame.competingPlayers : [],

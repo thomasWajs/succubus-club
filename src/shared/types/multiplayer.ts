@@ -62,7 +62,7 @@ export type GameRoom = {
     isSavedGame: boolean
     hasPassword: boolean
     passwordHash: string
-    enableAids: boolean
+    isCasual: boolean // Casual play shows hints/aids ; competitive hides them for stricter sanctionned play
     allowSpectators: boolean
     players: PermanentId[] // permanentId in arbitrary order
     competingPlayers: PermanentId[] // Non-ousted players, in the order of the turn

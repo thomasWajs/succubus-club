@@ -73,13 +73,13 @@ function handleSelect(value: string) {
 
 .toggle-switch-options {
     display: flex;
-    gap: 0.75rem;
+    gap: 0.25rem;
     width: 100%;
 }
 
 .toggle-option {
     flex: 1;
-    padding: 0.5rem 1rem;
+    padding: 0.25rem 0.75rem;
     background: rgba($bone-grey, 0.1);
     border: 1px solid $bone-grey;
     cursor: pointer;
