@@ -1,9 +1,5 @@
 import { AvailabilitySlot, SlotCategory, SlotRecurrence } from '@/shared/types/availability.ts'
-import {
-    nextBiweeklyOccurrenceUtc,
-    nextMonthlyOccurrenceUtc,
-    nextWeeklyOccurrenceUtc,
-} from '@/client/gateway/availabilityTime.ts'
+import { nextOccurrenceStartUtc } from '@/shared/availability/recurrence.mjs'
 
 // Encodes a slot into self-contained URL query params ( and back ), so a shared link
 // carries everything the landing page needs without a database lookup : it keeps
@@ -16,31 +12,24 @@ export function encodeSharedSlot(slot: AvailabilitySlot, languageCode: string): 
     const params = new URLSearchParams()
     params.set(SHARE_PARAM, '1')
     params.set('lang', languageCode)
-    // The sharer's timezone travels with the link so the server-rendered preview ( see
-    // api/share.mjs ) can label the time in the zone the sharer expects, rather than UTC.
-    params.set('tz', Intl.DateTimeFormat().resolvedOptions().timeZone)
+    // The slot's own timezone travels with the link so the server-rendered preview ( see
+    // api/share.mjs ) labels the time in the zone the creator picked it in.
+    params.set('tz', slot.timezone)
+    params.set('rec', slot.recurrence)
+    params.set('sh', String(slot.startHour))
+    params.set('dh', String(slot.durationHours))
+
     if (slot.recurrence === SlotRecurrence.Weekly) {
-        params.set('rec', SlotRecurrence.Weekly)
-        params.set('sw', String(slot.startMinuteOfWeekUtc))
-        params.set('ew', String(slot.endMinuteOfWeekUtc))
-        // The next occurrence's absolute epoch : lets the preview show the exact upcoming
-        // date, and changes weekly so re-shared links get a fresh crawler unfurl.
-        params.set(
-            'occ',
-            String(nextWeeklyOccurrenceUtc(slot.startMinuteOfWeekUtc, slot.endMinuteOfWeekUtc)),
-        )
-        return params
+        params.set('wd', String(slot.weekday))
+    } else {
+        params.set('d', slot.date)
     }
 
-    params.set('rec', slot.recurrence)
-    params.set('su', String(slot.startUtc))
-    params.set('eu', String(slot.endUtc))
-    // Same "occ" stamp as weekly, for the same reason ; a one-time slot has no next
-    // occurrence beyond its own date, so it carries none.
-    if (slot.recurrence === SlotRecurrence.Biweekly) {
-        params.set('occ', String(nextBiweeklyOccurrenceUtc(slot.startUtc, slot.endUtc)))
-    } else if (slot.recurrence === SlotRecurrence.Monthly) {
-        params.set('occ', String(nextMonthlyOccurrenceUtc(slot.startUtc, slot.endUtc)))
+    // The next occurrence's absolute epoch : lets the preview show the exact upcoming date,
+    // and changes over time so re-shared links get a fresh crawler unfurl. A one-time slot
+    // has no next occurrence to advertise beyond its own date, so it carries none.
+    if (slot.recurrence !== SlotRecurrence.Once) {
+        params.set('occ', String(nextOccurrenceStartUtc(slot, Date.now())))
     }
     return params
 }
@@ -77,8 +66,8 @@ export function buildShareMessage(languageCode: string, slotLabel: string, url: 
 export interface SharedSlot {
     slot: AvailabilitySlot
     languageCode: string
-    // For weekly links : the next-occurrence epoch stamped at share time, used to open the
-    // calendar on the advertised occurrence's week. Absent for one-time links.
+    // For recurring links : the next-occurrence epoch stamped at share time, used to open
+    // the calendar on the advertised occurrence's week. Absent for one-time links.
     occurrenceUtc: number | null
 }
 
@@ -91,14 +80,25 @@ function parseNumber(raw: string | null): number | null {
 }
 
 // Decodes a shared slot from URL params, or returns null when they are absent or
-// malformed. The slot gets a fresh id : the visitor is creating their own entry.
+// malformed. The slot keeps the sharer's timezone ( so its instant is preserved for the
+// visitor ) but gets a fresh id : the visitor is creating their own entry.
 export function parseSharedSlot(params: URLSearchParams): SharedSlot | null {
     if (params.get(SHARE_PARAM) !== '1') {
         return null
     }
 
     const languageCode = params.get('lang')
-    if (!languageCode) {
+    const timezone = params.get('tz')
+    const recurrence = params.get('rec')
+    const startHour = parseNumber(params.get('sh'))
+    const durationHours = parseNumber(params.get('dh'))
+    if (
+        !languageCode ||
+        !timezone ||
+        startHour === null ||
+        durationHours === null ||
+        !isSharedRecurrence(recurrence)
+    ) {
         return null
     }
 
@@ -106,44 +106,36 @@ export function parseSharedSlot(params: URLSearchParams): SharedSlot | null {
     // The link only carries the slot's time. Category isn't needed : the visitor lands on
     // the live roster, and the fallback add form ( when the slot is gone ) just defaults.
     const category = SlotCategory.Both
-    const recurrence = params.get('rec')
+    const base = { id, category, timezone, startHour, durationHours }
 
     if (recurrence === SlotRecurrence.Weekly) {
-        const startMinuteOfWeekUtc = parseNumber(params.get('sw'))
-        const endMinuteOfWeekUtc = parseNumber(params.get('ew'))
-        if (startMinuteOfWeekUtc === null || endMinuteOfWeekUtc === null) {
+        const weekday = parseNumber(params.get('wd'))
+        if (weekday === null) {
             return null
         }
         return {
             languageCode,
             occurrenceUtc: parseNumber(params.get('occ')),
-            slot: {
-                id,
-                recurrence: SlotRecurrence.Weekly,
-                category,
-                startMinuteOfWeekUtc,
-                endMinuteOfWeekUtc,
-            },
+            slot: { ...base, recurrence: SlotRecurrence.Weekly, weekday },
         }
     }
 
-    if (
-        recurrence === SlotRecurrence.Once ||
-        recurrence === SlotRecurrence.Biweekly ||
-        recurrence === SlotRecurrence.Monthly
-    ) {
-        const startUtc = parseNumber(params.get('su'))
-        const endUtc = parseNumber(params.get('eu'))
-        if (startUtc === null || endUtc === null) {
-            return null
-        }
-        return {
-            languageCode,
-            occurrenceUtc:
-                recurrence === SlotRecurrence.Once ? null : parseNumber(params.get('occ')),
-            slot: { id, recurrence, category, startUtc, endUtc },
-        }
+    const date = params.get('d')
+    if (!date) {
+        return null
     }
+    return {
+        languageCode,
+        occurrenceUtc: recurrence === SlotRecurrence.Once ? null : parseNumber(params.get('occ')),
+        slot: { ...base, recurrence, date },
+    }
+}
 
-    return null
+function isSharedRecurrence(value: string | null): value is SlotRecurrence {
+    return (
+        value === SlotRecurrence.Weekly ||
+        value === SlotRecurrence.Biweekly ||
+        value === SlotRecurrence.Monthly ||
+        value === SlotRecurrence.Once
+    )
 }

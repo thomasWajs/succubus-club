@@ -13,6 +13,7 @@ import {
     PlayerAvailability,
     StoredPlayerAvailability,
 } from '@/shared/types/availability.ts'
+import { isAvailabilitySlot } from '@/shared/availability/recurrence.mjs'
 
 // One Firestore document per player, per language, at availability/{lang}/players/{uid}.
 // Reads are public ; writes are gated ( in the security rules ) on the anonymous-auth
@@ -41,11 +42,15 @@ export function subscribePlayerAvailability(
             if (!data || !Array.isArray(data.slots)) {
                 return
             }
+            // Keep only slots matching the current model : legacy / malformed entries are
+            // dropped rather than fed to the occurrence math, whose arithmetic would choke
+            // on their missing fields.
+            const slots = data.slots.filter(isAvailabilitySlot)
             players.push({
                 uid: document.id,
                 permId: typeof data.permId === 'string' ? data.permId : '',
                 name: typeof data.name === 'string' ? data.name : '',
-                slots: data.slots,
+                slots,
             })
         })
         onUpdate(players)

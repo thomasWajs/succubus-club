@@ -1,12 +1,10 @@
 // Server-side helpers for the availability share links. Shared by the two Vercel
 // functions ( api/share.mjs, api/shareImage.mjs ) so the preview title and image agree
-// on a single formatting. This mirrors the intent of formatSlotLabel in
-// src/client/gateway/availabilityTime.ts, but stays plain .mjs with no bundler alias,
-// and renders in the sharer's embedded timezone rather than the browser's local one.
+// on a single formatting. Slots carry wall-clock times in the creator's timezone ; the
+// occurrence math ( resolving them to absolute instants, DST-correctly ) is shared with
+// the client in recurrence.mjs. Stays plain .mjs with no bundler alias.
 
-const MINUTES_PER_WEEK = 10080
-const MS_PER_DAY = 86400000
-const BIWEEKLY_PERIOD_MS = 14 * MS_PER_DAY
+import { nextOccurrenceStartUtc } from './recurrence.mjs'
 
 // Whether the value is a finite number once coerced ; used to validate query params.
 function parseNumber(raw) {
@@ -17,55 +15,62 @@ function parseNumber(raw) {
     return Number.isFinite(value) ? value : null
 }
 
+// A usable IANA timezone id, or 'UTC' when the param is missing / invalid ( a bad or
+// spoofed `tz` ). Validated up front so the occurrence math never throws on it.
+function safeTimezone(raw) {
+    if (!raw) {
+        return 'UTC'
+    }
+    try {
+        new Intl.DateTimeFormat('en-US', { timeZone: raw })
+        return raw
+    } catch {
+        return 'UTC'
+    }
+}
+
 // Parses the self-contained share params ( same shape as the client's encodeSharedSlot )
-// into a plain descriptor, or null when they are absent or malformed.
+// into a slot-plus-metadata descriptor, or null when they are absent or malformed. The
+// descriptor is directly usable by recurrence.mjs ( it is a slot with `timezone` set ).
 export function parseShareParams(searchParams) {
     if (searchParams.get('share') !== '1') {
         return null
     }
 
     const lang = searchParams.get('lang')
-    if (!lang) {
+    const recurrence = searchParams.get('rec')
+    const startHour = parseNumber(searchParams.get('sh'))
+    const durationHours = parseNumber(searchParams.get('dh'))
+    const validRecurrence =
+        recurrence === 'weekly' ||
+        recurrence === 'biweekly' ||
+        recurrence === 'monthly' ||
+        recurrence === 'once'
+    if (!lang || !validRecurrence || startHour === null || durationHours === null) {
         return null
     }
 
-    const tz = searchParams.get('tz') || 'UTC'
-    const recurrence = searchParams.get('rec')
+    const timezone = safeTimezone(searchParams.get('tz'))
+    const base = { lang, timezone, recurrence, startHour, durationHours }
 
     if (recurrence === 'weekly') {
-        const startMinuteOfWeekUtc = parseNumber(searchParams.get('sw'))
-        const endMinuteOfWeekUtc = parseNumber(searchParams.get('ew'))
-        if (startMinuteOfWeekUtc === null || endMinuteOfWeekUtc === null) {
+        const weekday = parseNumber(searchParams.get('wd'))
+        if (weekday === null) {
             return null
         }
         // Optional : the absolute epoch of the next occurrence, stamped by the client at
         // share time ( see encodeSharedSlot ). When present the preview shows that exact
-        // date ; it also makes the URL change each week, busting the crawlers' caches.
-        const occurrenceUtc = parseNumber(searchParams.get('occ'))
-        return { lang, tz, recurrence, startMinuteOfWeekUtc, endMinuteOfWeekUtc, occurrenceUtc }
+        // date ; it also changes over time, busting the crawlers' caches.
+        return { ...base, weekday, occurrenceUtc: parseNumber(searchParams.get('occ')) }
     }
 
-    if (recurrence === 'once' || recurrence === 'biweekly' || recurrence === 'monthly') {
-        const startUtc = parseNumber(searchParams.get('su'))
-        const endUtc = parseNumber(searchParams.get('eu'))
-        if (startUtc === null || endUtc === null) {
-            return null
-        }
-        // Same "occ" stamp as weekly ( see above ) : absent for a one-time slot, which has
-        // no next occurrence to advertise.
-        const occurrenceUtc = recurrence === 'once' ? null : parseNumber(searchParams.get('occ'))
-        return { lang, tz, recurrence, startUtc, endUtc, occurrenceUtc }
+    const date = searchParams.get('d')
+    if (!date) {
+        return null
     }
-
-    return null
-}
-
-// Monday 00:00 UTC of the current week, as epoch ms. Weekly slots are stored as a UTC
-// minute-of-week ( Monday 00:00 UTC = 0 ), so we anchor them to this instant to get a
-// concrete date to format.
-function startOfUtcWeek(now) {
-    const mondayIndex = (now.getUTCDay() + 6) % 7
-    return Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - mondayIndex)
+    // Same "occ" stamp as weekly ; absent for a one-time slot, which has no next occurrence.
+    const occurrenceUtc = recurrence === 'once' ? null : parseNumber(searchParams.get('occ'))
+    return { ...base, date, occurrenceUtc }
 }
 
 // Builds a Intl.DateTimeFormat for the given timezone ( and optional locale ), falling
@@ -90,12 +95,6 @@ function timeZoneAbbreviation(epoch, tz) {
     return part ? part.value : 'UTC'
 }
 
-// The duration of a weekly slot in minutes, handling the case where it wraps past the end
-// of the UTC week ( end numerically smaller than start ).
-function weeklyDurationMinutes(startMinuteOfWeekUtc, endMinuteOfWeekUtc) {
-    return (endMinuteOfWeekUtc - startMinuteOfWeekUtc + MINUTES_PER_WEEK) % MINUTES_PER_WEEK
-}
-
 // A localized "Fri 19 Sep, 20:00-22:00 (CEST)" style label for a concrete instant range.
 function formatDatedLabel(startUtc, endUtc, tz, locale) {
     const date = formatterFor(
@@ -106,106 +105,24 @@ function formatDatedLabel(startUtc, endUtc, tz, locale) {
     return `${date}, ${formatTime(startUtc, tz)}-${formatTime(endUtc, tz)} (${timeZoneAbbreviation(startUtc, tz)})`
 }
 
-// The absolute epoch ms of a weekly slot's next occurrence : the soonest instant whose UTC
-// minute-of-week matches the start and whose end is still in the future ( roll to the
-// following week only once the current occurrence has ended ). Used when a link carries no
-// occurrence stamp ; pure UTC arithmetic, so it is DST-safe.
-function nextWeeklyOccurrenceUtc(startMinuteOfWeekUtc, durationMs, now) {
-    const weekMs = MINUTES_PER_WEEK * 60000
-    let start = startOfUtcWeek(now) + startMinuteOfWeekUtc * 60000
-    while (start + durationMs <= now.getTime()) {
-        start += weekMs
-    }
-    return start
-}
-
-// The absolute epoch ms of a biweekly slot's next occurrence, mirroring
-// nextBiweeklyOccurrenceUtc in src/client/gateway/availabilityTime.ts.
-function nextBiweeklyOccurrenceUtc(anchorStartUtc, anchorEndUtc, now) {
-    const duration = anchorEndUtc - anchorStartUtc
-    let start = anchorStartUtc
-    while (start + duration <= now.getTime()) {
-        start += BIWEEKLY_PERIOD_MS
-    }
-    return start
-}
-
-// Calendar months elapsed between two UTC instants, ignoring day-of-month.
-function utcMonthsBetween(fromUtc, toUtc) {
-    const from = new Date(fromUtc)
-    const to = new Date(toUtc)
-    return (
-        (to.getUTCFullYear() - from.getUTCFullYear()) * 12 + (to.getUTCMonth() - from.getUTCMonth())
-    )
-}
-
-// The anchor's occurrence shifted by `months` calendar months, in UTC, clamped to the
-// last day of a shorter target month. Mirrors shiftMonthlyOccurrence in
-// src/client/gateway/availabilityTime.ts.
-function shiftMonthlyOccurrence(anchorStartUtc, durationMs, months) {
-    const anchor = new Date(anchorStartUtc)
-    const targetMonthIndex = anchor.getUTCMonth() + months
-    const daysInTargetMonth = new Date(
-        Date.UTC(anchor.getUTCFullYear(), targetMonthIndex + 1, 0),
-    ).getUTCDate()
-    const start = Date.UTC(
-        anchor.getUTCFullYear(),
-        targetMonthIndex,
-        Math.min(anchor.getUTCDate(), daysInTargetMonth),
-        anchor.getUTCHours(),
-        anchor.getUTCMinutes(),
-        anchor.getUTCSeconds(),
-        anchor.getUTCMilliseconds(),
-    )
-    return { start, end: start + durationMs }
-}
-
-// The absolute epoch ms of a monthly slot's next occurrence, mirroring
-// nextMonthlyOccurrenceUtc in src/client/gateway/availabilityTime.ts.
-function nextMonthlyOccurrenceUtc(anchorStartUtc, anchorEndUtc, now) {
-    const duration = anchorEndUtc - anchorStartUtc
-    let months = utcMonthsBetween(anchorStartUtc, now.getTime()) - 1
-    for (;;) {
-        const { start, end } = shiftMonthlyOccurrence(anchorStartUtc, duration, months)
-        if (end > now.getTime()) {
-            return start
-        }
-        months++
-    }
-}
-
 // A fixed-timezone, human-readable label for a shared slot, localized in the slot's own
-// language. A weekly slot reads as its next occurrence's concrete date with a "weekly"
-// hint, e.g. "Fri 19 Sep, 20:00-22:00 (CEST) - weekly" ( the occurrence epoch stamped in
-// the link, or recomputed here if absent ). A one-time slot reads as its own date.
+// language and rendered in the slot's own timezone. A recurring slot reads as its next
+// occurrence's concrete date with a recurrence hint, e.g. "Fri 19 Sep, 20:00-22:00 (CEST)
+// ( weekly )" ( the occurrence epoch stamped in the link, or recomputed here if absent ).
+// A one-time slot reads as its own date, with no hint.
 export function formatShareLabel(parsed) {
-    const tz = parsed.tz
+    const tz = parsed.timezone
     const locale = localeFor(parsed.lang)
-    if (parsed.recurrence === 'weekly') {
-        const durationMs =
-            weeklyDurationMinutes(parsed.startMinuteOfWeekUtc, parsed.endMinuteOfWeekUtc) * 60000
-        const start =
-            parsed.occurrenceUtc !== null && parsed.occurrenceUtc !== undefined ?
-                parsed.occurrenceUtc
-            :   nextWeeklyOccurrenceUtc(parsed.startMinuteOfWeekUtc, durationMs, new Date())
-        const dated = formatDatedLabel(start, start + durationMs, tz, locale)
-        return `${dated} ( ${getTranslations(parsed.lang).weekly} )`
+    const start =
+        parsed.occurrenceUtc !== null && parsed.occurrenceUtc !== undefined ?
+            parsed.occurrenceUtc
+        :   nextOccurrenceStartUtc(parsed, Date.now())
+    const end = start + parsed.durationHours * 3600000
+    const dated = formatDatedLabel(start, end, tz, locale)
+    if (parsed.recurrence === 'once') {
+        return dated
     }
-
-    if (parsed.recurrence === 'biweekly' || parsed.recurrence === 'monthly') {
-        const durationMs = parsed.endUtc - parsed.startUtc
-        const start =
-            parsed.occurrenceUtc !== null && parsed.occurrenceUtc !== undefined ?
-                parsed.occurrenceUtc
-            : parsed.recurrence === 'biweekly' ?
-                nextBiweeklyOccurrenceUtc(parsed.startUtc, parsed.endUtc, new Date())
-            :   nextMonthlyOccurrenceUtc(parsed.startUtc, parsed.endUtc, new Date())
-        const dated = formatDatedLabel(start, start + durationMs, tz, locale)
-        const hint = getTranslations(parsed.lang)[parsed.recurrence]
-        return `${dated} ( ${hint} )`
-    }
-
-    return formatDatedLabel(parsed.startUtc, parsed.endUtc, tz, locale)
+    return `${dated} ( ${getTranslations(parsed.lang)[parsed.recurrence]} )`
 }
 
 // The app's language codes don't all match BCP 47 locale tags ( se = Swedish, no =

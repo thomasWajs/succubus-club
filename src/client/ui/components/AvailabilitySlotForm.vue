@@ -125,16 +125,10 @@
 import { computed, ref } from 'vue'
 import { AvailabilitySlot, SlotCategory, SlotRecurrence } from '@/shared/types/availability.ts'
 import {
-    addHoursToMinuteOfWeek,
     DEFAULT_SLOT_DURATION_HOURS,
-    localDateHourToUtc,
-    localWeekdayHourToMinuteOfWeekUtc,
-    minuteOfWeekUtcToLocal,
-    onceDurationHours,
+    localTimezone,
     todayLocalDateIso,
-    utcToLocalDateHour,
     WEEKDAY_NAMES,
-    weeklyDurationHours,
 } from '@/client/gateway/availabilityTime.ts'
 
 const props = defineProps<{
@@ -167,26 +161,18 @@ const startHour = ref(21)
 const endHour = ref((21 + DEFAULT_SLOT_DURATION_HOURS) % 24)
 const category = ref<SlotCategory>(SlotCategory.Both)
 
-// Prefill from the provided slot, converting its stored UTC form back to local values.
+// Prefill from the provided slot. Slots store wall-clock values directly, so the fields
+// map across with no timezone conversion.
 if (props.initialSlot) {
     const existing = props.initialSlot
     category.value = existing.category
     recurrence.value = existing.recurrence
+    startHour.value = existing.startHour
+    endHour.value = (existing.startHour + existing.durationHours) % 24
     if (existing.recurrence === SlotRecurrence.Weekly) {
-        const local = minuteOfWeekUtcToLocal(existing.startMinuteOfWeekUtc)
-        weekday.value = local.weekday
-        startHour.value = local.hour
-        const duration = weeklyDurationHours(
-            existing.startMinuteOfWeekUtc,
-            existing.endMinuteOfWeekUtc,
-        )
-        endHour.value = (local.hour + duration) % 24
+        weekday.value = existing.weekday
     } else {
-        const local = utcToLocalDateHour(existing.startUtc)
-        dateIso.value = local.dateIso
-        startHour.value = local.hour
-        const duration = onceDurationHours(existing.startUtc, existing.endUtc)
-        endHour.value = (local.hour + duration) % 24
+        dateIso.value = existing.date
     }
 }
 
@@ -224,13 +210,14 @@ function onStartChange() {
 const endNextDay = computed(() => endHour.value <= startHour.value)
 
 // Biweekly and monthly slots are anchored to the picked date rather than a plain
-// weekday, so the field needs a hint explaining how they repeat from there.
+// weekday, so the field needs a hint explaining how they repeat from there. "Monthly" is
+// a fixed four-week cadence, so it always lands on the same weekday.
 const recurrenceHint = computed(() => {
     if (recurrence.value === SlotRecurrence.Biweekly) {
         return 'Repeats every 2 weeks from this date'
     }
     if (recurrence.value === SlotRecurrence.Monthly) {
-        return 'Repeats on this day every month'
+        return 'Repeats every 4 weeks from this date'
     }
     return ''
 })
@@ -241,28 +228,23 @@ function durationHours(): number {
 
 function onSave() {
     const id = props.initialSlot?.id ?? crypto.randomUUID()
-    const duration = durationHours()
+    // Keep an existing slot's timezone ( so editing, or a shared slot opened from another
+    // zone, preserves its instant ) ; a brand-new slot is stamped with the creator's zone.
+    const timezone = props.initialSlot?.timezone ?? localTimezone()
+    const common = {
+        id,
+        category: category.value,
+        timezone,
+        startHour: startHour.value,
+        durationHours: durationHours(),
+    }
 
     if (recurrence.value === SlotRecurrence.Weekly) {
-        const startMinute = localWeekdayHourToMinuteOfWeekUtc(weekday.value, startHour.value)
-        emit('save', {
-            id,
-            recurrence: SlotRecurrence.Weekly,
-            category: category.value,
-            startMinuteOfWeekUtc: startMinute,
-            endMinuteOfWeekUtc: addHoursToMinuteOfWeek(startMinute, duration),
-        })
+        emit('save', { ...common, recurrence: SlotRecurrence.Weekly, weekday: weekday.value })
         return
     }
 
-    const startUtc = localDateHourToUtc(dateIso.value, startHour.value)
-    emit('save', {
-        id,
-        recurrence: recurrence.value,
-        category: category.value,
-        startUtc,
-        endUtc: startUtc + duration * 3600000,
-    })
+    emit('save', { ...common, recurrence: recurrence.value, date: dateIso.value })
 }
 </script>
 

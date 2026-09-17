@@ -1,6 +1,9 @@
-// Player availability model. Users declare weekly ( recurring ) or one-time slots
-// per language to coordinate games. Hours are stored in UTC and projected into each
-// viewer's local timezone for display.
+// Player availability model. Users declare recurring or one-time slots per language to
+// coordinate games. Times are stored as wall-clock values ( weekday / date + hour ) in
+// the creator's IANA timezone, NOT as absolute UTC instants : this keeps a "20:00" slot
+// reading as 20:00 all year, even across daylight-saving transitions. Each concrete
+// occurrence is projected to an absolute instant on demand ( applying the timezone's
+// offset for that date ), then shown in each viewer's own local timezone.
 
 export enum SlotCategory {
     Casual = 'casual',
@@ -10,34 +13,41 @@ export enum SlotCategory {
 
 export enum SlotRecurrence {
     Weekly = 'weekly',
+    // Every two weeks, anchored to a start date.
     Biweekly = 'biweekly',
+    // Every four weeks, anchored to a start date ( "monthly" in the UI ; a fixed 28-day
+    // cadence rather than a calendar month, so it always lands on the same weekday ).
     Monthly = 'monthly',
     Once = 'once',
 }
 
-// A recurring weekly slot. Stored as a UTC "minute of week" ( 0 .. 10079,
-// mondayMidnightUtc = 0 ) rather than a weekday + hour, because a timezone shift can
-// move a slot across both the hour and the weekday boundary. Each viewer projects it
-// back into their own local week. `end` may be numerically smaller than `start` when
-// the slot wraps past the end of the UTC week.
-export interface WeeklyAvailabilitySlot {
+// Fields shared by every slot : the wall-clock start hour and duration, and the timezone
+// those wall-clock values are expressed in.
+interface BaseAvailabilitySlot {
     id: string
-    recurrence: SlotRecurrence.Weekly
     category: SlotCategory
-    startMinuteOfWeekUtc: number
-    endMinuteOfWeekUtc: number
+    // IANA timezone id ( e.g. "Europe/Paris" ) the wall-clock times below are given in.
+    timezone: string
+    // Wall-clock start hour ( 0 .. 23 ) in `timezone`.
+    startHour: number
+    // Slot length in hours ( 1 .. 24 ) ; a slot may run past midnight into the next day.
+    durationHours: number
 }
 
-// A slot anchored to a single absolute occurrence : "once" never repeats past it,
-// "biweekly" repeats every two weeks, and "monthly" repeats on the same day each
-// calendar month. All three share the same shape ( one absolute start/end ) ; only the
-// derivation of later occurrences from that anchor differs.
-export interface AnchoredAvailabilitySlot {
-    id: string
+// A weekly slot : the same weekday and hour every week, in `timezone`.
+export interface WeeklyAvailabilitySlot extends BaseAvailabilitySlot {
+    recurrence: SlotRecurrence.Weekly
+    // 0 = Monday .. 6 = Sunday, in `timezone`.
+    weekday: number
+}
+
+// A slot anchored to a single start date : "once" never repeats past it, "biweekly"
+// repeats every two weeks, "monthly" every four weeks. All three share one anchor date ;
+// only how later occurrences are derived from it differs.
+export interface AnchoredAvailabilitySlot extends BaseAvailabilitySlot {
     recurrence: SlotRecurrence.Once | SlotRecurrence.Biweekly | SlotRecurrence.Monthly
-    category: SlotCategory
-    startUtc: number
-    endUtc: number
+    // Anchor date as "yyyy-mm-dd", interpreted in `timezone`.
+    date: string
 }
 
 export type AvailabilitySlot = WeeklyAvailabilitySlot | AnchoredAvailabilitySlot

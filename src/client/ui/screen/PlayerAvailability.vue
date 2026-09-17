@@ -344,21 +344,17 @@ import {
 } from '@/client/gateway/playerAvailability.ts'
 import { ensureAnonymousAuth } from '@/client/gateway/realtime.ts'
 import {
-    addHoursToMinuteOfWeek,
     DEFAULT_SLOT_DURATION_HOURS,
     formatColumnDate,
     formatNextOccurrenceLabel,
     formatSlotLabel,
     localCellForEpoch,
-    localDateHourToUtc,
-    localWeekdayHourToMinuteOfWeekUtc,
+    localTimezone,
     localWeekStart,
-    nextBiweeklyOccurrenceUtc,
-    nextMonthlyOccurrenceUtc,
-    nextWeeklyOccurrenceUtc,
     toLocalDateIso,
     weekdayDate,
 } from '@/client/gateway/availabilityTime.ts'
+import { nextOccurrenceStartUtc } from '@/shared/availability/recurrence.mjs'
 import {
     buildAvailabilityGrid,
     CategoryFilter,
@@ -505,14 +501,15 @@ function onCellClick(day: number, hour: number) {
         return
     }
     selectedCell.value = null
-    const startMinute = localWeekdayHourToMinuteOfWeekUtc(day, hour)
     openForm(
         {
             id: crypto.randomUUID(),
             recurrence: SlotRecurrence.Weekly,
             category: SlotCategory.Both,
-            startMinuteOfWeekUtc: startMinute,
-            endMinuteOfWeekUtc: addHoursToMinuteOfWeek(startMinute, DEFAULT_SLOT_DURATION_HOURS),
+            timezone: localTimezone(),
+            weekday: day,
+            startHour: hour,
+            durationHours: DEFAULT_SLOT_DURATION_HOURS,
         },
         false,
     )
@@ -545,15 +542,16 @@ function onCountMeIn() {
         return
     }
     const { day, hour } = selectedCell.value
-    const startUtc = localDateHourToUtc(toLocalDateIso(columnDates.value[day]), hour)
     closeDetail()
     openForm(
         {
             id: crypto.randomUUID(),
             recurrence: SlotRecurrence.Once,
             category: SlotCategory.Both,
-            startUtc,
-            endUtc: startUtc + DEFAULT_SLOT_DURATION_HOURS * 3600000,
+            timezone: localTimezone(),
+            date: toLocalDateIso(columnDates.value[day]),
+            startHour: hour,
+            durationHours: DEFAULT_SLOT_DURATION_HOURS,
         },
         false,
     )
@@ -580,18 +578,6 @@ function subscribeToActiveLanguage() {
     })
 }
 
-// The next occurrence's absolute epoch for a slot that repeats ( weekly, biweekly or
-// monthly ). Used by locateSharedCell below to navigate to the right week.
-function nextSharedOccurrenceUtc(slot: AvailabilitySlot): number {
-    if (slot.recurrence === SlotRecurrence.Weekly) {
-        return nextWeeklyOccurrenceUtc(slot.startMinuteOfWeekUtc, slot.endMinuteOfWeekUtc)
-    }
-    if (slot.recurrence === SlotRecurrence.Biweekly) {
-        return nextBiweeklyOccurrenceUtc(slot.startUtc, slot.endUtc)
-    }
-    return nextMonthlyOccurrenceUtc(slot.startUtc, slot.endUtc)
-}
-
 // Where a shared slot's start falls in the local calendar. A recurring slot lands on its
 // next occurrence's week ( the epoch stamped in the link, or recomputed if it is absent
 // or has slipped into a past week ) ; a one-time slot on the week that contains its date.
@@ -604,13 +590,14 @@ function locateSharedCell(
     hour: number
 } {
     if (slot.recurrence === SlotRecurrence.Once) {
-        const located = localCellForEpoch(slot.startUtc)
+        const located = localCellForEpoch(nextOccurrenceStartUtc(slot, Date.now()))
         return { weekOffset: located.weekOffset, day: located.weekday, hour: located.hour }
     }
-    const stamped = occurrenceUtc !== null ? occurrenceUtc : nextSharedOccurrenceUtc(slot)
+    const stamped =
+        occurrenceUtc !== null ? occurrenceUtc : nextOccurrenceStartUtc(slot, Date.now())
     let located = localCellForEpoch(stamped)
     if (located.weekOffset < 0) {
-        located = localCellForEpoch(nextSharedOccurrenceUtc(slot))
+        located = localCellForEpoch(nextOccurrenceStartUtc(slot, Date.now()))
     }
     return { weekOffset: located.weekOffset, day: located.weekday, hour: located.hour }
 }

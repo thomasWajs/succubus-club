@@ -1,16 +1,6 @@
-import {
-    AvailabilitySlot,
-    PlayerAvailability,
-    SlotCategory,
-    SlotRecurrence,
-} from '@/shared/types/availability.ts'
-import {
-    cellMidEpoch,
-    isWithinBiweeklyRange,
-    isWithinMonthlyRange,
-    isWithinWeeklyRange,
-    utcMinuteOfWeekAt,
-} from '@/client/gateway/availabilityTime.ts'
+import { AvailabilitySlot, PlayerAvailability, SlotCategory } from '@/shared/types/availability.ts'
+import { cellMidEpoch } from '@/client/gateway/availabilityTime.ts'
+import { slotCoversInstant } from '@/shared/availability/recurrence.mjs'
 
 // Aggregates every player's slots into a ( weekday x hour ) heatmap for a displayed
 // local week. Each cell holds the roster of players free during that hour, so the grid
@@ -46,23 +36,6 @@ function mergeCategory(a: SlotCategory, b: SlotCategory): SlotCategory {
     return a === b ? a : SlotCategory.Both
 }
 
-function slotCoversMid(slot: AvailabilitySlot, mid: number): boolean {
-    if (slot.recurrence === SlotRecurrence.Weekly) {
-        return isWithinWeeklyRange(
-            utcMinuteOfWeekAt(mid),
-            slot.startMinuteOfWeekUtc,
-            slot.endMinuteOfWeekUtc,
-        )
-    }
-    if (slot.recurrence === SlotRecurrence.Biweekly) {
-        return isWithinBiweeklyRange(slot.startUtc, slot.endUtc, mid)
-    }
-    if (slot.recurrence === SlotRecurrence.Monthly) {
-        return isWithinMonthlyRange(slot.startUtc, slot.endUtc, mid)
-    }
-    return slot.startUtc <= mid && mid < slot.endUtc
-}
-
 // Returns grid[weekday][hour]. weekday : 0 = Monday .. 6 = Sunday ; hour : 0 .. 23.
 export function buildAvailabilityGrid(
     players: PlayerAvailability[],
@@ -81,7 +54,7 @@ export function buildAvailabilityGrid(
             for (const player of players) {
                 let category: SlotCategory | null = null
                 for (const slot of player.slots) {
-                    if (!slotMatchesFilter(slot, filter) || !slotCoversMid(slot, mid)) {
+                    if (!slotMatchesFilter(slot, filter) || !slotCoversInstant(slot, mid)) {
                         continue
                     }
                     category =
