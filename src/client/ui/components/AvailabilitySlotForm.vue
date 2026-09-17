@@ -350,4 +350,30 @@ function onSave() {
     @include button-purple;
     padding: 0.5rem 1.25rem;
 }
+
+/**
+ *  Mobile ( smartphone ) layout. This form lives inside the Player Availability
+ *  modal, which is reachable from a phone via shared links, so its rows and
+ *  segmented controls need to wrap instead of overflowing the narrow dialog.
+ */
+@media (max-width: 640px) {
+    .form-row {
+        flex-wrap: wrap;
+        gap: 0.5rem 0.75rem;
+    }
+
+    // The day picker and date input stretch to fill the row rather than holding a
+    // fixed 12rem that pushes past the dialog edge.
+    .form-select,
+    .form-input {
+        min-width: 0;
+        width: 100%;
+        flex: 1;
+    }
+
+    // Recurrence and type options wrap onto multiple lines when they can't sit in one.
+    .segment {
+        flex-wrap: wrap;
+    }
+}
 </style>

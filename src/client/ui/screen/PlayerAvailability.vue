@@ -1294,4 +1294,113 @@ async function copyForDiscord() {
     @include button-dark-grey;
     padding: 0.5rem 1.25rem;
 }
+
+/**
+ *  Mobile ( smartphone ) layout. This screen is the one deliberate exception to the
+ *  app's desktop-only rule : shared availability links are meant to be opened on a
+ *  phone, so everything below keeps the calendar and its modals usable on a small
+ *  screen.
+ */
+@media (max-width: 640px) {
+    .availability-content {
+        padding: 0.75rem;
+        gap: 0.85rem;
+    }
+
+    .availability-header {
+        gap: 0.6rem;
+    }
+
+    // On a phone the screen is for consulting shared availability, not managing your
+    // own slots, so the "My availability" panel and the roster's "Count Me In" action
+    // are hidden.
+    .my-availability {
+        display: none;
+    }
+
+    .detail-actions {
+        display: none;
+    }
+
+    .availability-header-left {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .screen-title {
+        font-size: 1.15rem;
+    }
+
+    // Each own-slot row stacks so its label and its three action buttons each get
+    // the full width instead of being crushed onto one line.
+    .my-slot-item {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.5rem;
+    }
+
+    .my-slot-actions {
+        justify-content: flex-end;
+    }
+
+    // Let the week navigation and category filter wrap rather than overflow.
+    .week-nav {
+        flex-wrap: wrap;
+        width: 100%;
+    }
+
+    .week-range {
+        min-width: 0;
+        flex: 1;
+    }
+
+    // Tighten the heatmap so all seven day columns stay visible without scrolling
+    // sideways, while keeping the cells tall enough to tap.
+    .week-calendar {
+        grid-template-columns: 2.2rem repeat(7, 1fr);
+    }
+
+    .calendar-day-header {
+        padding: 0.3rem 0.1rem;
+        font-size: 0.6rem;
+        line-height: 1.15;
+    }
+
+    .calendar-hour-label {
+        padding: 0.2rem 0.15rem;
+        font-size: 0.6rem;
+    }
+
+    .calendar-cell {
+        min-height: 2rem;
+    }
+
+    .cell-count {
+        font-size: 0.65rem;
+    }
+
+    // The three modals drop their fixed desktop min-widths and fill the viewport
+    // ( minus a small gutter ) instead of overflowing off-screen.
+    .detail-dialog,
+    .slot-form-dialog,
+    .share-dialog {
+        width: calc(100vw - 1.5rem);
+        max-width: calc(100vw - 1.5rem);
+        margin: auto;
+    }
+
+    .detail-dialog-content,
+    .slot-dialog-content,
+    .share-dialog-content {
+        box-sizing: border-box;
+        min-width: 0;
+        width: 100%;
+        max-width: none;
+        padding: 1rem;
+    }
+
+    .share-actions {
+        flex-wrap: wrap;
+    }
+}
 </style>

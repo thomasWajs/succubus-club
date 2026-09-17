@@ -32,10 +32,7 @@
                 </div>
             </div>
 
-            <div
-                v-if="screenBigEnough"
-                class="topbar-right"
-            >
+            <div class="topbar-right">
                 <span
                     v-if="showAvailabilityLink"
                     class="availability-button"
@@ -47,6 +44,7 @@
                 </span>
 
                 <span
+                    v-if="screenBigEnough"
                     class="fullscreen-button"
                     :class="{ 'show-hint-arrow': showFullscreenHint }"
                     @click="isFullscreen ? exitFullscreen() : requestFullscreen()"
@@ -55,6 +53,7 @@
                 </span>
 
                 <div
+                    v-if="screenBigEnough"
                     class="user-profile-display"
                     @click="bus.isUserProfilePanelOpen = true"
                 >
