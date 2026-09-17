@@ -10,6 +10,8 @@ export enum SlotCategory {
 
 export enum SlotRecurrence {
     Weekly = 'weekly',
+    Biweekly = 'biweekly',
+    Monthly = 'monthly',
     Once = 'once',
 }
 
@@ -26,16 +28,19 @@ export interface WeeklyAvailabilitySlot {
     endMinuteOfWeekUtc: number
 }
 
-// A one-time slot on a specific date, stored as absolute UTC epoch milliseconds.
-export interface OnceAvailabilitySlot {
+// A slot anchored to a single absolute occurrence : "once" never repeats past it,
+// "biweekly" repeats every two weeks, and "monthly" repeats on the same day each
+// calendar month. All three share the same shape ( one absolute start/end ) ; only the
+// derivation of later occurrences from that anchor differs.
+export interface AnchoredAvailabilitySlot {
     id: string
-    recurrence: SlotRecurrence.Once
+    recurrence: SlotRecurrence.Once | SlotRecurrence.Biweekly | SlotRecurrence.Monthly
     category: SlotCategory
     startUtc: number
     endUtc: number
 }
 
-export type AvailabilitySlot = WeeklyAvailabilitySlot | OnceAvailabilitySlot
+export type AvailabilitySlot = WeeklyAvailabilitySlot | AnchoredAvailabilitySlot
 
 // The document stored per player, per language ( at availability/{lang}/players/{uid} ).
 // `permId` + `name` are the app-level identity ( for display and matching the lobby

@@ -6,6 +6,8 @@ import {
 } from '@/shared/types/availability.ts'
 import {
     cellMidEpoch,
+    isWithinBiweeklyRange,
+    isWithinMonthlyRange,
     isWithinWeeklyRange,
     utcMinuteOfWeekAt,
 } from '@/client/gateway/availabilityTime.ts'
@@ -51,6 +53,12 @@ function slotCoversMid(slot: AvailabilitySlot, mid: number): boolean {
             slot.startMinuteOfWeekUtc,
             slot.endMinuteOfWeekUtc,
         )
+    }
+    if (slot.recurrence === SlotRecurrence.Biweekly) {
+        return isWithinBiweeklyRange(slot.startUtc, slot.endUtc, mid)
+    }
+    if (slot.recurrence === SlotRecurrence.Monthly) {
+        return isWithinMonthlyRange(slot.startUtc, slot.endUtc, mid)
     }
     return slot.startUtc <= mid && mid < slot.endUtc
 }

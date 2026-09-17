@@ -353,6 +353,8 @@ import {
     localDateHourToUtc,
     localWeekdayHourToMinuteOfWeekUtc,
     localWeekStart,
+    nextBiweeklyOccurrenceUtc,
+    nextMonthlyOccurrenceUtc,
     nextWeeklyOccurrenceUtc,
     toLocalDateIso,
     weekdayDate,
@@ -578,9 +580,21 @@ function subscribeToActiveLanguage() {
     })
 }
 
-// Where a shared slot's start falls in the local calendar. A weekly slot lands on its next
-// occurrence's week ( the epoch stamped in the link, or recomputed if it is absent or has
-// slipped into a past week ) ; a one-time slot on the week that contains its date.
+// The next occurrence's absolute epoch for a slot that repeats ( weekly, biweekly or
+// monthly ). Used by locateSharedCell below to navigate to the right week.
+function nextSharedOccurrenceUtc(slot: AvailabilitySlot): number {
+    if (slot.recurrence === SlotRecurrence.Weekly) {
+        return nextWeeklyOccurrenceUtc(slot.startMinuteOfWeekUtc, slot.endMinuteOfWeekUtc)
+    }
+    if (slot.recurrence === SlotRecurrence.Biweekly) {
+        return nextBiweeklyOccurrenceUtc(slot.startUtc, slot.endUtc)
+    }
+    return nextMonthlyOccurrenceUtc(slot.startUtc, slot.endUtc)
+}
+
+// Where a shared slot's start falls in the local calendar. A recurring slot lands on its
+// next occurrence's week ( the epoch stamped in the link, or recomputed if it is absent
+// or has slipped into a past week ) ; a one-time slot on the week that contains its date.
 function locateSharedCell(
     slot: AvailabilitySlot,
     occurrenceUtc: number | null,
@@ -589,20 +603,15 @@ function locateSharedCell(
     day: number
     hour: number
 } {
-    if (slot.recurrence === SlotRecurrence.Weekly) {
-        const stamped =
-            occurrenceUtc !== null ? occurrenceUtc : (
-                nextWeeklyOccurrenceUtc(slot.startMinuteOfWeekUtc, slot.endMinuteOfWeekUtc)
-            )
-        let located = localCellForEpoch(stamped)
-        if (located.weekOffset < 0) {
-            located = localCellForEpoch(
-                nextWeeklyOccurrenceUtc(slot.startMinuteOfWeekUtc, slot.endMinuteOfWeekUtc),
-            )
-        }
+    if (slot.recurrence === SlotRecurrence.Once) {
+        const located = localCellForEpoch(slot.startUtc)
         return { weekOffset: located.weekOffset, day: located.weekday, hour: located.hour }
     }
-    const located = localCellForEpoch(slot.startUtc)
+    const stamped = occurrenceUtc !== null ? occurrenceUtc : nextSharedOccurrenceUtc(slot)
+    let located = localCellForEpoch(stamped)
+    if (located.weekOffset < 0) {
+        located = localCellForEpoch(nextSharedOccurrenceUtc(slot))
+    }
     return { weekOffset: located.weekOffset, day: located.weekday, hour: located.hour }
 }
 

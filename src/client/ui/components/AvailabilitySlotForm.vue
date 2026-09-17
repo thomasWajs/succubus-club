@@ -12,6 +12,20 @@
                 </button>
                 <button
                     class="segment-btn"
+                    :class="{ 'segment-btn-active': recurrence === SlotRecurrence.Biweekly }"
+                    @click="recurrence = SlotRecurrence.Biweekly"
+                >
+                    Every 2 weeks
+                </button>
+                <button
+                    class="segment-btn"
+                    :class="{ 'segment-btn-active': recurrence === SlotRecurrence.Monthly }"
+                    @click="recurrence = SlotRecurrence.Monthly"
+                >
+                    Every month
+                </button>
+                <button
+                    class="segment-btn"
                     :class="{ 'segment-btn-active': recurrence === SlotRecurrence.Once }"
                     @click="recurrence = SlotRecurrence.Once"
                 >
@@ -42,6 +56,11 @@
                 class="form-input"
                 :min="todayLocalDateIso()"
             />
+            <span
+                v-if="recurrenceHint"
+                class="recurrence-hint"
+                >{{ recurrenceHint }}</span
+            >
         </div>
 
         <div class="form-row">
@@ -204,6 +223,18 @@ function onStartChange() {
 // The slot spills into the next day when the end hour is at or before the start.
 const endNextDay = computed(() => endHour.value <= startHour.value)
 
+// Biweekly and monthly slots are anchored to the picked date rather than a plain
+// weekday, so the field needs a hint explaining how they repeat from there.
+const recurrenceHint = computed(() => {
+    if (recurrence.value === SlotRecurrence.Biweekly) {
+        return 'Repeats every 2 weeks from this date'
+    }
+    if (recurrence.value === SlotRecurrence.Monthly) {
+        return 'Repeats on this day every month'
+    }
+    return ''
+})
+
 function durationHours(): number {
     return (endHour.value - startHour.value + 24) % 24 || 24
 }
@@ -227,7 +258,7 @@ function onSave() {
     const startUtc = localDateHourToUtc(dateIso.value, startHour.value)
     emit('save', {
         id,
-        recurrence: SlotRecurrence.Once,
+        recurrence: recurrence.value,
         category: category.value,
         startUtc,
         endUtc: startUtc + duration * 3600000,
@@ -272,7 +303,8 @@ function onSave() {
     width: auto;
 }
 
-.next-day-hint {
+.next-day-hint,
+.recurrence-hint {
     color: $silver-grey;
     font-size: 0.8rem;
     font-style: italic;

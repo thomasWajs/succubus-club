@@ -10,6 +10,9 @@ export const MINUTES_PER_DAY = 1440
 export const MINUTES_PER_WEEK = 10080
 export const DEFAULT_SLOT_DURATION_HOURS = 2
 
+const MS_PER_DAY = 86400000
+const BIWEEKLY_PERIOD_MS = 14 * MS_PER_DAY
+
 // Weekday index used across the feature : 0 = Monday .. 6 = Sunday ( JavaScript's
 // getDay()/getUTCDay() use 0 = Sunday, hence the +6 % 7 shift ).
 export const WEEKDAY_NAMES = [
@@ -75,6 +78,77 @@ export function isWithinWeeklyRange(
     return minute >= startMinute || minute < endMinute
 }
 
+// Whether `mid` falls in any occurrence of a slot anchored at `anchorStartUtc` and
+// repeating every two weeks. Anchor, duration and period are all plain millisecond
+// offsets, so modulo arithmetic is enough ( no DST correction needed, unlike calendar
+// arithmetic ).
+export function isWithinBiweeklyRange(
+    anchorStartUtc: number,
+    anchorEndUtc: number,
+    mid: number,
+): boolean {
+    const duration = anchorEndUtc - anchorStartUtc
+    const phase =
+        (((mid - anchorStartUtc) % BIWEEKLY_PERIOD_MS) + BIWEEKLY_PERIOD_MS) % BIWEEKLY_PERIOD_MS
+    return phase < duration
+}
+
+// Calendar months elapsed between two UTC instants, ignoring day-of-month. Used to
+// bound the search for the calendar month ( relative to the anchor ) that could contain
+// a given instant.
+function utcMonthsBetween(fromUtc: number, toUtc: number): number {
+    const from = new Date(fromUtc)
+    const to = new Date(toUtc)
+    return (
+        (to.getUTCFullYear() - from.getUTCFullYear()) * 12 + (to.getUTCMonth() - from.getUTCMonth())
+    )
+}
+
+// The anchor's occurrence shifted by `months` calendar months, in UTC. A shorter target
+// month clamps the day ( e.g. an anchor on the 31st recurs on the 30th in a 30-day
+// month ), so the duration is re-added rather than recomputed.
+function shiftMonthlyOccurrence(
+    anchorStartUtc: number,
+    durationMs: number,
+    months: number,
+): { start: number; end: number } {
+    const anchor = new Date(anchorStartUtc)
+    const targetMonthIndex = anchor.getUTCMonth() + months
+    const daysInTargetMonth = new Date(
+        Date.UTC(anchor.getUTCFullYear(), targetMonthIndex + 1, 0),
+    ).getUTCDate()
+    const start = Date.UTC(
+        anchor.getUTCFullYear(),
+        targetMonthIndex,
+        Math.min(anchor.getUTCDate(), daysInTargetMonth),
+        anchor.getUTCHours(),
+        anchor.getUTCMinutes(),
+        anchor.getUTCSeconds(),
+        anchor.getUTCMilliseconds(),
+    )
+    return { start, end: start + durationMs }
+}
+
+// Whether `mid` falls in any occurrence of a slot anchored at `anchorStartUtc` and
+// repeating on the same UTC day each calendar month. Checks the neighbouring months too,
+// since a shorter month can shift an occurrence's date relative to a naive month-count
+// estimate.
+export function isWithinMonthlyRange(
+    anchorStartUtc: number,
+    anchorEndUtc: number,
+    mid: number,
+): boolean {
+    const duration = anchorEndUtc - anchorStartUtc
+    const approxMonths = utcMonthsBetween(anchorStartUtc, mid)
+    for (const months of [approxMonths - 1, approxMonths, approxMonths + 1]) {
+        const { start, end } = shiftMonthlyOccurrence(anchorStartUtc, duration, months)
+        if (start <= mid && mid < end) {
+            return true
+        }
+    }
+    return false
+}
+
 // A short, locale-aware column header : weekday + day + month ( e.g. "Mon 15 Sep" ).
 export function formatColumnDate(date: Date): string {
     return new Intl.DateTimeFormat(undefined, {
@@ -116,6 +190,33 @@ export function nextWeeklyOccurrenceUtc(
         start += weekMs
     }
     return start
+}
+
+// The absolute epoch ms of a biweekly slot's next occurrence : the soonest instant on
+// the anchor's every-two-weeks cycle whose end is still in the future.
+export function nextBiweeklyOccurrenceUtc(anchorStartUtc: number, anchorEndUtc: number): number {
+    const duration = anchorEndUtc - anchorStartUtc
+    const now = Date.now()
+    let start = anchorStartUtc
+    while (start + duration <= now) {
+        start += BIWEEKLY_PERIOD_MS
+    }
+    return start
+}
+
+// The absolute epoch ms of a monthly slot's next occurrence : the soonest instant on
+// the anchor's same-day-each-month cycle whose end is still in the future.
+export function nextMonthlyOccurrenceUtc(anchorStartUtc: number, anchorEndUtc: number): number {
+    const duration = anchorEndUtc - anchorStartUtc
+    const now = Date.now()
+    let months = 0
+    for (;;) {
+        const { start, end } = shiftMonthlyOccurrence(anchorStartUtc, duration, months)
+        if (end > now) {
+            return start
+        }
+        months++
+    }
 }
 
 // Local weekday + hour ( as picked in the form ) -> UTC minute-of-week. Anchored to
@@ -195,14 +296,24 @@ function formatHourRange(startHour: number, durationHours: number): string {
     return `${start}:00 - ${end}:00${nextDay}`
 }
 
-// Like formatSlotLabel, but a weekly slot is resolved to its next concrete occurrence
+// The next concrete occurrence's absolute epoch ms for a slot that isn't a one-off :
+// weekly, biweekly and monthly each derive it from their own anchor/cycle.
+function nextOccurrenceUtc(slot: AvailabilitySlot): number {
+    if (slot.recurrence === SlotRecurrence.Weekly) {
+        return nextWeeklyOccurrenceUtc(slot.startMinuteOfWeekUtc, slot.endMinuteOfWeekUtc)
+    }
+    if (slot.recurrence === SlotRecurrence.Biweekly) {
+        return nextBiweeklyOccurrenceUtc(slot.startUtc, slot.endUtc)
+    }
+    return nextMonthlyOccurrenceUtc(slot.startUtc, slot.endUtc)
+}
+
+// Like formatSlotLabel, but a recurring slot is resolved to its next concrete occurrence
 // ( a dated "Mon 21 Sep - 21:00 - 23:00" ) rather than the recurring "Weekly - Mon" form.
 // Used for the share message, which advertises a specific upcoming date.
 export function formatNextOccurrenceLabel(slot: AvailabilitySlot): string {
     const startUtc =
-        slot.recurrence === SlotRecurrence.Weekly ?
-            nextWeeklyOccurrenceUtc(slot.startMinuteOfWeekUtc, slot.endMinuteOfWeekUtc)
-        :   slot.startUtc
+        slot.recurrence === SlotRecurrence.Once ? slot.startUtc : nextOccurrenceUtc(slot)
     const durationHours =
         slot.recurrence === SlotRecurrence.Weekly ?
             weeklyDurationHours(slot.startMinuteOfWeekUtc, slot.endMinuteOfWeekUtc)
@@ -217,7 +328,10 @@ export function formatNextOccurrenceLabel(slot: AvailabilitySlot): string {
 }
 
 // A human-readable label for a slot, in the viewer's local timezone and localized to the
-// given app language ( weekday / month names via Intl, and the "weekly" hint translated ).
+// given app language ( weekday / month names via Intl, and the recurrence hint
+// translated ). A weekly slot reads by weekday only ( "Weekly - Mon 21:00 - 23:00" ) ;
+// biweekly and monthly slots are anchored to a date, so they read by their next
+// occurrence's date instead ( "Biweekly - Mon 21 Sep 21:00 - 23:00" ).
 export function formatSlotLabel(slot: AvailabilitySlot, languageCode: string): string {
     const locale = localeFor(languageCode)
     if (slot.recurrence === SlotRecurrence.Weekly) {
@@ -228,6 +342,23 @@ export function formatSlotLabel(slot: AvailabilitySlot, languageCode: string): s
         const dayName = new Intl.DateTimeFormat(locale, { weekday: 'short' }).format(weekdayDate)
         const weekly = capitalize(getTranslations(languageCode).weekly)
         return `${weekly} - ${dayName} ${formatHourRange(hour, duration)}`
+    }
+    if (slot.recurrence === SlotRecurrence.Biweekly || slot.recurrence === SlotRecurrence.Monthly) {
+        const startUtc = nextOccurrenceUtc(slot)
+        const duration = onceDurationHours(slot.startUtc, slot.endUtc)
+        const { hour } = utcToLocalDateHour(startUtc)
+        const date = new Intl.DateTimeFormat(locale, {
+            weekday: 'short',
+            day: 'numeric',
+            month: 'short',
+        }).format(new Date(startUtc))
+        const translations = getTranslations(languageCode)
+        const hint = capitalize(
+            slot.recurrence === SlotRecurrence.Biweekly ?
+                translations.biweekly
+            :   translations.monthly,
+        )
+        return `${hint} - ${date} ${formatHourRange(hour, duration)}`
     }
     const { hour } = utcToLocalDateHour(slot.startUtc)
     const duration = onceDurationHours(slot.startUtc, slot.endUtc)
