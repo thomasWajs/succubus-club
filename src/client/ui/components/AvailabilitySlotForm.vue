@@ -1,5 +1,13 @@
 <template>
     <div class="slot-form">
+        <div
+            v-if="languageName"
+            class="form-row"
+        >
+            <span class="form-label">Language</span>
+            <span class="active-language">{{ languageName }}</span>
+        </div>
+
         <div class="form-row">
             <span class="form-label">When</span>
             <div class="segment">
@@ -136,6 +144,8 @@ const props = defineProps<{
     // built from a clicked cell, or a shared slot ; whether it becomes a new slot or an
     // update is decided by the caller from its id. Absent means a blank new slot.
     initialSlot?: AvailabilitySlot | null
+    // The language board this slot is being added to, shown as a reminder.
+    languageName?: string
 }>()
 
 const emit = defineEmits<{
@@ -290,6 +300,19 @@ function onSave() {
     color: $silver-grey;
     font-size: 0.8rem;
     font-style: italic;
+}
+
+// Distinctive badge reminding which language board this slot will be added to. Mirrors
+// the blood-red badge on the screen title so both read as the one "current language"
+// signal, kept exclusive from the purple buttons/tabs.
+.active-language {
+    display: inline-block;
+    padding: 0.1rem 0.6rem;
+    background: rgba($blood-red, 0.35);
+    border: 1px solid $crimson-red;
+    color: $rose-red;
+    font-size: 0.85rem;
+    letter-spacing: 0.5px;
 }
 
 .segment {

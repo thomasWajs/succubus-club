@@ -11,8 +11,10 @@
                     >
                         {{ backLabel }}
                     </button>
-                    <h2 class="screen-title">Player Availability - {{ activeLanguageName }}</h2>
+                    <h2 class="screen-title">Player Availability</h2>
                 </div>
+
+                <span class="active-language">{{ activeLanguageName }}</span>
 
                 <!-- Language selection, sharing the lobby chat preference -->
                 <div class="language-tabs">
@@ -263,6 +265,7 @@
                 <AvailabilitySlotForm
                     v-if="formOpen"
                     :initial-slot="editingSlot"
+                    :language-name="activeLanguageName"
                     @save="onSaveSlot"
                     @cancel="closeForm"
                 />
@@ -817,6 +820,20 @@ async function copyForDiscord() {
     font-weight: 300;
     font-family: serif;
     letter-spacing: 0.5px;
+}
+
+// Distinctive badge marking which language board is currently in view. Uses the blood-red
+// accent, kept exclusive to this badge ( buttons/tabs are purple, cells teal ) so the
+// current language reads as its own signal.
+.active-language {
+    display: inline-block;
+    padding: 0.1rem 0.6rem;
+    background: rgba($blood-red, 0.35);
+    border: 1px solid $crimson-red;
+    color: $rose-red;
+    font-size: 1.4em;
+    letter-spacing: 0.5px;
+    vertical-align: middle;
 }
 
 .language-tabs {
