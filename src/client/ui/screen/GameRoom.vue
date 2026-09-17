@@ -45,23 +45,18 @@ function onSendChat(text: string) {
 </script>
 
 <style lang="scss" scoped>
-@use '../../styles/base' as *;
-
 .game-room-container {
     background: black;
 }
 
 .game-room-content {
+    @include screen-page;
     display: grid;
     grid-template-columns: 1fr;
     grid-template-rows: minmax(380px, auto) minmax(280px, 1fr);
     grid-template-areas:
         'current-room'
         'room-chat';
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 1.5rem;
-    gap: 1.5rem;
     min-height: calc(100vh - $topbar-height - 4rem);
 }
 

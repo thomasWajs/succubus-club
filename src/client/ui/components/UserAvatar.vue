@@ -90,6 +90,7 @@ const emit = defineEmits<Emits>()
 }
 
 .avatar-overlay {
+    @include flex-center;
     position: absolute;
     top: 0;
     left: 0;
@@ -97,9 +98,6 @@ const emit = defineEmits<Emits>()
     bottom: 0;
     background-color: rgba(black, 0.5);
     border-radius: inherit;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     opacity: 0;
     transition: opacity 0.2s ease;
 }

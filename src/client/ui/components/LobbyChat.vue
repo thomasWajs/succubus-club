@@ -125,8 +125,6 @@ onUnmounted(() => {
 </script>
 
 <style lang="scss" scoped>
-@use '../../styles/base' as *;
-
 .chat-panel {
     @include panel;
     display: flex;
@@ -144,11 +142,8 @@ onUnmounted(() => {
 }
 
 .panel-title {
-    margin: 0 0 1rem 0;
-    font-size: 1.25rem;
-    font-weight: 300;
-    font-family: serif;
-    letter-spacing: 0.5px;
+    @include serif-heading(1.25rem);
+    margin-bottom: 1rem;
 
     &.no-margin {
         margin: 0;
@@ -156,14 +151,13 @@ onUnmounted(() => {
 }
 
 .chat-log {
+    @include list-item;
     flex: 1;
-    display: flex;
     flex-direction: column;
+    justify-content: flex-start;
     gap: 0.4rem;
     overflow-y: auto;
     padding: 0.5rem;
-    background: rgba(black, 0.2);
-    border: 1px solid $ash-grey;
     border-radius: 0.25rem;
     min-height: 0;
 }
@@ -200,14 +194,13 @@ onUnmounted(() => {
 }
 
 .chat-disabled-note {
+    @include list-item;
     @include flex-center;
     margin-top: 0.75rem;
     padding: 0.6rem;
     color: $silver-grey;
     font-style: italic;
     font-size: 0.9rem;
-    background: rgba(black, 0.2);
-    border: 1px solid $ash-grey;
     border-radius: 0.25rem;
 }
 

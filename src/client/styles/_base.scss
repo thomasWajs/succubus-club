@@ -13,7 +13,7 @@ body {
 }
 
 a {
-    color: #4a9dff;
+    color: $link-blue;
     text-decoration: none;
 }
 
@@ -107,31 +107,23 @@ select {
 }
 
 .red-badge {
-    @include badge;
-    background: $dark-blood;
-    color: $pearl-grey;
+    @include red-badge;
 }
 
 .purple-badge {
-    @include badge;
-    background: $shadow-purple;
+    @include purple-badge;
 }
 
 .teal-badge {
-    @include badge;
-    background: $shadow-teal;
+    @include teal-badge;
 }
 
 .red-secondary-badge {
-    @include secondary-badge;
-    color: $pale-grey;
-    background: $dark-blood;
+    @include red-secondary-badge;
 }
 
 .blue-secondary-badge {
-    @include secondary-badge;
-    color: $pearl-grey;
-    background: $twilight-blue;
+    @include blue-secondary-badge;
 }
 
 .blood-list {
@@ -140,6 +132,23 @@ select {
     li::marker {
         content: '🩸  ';
         font-size: 0.9rem;
+    }
+}
+
+.reconnect-spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    margin-right: 0.5rem;
+    border: 2px solid rgba(white, 0.3);
+    border-radius: 50%;
+    border-top-color: white;
+    animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
     }
 }
 

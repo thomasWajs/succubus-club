@@ -539,8 +539,6 @@ if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
 </script>
 
 <style lang="scss" scoped>
-@use '../../styles/base' as *;
-
 .lobby-container {
     background: black;
 }
@@ -563,32 +561,12 @@ if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
     }
 }
 
-.reconnect-spinner {
-    display: inline-block;
-    width: 14px;
-    height: 14px;
-    margin-right: 0.5rem;
-    border: 2px solid rgba(255, 255, 255, 0.3);
-    border-radius: 50%;
-    border-top-color: #fff;
-    animation: spin 1s ease-in-out infinite;
-}
-
-@keyframes spin {
-    0% {
-        transform: rotate(0deg);
-    }
-    100% {
-        transform: rotate(360deg);
-    }
-}
-
 /**
  *  Main content
  */
 
 .lobby-content {
-    box-sizing: border-box;
+    @include screen-page;
     display: grid;
     grid-template-columns: 300px 1fr;
     // The players / rooms row sizes to its content ( so the room list stays
@@ -599,11 +577,9 @@ if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
     grid-template-areas:
         'players-sidebar rooms-section'
         'lobby-chat lobby-chat';
-    max-width: 1400px;
-    margin: 0 auto;
     padding: 1.5rem 1.5rem 0;
-    gap: 1.5rem;
     height: calc(100vh - $topbar-height - 1.5rem);
+    min-height: unset;
     overflow: hidden;
 
     &.has-banner {
@@ -641,21 +617,11 @@ if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
 }
 
 .language-tab {
-    padding: 0.4rem 0.7rem;
-    background: $shadow-grey;
-    border: 1px solid $bone-grey;
-    color: $pearl-grey;
-    cursor: pointer;
+    @include tab-button;
     text-align: left;
 
-    &:hover {
-        background: rgba($bone-grey, 0.65);
-        border-color: $mist-grey;
-    }
-
     &.language-tab-active {
-        background: rgba($shadow-purple, 0.5);
-        border-color: $mist-grey;
+        @include tab-button-active;
     }
 
     .language-short {
@@ -673,11 +639,8 @@ if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
 }
 
 .panel-title {
+    @include serif-heading(1.25rem);
     margin: 0 0 1rem 0;
-    font-size: 1.25rem;
-    font-weight: 300;
-    font-family: serif;
-    letter-spacing: 0.5px;
 
     &.no-margin {
         margin: 0;
@@ -740,7 +703,7 @@ if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
     gap: 0.75rem;
     padding: 0;
     border-radius: 0.25rem;
-    transition: all 0.2s ease;
+    transition: all 0.3s ease;
     border: 1px solid transparent;
 
     /*
@@ -802,11 +765,11 @@ if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
     }
 
     &.scs-connecting {
-        background: rgba(orange, 0.1);
+        background: rgba($status-amber, 0.1);
         color: $silver-grey;
 
         .scs-indicator {
-            background: orange;
+            background: $status-amber;
             animation: pulse 1.5s ease-in-out infinite;
         }
     }
@@ -868,11 +831,7 @@ if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
 
     &.room-selected {
         border-color: $mist-grey;
-        background: linear-gradient(
-            135deg,
-            rgba($shadow-purple, 0.3) 0%,
-            rgba($deep-purple, 0.5) 100%
-        );
+        @include active-gradient;
     }
 }
 
@@ -898,7 +857,7 @@ if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
     }
 
     .room-setting-badge {
-        @extend .teal-badge;
+        @include teal-badge;
         width: 2rem;
     }
 

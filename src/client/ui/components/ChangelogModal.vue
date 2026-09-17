@@ -101,27 +101,19 @@ onMounted(() => {
 
 <style lang="scss" scoped>
 .changelog-modal {
-    border: none;
-    padding: 0;
+    @include modal-dialog;
     max-width: 600px;
     width: 90%;
-    z-index: 1200;
-
-    &::backdrop {
-        background: rgba(0, 0, 0, 0.8);
-    }
 }
 
 .modal-content {
-    background: $ash-grey;
+    @include modal-content($padding: 1rem);
     color: $ghost-white;
-    padding: 1rem;
 }
 
 .modal-content h2 {
-    color: $pearl-grey;
+    @include modal-title;
     margin: 1rem 0;
-    font-size: 1.5rem;
     text-align: center;
 }
 

@@ -776,21 +776,15 @@ async function copyForDiscord() {
 </script>
 
 <style lang="scss" scoped>
-@use '../../styles/base' as *;
-
 .availability-container {
     background: black;
 }
 
 .availability-content {
-    box-sizing: border-box;
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 1.5rem;
+    @include screen-page;
     display: flex;
     flex-direction: column;
     gap: 1rem;
-    min-height: calc(100vh - $topbar-height);
 }
 
 .availability-header {
@@ -815,11 +809,7 @@ async function copyForDiscord() {
 }
 
 .screen-title {
-    margin: 0;
-    font-size: 1.5rem;
-    font-weight: 300;
-    font-family: serif;
-    letter-spacing: 0.5px;
+    @include serif-heading(1.5rem);
 }
 
 // Distinctive badge marking which language board is currently in view. Uses the blood-red
@@ -843,23 +833,12 @@ async function copyForDiscord() {
 }
 
 .language-tab {
-    padding: 0.3rem 0.7rem;
-    background: $shadow-grey;
-    border: 1px solid $bone-grey;
-    color: $pearl-grey;
-    cursor: pointer;
+    @include tab-button;
     font-family: serif;
-    font-size: 0.9rem;
     letter-spacing: 0.5px;
 
-    &:hover {
-        background: rgba($bone-grey, 0.65);
-        border-color: $mist-grey;
-    }
-
     &.language-tab-active {
-        background: rgba($shadow-purple, 0.5);
-        border-color: $mist-grey;
+        @include tab-button-active;
     }
 }
 
@@ -903,11 +882,7 @@ async function copyForDiscord() {
 }
 
 .section-title {
-    margin: 0;
-    font-size: 1.15rem;
-    font-weight: 300;
-    font-family: serif;
-    letter-spacing: 0.5px;
+    @include serif-heading(1.15rem);
     color: $pearl-grey;
 }
 
@@ -929,12 +904,10 @@ async function copyForDiscord() {
 }
 
 .my-slot-item {
-    display: flex;
-    align-items: center;
+    @include list-item;
+    justify-content: flex-start;
     gap: 1rem;
     padding: 0.5rem 0.75rem;
-    background: rgba(black, 0.2);
-    border: 1px solid $ash-grey;
 }
 
 .my-slot-label {
@@ -953,12 +926,7 @@ async function copyForDiscord() {
     gap: 0.5rem;
 }
 
-.slot-share-btn {
-    @include button-dark-grey;
-    padding: 0.3rem 0.7rem;
-    font-size: 0.85rem;
-}
-
+.slot-share-btn,
 .slot-edit-btn {
     @include button-dark-grey;
     padding: 0.3rem 0.7rem;
@@ -1016,21 +984,10 @@ async function copyForDiscord() {
 }
 
 .filter-btn {
-    padding: 0.35rem 0.9rem;
-    background: $shadow-grey;
-    border: 1px solid $bone-grey;
-    color: $pearl-grey;
-    cursor: pointer;
-    font-size: 0.9rem;
-
-    &:hover {
-        background: rgba($bone-grey, 0.65);
-        border-color: $mist-grey;
-    }
+    @include tab-button;
 
     &.filter-btn-active {
-        background: rgba($shadow-purple, 0.5);
-        border-color: $mist-grey;
+        @include tab-button-active;
     }
 }
 
@@ -1125,11 +1082,9 @@ async function copyForDiscord() {
 }
 
 .cell-count {
+    @include flex-center;
     position: absolute;
     inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     font-size: 0.7rem;
     color: rgba(white, 0.9);
 }
@@ -1139,25 +1094,14 @@ async function copyForDiscord() {
  */
 
 .detail-dialog {
-    border: none;
-    padding: 0;
-    background: transparent;
-    z-index: 1200;
-
-    &::backdrop {
-        background: rgba(black, 0.8);
-    }
+    @include modal-dialog;
 }
 
 .detail-dialog-content {
-    display: flex;
-    flex-direction: column;
+    @include modal-content($shadow-grey, 1.5rem);
     gap: 0.75rem;
     min-width: 24rem;
     max-width: 32rem;
-    padding: 1.5rem;
-    background: $shadow-grey;
-    border: 1px solid $bone-grey;
 }
 
 .cell-detail-header {
@@ -1179,13 +1123,9 @@ async function copyForDiscord() {
 }
 
 .roster-entry {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    @include list-item;
     gap: 1rem;
     padding: 0.4rem 0.6rem;
-    background: rgba(black, 0.2);
-    border: 1px solid $ash-grey;
 }
 
 .roster-name {
@@ -1208,11 +1148,6 @@ async function copyForDiscord() {
 .im-in-btn {
     @include button-purple;
     padding: 0.5rem 1.25rem;
-
-    &:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
 }
 
 /**
@@ -1220,24 +1155,13 @@ async function copyForDiscord() {
  */
 
 .slot-form-dialog {
-    border: none;
-    padding: 0;
-    background: transparent;
-    z-index: 1200;
-
-    &::backdrop {
-        background: rgba(black, 0.8);
-    }
+    @include modal-dialog;
 }
 
 .slot-dialog-content {
-    display: flex;
-    flex-direction: column;
+    @include modal-content($shadow-grey, 1.5rem);
     gap: 1rem;
     min-width: 30rem;
-    padding: 1.5rem;
-    background: $shadow-grey;
-    border: 1px solid $bone-grey;
 }
 
 /**
@@ -1245,25 +1169,14 @@ async function copyForDiscord() {
  */
 
 .share-dialog {
-    border: none;
-    padding: 0;
-    background: transparent;
-    z-index: 1200;
-
-    &::backdrop {
-        background: rgba(black, 0.8);
-    }
+    @include modal-dialog;
 }
 
 .share-dialog-content {
-    display: flex;
-    flex-direction: column;
+    @include modal-content($shadow-grey, 1.5rem);
     gap: 0.75rem;
     min-width: 26rem;
     max-width: 36rem;
-    padding: 1.5rem;
-    background: $shadow-grey;
-    border: 1px solid $bone-grey;
 }
 
 .share-hint {

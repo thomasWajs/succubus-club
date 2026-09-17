@@ -7,6 +7,52 @@
     justify-content: center;
 }
 
+@mixin flex-center-column {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: start;
+}
+
+@mixin flex-center-inline {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+@mixin icon-button {
+    @include flex-center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+}
+
+@mixin custom-checkbox {
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border: 2px solid $pearl-grey;
+    background: transparent;
+    cursor: pointer;
+    position: relative;
+
+    &:checked {
+        background: $royal-purple;
+        border-color: $royal-purple;
+    }
+
+    &:checked::after {
+        content: '✓';
+        position: absolute;
+        top: -2px;
+        left: 2px;
+        color: white;
+        font-size: 14px;
+        font-weight: bold;
+    }
+}
+
 @mixin button-base {
     color: $pearl-grey;
     border: 1px solid $bone-grey;
@@ -79,6 +125,78 @@
     }
 }
 
+@mixin screen-page {
+    box-sizing: border-box;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 1.5rem;
+    gap: 1.5rem;
+    min-height: calc(100vh - $topbar-height);
+}
+
+@mixin tab-button {
+    padding: 0.35rem 0.75rem;
+    background: $shadow-grey;
+    border: 1px solid $bone-grey;
+    color: $pearl-grey;
+    font-size: 0.9rem;
+    cursor: pointer;
+
+    &:hover {
+        background: rgba($bone-grey, 0.65);
+        border-color: $mist-grey;
+    }
+}
+
+@mixin tab-button-active {
+    background: rgba($shadow-purple, 0.5);
+    border-color: $mist-grey;
+}
+
+@mixin active-gradient {
+    background: linear-gradient(135deg, rgba($shadow-purple, 0.3) 0%, rgba($deep-purple, 0.5) 100%);
+}
+
+@mixin serif-heading($size) {
+    margin: 0;
+    font-size: $size;
+    font-weight: 300;
+    font-family: serif;
+    letter-spacing: 0.5px;
+}
+
+@mixin modal-dialog {
+    border: none;
+    padding: 0;
+    background: transparent;
+    z-index: 1200;
+
+    &::backdrop {
+        background: rgba(black, 0.8);
+    }
+}
+
+@mixin modal-content($background: $ash-grey, $padding: 2rem) {
+    display: flex;
+    flex-direction: column;
+    padding: $padding;
+    background: $background;
+    border: 1px solid $bone-grey;
+}
+
+@mixin modal-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 1.5rem;
+}
+
+@mixin modal-title {
+    color: $pearl-grey;
+    margin-bottom: 1rem;
+    font-size: 1.5rem;
+}
+
 @mixin panel {
     background: $shadow-grey;
     border: 1px solid $ash-grey;
@@ -128,6 +246,22 @@
     border: 1px solid $bone-grey;
 }
 
+@mixin red-badge {
+    @include badge;
+    background: $dark-blood;
+    color: $pearl-grey;
+}
+
+@mixin purple-badge {
+    @include badge;
+    background: $shadow-purple;
+}
+
+@mixin teal-badge {
+    @include badge;
+    background: $shadow-teal;
+}
+
 @mixin secondary-badge {
     font-size: 0.7rem;
     font-weight: 500;
@@ -135,4 +269,16 @@
     letter-spacing: 0.3px;
     padding: 0.2rem 0.5rem;
     border-radius: 0.25rem;
+}
+
+@mixin red-secondary-badge {
+    @include secondary-badge;
+    color: $pale-grey;
+    background: $dark-blood;
+}
+
+@mixin blue-secondary-badge {
+    @include secondary-badge;
+    color: $pearl-grey;
+    background: $twilight-blue;
 }

@@ -83,28 +83,19 @@ defineExpose({
 
 <style lang="scss" scoped>
 .train-bot-disclaimer-modal {
-    border: none;
-    padding: 0;
+    @include modal-dialog;
     max-width: 600px;
     width: 90%;
-    z-index: 1200;
-
-    &::backdrop {
-        background: rgba(0, 0, 0, 0.8);
-    }
 }
 
 .modal-content {
-    background: $ash-grey;
+    @include modal-content;
     color: $ghost-white;
-    padding: 2rem;
     text-align: center;
 }
 
 .modal-content h2 {
-    color: $pearl-grey;
-    margin-bottom: 1rem;
-    font-size: 1.5rem;
+    @include modal-title;
 }
 
 .modal-content p {
@@ -135,28 +126,7 @@ defineExpose({
 }
 
 .dont-show-again input[type='checkbox'] {
-    appearance: none;
-    width: 18px;
-    height: 18px;
-    border: 2px solid $pearl-grey;
-    background: transparent;
-    cursor: pointer;
-    position: relative;
-
-    &:checked {
-        background: $royal-purple;
-        border-color: $royal-purple;
-    }
-
-    &:checked::after {
-        content: '✓';
-        position: absolute;
-        top: -2px;
-        left: 2px;
-        color: white;
-        font-size: 14px;
-        font-weight: bold;
-    }
+    @include custom-checkbox;
 }
 
 .understood-button {

@@ -252,10 +252,7 @@ const showMobileMessage = !screenBigEnough && !isCrawler()
 }
 
 #MainMenu {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: start;
+    @include flex-center-column;
     text-align: center;
 }
 

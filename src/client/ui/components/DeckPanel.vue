@@ -648,8 +648,6 @@ function viewDeck(deck?: DbDeck) {
 </script>
 
 <style lang="scss" scoped>
-@use '../../styles/base' as *;
-
 $max-width: 1200px;
 
 /** Panel style **/
@@ -695,7 +693,7 @@ $max-width: 1200px;
 
 .error-message {
     @include flex-center;
-    background: $dark-blood 100%;
+    background: $dark-blood;
     color: $pearl-grey;
     padding: 1rem 1.25rem;
     border-radius: 6px;
@@ -710,13 +708,9 @@ $max-width: 1200px;
 }
 
 .error-close-btn {
-    @include flex-center;
-    background: none;
-    border: none;
+    @include icon-button;
     color: $pearl-grey;
     font-size: 1.5rem;
-    cursor: pointer;
-    padding: 0;
     margin-left: 1rem;
     width: 24px;
     height: 24px;
@@ -752,7 +746,7 @@ $max-width: 1200px;
 }
 
 .source-badge {
-    @extend .purple-badge;
+    @include purple-badge;
     width: 35px;
 }
 

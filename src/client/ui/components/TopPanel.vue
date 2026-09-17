@@ -114,12 +114,9 @@ const handleOverlayClick = () => {
 }
 
 .top-panel-title {
+    @include serif-heading(1.25rem);
     flex: 1;
-    font-size: 1.25rem;
-    font-weight: 300;
     color: $pearl-grey;
-    font-family: serif;
-    letter-spacing: 0.5px;
 }
 
 .close-button {

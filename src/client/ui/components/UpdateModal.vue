@@ -58,28 +58,19 @@ onMounted(() => {
 
 <style lang="scss" scoped>
 .update-modal {
-    border: none;
-    padding: 0;
+    @include modal-dialog;
     max-width: 500px;
     width: 90%;
-    z-index: 1200;
-
-    &::backdrop {
-        background: rgba(0, 0, 0, 0.8);
-    }
 }
 
 .modal-content {
-    background: $ash-grey;
+    @include modal-content;
     color: $ghost-white;
-    padding: 2rem;
     text-align: center;
 }
 
 .modal-content h2 {
-    color: $pearl-grey;
-    margin-bottom: 1rem;
-    font-size: 1.5rem;
+    @include modal-title;
 }
 
 .modal-content p {
@@ -88,10 +79,7 @@ onMounted(() => {
 }
 
 .modal-buttons {
-    display: flex;
-    gap: 1rem;
-    justify-content: center;
-    margin-top: 1.5rem;
+    @include modal-actions;
 }
 
 .refresh-button {

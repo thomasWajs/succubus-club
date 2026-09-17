@@ -82,33 +82,30 @@ const bus = useBusStore()
     z-index: 1101;
 
     &.error {
-        background-color: #2d1a1a;
-        border: 1px solid #6b3636;
-        color: #e89999;
+        background-color: $alert-error-bg;
+        border: 1px solid $alert-error-border;
+        color: $alert-error-text;
     }
 
     &.success {
-        background-color: #1a2d1a;
-        border: 1px solid #2d5a2d;
-        color: #7ad47a;
+        background-color: $alert-success-bg;
+        border: 1px solid $alert-success-border;
+        color: $alert-success-text;
     }
 
     &.warning {
-        background-color: #2d251a;
-        border: 1px solid #5a4d2d;
-        color: #d4b47a;
+        background-color: $alert-warning-bg;
+        border: 1px solid $alert-warning-border;
+        color: $alert-warning-text;
     }
 }
 
 .alert-dismiss {
-    @include flex-center;
+    @include icon-button;
     position: absolute;
     right: 8px;
     top: 50%;
     transform: translateY(-50%);
-    background: none;
-    border: none;
-    cursor: pointer;
     padding: 4px;
     color: inherit;
     opacity: 0.7;

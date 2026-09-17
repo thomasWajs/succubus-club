@@ -294,8 +294,6 @@ function onImageError() {
 </script>
 
 <style lang="scss" scoped>
-@use '../../styles/base' as *;
-
 .deck-viewer {
     position: relative;
     display: flex;
@@ -410,9 +408,7 @@ function onImageError() {
 }
 
 .card-loading {
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    @include flex-center;
     width: 300px;
     height: 420px;
     background: $ash-grey;
@@ -429,17 +425,11 @@ function onImageError() {
     animation: spin 0.8s linear infinite;
 }
 
-@keyframes spin {
-    to {
-        transform: rotate(360deg);
-    }
-}
-
 .card-image {
     max-width: 100%;
     height: auto;
     border: 2px solid $bone-grey;
     border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 4px 12px rgba(black, 0.5);
 }
 </style>

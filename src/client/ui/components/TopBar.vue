@@ -213,10 +213,8 @@ const showFullscreenHint = computed(() => {
 }
 
 .about-icon {
+    @include flex-center-inline;
     margin-top: -1px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
     width: 20px;
     height: 20px;
     border-radius: 50%;

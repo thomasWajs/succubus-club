@@ -763,6 +763,7 @@ $max-width: 1200px;
     }
 
     input {
+        @include input-base;
         font-size: 18px;
         padding: 0.25rem;
         width: 40px;
@@ -808,14 +809,12 @@ $max-width: 1200px;
 }
 
 .background-dropzone-overlay {
+    @include flex-center;
     position: absolute;
     inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     text-align: center;
     padding: 1rem;
-    color: #fff;
+    color: white;
     background-color: rgba($shadow-grey, 0.55);
     opacity: 0;
     transition: opacity 0.15s ease;

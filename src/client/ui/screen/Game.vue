@@ -49,7 +49,7 @@ import { useGameBusStore } from '@/client/store/bus.ts'
 import { display } from '@/client/game/display.ts'
 import ZoomedCard from '@/client/ui/ingame/ZoomedCard.vue'
 import FocusModeDisclaimer from '@/client/ui/ingame/FocusModeDisclaimer.vue'
-import { watch, ref } from 'vue'
+import { ref, watch } from 'vue'
 
 const core = useCoreStore()
 const gameBus = useGameBusStore()
@@ -161,7 +161,7 @@ watch(
 .focus-overlay {
     position: absolute;
     inset: 0;
-    background: #808080;
+    background: $pale-grey;
     opacity: 1;
     z-index: 1500;
     pointer-events: none;

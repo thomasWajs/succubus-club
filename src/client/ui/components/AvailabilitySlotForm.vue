@@ -259,15 +259,14 @@ function onSave() {
 </script>
 
 <style lang="scss" scoped>
-@use '../../styles/base' as *;
-
 .slot-form {
-    display: flex;
+    @include list-item;
     flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
     gap: 0.75rem;
     padding: 1rem;
-    background: rgba(black, 0.2);
-    border: 1px solid $ash-grey;
+    border-radius: 0;
 }
 
 .form-row {
@@ -321,21 +320,11 @@ function onSave() {
 }
 
 .segment-btn {
+    @include tab-button;
     padding: 0.4rem 0.9rem;
-    background: $shadow-grey;
-    border: 1px solid $bone-grey;
-    color: $pearl-grey;
-    cursor: pointer;
-    font-size: 0.9rem;
-
-    &:hover {
-        background: rgba($bone-grey, 0.65);
-        border-color: $mist-grey;
-    }
 
     &.segment-btn-active {
-        background: rgba($shadow-purple, 0.5);
-        border-color: $mist-grey;
+        @include tab-button-active;
     }
 }
 

@@ -180,27 +180,19 @@ defineExpose({
 
 <style lang="scss" scoped>
 .puppeteer-modal {
-    border: none;
-    padding: 0;
+    @include modal-dialog;
     max-width: 500px;
     width: 95%;
-    z-index: 1200;
-
-    &::backdrop {
-        background: rgba(0, 0, 0, 0.8);
-    }
 }
 
 .modal-content {
-    background: $ash-grey;
+    @include modal-content;
     color: $ghost-white;
-    padding: 2rem;
 }
 
 .modal-content h2 {
-    color: $pearl-grey;
+    @include modal-title;
     margin-bottom: 0.25rem;
-    font-size: 1.5rem;
     text-align: center;
 }
 
@@ -233,11 +225,11 @@ defineExpose({
 }
 
 .deck-select {
+    @include input-base;
     background: $shadow-grey;
     border: 1px solid $royal-purple;
     color: $ghost-white;
     padding: 0.4rem 0.6rem;
-    font-size: 0.9rem;
     border-radius: 0.2rem;
     width: 100%;
     cursor: pointer;
@@ -248,12 +240,12 @@ defineExpose({
     }
 
     &:focus {
-        outline: none;
         border-color: $neon-purple;
     }
 }
 
 .remove-btn {
+    @include flex-center;
     background: transparent;
     border: 1px solid rgba($warm-coral, 0.5);
     color: $warm-coral;
@@ -263,9 +255,6 @@ defineExpose({
     line-height: 1;
     cursor: pointer;
     border-radius: 0.2rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     padding: 0;
 
     &:hover {

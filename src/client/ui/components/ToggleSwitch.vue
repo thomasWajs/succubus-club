@@ -91,11 +91,7 @@ function handleSelect(value: string) {
     }
 
     &.active {
-        background: linear-gradient(
-            135deg,
-            rgba($shadow-purple, 0.3) 0%,
-            rgba($deep-purple, 0.5) 100%
-        );
+        @include active-gradient;
         border-color: $mist-grey;
     }
 
@@ -119,9 +115,7 @@ function handleSelect(value: string) {
 }
 
 .option-info {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+    @include flex-center-inline;
     width: 24px;
     height: 24px;
     font-size: 1.25rem;

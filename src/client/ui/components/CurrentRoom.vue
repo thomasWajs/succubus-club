@@ -685,34 +685,9 @@ async function startConnectIntoGame(gameRoom?: any) {
 </script>
 
 <style lang="scss" scoped>
-@use '../../styles/base' as *;
-
 .panel-title {
-    margin: 0 0 1rem 0;
-    font-size: 1.25rem;
-    font-weight: 300;
-    font-family: serif;
-    letter-spacing: 0.5px;
-}
-
-.reconnect-spinner {
-    display: inline-block;
-    width: 14px;
-    height: 14px;
-    margin-right: 0.5rem;
-    border: 2px solid rgba(255, 255, 255, 0.3);
-    border-radius: 50%;
-    border-top-color: #fff;
-    animation: spin 1s ease-in-out infinite;
-}
-
-@keyframes spin {
-    0% {
-        transform: rotate(0deg);
-    }
-    100% {
-        transform: rotate(360deg);
-    }
+    @include serif-heading(1.25rem);
+    margin-bottom: 1rem;
 }
 
 /**
@@ -956,12 +931,11 @@ async function startConnectIntoGame(gameRoom?: any) {
 }
 
 .side-seat {
-    display: flex;
-    align-items: center;
+    @include list-item;
+    justify-content: flex-start;
     gap: 0.5rem;
     padding: 0.25rem 0.75rem;
     background: rgba($shadow-grey, 0.5);
-    border: 1px solid $ash-grey;
     border-radius: 0.25rem;
 
     &.judge {
@@ -1046,7 +1020,7 @@ async function startConnectIntoGame(gameRoom?: any) {
 .wait-for-players {
     color: $pale-grey;
     font-style: italic;
-    background: linear-gradient(135deg, rgba($shadow-purple, 0.3) 0%, rgba($deep-purple, 0.5) 100%);
+    @include active-gradient;
     border: 1px solid $mist-grey;
     border-radius: 0.5rem;
     font-weight: 300;
@@ -1063,7 +1037,7 @@ async function startConnectIntoGame(gameRoom?: any) {
 }
 
 .saved-game-badge {
-    @extend .blue-secondary-badge;
+    @include blue-secondary-badge;
     margin-top: 0.2rem;
 }
 
@@ -1118,12 +1092,11 @@ async function startConnectIntoGame(gameRoom?: any) {
 }
 
 .unseated-player {
-    display: flex;
-    align-items: center;
+    @include list-item;
+    justify-content: flex-start;
     gap: 0.5rem;
     padding: 0.25rem 0.75rem;
     background: rgba($shadow-grey, 0.5);
-    border: 1px solid $ash-grey;
     border-radius: 0.25rem;
 }
 
@@ -1138,9 +1111,7 @@ async function startConnectIntoGame(gameRoom?: any) {
 }
 
 .available-seat {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+    @include flex-center-column;
     justify-content: center;
     gap: 0.5rem;
     padding: 1rem;
