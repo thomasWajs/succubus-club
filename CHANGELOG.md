@@ -1,3 +1,16 @@
+## [0.12.0] - 2026-09-17
+
+Features:
+- Social feature : Chat in the main lobby and the game room
+- Social feature : Player Availability
+- "Aids" renamed to a casual / competitive terminology
+
+Bugfix:
+- Improve vote casting overlapping when minions are too close
+- Disable residual glow in casual mode
+- Hide redundant separators in ActonUsageEditor
+
+
 ## [0.11.0] - 2026-09-11
 
 Features:
