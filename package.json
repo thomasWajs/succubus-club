@@ -41,5 +41,8 @@
         "format:fix": "prettier --write .",
         "server:dev": "cd src/server && npm run dev",
         "server:start": "cd src/server && npm run start"
+    },
+    "devDependencies": {
+        "firebase-admin": "^14.4.0"
     }
 }
