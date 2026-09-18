@@ -296,6 +296,7 @@
                     :title="activeChatTitle"
                     :messages="messages"
                     :cooldownMs="CHAT_SEND_COOLDOWN_MS"
+                    show-date-separators
                     @send="onSendLobbyChat"
                 >
                     <template #title-actions>

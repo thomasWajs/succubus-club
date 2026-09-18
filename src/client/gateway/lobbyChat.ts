@@ -31,6 +31,7 @@ export const CHAT_SEND_COOLDOWN_MS = 2000
 export interface LobbyChatMessage {
     authorName: string
     text: string
+    timestamp: Date
 }
 
 // The shape stored in RTDB. `authorUid` is the anonymous-auth uid ( validated
@@ -62,7 +63,7 @@ export function subscribeLobbyChat(
         if (!stored || typeof stored.text !== 'string' || typeof stored.name !== 'string') {
             return
         }
-        onMessage({ authorName: stored.name, text: stored.text })
+        onMessage({ authorName: stored.name, text: stored.text, timestamp: new Date(stored.ts) })
     })
 }
 

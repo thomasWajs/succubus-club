@@ -23,14 +23,29 @@
             >
                 No messages yet. Say hello!
             </div>
-            <div
-                v-for="(message, index) in messages"
+            <template
+                v-for="(item, index) in chatItems"
                 :key="index"
-                class="chat-message"
             >
-                <span class="chat-author">{{ message.authorName }}</span>
-                <span class="chat-text">{{ message.text }}</span>
-            </div>
+                <div
+                    v-if="item.type === 'date-separator'"
+                    class="chat-date-separator"
+                >
+                    <span class="chat-date-separator-text">{{ item.dateLabel }}</span>
+                </div>
+                <div
+                    v-else
+                    class="chat-message"
+                >
+                    <span
+                        v-if="item.message.timestamp"
+                        class="chat-timestamp"
+                        >{{ formatTimestamp(item.message.timestamp) }}</span
+                    >
+                    <span class="chat-author">{{ item.message.authorName }}</span>
+                    <span class="chat-text">{{ item.message.text }}</span>
+                </div>
+            </template>
         </div>
 
         <div
@@ -61,14 +76,19 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 
 // A minimal chat entry : the component only needs the author name and the text.
 // Callers can pass richer objects ( e.g. history log entries ), which are compatible.
 interface ChatEntry {
     authorName: string
     text: string
+    timestamp?: Date
 }
+
+type ChatItem =
+    | { type: 'message'; message: ChatEntry }
+    | { type: 'date-separator'; dateLabel: string }
 
 const props = defineProps<{
     title?: string
@@ -78,6 +98,9 @@ const props = defineProps<{
     // When set, the send button is disabled for this many ms after each send, to
     // mirror a server-side rate limit ( used by the lobby chat ).
     cooldownMs?: number
+    // When set, a horizontal separator with the new date is inserted whenever a
+    // message's calendar day differs from the previous one ( Discord-style ).
+    showDateSeparators?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -88,6 +111,42 @@ const draft = ref('')
 const logEl = ref<HTMLElement | null>(null)
 const onCooldown = ref(false)
 let cooldownTimer: ReturnType<typeof setTimeout> | null = null
+
+function formatTimestamp(timestamp: Date) {
+    return timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
+
+function formatDate(timestamp: Date) {
+    return timestamp.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })
+}
+
+function isSameDay(a: Date, b: Date) {
+    return (
+        a.getFullYear() === b.getFullYear() &&
+        a.getMonth() === b.getMonth() &&
+        a.getDate() === b.getDate()
+    )
+}
+
+const chatItems = computed<ChatItem[]>(() => {
+    if (!props.showDateSeparators) {
+        return props.messages.map(message => ({ type: 'message', message }))
+    }
+
+    const items: ChatItem[] = []
+    let previousTimestamp: Date | undefined
+    for (const message of props.messages) {
+        if (
+            message.timestamp &&
+            (!previousTimestamp || !isSameDay(previousTimestamp, message.timestamp))
+        ) {
+            items.push({ type: 'date-separator', dateLabel: formatDate(message.timestamp) })
+            previousTimestamp = message.timestamp
+        }
+        items.push({ type: 'message', message })
+    }
+    return items
+})
 
 async function scrollToBottom() {
     await nextTick()
@@ -151,13 +210,14 @@ onUnmounted(() => {
 }
 
 .chat-log {
-    @include list-item;
     flex: 1;
+    display: flex;
     flex-direction: column;
-    justify-content: flex-start;
     gap: 0.4rem;
     overflow-y: auto;
     padding: 0.5rem;
+    background: rgba(black, 0.2);
+    border: 1px solid $ash-grey;
     border-radius: 0.25rem;
     min-height: 0;
 }
@@ -175,6 +235,29 @@ onUnmounted(() => {
     gap: 0.5rem;
     font-size: 0.9rem;
     line-height: 1.3;
+}
+
+.chat-date-separator {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 0.4rem 0;
+    color: $mist-grey;
+    font-size: 0.75rem;
+
+    &::before,
+    &::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: $ash-grey;
+    }
+}
+
+.chat-timestamp {
+    color: $mist-grey;
+    font-size: 0.8rem;
+    flex-shrink: 0;
 }
 
 .chat-author {
