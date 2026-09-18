@@ -1,3 +1,12 @@
+## [0.12.1] - 2026-09-18
+
+Features:
+- Player Availability : Biweekly and monthly recurrence
+- Player Availability : Mobile device UI
+- Player Availability : Better handling of DST
+- Player availability : Warn explicitely on the language
+- Date/time in lobby chat
+
 ## [0.12.0] - 2026-09-17
 
 Features:
