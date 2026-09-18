@@ -302,14 +302,7 @@ function onSave() {
 }
 
 .active-language {
-    display: inline-block;
-    padding: 0.1rem 0.6rem;
-    background: rgba($twilight-blue, 0.45);
-    border: 1px solid $azure-blue;
-    color: $azure-blue;
-    border-radius: 0.75rem;
-    font-size: 0.85rem;
-    letter-spacing: 0.5px;
+    @include active-language;
 }
 
 .segment {

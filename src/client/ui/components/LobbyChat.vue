@@ -1,7 +1,7 @@
 <template>
     <div class="chat-panel">
         <div
-            v-if="title || $slots['title-actions']"
+            v-if="title || language || $slots['title-actions']"
             class="chat-header"
         >
             <h3
@@ -10,6 +10,11 @@
             >
                 {{ title }}
             </h3>
+            <span
+                v-if="language"
+                class="active-language"
+                >{{ language }}</span
+            >
             <slot name="title-actions" />
         </div>
 
@@ -92,6 +97,8 @@ type ChatItem =
 
 const props = defineProps<{
     title?: string
+    // Full name of the active chat language, shown as a badge next to the title.
+    language?: string
     messages: ChatEntry[]
     disabled?: boolean
     disabledMessage?: string
@@ -207,6 +214,10 @@ onUnmounted(() => {
     &.no-margin {
         margin: 0;
     }
+}
+
+.active-language {
+    @include active-language;
 }
 
 .chat-log {

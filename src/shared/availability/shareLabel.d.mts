@@ -9,6 +9,7 @@ export interface ShareTranslations {
     weekly: string
     biweekly: string
     monthly: string
+    language: string
 }
 
 export function getTranslations(code: string): ShareTranslations

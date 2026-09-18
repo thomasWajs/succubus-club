@@ -144,6 +144,7 @@ const TRANSLATIONS = {
         weekly: 'weekly',
         biweekly: 'every 2 weeks',
         monthly: 'monthly',
+        language: 'Language',
     },
     fr: {
         title: 'Qui veut jouer ?',
@@ -151,6 +152,7 @@ const TRANSLATIONS = {
         weekly: 'hebdomadaire',
         biweekly: 'toutes les 2 semaines',
         monthly: 'mensuel',
+        language: 'Langue',
     },
     es: {
         title: '¿Quién quiere jugar?',
@@ -158,6 +160,7 @@ const TRANSLATIONS = {
         weekly: 'semanal',
         biweekly: 'cada 2 semanas',
         monthly: 'mensual',
+        language: 'Idioma',
     },
     pt: {
         title: 'Quem quer jogar?',
@@ -165,6 +168,7 @@ const TRANSLATIONS = {
         weekly: 'semanal',
         biweekly: 'a cada 2 semanas',
         monthly: 'mensal',
+        language: 'Idioma',
     },
     de: {
         title: 'Wer möchte spielen?',
@@ -172,6 +176,7 @@ const TRANSLATIONS = {
         weekly: 'wöchentlich',
         biweekly: 'alle 2 Wochen',
         monthly: 'monatlich',
+        language: 'Sprache',
     },
     it: {
         title: 'Chi vuole giocare ?',
@@ -179,6 +184,7 @@ const TRANSLATIONS = {
         weekly: 'settimanale',
         biweekly: 'ogni 2 settimane',
         monthly: 'mensile',
+        language: 'Lingua',
     },
     fi: {
         title: 'Kuka haluaa pelata ?',
@@ -186,6 +192,7 @@ const TRANSLATIONS = {
         weekly: 'viikoittain',
         biweekly: 'joka 2. viikko',
         monthly: 'kuukausittain',
+        language: 'Kieli',
     },
     se: {
         title: 'Vem vill spela ?',
@@ -193,6 +200,7 @@ const TRANSLATIONS = {
         weekly: 'varje vecka',
         biweekly: 'varannan vecka',
         monthly: 'månadsvis',
+        language: 'Språk',
     },
     no: {
         title: 'Hvem vil spille ?',
@@ -200,6 +208,7 @@ const TRANSLATIONS = {
         weekly: 'ukentlig',
         biweekly: 'annenhver uke',
         monthly: 'månedlig',
+        language: 'Språk',
     },
     pl: {
         title: 'Kto chce zagrać ?',
@@ -207,6 +216,7 @@ const TRANSLATIONS = {
         weekly: 'co tydzień',
         biweekly: 'co 2 tygodnie',
         monthly: 'miesięcznie',
+        language: 'Język',
     },
     ne: {
         title: 'Wie wil er spelen ?',
@@ -215,6 +225,7 @@ const TRANSLATIONS = {
         weekly: 'wekelijks',
         biweekly: 'om de 2 weken',
         monthly: 'maandelijks',
+        language: 'Taal',
     },
 }
 

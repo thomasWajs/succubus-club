@@ -293,7 +293,8 @@
                 </div>
                 <LobbyChat
                     class="lobby-chat-panel"
-                    :title="activeChatTitle"
+                    title="Lobby Chat"
+                    :language="activeLanguageName"
                     :messages="messages"
                     :cooldownMs="CHAT_SEND_COOLDOWN_MS"
                     show-date-separators
@@ -327,6 +328,7 @@ import { createGameRoom } from '@/client/multiplayer/lobby.ts'
 import { computeKey } from '@/client/multiplayer/encryption.ts'
 import LobbyChat from '@/client/ui/components/LobbyChat.vue'
 import { CHAT_LANGUAGES } from '@/shared/const/languages.ts'
+import { getTranslations } from '@/shared/availability/shareLabel.mjs'
 import { useLanguagePreferenceStore } from '@/client/store/languagePreference.ts'
 import {
     CHAT_SEND_COOLDOWN_MS,
@@ -355,9 +357,12 @@ const languagePreference = useLanguagePreferenceStore()
 const messages = ref<LobbyChatMessage[]>([])
 let unsubscribeChat: (() => void) | null = null
 
-const activeChatTitle = computed(() => {
+const activeLanguageName = computed(() => {
     const language = CHAT_LANGUAGES.find(entry => entry.code === languagePreference.language)
-    return language ? `Lobby Chat - ${language.fullName}` : 'Lobby Chat'
+    if (!language) {
+        return ''
+    }
+    return `${getTranslations(languagePreference.language).language} : ${language.fullName}`
 })
 
 function subscribeToActiveLanguage() {

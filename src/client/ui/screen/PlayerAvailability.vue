@@ -14,7 +14,7 @@
                     <h2 class="screen-title">Player Availability</h2>
                 </div>
 
-                <span class="active-language">{{ activeLanguageName }}</span>
+                <span class="active-language">{{ languageLabel }} : {{ activeLanguageName }}</span>
 
                 <!-- Language selection, sharing the lobby chat preference -->
                 <div class="language-tabs">
@@ -212,7 +212,7 @@
                         ×
                     </button>
                 </div>
-                <span class="active-language">{{ activeLanguageName }}</span>
+                <span class="active-language">{{ languageLabel }} : {{ activeLanguageName }}</span>
                 <div class="cell-detail-roster">
                     <div
                         v-for="entry in selectedCellDetail.roster"
@@ -359,6 +359,7 @@ import {
     weekdayDate,
 } from '@/client/gateway/availabilityTime.ts'
 import { nextOccurrenceStartUtc } from '@/shared/availability/recurrence.mjs'
+import { getTranslations } from '@/shared/availability/shareLabel.mjs'
 import {
     buildAvailabilityGrid,
     CategoryFilter,
@@ -430,6 +431,8 @@ const activeLanguageName = computed(() => {
     const language = CHAT_LANGUAGES.find(entry => entry.code === languagePreference.language)
     return language ? language.fullName : ''
 })
+
+const languageLabel = computed(() => getTranslations(languagePreference.language).language)
 
 // The current player's own slots, resolved from the aggregate by matching the uid.
 const mySlots = computed(() => {
@@ -814,14 +817,8 @@ async function copyForDiscord() {
 }
 
 .active-language {
-    display: inline-block;
-    padding: 0.1rem 0.6rem;
-    background: rgba($twilight-blue, 0.45);
-    border: 1px solid $azure-blue;
-    color: $azure-blue;
-    border-radius: 0.75rem;
+    @include active-language;
     font-size: 1.4em;
-    letter-spacing: 0.5px;
     vertical-align: middle;
     text-align: center;
 }
