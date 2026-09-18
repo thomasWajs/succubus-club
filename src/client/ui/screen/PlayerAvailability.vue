@@ -212,6 +212,7 @@
                         ×
                     </button>
                 </div>
+                <span class="active-language">{{ activeLanguageName }}</span>
                 <div class="cell-detail-roster">
                     <div
                         v-for="entry in selectedCellDetail.roster"
@@ -812,18 +813,17 @@ async function copyForDiscord() {
     @include serif-heading(1.5rem);
 }
 
-// Distinctive badge marking which language board is currently in view. Uses the blood-red
-// accent, kept exclusive to this badge ( buttons/tabs are purple, cells teal ) so the
-// current language reads as its own signal.
 .active-language {
     display: inline-block;
     padding: 0.1rem 0.6rem;
-    background: rgba($blood-red, 0.35);
-    border: 1px solid $crimson-red;
-    color: $rose-red;
+    background: rgba($twilight-blue, 0.45);
+    border: 1px solid $azure-blue;
+    color: $azure-blue;
+    border-radius: 0.75rem;
     font-size: 1.4em;
     letter-spacing: 0.5px;
     vertical-align: middle;
+    text-align: center;
 }
 
 .language-tabs {

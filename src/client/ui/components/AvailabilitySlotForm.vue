@@ -301,15 +301,13 @@ function onSave() {
     font-style: italic;
 }
 
-// Distinctive badge reminding which language board this slot will be added to. Mirrors
-// the blood-red badge on the screen title so both read as the one "current language"
-// signal, kept exclusive from the purple buttons/tabs.
 .active-language {
     display: inline-block;
     padding: 0.1rem 0.6rem;
-    background: rgba($blood-red, 0.35);
-    border: 1px solid $crimson-red;
-    color: $rose-red;
+    background: rgba($twilight-blue, 0.45);
+    border: 1px solid $azure-blue;
+    color: $azure-blue;
+    border-radius: 0.75rem;
     font-size: 0.85rem;
     letter-spacing: 0.5px;
 }
