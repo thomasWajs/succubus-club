@@ -73,6 +73,7 @@ or with an authoritative central server ("Succubus Club Server" ==> SCS mode).
 
 ## 7. CSS / SCSS
 - **Syntax**: Use Sass/SCSS syntax.
+- **Reuse**: Always try to re-use existing styling by harnessing `src/client/styles/_mixins.scss`, `src/client/styles/_variables.scss`, and `src/client/styles/_base.scss`. Extract common styles into those files where needed.
 - **Responsiveness**: DO NOT write responsive CSS. This app is desktop-only.
 - **Layout**: Use CSS Grid or Flexbox. Avoid floats.
 - **Organization**: Group styles by feature/component in the `src/client/styles` directory or within Vue SFCs.
