@@ -78,7 +78,7 @@ or with an authoritative central server ("Succubus Club Server" ==> SCS mode).
 - **Layout**: Use CSS Grid or Flexbox. Avoid floats.
 - **Organization**: Group styles by feature/component in the `src/client/styles` directory or within Vue SFCs.
 - **Constraints**:
-  - DO NOT use `border-radius` (no round borders).
+  - DO NOT use `border-radius` on rectangles (no round borders).
   - DO NOT use `box-shadow`.
   - Avoid `!important` declarations.
 

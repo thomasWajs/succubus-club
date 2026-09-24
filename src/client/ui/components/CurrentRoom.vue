@@ -481,6 +481,12 @@
                         @click="activeChatTab = tab.id"
                     >
                         {{ tab.title }}
+                        <span
+                            v-if="unreadCounts[tab.id] > 0"
+                            class="chat-tab-badge"
+                        >
+                            {{ unreadCounts[tab.id] }}
+                        </span>
                     </button>
                 </div>
             </template>
@@ -507,6 +513,12 @@
                         @click="activeChatTab = tab.id"
                     >
                         {{ tab.title }}
+                        <span
+                            v-if="unreadCounts[tab.id] > 0"
+                            class="chat-tab-badge"
+                        >
+                            {{ unreadCounts[tab.id] }}
+                        </span>
                     </button>
                 </div>
             </template>
@@ -574,6 +586,42 @@ const chatTabs: { id: ChatTabId; title: string }[] = [
 ]
 const activeChatTab = ref<ChatTabId>('room')
 
+// Unread-message counters, shown as a badge over the top-right corner of the inactive
+// tab. The active tab is always considered read, so its counter stays at zero.
+const unreadCounts = ref<Record<ChatTabId, number>>({ room: 0, lobby: 0 })
+
+// Room chat baseline : how many entries were present the last time the tab was read.
+// New entries beyond it accrue on the badge until the tab is opened.
+let seenRoomCount = history.logEntries.length
+
+watch(
+    () => history.logEntries.length,
+    length => {
+        if (activeChatTab.value === 'room') {
+            seenRoomCount = length
+            return
+        }
+        unreadCounts.value.room = Math.max(0, length - seenRoomCount)
+    },
+)
+
+// The lobby channel replays its history whenever it is (re)opened ( on mount and on
+// each language switch ), so a length-based baseline would count those old messages as
+// new. Instead we timestamp when the current channel was opened and only badge messages
+// that arrive after it. Language switches happen from within the lobby tab, so the
+// replayed history is naturally marked as read there.
+const lobbyChannelOpenedAt = ref(0)
+
+// Opening a tab clears its badge and marks its current messages as seen.
+watch(activeChatTab, tab => {
+    if (tab === 'room') {
+        seenRoomCount = history.logEntries.length
+        unreadCounts.value.room = 0
+    } else {
+        unreadCounts.value.lobby = 0
+    }
+})
+
 const isRoomChatDisabled = computed(() => !!multiplayer.currentGameRoom?.isStarted)
 
 function onSendRoomChat(text: string) {
@@ -598,8 +646,17 @@ const activeLanguageName = computed(() => {
 function subscribeToActiveLanguage() {
     unsubscribeLobbyChat?.()
     lobbyChatMessages.value = []
+    lobbyChannelOpenedAt.value = Date.now()
     unsubscribeLobbyChat = subscribeLobbyChat(languagePreference.language, message => {
         lobbyChatMessages.value.push(message)
+        // Only badge genuinely new messages ( not the replayed history ) while the
+        // lobby tab is inactive.
+        if (
+            activeChatTab.value !== 'lobby' &&
+            message.timestamp.getTime() >= lobbyChannelOpenedAt.value
+        ) {
+            unreadCounts.value.lobby += 1
+        }
     })
 }
 
@@ -846,6 +903,7 @@ async function startConnectIntoGame(gameRoom?: any) {
 
 .chat-tab {
     @include tab-button;
+    position: relative;
     font-family: serif;
     font-size: 1.25rem;
     font-weight: 300;
@@ -854,6 +912,24 @@ async function startConnectIntoGame(gameRoom?: any) {
     &.chat-tab-active {
         @include tab-button-active;
     }
+}
+
+.chat-tab-badge {
+    @include flex-center;
+    position: absolute;
+    top: -0.75rem;
+    right: -0.5rem;
+    min-width: 0.75rem;
+    height: 1.25rem;
+    padding: 0 0.25rem;
+    font-family: sans-serif;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: $pearl-grey;
+    background: $wine-crimson;
+    border: 1px solid $warm-coral;
+    border-radius: 1.25rem;
+    z-index: 1;
 }
 
 .current-room-header {
