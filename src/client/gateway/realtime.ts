@@ -31,7 +31,7 @@ import {
     update as rtdbUpdate,
 } from 'firebase/database'
 import { Auth, getAuth as _getAuth, onAuthStateChanged, signInAnonymously } from 'firebase/auth'
-import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check'
+import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-check'
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import {
     AblyMessage,
@@ -311,7 +311,7 @@ function initAppCheck(app: FirebaseApp) {
         ).FIREBASE_APPCHECK_DEBUG_TOKEN = true
     }
     initializeAppCheck(app, {
-        provider: new ReCaptchaV3Provider(siteKey),
+        provider: new ReCaptchaEnterpriseProvider(siteKey),
         isTokenAutoRefreshEnabled: true,
     })
 }
