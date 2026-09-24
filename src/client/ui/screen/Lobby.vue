@@ -277,20 +277,6 @@
             </div>
 
             <div class="lobby-chat">
-                <div class="language-tabs">
-                    <button
-                        v-for="language in CHAT_LANGUAGES"
-                        :key="language.code"
-                        class="language-tab"
-                        :class="{
-                            'language-tab-active': languagePreference.language === language.code,
-                        }"
-                        @click="languagePreference.setLanguage(language.code)"
-                    >
-                        <span class="language-short">{{ language.shortName }}</span> -
-                        <span class="language-full">{{ language.fullName }}</span>
-                    </button>
-                </div>
                 <LobbyChat
                     class="lobby-chat-panel"
                     title="Lobby Chat"
@@ -298,17 +284,9 @@
                     :messages="messages"
                     :cooldownMs="CHAT_SEND_COOLDOWN_MS"
                     show-date-separators
+                    language-selector
                     @send="onSendLobbyChat"
-                >
-                    <template #title-actions>
-                        <button
-                            class="availability-link"
-                            @click="router.push({ name: ROUTES.PlayerAvailability })"
-                        >
-                            Player Availability
-                        </button>
-                    </template>
-                </LobbyChat>
+                />
             </div>
         </div>
     </div>
@@ -596,7 +574,6 @@ if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
 .lobby-chat {
     grid-area: lobby-chat;
     display: flex;
-    gap: 0.5rem;
     min-height: 0;
     overflow: hidden;
 }
@@ -604,44 +581,6 @@ if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
 .lobby-chat-panel {
     flex: 1;
     min-width: 0;
-}
-
-.availability-link {
-    @include button-dark-grey;
-    padding: 0.4rem 0.8rem;
-    font-size: 0.9rem;
-    flex-shrink: 0;
-}
-
-.language-tabs {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-    width: 150px;
-    flex-shrink: 0;
-    overflow-y: auto;
-}
-
-.language-tab {
-    @include tab-button;
-    text-align: left;
-
-    &.language-tab-active {
-        @include tab-button-active;
-    }
-
-    .language-short {
-        font-size: 0.9rem;
-        font-weight: 500;
-        font-family: serif;
-        letter-spacing: 0.5px;
-    }
-
-    .language-full {
-        font-size: 0.75rem;
-        color: $silver-grey;
-        white-space: nowrap;
-    }
 }
 
 .panel-title {

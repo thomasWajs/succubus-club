@@ -1,87 +1,117 @@
 <template>
     <div class="chat-panel">
         <div
-            v-if="title || language || $slots['title-actions']"
+            v-if="title || language || $slots['title']"
             class="chat-header"
         >
-            <h3
-                v-if="title"
-                class="panel-title no-margin"
-            >
-                {{ title }}
-            </h3>
+            <slot name="title">
+                <h3
+                    v-if="title"
+                    class="panel-title no-margin"
+                >
+                    {{ title }}
+                </h3>
+            </slot>
             <span
                 v-if="language"
                 class="active-language"
-                >{{ language }}</span
             >
-            <slot name="title-actions" />
+                {{ language }}
+            </span>
         </div>
 
-        <div
-            ref="logEl"
-            class="chat-log"
-        >
+        <div class="chat-body">
+            <!-- Vertical channel selector : one tab per official language, bound to the
+            shared language preference store. -->
             <div
-                v-if="messages.length === 0"
-                class="chat-empty"
+                v-if="languageSelector"
+                class="language-tabs"
             >
-                No messages yet. Say hello!
-            </div>
-            <template
-                v-for="(item, index) in chatItems"
-                :key="index"
-            >
-                <div
-                    v-if="item.type === 'date-separator'"
-                    class="chat-date-separator"
+                <button
+                    v-for="chatLanguage in CHAT_LANGUAGES"
+                    :key="chatLanguage.code"
+                    class="language-tab"
+                    :class="{
+                        'language-tab-active': languagePreference.language === chatLanguage.code,
+                    }"
+                    @click="languagePreference.setLanguage(chatLanguage.code)"
                 >
-                    <span class="chat-date-separator-text">{{ item.dateLabel }}</span>
+                    <span class="language-short">{{ chatLanguage.shortName }}</span> -
+                    <span class="language-full">{{ chatLanguage.fullName }}</span>
+                </button>
+            </div>
+
+            <div class="chat-main">
+                <div
+                    ref="logEl"
+                    class="chat-log"
+                >
+                    <div
+                        v-if="messages.length === 0"
+                        class="chat-empty"
+                    >
+                        No messages yet. Say hello!
+                    </div>
+                    <template
+                        v-for="(item, index) in chatItems"
+                        :key="index"
+                    >
+                        <div
+                            v-if="item.type === 'date-separator'"
+                            class="chat-date-separator"
+                        >
+                            <span class="chat-date-separator-text">{{ item.dateLabel }}</span>
+                        </div>
+                        <div
+                            v-else
+                            class="chat-message"
+                        >
+                            <span
+                                v-if="item.message.timestamp"
+                                class="chat-timestamp"
+                                >{{ formatTimestamp(item.message.timestamp) }}</span
+                            >
+                            <span class="chat-author">{{ item.message.authorName }}</span>
+                            <span class="chat-text">{{ item.message.text }}</span>
+                        </div>
+                    </template>
+                </div>
+
+                <div
+                    v-if="disabled"
+                    class="chat-disabled-note"
+                >
+                    {{ disabledMessage ?? 'You cannot send messages here.' }}
                 </div>
                 <div
                     v-else
-                    class="chat-message"
+                    class="chat-input-row"
                 >
-                    <span
-                        v-if="item.message.timestamp"
-                        class="chat-timestamp"
-                        >{{ formatTimestamp(item.message.timestamp) }}</span
+                    <input
+                        v-model="draft"
+                        class="chat-input"
+                        placeholder="Type a message..."
+                        @keydown.enter="send"
+                    />
+                    <button
+                        class="chat-send-btn"
+                        :disabled="!draft.trim() || onCooldown"
+                        @click="send"
                     >
-                    <span class="chat-author">{{ item.message.authorName }}</span>
-                    <span class="chat-text">{{ item.message.text }}</span>
+                        Send
+                    </button>
                 </div>
-            </template>
-        </div>
-
-        <div
-            v-if="disabled"
-            class="chat-disabled-note"
-        >
-            {{ disabledMessage ?? 'You cannot send messages here.' }}
-        </div>
-        <div
-            v-else
-            class="chat-input-row"
-        >
-            <input
-                v-model="draft"
-                class="chat-input"
-                placeholder="Type a message..."
-                @keydown.enter="send"
-            />
-            <button
-                class="chat-send-btn"
-                :disabled="!draft.trim() || onCooldown"
-                @click="send"
-            >
-                Send
-            </button>
+            </div>
         </div>
     </div>
 </template>
 
 <script setup lang="ts">
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
+import { CHAT_LANGUAGES } from '@/shared/const/languages.ts'
+import { useLanguagePreferenceStore } from '@/client/store/languagePreference.ts'
+
+const languagePreference = useLanguagePreferenceStore()
 
 // A minimal chat entry : the component only needs the author name and the text.
 // Callers can pass richer objects ( e.g. history log entries ), which are compatible.
@@ -108,6 +138,9 @@ const props = defineProps<{
     // When set, a horizontal separator with the new date is inserted whenever a
     // message's calendar day differs from the previous one ( Discord-style ).
     showDateSeparators?: boolean
+    // When set, the header shows the official-language tabs, bound to the shared
+    // language preference store ( same channel selection as the lobby screen ).
+    languageSelector?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -218,6 +251,54 @@ onUnmounted(() => {
 
 .active-language {
     @include active-language;
+}
+
+// The channel selector on the left, and the chat log / input on the right.
+.chat-body {
+    display: flex;
+    gap: 0.5rem;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.chat-main {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+}
+
+.language-tabs {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    width: 150px;
+    flex-shrink: 0;
+    overflow-y: auto;
+}
+
+.language-tab {
+    @include tab-button;
+    text-align: left;
+
+    &.language-tab-active {
+        @include tab-button-active;
+    }
+
+    .language-short {
+        font-size: 0.9rem;
+        font-weight: 500;
+        font-family: serif;
+        letter-spacing: 0.5px;
+    }
+
+    .language-full {
+        font-size: 0.75rem;
+        color: $silver-grey;
+        white-space: nowrap;
+    }
 }
 
 .chat-log {

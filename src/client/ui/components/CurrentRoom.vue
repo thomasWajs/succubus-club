@@ -1,467 +1,521 @@
 <template>
     <!-- Current Game Room -->
-    <div
-        v-if="multiplayer.currentGameRoom"
-        class="current-room-panel"
-    >
-        <div class="current-room-header">
-            <div class="room-header-left">
-                <span class="teal-badge">
-                    {{ multiplayer.currentGameRoom.isCasual ? 'Casual' : 'Competitive' }}
-                </span>
-                <span class="teal-badge">
-                    {{
-                        multiplayer.currentGameRoom.communication === CommunicationMode.Ably ?
-                            'Direct'
-                        :   'SCS'
-                    }}
-                </span>
-                <span
-                    v-if="isSavedGame"
-                    class="saved-game-badge"
-                >
-                    Saved Game
-                </span>
-                <span
-                    v-if="multiplayer.judgeUsers.length > 0"
-                    class="judge-badge"
-                >
-                    {{ multiplayer.judgeUsers.length }} Judge
-                </span>
-                <span
-                    v-if="multiplayer.spectatorUsers.length > 0"
-                    class="spectator-badge"
-                >
-                    {{ multiplayer.spectatorUsers.length }} Watching
-                </span>
-                <h3 class="panel-title">
-                    {{ multiplayer.currentGameRoom.name }} ( {{ multiplayer.playerUsers.length }}/{{
-                        MAX_PLAYERS
-                    }}
-                    )
-                </h3>
-            </div>
-
-            <!-- Unseated Players (shown during pick seating mode) -->
-            <div
-                v-if="isPickSeatingMode"
-                class="unseated-players"
-            >
-                <span class="unseated-label">Waiting to pick:</span>
-                <div class="unseated-list">
-                    <div
-                        v-for="user in unseatedUsers"
-                        :key="user.permId"
-                        class="unseated-player"
+    <template v-if="multiplayer.currentGameRoom">
+        <div class="current-room-panel">
+            <div class="current-room-header">
+                <div class="room-header-left">
+                    <span class="teal-badge">
+                        {{ multiplayer.currentGameRoom.isCasual ? 'Casual' : 'Competitive' }}
+                    </span>
+                    <span class="teal-badge">
+                        {{
+                            multiplayer.currentGameRoom.communication === CommunicationMode.Ably ?
+                                'Direct'
+                            :   'SCS'
+                        }}
+                    </span>
+                    <span
+                        v-if="isSavedGame"
+                        class="saved-game-badge"
                     >
-                        <UserAvatar
-                            :avatar="user.avatarId ? multiplayer.avatars[user.avatarId] : null"
-                            :playerName="user.name"
-                            width="30px"
-                            height="30px"
-                            fontSize="14px"
-                        />
-                        <span class="unseated-player-name">{{ user.name }}</span>
-                    </div>
+                        Saved Game
+                    </span>
+                    <span
+                        v-if="multiplayer.judgeUsers.length > 0"
+                        class="judge-badge"
+                    >
+                        {{ multiplayer.judgeUsers.length }} Judge
+                    </span>
+                    <span
+                        v-if="multiplayer.spectatorUsers.length > 0"
+                        class="spectator-badge"
+                    >
+                        {{ multiplayer.spectatorUsers.length }} Watching
+                    </span>
+                    <h3 class="panel-title">
+                        {{ multiplayer.currentGameRoom.name }} (
+                        {{ multiplayer.playerUsers.length }}/{{ MAX_PLAYERS }}
+                        )
+                    </h3>
                 </div>
-            </div>
 
-            <span
-                v-if="isSavedGame && !multiplayer.currentGameRoom.isStarted"
-                class="saved-game-message"
-            >
-                💾 This is a saved game. All non-ousted players must join to start.
-            </span>
-
-            <span
-                v-else-if="multiplayer.isSeatingReady && !isPickSeatingMode"
-                class="seating-rolled-message"
-            >
-                ✅ All players seated
-            </span>
-
-            <button
-                class="leave-btn"
-                @click="onLeaveRoom()"
-            >
-                Leave Room
-            </button>
-        </div>
-
-        <div class="room-body">
-            <!-- Pick Seating Mode -->
-            <div
-                v-if="isPickSeatingMode"
-                class="room-players pick-seating"
-            >
-                <!-- Seat at the start (if there are seated players) -->
+                <!-- Unseated Players (shown during pick seating mode) -->
                 <div
-                    v-if="seatedUsers.length > 0 && multiplayer.selfIsPlayer && !isSelfSeated"
-                    class="available-seat"
-                    @click="pickSeat(0)"
+                    v-if="isPickSeatingMode"
+                    class="unseated-players"
                 >
-                    <div class="seat-icon">📍</div>
-                    <div class="seat-label">Pick</div>
-                </div>
-
-                <template
-                    v-for="(user, index) in seatedUsers"
-                    :key="user.permId"
-                >
-                    <!-- Seated player -->
-                    <div class="room-player seated">
-                        <div class="player-avatar">
+                    <span class="unseated-label">Waiting to pick:</span>
+                    <div class="unseated-list">
+                        <div
+                            v-for="user in unseatedUsers"
+                            :key="user.permId"
+                            class="unseated-player"
+                        >
                             <UserAvatar
-                                :class="getUserStatusClass(user)"
                                 :avatar="user.avatarId ? multiplayer.avatars[user.avatarId] : null"
                                 :playerName="user.name"
-                                width="60px"
-                                height="60px"
-                                fontSize="1.5rem"
+                                width="30px"
+                                height="30px"
+                                fontSize="14px"
                             />
-                        </div>
-                        <div class="player-details">
-                            <span class="player-name">{{ user.name }}</span>
-                            <button
-                                v-if="
-                                    user.permId === multiplayer.selfUser.permId &&
-                                    multiplayer.areAllPlayerUsersReady
-                                "
-                                class="leave-seat-btn"
-                                @click="leaveSeat()"
-                            >
-                                Leave Seat
-                            </button>
+                            <span class="unseated-player-name">{{ user.name }}</span>
                         </div>
                     </div>
+                </div>
 
-                    <!-- Available seat between or at the end -->
+                <span
+                    v-if="isSavedGame && !multiplayer.currentGameRoom.isStarted"
+                    class="saved-game-message"
+                >
+                    💾 This is a saved game. All non-ousted players must join to start.
+                </span>
+
+                <span
+                    v-else-if="multiplayer.isSeatingReady && !isPickSeatingMode"
+                    class="seating-rolled-message"
+                >
+                    ✅ All players seated
+                </span>
+
+                <button
+                    class="leave-btn"
+                    @click="onLeaveRoom()"
+                >
+                    Leave Room
+                </button>
+            </div>
+
+            <div class="room-body">
+                <!-- Pick Seating Mode -->
+                <div
+                    v-if="isPickSeatingMode"
+                    class="room-players pick-seating"
+                >
+                    <!-- Seat at the start (if there are seated players) -->
                     <div
-                        v-if="multiplayer.selfIsPlayer && !isSelfSeated"
+                        v-if="seatedUsers.length > 0 && multiplayer.selfIsPlayer && !isSelfSeated"
                         class="available-seat"
-                        @click="pickSeat(index + 1)"
+                        @click="pickSeat(0)"
                     >
                         <div class="seat-icon">📍</div>
                         <div class="seat-label">Pick</div>
                     </div>
-                </template>
 
-                <!-- First seat (if no one is seated yet) -->
-                <div
-                    v-if="seatedUsers.length === 0 && multiplayer.selfIsPlayer && !isSelfSeated"
-                    class="available-seat first-seat"
-                    @click="pickSeat(0)"
-                >
-                    <div class="seat-icon">📍</div>
-                    <div class="seat-label">Pick First Seat</div>
-                </div>
-            </div>
-
-            <!-- Normal Mode (not pick seating) -->
-            <div
-                v-else
-                class="room-players"
-            >
-                <template
-                    v-for="(user, index) in orderedUsers"
-                    :key="user.permId"
-                >
-                    <div class="room-player">
-                        <div class="player-avatar">
-                            <UserAvatar
-                                :class="getUserStatusClass(user)"
-                                :avatar="user.avatarId ? multiplayer.avatars[user.avatarId] : null"
-                                :playerName="user.name"
-                                width="60px"
-                                height="60px"
-                                fontSize="1.5rem"
-                            />
-                        </div>
-                        <div class="player-details">
-                            <span class="player-name">{{ user.name }}</span>
-                            <span
-                                v-if="!multiplayer.currentGameRoom.isStarted"
-                                class="player-status-text"
-                                :class="getUserStatusClass(user)"
-                            >
-                                {{ getUserStatusText(user) }}
-                            </span>
-                            <div
-                                v-if="getDeckWarnings(user).length > 0"
-                                class="deck-warnings"
-                            >
-                                <span
-                                    v-for="(warning, idx) in getDeckWarnings(user)"
-                                    :key="idx"
-                                    class="deck-warning"
+                    <template
+                        v-for="(user, index) in seatedUsers"
+                        :key="user.permId"
+                    >
+                        <!-- Seated player -->
+                        <div class="room-player seated">
+                            <div class="player-avatar">
+                                <UserAvatar
+                                    :class="getUserStatusClass(user)"
+                                    :avatar="
+                                        user.avatarId ? multiplayer.avatars[user.avatarId] : null
+                                    "
+                                    :playerName="user.name"
+                                    width="60px"
+                                    height="60px"
+                                    fontSize="1.5rem"
+                                />
+                            </div>
+                            <div class="player-details">
+                                <span class="player-name">{{ user.name }}</span>
+                                <button
+                                    v-if="
+                                        user.permId === multiplayer.selfUser.permId &&
+                                        multiplayer.areAllPlayerUsersReady
+                                    "
+                                    class="leave-seat-btn"
+                                    @click="leaveSeat()"
                                 >
-                                    ⚠ {{ warning }}
-                                </span>
+                                    Leave Seat
+                                </button>
                             </div>
                         </div>
-                    </div>
 
-                    <!-- Attack Arrow - only show if seating is rolled and not the last player -->
-                    <div
-                        v-if="multiplayer.isSeatingReady && index < orderedUsers.length - 1"
-                        class="attack-arrow"
-                    >
-                        <div class="arrow-head">→</div>
-                        <div class="attack-label">attacks</div>
-                    </div>
-
-                    <!-- Special arrow from last player back to first (circular) -->
-                    <div
-                        v-if="
-                            multiplayer.isSeatingReady &&
-                            index === orderedUsers.length - 1 &&
-                            orderedUsers.length > 1
-                        "
-                        class="attack-arrow circular"
-                    >
-                        <div class="circular-arrow">↩</div>
-                        <div class="attack-label">attacks</div>
-                    </div>
-                </template>
-            </div>
-
-            <!-- Move ourselves between the table, the judge seat and the sidelines. Sits at the right of the tiles. -->
-            <div
-                v-if="canChangeRoomSeat"
-                class="room-seat-picker"
-            >
-                <span class="room-seat-title">Your Role</span>
-
-                <button
-                    v-for="seat in ROOM_SEATS"
-                    :key="seat"
-                    class="room-seat-btn"
-                    :class="{ active: multiplayer.selfRoomSeat == seat }"
-                    :disabled="isRoomSeatDisabled(seat)"
-                    :title="getRoomSeatTitle(seat)"
-                    @click="changeRoomSeat(seat)"
-                >
-                    {{ seat }}
-                </button>
-            </div>
-        </div>
-
-        <!-- Judges and Spectators : not at the table, no deck and no readiness -->
-        <div
-            v-if="multiplayer.judgeUsers.length > 0 || multiplayer.spectatorUsers.length > 0"
-            class="room-side-seats"
-        >
-            <div
-                v-if="multiplayer.judgeUsers.length > 0"
-                class="side-seat-row"
-            >
-                <span class="side-seat-label">Judges</span>
-                <div class="side-seat-list">
-                    <div
-                        v-for="user in multiplayer.judgeUsers"
-                        :key="user.permId"
-                        class="side-seat judge"
-                    >
-                        <UserAvatar
-                            :avatar="user.avatarId ? multiplayer.avatars[user.avatarId] : null"
-                            :playerName="user.name"
-                            width="30px"
-                            height="30px"
-                            fontSize="14px"
-                        />
-                        <span class="side-seat-name">{{ user.name }}</span>
-                    </div>
-                </div>
-            </div>
-
-            <div
-                v-if="multiplayer.spectatorUsers.length > 0"
-                class="side-seat-row"
-            >
-                <span class="side-seat-label">Spectators</span>
-                <div class="side-seat-list">
-                    <div
-                        v-for="user in multiplayer.spectatorUsers"
-                        :key="user.permId"
-                        class="side-seat"
-                    >
-                        <UserAvatar
-                            :avatar="user.avatarId ? multiplayer.avatars[user.avatarId] : null"
-                            :playerName="user.name"
-                            width="30px"
-                            height="30px"
-                            fontSize="14px"
-                        />
-                        <span class="side-seat-name">{{ user.name }}</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Game Controls -->
-        <div class="game-controls">
-            <!-- Left side of Game Controls -->
-            <div class="game-controls-left">
-                <template v-if="multiplayer.currentGameRoom.isStarted">
-                    <span class="game-started">Game is started</span>
-                </template>
-
-                <template v-else>
-                    <!-- Players need a deck and must get ready. Judges and spectators don't. -->
-                    <template v-if="multiplayer.selfIsPlayer">
-                        <button
-                            v-if="!multiplayer.selfIsReady"
-                            class="ready-btn"
-                            :disabled="!isSavedGame && multiplayer.selfDeck == null"
-                            :title="
-                                !isSavedGame && multiplayer.selfDeck == null ?
-                                    'Select a deck to get ready'
-                                :   ''
-                            "
-                            @click="multiplayer.selfIsReady = true"
+                        <!-- Available seat between or at the end -->
+                        <div
+                            v-if="multiplayer.selfIsPlayer && !isSelfSeated"
+                            class="available-seat"
+                            @click="pickSeat(index + 1)"
                         >
-                            ✔️ I'm Ready
-                        </button>
-                        <button
-                            v-else
-                            class="unready-btn"
-                            @click="multiplayer.selfIsReady = false"
-                        >
-                            ❌ Not Ready
-                        </button>
-
-                        <span
-                            v-if="!isSavedGame && !core.selfDeck"
-                            class="no-deck-message"
-                        >
-                            Select a deck through the top bar to get ready
-                        </span>
+                            <div class="seat-icon">📍</div>
+                            <div class="seat-label">Pick</div>
+                        </div>
                     </template>
 
+                    <!-- First seat (if no one is seated yet) -->
                     <div
-                        v-else-if="multiplayer.selfIsJudge"
-                        class="room-seat-message"
+                        v-if="seatedUsers.length === 0 && multiplayer.selfIsPlayer && !isSelfSeated"
+                        class="available-seat first-seat"
+                        @click="pickSeat(0)"
                     >
-                        You are a judge. You will see all cards.
+                        <div class="seat-icon">📍</div>
+                        <div class="seat-label">Pick First Seat</div>
                     </div>
+                </div>
 
-                    <div
-                        v-else
-                        class="room-seat-message"
+                <!-- Normal Mode (not pick seating) -->
+                <div
+                    v-else
+                    class="room-players"
+                >
+                    <template
+                        v-for="(user, index) in orderedUsers"
+                        :key="user.permId"
                     >
-                        You are a spectator. You won't play.
-                    </div>
-                </template>
-            </div>
+                        <div class="room-player">
+                            <div class="player-avatar">
+                                <UserAvatar
+                                    :class="getUserStatusClass(user)"
+                                    :avatar="
+                                        user.avatarId ? multiplayer.avatars[user.avatarId] : null
+                                    "
+                                    :playerName="user.name"
+                                    width="60px"
+                                    height="60px"
+                                    fontSize="1.5rem"
+                                />
+                            </div>
+                            <div class="player-details">
+                                <span class="player-name">{{ user.name }}</span>
+                                <span
+                                    v-if="!multiplayer.currentGameRoom.isStarted"
+                                    class="player-status-text"
+                                    :class="getUserStatusClass(user)"
+                                >
+                                    {{ getUserStatusText(user) }}
+                                </span>
+                                <div
+                                    v-if="getDeckWarnings(user).length > 0"
+                                    class="deck-warnings"
+                                >
+                                    <span
+                                        v-for="(warning, idx) in getDeckWarnings(user)"
+                                        :key="idx"
+                                        class="deck-warning"
+                                    >
+                                        ⚠ {{ warning }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
 
-            <!-- Right side of Game Controls -->
-            <div class="game-controls-right">
-                <template v-if="multiplayer.currentGameRoom.isStarted && !multiplayer.selfIsReady">
-                    <div
-                        v-if="!isSeatedPlayer && !multiplayer.currentGameRoom?.allowSpectators"
-                        class="spectate-disallowed"
-                    >
-                        Spectators are not allowed
-                    </div>
+                        <!-- Attack Arrow - only show if seating is rolled and not the last player -->
+                        <div
+                            v-if="multiplayer.isSeatingReady && index < orderedUsers.length - 1"
+                            class="attack-arrow"
+                        >
+                            <div class="arrow-head">→</div>
+                            <div class="attack-label">attacks</div>
+                        </div>
+
+                        <!-- Special arrow from last player back to first (circular) -->
+                        <div
+                            v-if="
+                                multiplayer.isSeatingReady &&
+                                index === orderedUsers.length - 1 &&
+                                orderedUsers.length > 1
+                            "
+                            class="attack-arrow circular"
+                        >
+                            <div class="circular-arrow">↩</div>
+                            <div class="attack-label">attacks</div>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Move ourselves between the table, the judge seat and the sidelines. Sits at the right of the tiles. -->
+                <div
+                    v-if="canChangeRoomSeat"
+                    class="room-seat-picker"
+                >
+                    <span class="room-seat-title">Your Role</span>
 
                     <button
-                        v-else
-                        class="connect-btn"
-                        :disabled="isConnecting"
-                        @click="startConnectIntoGame()"
+                        v-for="seat in ROOM_SEATS"
+                        :key="seat"
+                        class="room-seat-btn"
+                        :class="{ active: multiplayer.selfRoomSeat == seat }"
+                        :disabled="isRoomSeatDisabled(seat)"
+                        :title="getRoomSeatTitle(seat)"
+                        @click="changeRoomSeat(seat)"
                     >
-                        <template v-if="isConnecting">
-                            <span class="reconnect-spinner" />
-                            Connecting...
-                        </template>
-                        <template v-else-if="isSeatedPlayer"> Reconnect to game </template>
-                        <template v-else> Spectate game </template>
+                        {{ seat }}
                     </button>
-                </template>
+                </div>
+            </div>
 
-                <template v-else>
-                    <div
-                        v-if="multiplayer.selfIsHost"
-                        class="game-controls-right"
-                    >
-                        <template v-if="!isSavedGame">
-                            <div
-                                v-if="multiplayer.playerUsers.length == 0"
-                                class="wait-for-players"
+            <!-- Judges and Spectators : not at the table, no deck and no readiness -->
+            <div
+                v-if="multiplayer.judgeUsers.length > 0 || multiplayer.spectatorUsers.length > 0"
+                class="room-side-seats"
+            >
+                <div
+                    v-if="multiplayer.judgeUsers.length > 0"
+                    class="side-seat-row"
+                >
+                    <span class="side-seat-label">Judges</span>
+                    <div class="side-seat-list">
+                        <div
+                            v-for="user in multiplayer.judgeUsers"
+                            :key="user.permId"
+                            class="side-seat judge"
+                        >
+                            <UserAvatar
+                                :avatar="user.avatarId ? multiplayer.avatars[user.avatarId] : null"
+                                :playerName="user.name"
+                                width="30px"
+                                height="30px"
+                                fontSize="14px"
+                            />
+                            <span class="side-seat-name">{{ user.name }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div
+                    v-if="multiplayer.spectatorUsers.length > 0"
+                    class="side-seat-row"
+                >
+                    <span class="side-seat-label">Spectators</span>
+                    <div class="side-seat-list">
+                        <div
+                            v-for="user in multiplayer.spectatorUsers"
+                            :key="user.permId"
+                            class="side-seat"
+                        >
+                            <UserAvatar
+                                :avatar="user.avatarId ? multiplayer.avatars[user.avatarId] : null"
+                                :playerName="user.name"
+                                width="30px"
+                                height="30px"
+                                fontSize="14px"
+                            />
+                            <span class="side-seat-name">{{ user.name }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Game Controls -->
+            <div class="game-controls">
+                <!-- Left side of Game Controls -->
+                <div class="game-controls-left">
+                    <template v-if="multiplayer.currentGameRoom.isStarted">
+                        <span class="game-started">Game is started</span>
+                    </template>
+
+                    <template v-else>
+                        <!-- Players need a deck and must get ready. Judges and spectators don't. -->
+                        <template v-if="multiplayer.selfIsPlayer">
+                            <button
+                                v-if="!multiplayer.selfIsReady"
+                                class="ready-btn"
+                                :disabled="!isSavedGame && multiplayer.selfDeck == null"
+                                :title="
+                                    !isSavedGame && multiplayer.selfDeck == null ?
+                                        'Select a deck to get ready'
+                                    :   ''
+                                "
+                                @click="multiplayer.selfIsReady = true"
                             >
-                                No players at the table
-                            </div>
+                                ✔️ I'm Ready
+                            </button>
+                            <button
+                                v-else
+                                class="unready-btn"
+                                @click="multiplayer.selfIsReady = false"
+                            >
+                                ❌ Not Ready
+                            </button>
 
-                            <template v-else>
-                                <button
-                                    class="pick-seating-btn"
-                                    :disabled="!multiplayer.areAllPlayerUsersReady"
-                                    :title="
-                                        !multiplayer.areAllPlayerUsersReady ?
-                                            'Wait for all players to be ready'
-                                        :   ''
-                                    "
-                                    @click="startPickSeating()"
-                                >
-                                    Pick Seating
-                                </button>
-
-                                <button
-                                    class="roll-seating-btn"
-                                    :disabled="!multiplayer.areAllPlayerUsersReady"
-                                    :title="
-                                        !multiplayer.areAllPlayerUsersReady ?
-                                            'Wait for all players to be ready'
-                                        :   ''
-                                    "
-                                    @click="rollSeating()"
-                                >
-                                    Roll Seating
-                                </button>
-                            </template>
+                            <span
+                                v-if="!isSavedGame && !core.selfDeck"
+                                class="no-deck-message"
+                            >
+                                Select a deck through the top bar to get ready
+                            </span>
                         </template>
 
                         <div
-                            v-if="multiplayer.missingSavedGamePlayers"
-                            class="wait-for-players"
+                            v-else-if="multiplayer.selfIsJudge"
+                            class="room-seat-message"
                         >
-                            Waiting for players from the saved game to join
+                            You are a judge. You will see all cards.
+                        </div>
+
+                        <div
+                            v-else
+                            class="room-seat-message"
+                        >
+                            You are a spectator. You won't play.
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Right side of Game Controls -->
+                <div class="game-controls-right">
+                    <template
+                        v-if="multiplayer.currentGameRoom.isStarted && !multiplayer.selfIsReady"
+                    >
+                        <div
+                            v-if="!isSeatedPlayer && !multiplayer.currentGameRoom?.allowSpectators"
+                            class="spectate-disallowed"
+                        >
+                            Spectators are not allowed
                         </div>
 
                         <button
                             v-else
-                            class="start-game-btn"
-                            :disabled="!multiplayer.isRoomReady || isStartingGame"
-                            :title="
-                                !multiplayer.areAllPlayerUsersReady ?
-                                    'Wait for all players to be ready'
-                                : !multiplayer.isSeatingReady ?
-                                    'Pick or roll seating to start the game'
-                                :   ''
-                            "
-                            @click="tryLaunchGame()"
+                            class="connect-btn"
+                            :disabled="isConnecting"
+                            @click="startConnectIntoGame()"
                         >
-                            <template v-if="isStartingGame">
+                            <template v-if="isConnecting">
                                 <span class="reconnect-spinner" />
-                                Starting...
+                                Connecting...
                             </template>
-                            <template v-else> ▶ Start Game </template>
+                            <template v-else-if="isSeatedPlayer"> Reconnect to game </template>
+                            <template v-else> Spectate game </template>
                         </button>
-                    </div>
-                    <div
-                        v-else
-                        class="host-message"
-                    >
-                        The host can launch the game when all players are ready
-                    </div>
-                </template>
+                    </template>
+
+                    <template v-else>
+                        <div
+                            v-if="multiplayer.selfIsHost"
+                            class="game-controls-right"
+                        >
+                            <template v-if="!isSavedGame">
+                                <div
+                                    v-if="multiplayer.playerUsers.length == 0"
+                                    class="wait-for-players"
+                                >
+                                    No players at the table
+                                </div>
+
+                                <template v-else>
+                                    <button
+                                        class="pick-seating-btn"
+                                        :disabled="!multiplayer.areAllPlayerUsersReady"
+                                        :title="
+                                            !multiplayer.areAllPlayerUsersReady ?
+                                                'Wait for all players to be ready'
+                                            :   ''
+                                        "
+                                        @click="startPickSeating()"
+                                    >
+                                        Pick Seating
+                                    </button>
+
+                                    <button
+                                        class="roll-seating-btn"
+                                        :disabled="!multiplayer.areAllPlayerUsersReady"
+                                        :title="
+                                            !multiplayer.areAllPlayerUsersReady ?
+                                                'Wait for all players to be ready'
+                                            :   ''
+                                        "
+                                        @click="rollSeating()"
+                                    >
+                                        Roll Seating
+                                    </button>
+                                </template>
+                            </template>
+
+                            <div
+                                v-if="multiplayer.missingSavedGamePlayers"
+                                class="wait-for-players"
+                            >
+                                Waiting for players from the saved game to join
+                            </div>
+
+                            <button
+                                v-else
+                                class="start-game-btn"
+                                :disabled="!multiplayer.isRoomReady || isStartingGame"
+                                :title="
+                                    !multiplayer.areAllPlayerUsersReady ?
+                                        'Wait for all players to be ready'
+                                    : !multiplayer.isSeatingReady ?
+                                        'Pick or roll seating to start the game'
+                                    :   ''
+                                "
+                                @click="tryLaunchGame()"
+                            >
+                                <template v-if="isStartingGame">
+                                    <span class="reconnect-spinner" />
+                                    Starting...
+                                </template>
+                                <template v-else> ▶ Start Game </template>
+                            </button>
+                        </div>
+                        <div
+                            v-else
+                            class="host-message"
+                        >
+                            The host can launch the game when all players are ready
+                        </div>
+                    </template>
+                </div>
             </div>
         </div>
-    </div>
+
+        <LobbyChat
+            v-if="activeChatTab === 'room'"
+            key="room-chat"
+            class="room-chat-section"
+            :messages="history.logEntries"
+            :disabled="isRoomChatDisabled"
+            disabledMessage="The game has started, room chat is not available. Players and judges can still chat in-game."
+            @send="onSendRoomChat"
+        >
+            <template #title>
+                <div class="chat-tabs">
+                    <button
+                        v-for="tab in chatTabs"
+                        :key="tab.id"
+                        class="chat-tab"
+                        :class="{ 'chat-tab-active': activeChatTab === tab.id }"
+                        @click="activeChatTab = tab.id"
+                    >
+                        {{ tab.title }}
+                    </button>
+                </div>
+            </template>
+        </LobbyChat>
+
+        <LobbyChat
+            v-else
+            key="lobby-chat"
+            class="room-chat-section"
+            :language="activeLanguageName"
+            :messages="lobbyChatMessages"
+            :cooldownMs="CHAT_SEND_COOLDOWN_MS"
+            show-date-separators
+            language-selector
+            @send="onSendLobbyChat"
+        >
+            <template #title>
+                <div class="chat-tabs">
+                    <button
+                        v-for="tab in chatTabs"
+                        :key="tab.id"
+                        class="chat-tab"
+                        :class="{ 'chat-tab-active': activeChatTab === tab.id }"
+                        @click="activeChatTab = tab.id"
+                    >
+                        {{ tab.title }}
+                    </button>
+                </div>
+            </template>
+        </LobbyChat>
+    </template>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import {
     connectIntoGame,
@@ -469,26 +523,100 @@ import {
     leaveSeat,
     pickSeat,
     rollSeating,
+    sendChat,
     setSelfRoomSeat,
     startPickSeating,
 } from '@/client/multiplayer/room.ts'
 import router, { ROUTES } from '@/client/ui/router.ts'
 import { useCoreStore } from '@/client/store/core.ts'
+import { useHistoryStore } from '@/client/store/history.ts'
 import { CommunicationMode, EMPTY_SEATING, RoomSeat, User } from '@/shared/types/multiplayer.ts'
 import { isSeated, ROOM_SEATS } from '@/shared/multiplayer/seats.ts'
 import UserAvatar from '@/client/ui/components/UserAvatar.vue'
+import LobbyChat from '@/client/ui/components/LobbyChat.vue'
 import * as logging from '@/client/logging.ts'
 import { useBusStore } from '@/client/store/bus.ts'
 import { countCards } from '@/client/gateway/deck.ts'
 import { MAX_LIB_SIZE, MAX_PLAYERS, MIN_CRYPT_SIZE, MIN_LIB_SIZE } from '@/shared/const/model.ts'
+import { useLanguagePreferenceStore } from '@/client/store/languagePreference.ts'
+import { CHAT_LANGUAGES } from '@/shared/const/languages.ts'
+import { getTranslations } from '@/shared/availability/shareLabel.mjs'
+import {
+    CHAT_SEND_COOLDOWN_MS,
+    LobbyChatMessage,
+    sendLobbyChat,
+    subscribeLobbyChat,
+    warmUpChatAuth,
+} from '@/client/gateway/lobbyChat.ts'
 
 const core = useCoreStore()
 const multiplayer = useMultiplayerStore()
 const bus = useBusStore()
+const history = useHistoryStore()
+const languagePreference = useLanguagePreferenceStore()
 
 // Navigate back to the lobby : the router guard leaves the game room for us.
 function onLeaveRoom() {
     router.push({ name: ROUTES.Lobby })
+}
+
+/**
+ *  Room / Lobby chat tabs. The room chat is the pre-game local channel for this room ;
+ *  the lobby chat tab reuses the same per-language channel as the main lobby screen, so
+ *  players can keep talking there without leaving the room.
+ */
+
+type ChatTabId = 'room' | 'lobby'
+
+const chatTabs: { id: ChatTabId; title: string }[] = [
+    { id: 'room', title: 'Room Chat' },
+    { id: 'lobby', title: 'Lobby Chat' },
+]
+const activeChatTab = ref<ChatTabId>('room')
+
+const isRoomChatDisabled = computed(() => !!multiplayer.currentGameRoom?.isStarted)
+
+function onSendRoomChat(text: string) {
+    sendChat({
+        text,
+        timestamp: new Date(),
+        authorName: multiplayer.selfUser.name,
+    })
+}
+
+const lobbyChatMessages = ref<LobbyChatMessage[]>([])
+let unsubscribeLobbyChat: (() => void) | null = null
+
+const activeLanguageName = computed(() => {
+    const language = CHAT_LANGUAGES.find(entry => entry.code === languagePreference.language)
+    if (!language) {
+        return ''
+    }
+    return `${getTranslations(languagePreference.language).language} : ${language.fullName}`
+})
+
+function subscribeToActiveLanguage() {
+    unsubscribeLobbyChat?.()
+    lobbyChatMessages.value = []
+    unsubscribeLobbyChat = subscribeLobbyChat(languagePreference.language, message => {
+        lobbyChatMessages.value.push(message)
+    })
+}
+
+watch(() => languagePreference.language, subscribeToActiveLanguage)
+
+onMounted(() => {
+    warmUpChatAuth()
+    subscribeToActiveLanguage()
+})
+
+onUnmounted(() => {
+    unsubscribeLobbyChat?.()
+    unsubscribeLobbyChat = null
+})
+
+function onSendLobbyChat(text: string) {
+    sendLobbyChat(languagePreference.language, multiplayer.selfUser.name, text)
 }
 
 const isSavedGame = computed(() => {
@@ -696,10 +824,36 @@ async function startConnectIntoGame(gameRoom?: any) {
 
 .current-room-panel {
     @include panel;
-    grid-area: current-room;
     display: flex;
     flex-direction: column;
     min-height: 0; // Prevents overflow issues in grid layouts
+    flex-shrink: 0;
+}
+
+/**
+ *  Room / Lobby chat tabs
+ */
+
+.room-chat-section {
+    flex: 1;
+    min-height: 280px;
+}
+
+.chat-tabs {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.chat-tab {
+    @include tab-button;
+    font-family: serif;
+    font-size: 1.25rem;
+    font-weight: 300;
+    padding: 0.25rem 1rem;
+
+    &.chat-tab-active {
+        @include tab-button-active;
+    }
 }
 
 .current-room-header {
