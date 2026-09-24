@@ -184,12 +184,12 @@ export class GovernBot extends Bot {
         const blockingMinion = getBlockingMinion(gameState)
         const lostInCrowds = this.getCardInHand(LOST_IN_CROWDS_ID)
 
-        // TODO : remember the action modifier played this action to prevent double lost in crowd
+        // The same action modifier can't be played twice during the same action
         if (
             lostInCrowds &&
             blockingMinion &&
             gameState.action.intercept >= gameState.action.stealth &&
-            gameState.action.stealth <= 1
+            !this.hasPlayedCardThisAction(LOST_IN_CROWDS_ID)
         ) {
             return createActionModifier(
                 lostInCrowds,

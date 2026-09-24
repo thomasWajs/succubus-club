@@ -11,6 +11,7 @@ import {
 import { LibraryCard } from '@/shared/model/Card.ts'
 import { NEXT_PHASE, NEXT_TURN } from '@/shared/const/bot.ts'
 import { KrcgId } from '@/shared/types/gateway.ts'
+import type { Conductor } from '@/client/bot/conductor.ts'
 
 export type BotDecision =
     | typeof NEXT_PHASE
@@ -28,6 +29,9 @@ export type BotDecision =
  */
 
 export abstract class Bot {
+    // Set by the Conductor that drives this bot (see Conductor constructor)
+    conductor?: Conductor
+
     constructor(public player: Player) {}
 
     // Callback to init state
@@ -59,5 +63,10 @@ export abstract class Bot {
             }
         }
         return undefined
+    }
+
+    // Whether a card with this krcgId has already been played during the current action.
+    hasPlayedCardThisAction(krcgId: KrcgId) {
+        return this.conductor?.hasPlayedCardThisAction(krcgId) ?? false
     }
 }

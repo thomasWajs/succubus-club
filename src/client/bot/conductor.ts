@@ -18,6 +18,7 @@ import { declareAction, playCard } from '@/client/game/declaration.ts'
 import { BOT_PAUSE_TIME, NEXT_PHASE, NEXT_TURN } from '@/shared/const/bot.ts'
 import { applyMutationLocally } from '@/client/state/gameMutations.ts'
 import { CardOid } from '@/shared/types/model.ts'
+import { KrcgId } from '@/shared/types/gateway.ts'
 
 export type ConductorState = {
     turnInitDone: boolean
@@ -30,7 +31,15 @@ export class Conductor {
     // Cards played during an action, that must be discarded at the end of the action
     cardsPlayed = [] as LibraryCard[]
 
-    constructor(public bot: Bot) {}
+    constructor(public bot: Bot) {
+        bot.conductor = this
+    }
+
+    // Whether a card with this krcgId has already been played during the current action.
+    // Used to enforce the rule that the same action modifier can't be played twice per action.
+    hasPlayedCardThisAction(krcgId: KrcgId) {
+        return this.cardsPlayed.some(card => card.krcgId == krcgId)
+    }
 
     getConductorState() {
         return {
