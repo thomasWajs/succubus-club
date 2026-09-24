@@ -87,6 +87,15 @@ export function useStackTopCard(options: {
         const cardRegion = options.cardRegion()
         const stackOwner = cardRegion.owner
         const topCard = options.topCard()
+
+        // Left-clicking the ash heap top card opens the wield-card-stack,
+        // just like clicking the surrounding stack boundaries.
+        if (pointer.leftButtonDown() && cardRegion.is.ashHeap) {
+            gameBus.wieldCardStack.show = true
+            gameBus.wieldCardStack.cardRegion = cardRegion
+            return
+        }
+
         if (!canDraw.value || !stackOwner || !topCard) {
             return
         }
