@@ -6,7 +6,7 @@ import {
     PermanentId,
     RollSeatingMessage,
     RoomId,
-    RoomSeat,
+    RoomRole,
     ScsServerMessage,
     ScsSetupGameMessage,
 } from '@/shared/types/multiplayer.ts'
@@ -93,7 +93,7 @@ export function getOrCreateRoom(roomId: RoomId, passwordHash: string, hostId: Pe
             id: roomId,
             hostId,
             players: new Set(),
-            seats: {},
+            roles: {},
             passwordHash,
             seating: EMPTY_SEATING,
             gameId: null,
@@ -325,12 +325,12 @@ function setupNewGame(room: Room, isFreeTable: boolean): GameState {
         }
     }
 
-    // The declared seats must agree with the seating, else the host is desynced
-    const seatedPlayers = Object.entries(room.seats)
-        .filter(([, seat]) => seat == RoomSeat.Player)
+    // The declared roles must agree with the seating, else the host is desynced
+    const seatedPlayers = Object.entries(room.roles)
+        .filter(([, role]) => role == RoomRole.Player)
         .map(([permId]) => permId)
     if (seatedPlayers.toSorted().join() != [...room.seating].toSorted().join()) {
-        throw new Error(`Declared player seats do not match the seating`)
+        throw new Error(`Declared player roles do not match the seating`)
     }
 
     return createGameState(room, isFreeTable)
@@ -339,14 +339,14 @@ function setupNewGame(room: Room, isFreeTable: boolean): GameState {
 export async function handleSetupGame(connection: ConnectionInfo, message: ScsSetupGameMessage) {
     const room = ensureRoom(connection.roomId)
 
-    // Only the host launches the game, and so only the host declares the seats.
+    // Only the host launches the game, and so only the host declares the roles.
     // Without this, any user in the room could grant themselves a judge's vision.
     if (connection.permId != room.hostId) {
         sendError(connection.webSocket, 'Only the host can launch the game')
         return
     }
 
-    room.seats = message.seats
+    room.roles = message.roles
     // Relaunching a saved game ignores message.isFreeTable : the restored gameState
     // already carries the mode it was originally created with.
     const gameState =

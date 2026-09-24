@@ -138,7 +138,7 @@
                                     Game Started
                                 </span>
                                 <span class="player-count">
-                                    {{ gameRoom.players?.length }}/5 Players
+                                    {{ getRoomPermIds(gameRoom, RoomRole.Player).length }}/5 Players
                                 </span>
                                 <div
                                     v-if="gameRoom.hasPassword"
@@ -324,7 +324,8 @@ import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import { connectIntoGame, joinGameRoom } from '@/client/multiplayer/room.ts'
 import TopBar from '@/client/ui/components/TopBar.vue'
 import { useCoreStore } from '@/client/store/core.ts'
-import { CommunicationMode, GameRoom, ScsStatus } from '@/shared/types/multiplayer.ts'
+import { CommunicationMode, GameRoom, RoomRole, ScsStatus } from '@/shared/types/multiplayer.ts'
+import { getRoomPermIds } from '@/shared/multiplayer/roles.ts'
 import UserAvatar from '@/client/ui/components/UserAvatar.vue'
 import * as logging from '@/client/logging.ts'
 import { useBusStore } from '@/client/store/bus.ts'

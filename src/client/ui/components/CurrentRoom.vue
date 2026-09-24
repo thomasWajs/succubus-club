@@ -228,21 +228,21 @@
 
                 <!-- Move ourselves between the table, the judge seat and the sidelines. Sits at the right of the tiles. -->
                 <div
-                    v-if="canChangeRoomSeat"
+                    v-if="canChangeRoomRole"
                     class="room-seat-picker"
                 >
                     <span class="room-seat-title">Your Role</span>
 
                     <button
-                        v-for="seat in ROOM_SEATS"
-                        :key="seat"
+                        v-for="role in ROOM_ROLES"
+                        :key="role"
                         class="room-seat-btn"
-                        :class="{ active: multiplayer.selfRoomSeat == seat }"
-                        :disabled="isRoomSeatDisabled(seat)"
-                        :title="getRoomSeatTitle(seat)"
-                        @click="changeRoomSeat(seat)"
+                        :class="{ active: multiplayer.selfRoomRole == role }"
+                        :disabled="isRoomRoleDisabled(role)"
+                        :title="getRoomRoleTitle(role)"
+                        @click="changeRoomRole(role)"
                     >
-                        {{ seat }}
+                        {{ role }}
                     </button>
                 </div>
             </div>
@@ -250,7 +250,7 @@
             <!-- Judges and Spectators : not at the table, no deck and no readiness -->
             <div
                 v-if="multiplayer.judgeUsers.length > 0 || multiplayer.spectatorUsers.length > 0"
-                class="room-side-seats"
+                class="room-side-roles"
             >
                 <div
                     v-if="multiplayer.judgeUsers.length > 0"
@@ -536,14 +536,14 @@ import {
     pickSeat,
     rollSeating,
     sendChat,
-    setSelfRoomSeat,
+    setSelfRoomRole,
     startPickSeating,
 } from '@/client/multiplayer/room.ts'
 import router, { ROUTES } from '@/client/ui/router.ts'
 import { useCoreStore } from '@/client/store/core.ts'
 import { useHistoryStore } from '@/client/store/history.ts'
-import { CommunicationMode, EMPTY_SEATING, RoomSeat, User } from '@/shared/types/multiplayer.ts'
-import { isSeated, ROOM_SEATS } from '@/shared/multiplayer/seats.ts'
+import { CommunicationMode, EMPTY_SEATING, RoomRole, User } from '@/shared/types/multiplayer.ts'
+import { isSeated, ROOM_ROLES } from '@/shared/multiplayer/roles.ts'
 import UserAvatar from '@/client/ui/components/UserAvatar.vue'
 import LobbyChat from '@/client/ui/components/LobbyChat.vue'
 import * as logging from '@/client/logging.ts'
@@ -724,47 +724,47 @@ const orderedUsers = computed<User[]>(() => {
 })
 
 /**
- *  Room seats
+ *  Room roles
  */
 
 // Seats are locked while the game runs, while picking seating ( moving out would reset
 // our readiness and drop the whole room out of pick mode ), and on saved games, where
 // every competing player must stay at the table.
-const canChangeRoomSeat = computed(() => {
+const canChangeRoomRole = computed(() => {
     return !multiplayer.currentGameRoom?.isStarted && !isSavedGame.value && !isPickSeatingMode.value
 })
 
-function isRoomSeatDisabled(seat: RoomSeat) {
-    if (multiplayer.selfRoomSeat == seat) {
+function isRoomRoleDisabled(role: RoomRole) {
+    if (multiplayer.selfRoomRole == role) {
         return true
     }
-    if (seat == RoomSeat.Player) {
+    if (role == RoomRole.Player) {
         return multiplayer.playerUsers.length >= MAX_PLAYERS
     }
-    if (seat == RoomSeat.Spectator) {
+    if (role == RoomRole.Spectator) {
         return !multiplayer.currentGameRoom?.allowSpectators
     }
     return false
 }
 
-function getRoomSeatTitle(seat: RoomSeat) {
-    if (multiplayer.selfRoomSeat == seat) {
+function getRoomRoleTitle(role: RoomRole) {
+    if (multiplayer.selfRoomRole == role) {
         return ''
     }
-    if (seat == RoomSeat.Player && multiplayer.playerUsers.length >= MAX_PLAYERS) {
+    if (role == RoomRole.Player && multiplayer.playerUsers.length >= MAX_PLAYERS) {
         return 'The table is full'
     }
-    if (seat == RoomSeat.Spectator && !multiplayer.currentGameRoom?.allowSpectators) {
+    if (role == RoomRole.Spectator && !multiplayer.currentGameRoom?.allowSpectators) {
         return 'Spectators are not allowed in this room'
     }
     return ''
 }
 
-async function changeRoomSeat(seat: RoomSeat) {
+async function changeRoomRole(role: RoomRole) {
     try {
-        await setSelfRoomSeat(seat)
+        await setSelfRoomRole(role)
     } catch (error) {
-        let message = 'Could not change seat'
+        let message = 'Could not change role'
         if (error instanceof Error) {
             message = `${message} : ${error.message}`
         }
@@ -977,7 +977,7 @@ async function startConnectIntoGame(gameRoom?: any) {
     padding: 0.5rem 1rem;
 }
 
-// The player tiles, with the seat picker as a narrow column on their right
+// The player tiles, with the role picker as a narrow column on their right
 .room-body {
     display: flex;
     gap: 1rem;
@@ -990,7 +990,7 @@ async function startConnectIntoGame(gameRoom?: any) {
     gap: 1rem;
     flex-wrap: wrap;
     align-items: stretch;
-    flex: 1; // Fills the row, keeping the seat picker against the right edge
+    flex: 1; // Fills the row, keeping the role picker against the right edge
 }
 
 .room-player {
@@ -1126,10 +1126,10 @@ async function startConnectIntoGame(gameRoom?: any) {
 }
 
 /**
- *  Room seats : judges and spectators
+ *  Room roles : judges and spectators
  */
 
-.room-side-seats {
+.room-side-roles {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;

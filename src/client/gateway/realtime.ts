@@ -26,6 +26,7 @@ import {
     query as rtdbQuery,
     ref as rtdbRef,
     remove as rtdbRemove,
+    runTransaction as rtdbRunTransaction,
     serverTimestamp as rtdbServerTimestamp,
     set as rtdbSet,
     update as rtdbUpdate,
@@ -365,4 +366,5 @@ export function ensureAnonymousAuth(): Promise<string> {
 // Make aliases to avoid name collision with vue ref
 export { DataSnapshot, rtdbRef, rtdbGet, rtdbSet, rtdbRemove, rtdbOnValue }
 export { rtdbPush, rtdbQuery, rtdbLimitToLast, rtdbOnChildAdded, rtdbServerTimestamp, rtdbUpdate }
+export { rtdbRunTransaction }
 export { fsCollection, fsDoc, fsSetDoc, fsGetDoc, fsDeleteDoc, fsOnSnapshot, fsBytes, fsTimestamp }

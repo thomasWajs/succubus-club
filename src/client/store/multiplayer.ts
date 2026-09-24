@@ -5,7 +5,7 @@ import {
     GameRoom,
     PermanentId,
     RoomId,
-    RoomSeat,
+    RoomRole,
     ScsStatus,
     User,
     UserDecks,
@@ -13,17 +13,30 @@ import {
     VersioningId,
 } from '@/shared/types/multiplayer.ts'
 import {
-    applyRoomSeat,
+    applyRoomRole,
     getRoomPermIds,
-    getRoomSeat,
-    releaseRoomSeat,
-} from '@/shared/multiplayer/seats.ts'
+    getRoomRole,
+    releaseRoomRole,
+} from '@/shared/multiplayer/roles.ts'
 import { LamportClock, VectorClock } from '@/shared/multiplayer/clock.ts'
 import { GameMutationId } from '@/shared/state/gameMutations.ts'
 import { fetchAvatar } from '@/client/gateway/user.ts'
 import { AvatarId, DeckList } from '@/shared/types/gateway.ts'
 import { MutationHistoryEntry } from '@/shared/types/history.ts'
 import { DbSavedGame } from '@/client/gateway/db.ts'
+
+function getRoomUsers(
+    gameRoom: GameRoom | undefined,
+    users: Record<PermanentId, User>,
+    role?: RoomRole,
+): User[] {
+    if (!gameRoom) {
+        return []
+    }
+    return getRoomPermIds(gameRoom, role)
+        .map(permId => users[permId])
+        .filter(u => u)
+}
 
 export const useMultiplayerStore = defineStore('multiplayer', {
     state: () => ({
@@ -36,6 +49,11 @@ export const useMultiplayerStore = defineStore('multiplayer', {
 
         // id ==> User
         users: {} as Record<PermanentId, User>,
+
+        // permId ==> User, restricted to the current room channel's presence. Kept apart
+        // from `users` ( lobby-wide ) so host-presence and writer election track who is
+        // really in the room, not the churn-prone lobby presence.
+        roomMembers: {} as Record<PermanentId, User>,
 
         // Fetched from firebase. avatarId  => encoded image data
         avatars: {} as Record<AvatarId, string>,
@@ -104,52 +122,54 @@ export const useMultiplayerStore = defineStore('multiplayer', {
             return gameRoom ?? state.currentGameRoomFallback ?? undefined
         },
 
-        isHostConnected(): boolean {
-            const gameRoom = this.currentGameRoom
-            return gameRoom ? !!this.users[gameRoom.hostId] : false
-        },
         selfIsHost(): boolean {
             return this.currentGameRoom?.hostId == this.selfUser.permId
         },
-        // Every user in the room, whatever their seat
-        allGameRoomUsers(): User[] {
+
+        // The single client responsible for room writes that no individual owner makes,
+        // e.g. persisting a departed user's role release. The host while it is present,
+        // else the lowest permId still in the room, so every client independently agrees
+        // on exactly one writer instead of all of them racing to write.
+        roomWriterId(): PermanentId | null {
             const gameRoom = this.currentGameRoom
             if (!gameRoom) {
-                return []
+                return null
             }
-            return getRoomPermIds(gameRoom)
-                .map(permId => this.users[permId])
-                .filter(u => u)
+            if (gameRoom.hostId in this.roomMembers) {
+                return gameRoom.hostId
+            }
+            const present = Object.keys(this.roomMembers)
+            return present.length ? present.toSorted()[0] : null
+        },
+        selfIsRoomWriter(): boolean {
+            return this.roomWriterId == this.selfUser.permId
+        },
+        // Every user in the room, whatever their role
+        allGameRoomUsers(): User[] {
+            return getRoomUsers(this.currentGameRoom, this.users)
         },
         // Players only. Everything that gates the game start is built on this.
         playerUsers(): User[] {
-            return (
-                this.currentGameRoom?.players.map(permId => this.users[permId]).filter(u => u) ?? []
-            )
+            return getRoomUsers(this.currentGameRoom, this.users, RoomRole.Player)
         },
         judgeUsers(): User[] {
-            return (
-                this.currentGameRoom?.judges.map(permId => this.users[permId]).filter(u => u) ?? []
-            )
+            return getRoomUsers(this.currentGameRoom, this.users, RoomRole.Judge)
         },
         spectatorUsers(): User[] {
-            return (
-                this.currentGameRoom?.spectators.map(permId => this.users[permId]).filter(u => u) ??
-                []
-            )
+            return getRoomUsers(this.currentGameRoom, this.users, RoomRole.Spectator)
         },
-        selfRoomSeat(): RoomSeat | null {
+        selfRoomRole(): RoomRole | null {
             const gameRoom = this.currentGameRoom
-            return gameRoom ? getRoomSeat(gameRoom, this.selfUser.permId) : null
+            return gameRoom ? getRoomRole(gameRoom, this.selfUser.permId) : null
         },
         selfIsPlayer(): boolean {
-            return this.selfRoomSeat == RoomSeat.Player
+            return this.selfRoomRole == RoomRole.Player
         },
         selfIsJudge(): boolean {
-            return this.selfRoomSeat == RoomSeat.Judge
+            return this.selfRoomRole == RoomRole.Judge
         },
         selfIsSpectator(): boolean {
-            return this.selfRoomSeat == RoomSeat.Spectator
+            return this.selfRoomRole == RoomRole.Spectator
         },
         sortedPlayerUsers(): User[] {
             if (!this.currentGameRoom) return []
@@ -222,6 +242,17 @@ export const useMultiplayerStore = defineStore('multiplayer', {
             fetchAvatar(user)
         },
 
+        // Room channel presence : mirror enter / leave so writer election stays accurate.
+        upsertRoomMember(user: User) {
+            this.roomMembers[user.permId] = user
+        },
+        removeRoomMember(permId: PermanentId) {
+            delete this.roomMembers[permId]
+        },
+        clearRoomMembers() {
+            this.roomMembers = {}
+        },
+
         upsertGameRoom(room: GameRoom) {
             this.gameRooms[room.id] = room
         },
@@ -233,15 +264,15 @@ export const useMultiplayerStore = defineStore('multiplayer', {
         },
 
         // Seats are mutually exclusive : always go through these two.
-        setGameRoomSeat(permId: PermanentId, seat: RoomSeat) {
+        setGameRoomRole(permId: PermanentId, role: RoomRole) {
             if (this.currentGameRoom) {
-                applyRoomSeat(this.currentGameRoom, permId, seat)
+                applyRoomRole(this.currentGameRoom, permId, role)
             }
         },
-        // A disconnecting user only gives up a player seat : see releaseRoomSeat
-        releaseGameRoomSeat(permId: PermanentId) {
+        // A disconnecting user only gives up a player role : see releaseRoomRole
+        releaseGameRoomRole(permId: PermanentId) {
             if (this.currentGameRoom) {
-                releaseRoomSeat(this.currentGameRoom, permId)
+                releaseRoomRole(this.currentGameRoom, permId)
             }
         },
     },

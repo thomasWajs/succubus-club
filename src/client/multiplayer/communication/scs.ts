@@ -26,7 +26,7 @@ import { applyGameResync, ensureClock, receiveRejectedMutation } from '@/client/
 import { useCoreStore } from '@/client/store/core.ts'
 import { useBusStore } from '@/client/store/bus.ts'
 import { waitUntil } from '@/shared/utils.ts'
-import { getRoomSeats, getSeatingCandidates } from '@/shared/multiplayer/seats.ts'
+import { getSeatingCandidates } from '@/shared/multiplayer/roles.ts'
 import router, { ROUTES } from '@/client/ui/router.ts'
 
 interface ScsCommunication extends Communication {
@@ -186,7 +186,7 @@ export const scsCommunication: ScsCommunication = {
 
     rollSeating() {
         const gameRoom = ensureGameRoom()
-        // The server only knows connected websockets, not seats : tell it who the
+        // The server only knows connected websockets, not seatings : tell it who the
         // players are, so it doesn't seat judges and spectators.
         getScsClient().send({
             type: MultiplayerMessageType.RollSeating,
@@ -196,11 +196,11 @@ export const scsCommunication: ScsCommunication = {
 
     async launchGame(gameRoom: GameRoom) {
         const multiplayer = useMultiplayerStore()
-        // The server only tracks connected websockets, so hand it the seats.
+        // The server only tracks connected websockets, so hand it the roles.
         // They are frozen from now on, the server needs them to know who is a judge.
         getScsClient().send({
             type: MultiplayerMessageType.SetupGame,
-            seats: getRoomSeats(gameRoom),
+            roles: gameRoom.roles,
             isFreeTable: gameRoom.isFreeTable,
         })
         gameRoom.isStarted = true

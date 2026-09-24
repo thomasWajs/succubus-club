@@ -6,7 +6,7 @@ import logger from './logger.ts'
 import { Room } from './types.ts'
 import {
     RoomId,
-    RoomSeats,
+    RoomRoles,
     Seating,
     SerializedGameState,
     UserDecks,
@@ -30,7 +30,7 @@ type RoomRow = {
     passwordHash: string
     hostId: string
     userDecks: string
-    seats: string
+    roles: string
     seating: string
     gameId: string
     globalClock: string
@@ -97,7 +97,7 @@ export function initTables() {
             passwordHash TEXT NOT NULL,
             hostId TEXT NOT NULL,
             userDecks TEXT NOT NULL,
-            seats TEXT NOT NULL,
+            roles TEXT NOT NULL,
             seating TEXT NOT NULL,
             gameId TEXT,
             globalClock TEXT NOT NULL,
@@ -140,13 +140,13 @@ export function saveRoom(room: Room): void {
     try {
         const now = Date.now()
         const stmt = db.prepare(`
-                INSERT INTO rooms (id, passwordHash, hostId, userDecks, seats, seating, gameId, globalClock, objectClocks, gameState, history, createdAt, updatedAt)
+                INSERT INTO rooms (id, passwordHash, hostId, userDecks, roles, seating, gameId, globalClock, objectClocks, gameState, history, createdAt, updatedAt)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                     passwordHash = excluded.passwordHash,
                     hostId = excluded.hostId,
                     userDecks = excluded.userDecks,
-                    seats = excluded.seats,
+                    roles = excluded.roles,
                     seating = excluded.seating,
                     gameId = excluded.gameId,
                     globalClock = excluded.globalClock,
@@ -162,7 +162,7 @@ export function saveRoom(room: Room): void {
             room.passwordHash,
             room.hostId,
             JSON.stringify(room.userDecks),
-            JSON.stringify(room.seats),
+            JSON.stringify(room.roles),
             JSON.stringify(room.seating),
             room.gameId,
             JSON.stringify(room.globalClock),
@@ -199,7 +199,7 @@ function loadRoomRow(row: RoomRow): Room {
         passwordHash: row.passwordHash,
         hostId: row.hostId,
         userDecks: JSON.parse(row.userDecks) as UserDecks,
-        seats: JSON.parse(row.seats) as RoomSeats,
+        roles: JSON.parse(row.roles) as RoomRoles,
         seating: JSON.parse(row.seating) as Seating,
         gameId: row.gameId,
         globalClock,

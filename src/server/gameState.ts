@@ -8,16 +8,16 @@ import {
     MutationSyncMode,
     PackedGameMutation,
     PermanentId,
-    RoomSeat,
-    RoomSeats,
+    RoomRole,
+    RoomRoles,
     ScsChatMessage,
     ScsGameMutationMessage,
     ScsGameStateMessage,
-    ScsSendChatMessage,
-    SerializedCard,
     ScsMutationRejectedMessage,
     ScsRandomResultRequestMessage,
+    ScsSendChatMessage,
     ScsShuffleCardRegionMessage,
+    SerializedCard,
     SerializedMultiplayerGame,
 } from '@/shared/types/multiplayer.ts'
 import { ConnectionInfo, RateLimitInfo, Room, SERVER_PERM_ID, StartedRoom } from './types.ts'
@@ -115,11 +115,11 @@ export function getPlayer(gameState: GameState, permId: PermanentId) {
 export function getKnownCards(
     gameState: GameState,
     permId: PermanentId,
-    seats: RoomSeats,
+    roles: RoomRoles,
 ): KnownCards {
     const userKnownCards: KnownCards = {}
     // A judge oversees the game : they see and peek every card
-    const isJudge = seats[permId] == RoomSeat.Judge
+    const isJudge = roles[permId] == RoomRole.Judge
     const player = getPlayer(gameState, permId)
     for (const card of Object.values(gameState.cards)) {
         if (
@@ -188,7 +188,7 @@ export function getSerializedGame(
     room: Room,
     permId: PermanentId,
 ): SerializedMultiplayerGame {
-    const knownCards = getKnownCards(gameState, permId, room.seats)
+    const knownCards = getKnownCards(gameState, permId, room.roles)
     const userGameState = { ...gameState, knownCards } as GameState
     const serializedGameState = serializeGameState(userGameState)
 
@@ -316,7 +316,7 @@ export async function handleGameMutation(
 
         // Broadcast mutation to all players in the room
         broadcastTailored(room.id, permId => {
-            const knownCards = getKnownCards(room.gameState, permId, room.seats)
+            const knownCards = getKnownCards(room.gameState, permId, room.roles)
             return {
                 ...message,
                 gameMutation: redactPackedMutation(message.gameMutation, knownCards),
@@ -349,10 +349,10 @@ export function handleChat(connection: ConnectionInfo, message: ScsSendChatMessa
         const room = ensureRoom(connection.roomId)
 
         // Once the game has started, only players and judges may chat. Spectators
-        // ( including users who joined after the start, absent from room.seats ) are muted.
+        // ( including users who joined after the start, absent from room.roles ) are muted.
         if (room.gameState) {
-            const seat = room.seats[connection.permId]
-            if (seat != RoomSeat.Player && seat != RoomSeat.Judge) {
+            const role = room.roles[connection.permId]
+            if (role != RoomRole.Player && role != RoomRole.Judge) {
                 sendError(connection.webSocket, 'Spectators cannot chat during the game')
                 return
             }

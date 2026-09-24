@@ -18,7 +18,7 @@ import {
 import Ably, { ChannelOptions } from 'ably'
 import { ensureGameRoom, receiveLaunchGame } from '@/client/multiplayer/room.ts'
 import { shuffleArray } from '@/shared/utils.ts'
-import { getSeatingCandidates } from '@/shared/multiplayer/seats.ts'
+import { getSeatingCandidates } from '@/shared/multiplayer/roles.ts'
 import { Communication } from '@/client/multiplayer/communication/index.ts'
 import { useCoreStore } from '@/client/store/core.ts'
 import { fetchGameState, storeGameState } from '@/client/gateway/gameState.ts'

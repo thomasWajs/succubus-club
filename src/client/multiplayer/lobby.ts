@@ -12,11 +12,18 @@ import {
     rtdbRef,
     rtdbRemove,
     rtdbSet,
+    rtdbUpdate,
 } from '@/client/gateway/realtime.ts'
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import * as logging from '@/client/logging.ts'
 import { useBusStore } from '@/client/store/bus.ts'
-import { CommunicationMode, GameRoom, RoomId, ScsStatus } from '@/shared/types/multiplayer.ts'
+import {
+    CommunicationMode,
+    GameRoom,
+    RoomId,
+    RoomRole,
+    ScsStatus,
+} from '@/shared/types/multiplayer.ts'
 import { getCommunication, joinGameRoom, leaveGameRoom } from '@/client/multiplayer/room.ts'
 import { computeKey } from '@/client/multiplayer/encryption.ts'
 import { scsCommunication } from '@/client/multiplayer/communication/scs.ts'
@@ -24,7 +31,7 @@ import { generateRoomId } from '@/shared/state/ids.ts'
 import { DbSavedGame } from '@/client/gateway/db.ts'
 
 let LOBBY_CHANNEL_NAME = 'Lobby'
-const GAME_ROOMS_KEY = 'gameRooms'
+export const GAME_ROOMS_KEY = 'gameRooms'
 const DEBOUNCE_DELAY = 500 // milliseconds
 
 if (import.meta.env.DEV) {
@@ -262,11 +269,9 @@ async function syncGameRooms(snapshot: DataSnapshot) {
     const gameRooms: Record<RoomId, GameRoom> = {}
 
     for (const [roomId, gameRoom] of Object.entries(storedGameRooms ?? {})) {
-        // rtdb removes empty arrays, which breaks typescript assumptions, which sucks
-        gameRoom.players ??= []
+        // rtdb removes empty containers, which breaks typescript assumptions, which sucks
+        gameRoom.roles ??= {}
         gameRoom.competingPlayers ??= []
-        gameRoom.spectators ??= []
-        gameRoom.judges ??= []
 
         gameRooms[roomId] = gameRoom
     }
@@ -315,10 +320,8 @@ export async function createGameRoom(
         isCasual,
         allowSpectators,
         isFreeTable,
-        players: [multiplayer.selfUser.permId],
+        roles: { [multiplayer.selfUser.permId]: RoomRole.Player },
         competingPlayers: savedGame ? savedGame.competingPlayers : [],
-        spectators: [],
-        judges: [],
     }
     // Don't try to coalesce inline with 'seating: savedGame?.seating',
     // as firebase refuse to receive undefined properties
@@ -332,6 +335,20 @@ export async function createGameRoom(
 
 export async function broadcastGameRoom(gameRoom: GameRoom) {
     rtdbSet(gameRoomRef(gameRoom.id), gameRoom)
+}
+
+/**
+ * Persist everything but the roles.
+ *
+ * The host still owns the room metadata and the turn-order seating, but the roles map is
+ * written per-user ( see commitRoomRole ). A metadata write must never carry it, else a
+ * stale snapshot would clobber a role move made concurrently by someone else ( roles
+ * jumping between players/spectators, users vanishing ).
+ */
+export async function broadcastRoomMeta(gameRoom: GameRoom) {
+    const meta: Partial<GameRoom> = { ...gameRoom }
+    delete meta.roles
+    rtdbUpdate(gameRoomRef(gameRoom.id), meta)
 }
 
 export async function deleteGameRoom(roomId: RoomId) {

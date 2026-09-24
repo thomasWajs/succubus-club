@@ -14,8 +14,10 @@
         ".read": false,
         ".write": false,
 
-        // Legacy lobby game-room list. Each entry is a GameRoom, always written as a
-        // whole object (broadcastGameRoom -> set) or removed. See types/multiplayer.ts.
+        // Legacy lobby game-room list. Each entry is a GameRoom : created as a whole
+        // object (broadcastGameRoom -> set), then its roles are updated by transaction
+        // (commitRoomRole) and its metadata by partial update (broadcastRoomMeta), or it
+        // is removed. Validation runs on the merged node. See types/multiplayer.ts.
         "gameRooms": {
             ".read": true,
             "$roomId": {
@@ -54,16 +56,12 @@
                 "isFreeTable": {
                     ".validate": "newData.isBoolean()"
                 },
-                "players": {
-                    "$index": { ".validate": "newData.isString()" }
+                "roles": {
+                    "$permId": {
+                        ".validate": "newData.isString() && (newData.val() === 'Player' || newData.val() === 'Judge' || newData.val() === 'Spectator')"
+                    }
                 },
                 "competingPlayers": {
-                    "$index": { ".validate": "newData.isString()" }
-                },
-                "spectators": {
-                    "$index": { ".validate": "newData.isString()" }
-                },
-                "judges": {
                     "$index": { ".validate": "newData.isString()" }
                 },
                 // Seating is either a list of permanentIds or the 'EMPTY_SEATING' sentinel.

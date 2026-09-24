@@ -10,7 +10,7 @@
  *   node loadtest/lobbySim.mjs
  *   BOTS=30 CHURN_MS=1500 node loadtest/lobbySim.mjs
  *   RTDB=1 RTDB_ROOMS=5 node loadtest/lobbySim.mjs   # also churn the game-room list
- *   ROOM_LIFECYCLE=1 BOTS=14 node loadtest/lobbySim.mjs   # play out room join / seat-swap scenarios
+ *   ROOM_LIFECYCLE=1 BOTS=14 node loadtest/lobbySim.mjs   # play out room join / role-swap scenarios
  *
  * Stop with Ctrl-C: it leaves presence, deletes any rooms it created, and closes
  * every connection cleanly.
@@ -56,19 +56,22 @@ const config = {
     // With ROOM_LIFECYCLE=1 the bots stop just creating+leaving rooms. Instead they are
     // grouped into rooms and play out a realistic sequence: the first bot creates the
     // room, the next 4 join as players (filling MAX_PLAYERS), one more joins and moves to
-    // judge, one more joins and stays a spectator, then players and spectators swap seats.
-    // Joins and swaps overlap on purpose (see joinJitterMs), so the whole-object RTDB
-    // writes race like concurrent clients do : this is what reproduces the "roles jumping
-    // between players/spectators / users disappearing" report.
+    // judge, one more joins and stays a spectator, then players and spectators swap roles.
+    // Seats are written the way the client now does : each move is a per-user child write on
+    // the roles map ( or a scoped transaction when taking a capped player role ). Joins and
+    // swaps still overlap on purpose (see joinJitterMs), but because each user owns their own
+    // roles key, the concurrent writes merge instead of clobbering : the audit should stay
+    // clean, confirming roles no longer jump between players/spectators and users no longer
+    // vanish.
     roomLifecycle: bool('ROOM_LIFECYCLE', false),
     // Bots per simulated room : 1 host + 4 players + 1 judge + 1 spectator.
     roomSize: int('ROOM_SIZE', 7),
     // Delay between the scripted phases of a room lifecycle (ms).
     stepMs: int('STEP_MS', 800),
     // Stagger between joins/swaps fired within a phase (ms). Smaller = more collisions.
-    joinJitterMs: int('JOIN_JITTER_MS', 40),
+    joinJitterMs: int('JOIN_JITTER_MS', 100),
     // Pause before a group tears its room down and starts a fresh one (ms).
-    lifecycleLoopMs: int('LIFECYCLE_LOOP_MS', 5000),
+    lifecycleLoopMs: int('LIFECYCLE_LOOP_MS', 6000),
 }
 
 // The lifecycle scenario is built on the RTDB game-room list.
@@ -81,10 +84,10 @@ const ABLY_KEY = requireEnv('VITE_ABLY_API_KEY')
 const LOBBY_CHANNEL = '{dev} Lobby'
 const GAME_ROOMS_KEY = 'gameRooms'
 
-// Room seat model, mirrored from src/shared/multiplayer/seats.ts (this plain-Node
-// script has no bundler, so it can't import the TS shared code).
-const RoomSeat = { Player: 'Player', Judge: 'Judge', Spectator: 'Spectator' }
-const ROOM_SEATS = [RoomSeat.Player, RoomSeat.Judge, RoomSeat.Spectator]
+// Room role model, mirrored from src/shared (this plain-Node script has no bundler, so it
+// can't import the TS shared code). A room stores its roles as a single permId -> role map
+// ( gameRoom.roles ), so a user holds exactly one role and can never appear twice.
+const RoomRole = { Player: 'Player', Judge: 'Judge', Spectator: 'Spectator' }
 const MAX_PLAYERS = 5
 
 // Shared metrics across all bots.
@@ -215,10 +218,8 @@ function createBot(index, isHost) {
             isCasual: true,
             allowSpectators: true,
             isFreeTable: false,
-            players: [permId],
+            roles: { [permId]: RoomRole.Player },
             competingPlayers: [],
-            spectators: [],
-            judges: [],
         })
     }
 
@@ -227,7 +228,7 @@ function createBot(index, isHost) {
             return
         }
         // Toggle a field so the game-room list re-broadcasts to every lobby client.
-        await rtdbUpdate(roomId, { isStarted: churnTick % 2 === 0 })
+        await rtdbUpdateRoom(roomId, { isStarted: churnTick % 2 === 0 })
     }
 
     async function stop() {
@@ -272,10 +273,13 @@ async function initRtdb() {
 function roomRef(roomId) {
     return rtdb.db.ref(rtdb.database, `${GAME_ROOMS_KEY}/${roomId}`)
 }
+function rolesRef(roomId) {
+    return rtdb.db.ref(rtdb.database, `${GAME_ROOMS_KEY}/${roomId}/roles`)
+}
 async function rtdbWrite(roomId, room) {
     await rtdb.db.set(roomRef(roomId), room)
 }
-async function rtdbUpdate(roomId, patch) {
+async function rtdbUpdateRoom(roomId, patch) {
     await rtdb.db.update(roomRef(roomId), patch)
 }
 async function rtdbRemove(roomId) {
@@ -285,63 +289,53 @@ async function rtdbReadRoom(roomId) {
     const snapshot = await rtdb.db.get(roomRef(roomId))
     return snapshot.exists() ? snapshot.val() : null
 }
+// Per-user role child write : merges with concurrent writes on other users' keys.
+async function rtdbUpdateSeats(roomId, patch) {
+    await rtdb.db.update(rolesRef(roomId), patch)
+}
+// Scoped transaction on the roles node, mirroring runRolesTransaction in lobby.ts.
+async function runRolesTransaction(roomId, mutate) {
+    await rtdb.db.runTransaction(rolesRef(roomId), roles => {
+        if (roles === null) {
+            return undefined
+        }
+        return mutate(roles) ? roles : undefined
+    })
+}
 
 /**
- * Room seat helpers, mirrored from src/shared/multiplayer/seats.ts. Every seat write
- * first clears the permId from all three arrays, so they stay mutually exclusive.
+ * Room role helpers, mirrored from src/shared/multiplayer/roles.ts. Roles live in a single
+ * permId -> role map, so exclusivity is structural : no clearing of parallel arrays.
  */
 function normalizeRoom(room) {
-    // RTDB strips empty arrays, so re-default them exactly like syncGameRooms does.
-    room.players ??= []
-    room.competingPlayers ??= []
-    room.spectators ??= []
-    room.judges ??= []
+    // RTDB strips empty containers, so re-default the map exactly like syncGameRooms does.
+    room.roles ??= {}
 }
-function seatArray(room, seat) {
-    if (seat === RoomSeat.Player) {
-        return room.players
-    }
-    if (seat === RoomSeat.Judge) {
-        return room.judges
-    }
-    return room.spectators
+function getRoomRole(room, permId) {
+    return room.roles[permId] ?? null
 }
-function getRoomSeat(room, permId) {
-    return ROOM_SEATS.find(seat => seatArray(room, seat).includes(permId)) ?? null
+function countPlayers(roles) {
+    return Object.values(roles).filter(role => role === RoomRole.Player).length
 }
-function hasRoomForPlayer(room, permId) {
-    return room.players.length < MAX_PLAYERS || room.players.includes(permId)
+function getRolePermIds(room, role) {
+    return Object.keys(room.roles).filter(permId => room.roles[permId] === role)
 }
-function resolveRoomSeat(room, permId) {
-    const current = getRoomSeat(room, permId)
+function resolveRoomRole(room, permId) {
+    const current = getRoomRole(room, permId)
     if (current) {
         return current
     }
-    return hasRoomForPlayer(room, permId) ? RoomSeat.Player : RoomSeat.Spectator
-}
-function applyRoomSeat(room, permId, seat) {
-    if (getRoomSeat(room, permId) === seat) {
-        return false
-    }
-    for (const s of ROOM_SEATS) {
-        const seated = seatArray(room, s)
-        const index = seated.indexOf(permId)
-        if (index > -1) {
-            seated.splice(index, 1)
-        }
-    }
-    seatArray(room, seat).push(permId)
-    return true
+    return countPlayers(room.roles) < MAX_PLAYERS ? RoomRole.Player : RoomRole.Spectator
 }
 
 /**
  * Room lifecycle scenario.
  *
- * Group the bots into rooms and run a realistic join / seat-change sequence per room.
- * Seat writes read the room, apply one change, and set() the whole object back : this
- * is the last-writer-wins broadcast broadcastGameRoom() uses. Concurrent callers each
- * read their own snapshot, so overlapping writes clobber each other exactly like the
- * concurrent-client bug that made roles jump and users disappear.
+ * Group the bots into rooms and run a realistic join / role-change sequence per room.
+ * Seat writes go through the same per-user protocol the client now uses : a child write on
+ * the roles map for judge/spectator, a scoped transaction for a capped player role. Because
+ * each user owns their own key, overlapping writes merge instead of clobbering, so the audit
+ * should stay clean ( the fix for roles jumping and users vanishing ).
  */
 function startRoomLifecycles() {
     const groups = []
@@ -376,7 +370,7 @@ async function runRoomLifecycle(group) {
             await joinSeat(roomId, judge.permId)
             participants.push(judge.permId)
             await sleep(config.stepMs)
-            await moveSeat(roomId, judge.permId, RoomSeat.Judge)
+            await moveRole(roomId, judge.permId, RoomRole.Judge)
             await sleep(config.stepMs)
         }
 
@@ -417,10 +411,8 @@ async function createLifecycleRoom(host) {
         isCasual: true,
         allowSpectators: true,
         isFreeTable: false,
-        players: [host.permId],
+        roles: { [host.permId]: RoomRole.Player },
         competingPlayers: [],
-        spectators: [],
-        judges: [],
     })
     return roomId
 }
@@ -432,17 +424,20 @@ async function shuffleSeats(roomId, group) {
     }
     normalizeRoom(room)
     const hostId = group[0].permId
-    const toSpectator = room.players.filter(permId => permId !== hostId).slice(0, 2)
-    const toPlayer = room.spectators.slice(0, 2)
+    const toSpectator = getRolePermIds(room, RoomRole.Player)
+        .filter(permId => permId !== hostId)
+        .slice(0, 2)
+    const toPlayer = getRolePermIds(room, RoomRole.Spectator).slice(0, 2)
     await fireStaggered([
-        ...toSpectator.map(permId => () => moveSeat(roomId, permId, RoomSeat.Spectator)),
-        ...toPlayer.map(permId => () => moveSeat(roomId, permId, RoomSeat.Player)),
+        ...toSpectator.map(permId => () => moveRole(roomId, permId, RoomRole.Spectator)),
+        ...toPlayer.map(permId => () => moveRole(roomId, permId, RoomRole.Player)),
     ])
 }
 
 /**
- * Join a room : take the seat resolveRoomSeat would give (player while there is room,
- * else spectator), then broadcast the whole room.
+ * Join a room : resolve the role client-side ( player while there is room, else spectator ),
+ * then persist it merge-safely, mirroring commitJoinRoomRole : keep a role already held, and
+ * fall back to spectator if the player table filled up in the meantime.
  */
 async function joinSeat(roomId, permId) {
     const room = await rtdbReadRoom(roomId)
@@ -450,30 +445,41 @@ async function joinSeat(roomId, permId) {
         return null
     }
     normalizeRoom(room)
-    const seat = resolveRoomSeat(room, permId)
-    if (applyRoomSeat(room, permId, seat)) {
-        await rtdbWrite(roomId, room)
-    }
-    return seat
+    const role = resolveRoomRole(room, permId)
+    await runRolesTransaction(roomId, roles => {
+        if (roles[permId]) {
+            return false
+        }
+        roles[permId] =
+            role === RoomRole.Player && countPlayers(roles) >= MAX_PLAYERS ?
+                RoomRole.Spectator
+            :   role
+        return true
+    })
+    return role
 }
 
 /**
- * Deliberately move a seated user to another seat, broadcasting the whole room.
+ * Deliberately move a seated user to another role, mirroring commitRoomRole : a player role
+ * is capped so it goes through a transaction ; judge/spectator is a plain per-user merge.
  */
-async function moveSeat(roomId, permId, seat) {
-    const room = await rtdbReadRoom(roomId)
-    if (!room) {
-        return
-    }
-    normalizeRoom(room)
-    if (applyRoomSeat(room, permId, seat)) {
-        await rtdbWrite(roomId, room)
+async function moveRole(roomId, permId, role) {
+    if (role === RoomRole.Player) {
+        await runRolesTransaction(roomId, roles => {
+            if (roles[permId] === RoomRole.Player || countPlayers(roles) >= MAX_PLAYERS) {
+                return false
+            }
+            roles[permId] = RoomRole.Player
+            return true
+        })
+    } else {
+        await rtdbUpdateSeats(roomId, { [permId]: role })
     }
 }
 
 /**
- * Fire each action after a short stagger, then wait for them all. With a stagger
- * smaller than an RTDB round-trip, the whole-object writes overlap and race.
+ * Fire each action after a short stagger, then wait for them all. With a stagger smaller than
+ * an RTDB round-trip the writes overlap, but each targets its own roles key, so they merge.
  */
 async function fireStaggered(actions) {
     const jobs = []
@@ -488,8 +494,9 @@ async function fireStaggered(actions) {
 }
 
 /**
- * Read the room back and flag the reported symptoms : a participant sitting in no seat
- * (vanished), a participant in more than one seat (jumping), or the table over capacity.
+ * Read the room back and flag the reported symptoms : a participant sitting in no role
+ * (vanished), or the table over capacity. A participant in two roles at once is now
+ * structurally impossible ( one key per user in the roles map ), which is the point.
  */
 async function auditRoom(roomId, participants) {
     const room = await rtdbReadRoom(roomId)
@@ -499,19 +506,17 @@ async function auditRoom(roomId, participants) {
     normalizeRoom(room)
     const problems = []
     for (const permId of participants) {
-        const seats = ROOM_SEATS.filter(seat => seatArray(room, seat).includes(permId))
-        if (seats.length === 0) {
-            problems.push(`${permId.slice(0, 4)} vanished (in no seat)`)
-        } else if (seats.length > 1) {
-            problems.push(`${permId.slice(0, 4)} duplicated in ${seats.join('+')}`)
+        if (!getRoomRole(room, permId)) {
+            problems.push(`${permId.slice(0, 4)} vanished (in no role)`)
         }
     }
-    if (room.players.length > MAX_PLAYERS) {
-        problems.push(`players over capacity (${room.players.length}/${MAX_PLAYERS})`)
+    const players = getRolePermIds(room, RoomRole.Player).length
+    if (players > MAX_PLAYERS) {
+        problems.push(`players over capacity (${players}/${MAX_PLAYERS})`)
     }
     const summary =
-        `players=${room.players.length} judges=${room.judges.length} ` +
-        `spectators=${room.spectators.length}`
+        `players=${players} judges=${getRolePermIds(room, RoomRole.Judge).length} ` +
+        `spectators=${getRolePermIds(room, RoomRole.Spectator).length}`
     if (problems.length) {
         metrics.errors += problems.length
         log(`ANOMALY ${roomId}: ${summary} :: ${problems.join('; ')}`)

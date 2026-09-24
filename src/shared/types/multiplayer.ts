@@ -43,15 +43,18 @@ export const EMPTY_SEATING = 'EMPTY_SEATING'
 export type Seating = PermanentId[] | typeof EMPTY_SEATING
 
 // Where a user sits in a game room, before the game starts.
-// Beware : 'seat' also means a turn order position elsewhere ( Seating, pickSeat, leaveSeat ).
-// Always keep the 'Room' prefix for this notion.
-export enum RoomSeat {
+export enum RoomRole {
     Player = 'Player',
     Judge = 'Judge',
     Spectator = 'Spectator',
 }
 
-export type RoomSeats = Record<PermanentId, RoomSeat>
+export type RoomRoles = Record<PermanentId, RoomRole>
+
+// What a user broadcasts on a room channel's presence. It's their User plus the role they
+// chose, so a reconnecting judge/spectator is restored to their role instead of being
+// defaulted to a player when their role array entry was lost.
+export type RoomPresence = User & { role?: RoomRole }
 
 export type GameRoom = {
     id: RoomId
@@ -65,11 +68,12 @@ export type GameRoom = {
     isCasual: boolean // Casual play shows hints/aids ; competitive hides them for stricter sanctionned play
     allowSpectators: boolean
     isFreeTable: boolean
-    players: PermanentId[] // permanentId in arbitrary order
+    // Room roles : permId -> role. One entry per user, so the three roles are mutually
+    // exclusive by construction ( a user can't be in two roles, nor listed twice ), and a
+    // role move is a single-key write that merges instead of clobbering. See roles.ts.
+    roles: RoomRoles
     competingPlayers: PermanentId[] // Non-ousted players, in the order of the turn
     seating?: Seating // permanentId in the order of the seating
-    spectators: PermanentId[] // permanentId in arbitrary order
-    judges: PermanentId[] // permanentId in arbitrary order
 }
 
 /**
@@ -239,7 +243,7 @@ export enum MultiplayerMessageType {
     RollSeating = 'RollSeating',
     PickSeat = 'PickSeat',
     LeaveSeat = 'LeaveSeat',
-    SetRoomSeat = 'SetRoomSeat',
+    SetRoomRole = 'SetRoomRole',
 
     SetupGame = 'SetupGame',
     LaunchGame = 'LaunchGame',
@@ -270,9 +274,9 @@ export type LeaveSeatMessage = {
     permId: PermanentId
 }
 
-export type SetRoomSeatMessage = {
+export type SetRoomRoleMessage = {
     permId: PermanentId
-    seat: RoomSeat
+    role: RoomRole
 }
 
 export type GameMutationMessage = {
@@ -310,7 +314,7 @@ export type AblyMessage =
     | AblyLaunchGameMessage
     | PickSeatMessage
     | LeaveSeatMessage
-    | SetRoomSeatMessage
+    | SetRoomRoleMessage
     | GameMutationMessage
     | AblyRequestResyncMessage
     | AblyGameStateMessage
@@ -351,9 +355,9 @@ export type RollSeatingMessage = {
 
 export type ScsSetupGameMessage = {
     type: MultiplayerMessageType.SetupGame
-    // The seats, as held by the host. Seats are frozen once the game is started,
+    // The roles, as held by the host. Seats are frozen once the game is started,
     // so this launch-time map stays true for the whole game.
-    seats: RoomSeats
+    roles: RoomRoles
     // Ignored when relaunching a saved game : its own gameState already carries
     // the mode it was created with.
     isFreeTable: boolean
