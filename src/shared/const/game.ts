@@ -271,10 +271,10 @@ export const FREE_TABLE_HEIGHT = 6500
 // Tuned for a roughly equal felt seat-to-center distance across counts.
 export const FREE_TABLE_LAYOUT_RADIUS: Record<number, number> = {
     1: 900,
-    2: 400,
-    3: 1200,
-    4: 900,
-    5: 1000,
+    2: 350,
+    3: 1000,
+    4: 800,
+    5: 800,
 }
 // Distance from the pentagon edge to a PlayerWidget's initial anchor position
 export const FREE_TABLE_PERIMETER_MARGIN = 0
