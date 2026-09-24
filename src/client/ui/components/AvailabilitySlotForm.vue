@@ -1,6 +1,13 @@
 <template>
     <div class="slot-form">
         <div
+            v-if="disabledMessage"
+            class="form-disabled-message"
+        >
+            {{ disabledMessage }}
+        </div>
+
+        <div
             v-if="languageName"
             class="form-row"
         >
@@ -14,6 +21,7 @@
                 <button
                     class="segment-btn"
                     :class="{ 'segment-btn-active': recurrence === SlotRecurrence.Weekly }"
+                    :disabled="disabled"
                     @click="recurrence = SlotRecurrence.Weekly"
                 >
                     Every week
@@ -21,6 +29,7 @@
                 <button
                     class="segment-btn"
                     :class="{ 'segment-btn-active': recurrence === SlotRecurrence.Biweekly }"
+                    :disabled="disabled"
                     @click="recurrence = SlotRecurrence.Biweekly"
                 >
                     Every 2 weeks
@@ -28,6 +37,7 @@
                 <button
                     class="segment-btn"
                     :class="{ 'segment-btn-active': recurrence === SlotRecurrence.Monthly }"
+                    :disabled="disabled"
                     @click="recurrence = SlotRecurrence.Monthly"
                 >
                     Every month
@@ -35,6 +45,7 @@
                 <button
                     class="segment-btn"
                     :class="{ 'segment-btn-active': recurrence === SlotRecurrence.Once }"
+                    :disabled="disabled"
                     @click="recurrence = SlotRecurrence.Once"
                 >
                     Once
@@ -48,6 +59,7 @@
                 v-if="recurrence === SlotRecurrence.Weekly"
                 v-model.number="weekday"
                 class="form-select"
+                :disabled="disabled"
             >
                 <option
                     v-for="(name, index) in WEEKDAY_NAMES"
@@ -63,6 +75,7 @@
                 type="date"
                 class="form-input"
                 :min="todayLocalDateIso()"
+                :disabled="disabled"
             />
             <span
                 v-if="recurrenceHint"
@@ -78,6 +91,7 @@
                 type="time"
                 step="3600"
                 class="form-time"
+                :disabled="disabled"
                 @change="onStartChange"
             />
         </div>
@@ -89,6 +103,7 @@
                 type="time"
                 step="3600"
                 class="form-time"
+                :disabled="disabled"
             />
             <span
                 v-if="endNextDay"
@@ -105,6 +120,7 @@
                     :key="option.value"
                     class="segment-btn"
                     :class="{ 'segment-btn-active': category === option.value }"
+                    :disabled="disabled"
                     @click="category = option.value"
                 >
                     {{ option.label }}
@@ -121,6 +137,7 @@
             </button>
             <button
                 class="save-btn"
+                :disabled="disabled"
                 @click="onSave"
             >
                 Save
@@ -146,7 +163,11 @@ const props = defineProps<{
     initialSlot?: AvailabilitySlot | null
     // The language board this slot is being added to, shown as a reminder.
     languageName?: string
+    // When set, the form is read-only and shows this message instead of accepting input.
+    disabledMessage?: string
 }>()
+
+const disabled = computed(() => Boolean(props.disabledMessage))
 
 const emit = defineEmits<{
     save: [slot: AvailabilitySlot]
@@ -267,6 +288,11 @@ function onSave() {
     gap: 0.75rem;
     padding: 1rem;
     border-radius: 0;
+}
+
+.form-disabled-message {
+    color: $crimson-red;
+    font-size: 0.9rem;
 }
 
 .form-row {

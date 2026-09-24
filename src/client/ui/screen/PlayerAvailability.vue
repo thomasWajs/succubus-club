@@ -231,11 +231,16 @@
                         </span>
                     </div>
                 </div>
+                <div
+                    v-if="hasDefaultPlayerName && !selectedCellDetail.mine"
+                    class="name-required-message"
+                >
+                    {{ setPlayerNameMessage }}
+                </div>
                 <div class="detail-actions">
                     <button
                         class="im-in-btn"
-                        :disabled="selectedCellDetail.mine"
-                        :title="selectedCellDetail.mine ? 'You are already listed here' : ''"
+                        :disabled="selectedCellDetail.mine || hasDefaultPlayerName"
                         @click="onCountMeIn"
                     >
                         {{ selectedCellDetail.mine ? "You're Already In" : 'Count Me In !' }}
@@ -267,6 +272,7 @@
                     v-if="formOpen"
                     :initial-slot="editingSlot"
                     :language-name="activeLanguageName"
+                    :disabled-message="hasDefaultPlayerName ? setPlayerNameMessage : ''"
                     @save="onSaveSlot"
                     @cancel="closeForm"
                 />
@@ -346,6 +352,7 @@ import {
     subscribePlayerAvailability,
     warmUpAvailabilityAuth,
 } from '@/client/gateway/playerAvailability.ts'
+import { DEFAULT_PLAYER_NAME } from '@/client/gateway/db.ts'
 import { ensureAnonymousAuth } from '@/client/gateway/realtime.ts'
 import {
     DEFAULT_SLOT_DURATION_HOURS,
@@ -433,6 +440,12 @@ const activeLanguageName = computed(() => {
 })
 
 const languageLabel = computed(() => getTranslations(languagePreference.language).language)
+
+// Players who never set their name can't be reliably identified by other players in the
+// roster, so block them from adding slots until they pick one.
+const hasDefaultPlayerName = computed(() => core.userProfile.playerName === DEFAULT_PLAYER_NAME)
+const setPlayerNameMessage =
+    'To add availability slots, set your player name in the user menu ( top right ).'
 
 // The current player's own slots, resolved from the aggregate by matching the uid.
 const mySlots = computed(() => {
@@ -545,7 +558,7 @@ watch(selectedCellDetail, detail => {
 // same start hour, two hours long. Opens the form prefilled so the player can confirm
 // or tweak before saving.
 function onCountMeIn() {
-    if (!selectedCell.value) {
+    if (!selectedCell.value || hasDefaultPlayerName.value) {
         return
     }
     const { day, hour } = selectedCell.value
@@ -894,6 +907,11 @@ async function copyForDiscord() {
     font-size: 0.9rem;
 }
 
+.name-required-message {
+    color: $crimson-red;
+    font-size: 0.9rem;
+}
+
 .my-slot-list {
     display: flex;
     flex-direction: column;
@@ -1232,7 +1250,8 @@ async function copyForDiscord() {
         display: none;
     }
 
-    .detail-actions {
+    .detail-actions,
+    .cell-detail-roster + .name-required-message {
         display: none;
     }
 
