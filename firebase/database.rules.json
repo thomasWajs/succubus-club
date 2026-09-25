@@ -18,11 +18,17 @@
         // object (broadcastGameRoom -> set), then its roles are updated per-user under
         // roles/$permId (commitRoomRole) and its metadata by partial update
         // (broadcastRoomMeta), or it is removed. See types/multiplayer.ts.
+        //
+        // 'roles' is a required child : a room must never exist without it. This makes a
+        // roles-less write impossible server-side, so a metadata-only update
+        // (broadcastRoomMeta) can neither resurrect a removed room nor persist one whose
+        // roles subtree has been emptied. Without it, clients read roles as {} : 0 players
+        // in the lobby and everyone kicked from the game.
         "gameRooms": {
             ".read": true,
             "$roomId": {
                 ".write": true,
-                ".validate": "newData.hasChildren(['id', 'name', 'hostId', 'communication', 'isStarted', 'isSavedGame', 'hasPassword', 'isCasual', 'allowSpectators', 'isFreeTable'])",
+                ".validate": "newData.hasChildren(['id', 'name', 'hostId', 'communication', 'isStarted', 'isSavedGame', 'hasPassword', 'isCasual', 'allowSpectators', 'isFreeTable', 'roles'])",
                 "id": {
                     ".validate": "newData.isString() && newData.val() === $roomId"
                 },
@@ -57,9 +63,7 @@
                     ".validate": "newData.isBoolean()"
                 },
                 "roles": {
-                    ".write": true,
                     "$permId": {
-                        ".write": true,
                         ".validate": "newData.isString() && (newData.val() === 'Player' || newData.val() === 'Judge' || newData.val() === 'Spectator')"
                     }
                 },

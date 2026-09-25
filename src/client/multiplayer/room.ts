@@ -276,8 +276,15 @@ export function setupGameRoomWatcher() {
             // Roles are written per-user ( see commitRoomRole ), so the room writer only persists
             // the room metadata and seating here : a whole-object set would clobber a role
             // move made concurrently by another client.
-            if (gameRoom && multiplayer.selfIsRoomWriter) {
-                broadcastRoomMeta(gameRoom)
+            //
+            // Only persist for a room that still exists in RTDB. When it has been removed there,
+            // currentGameRoom is just the local fallback ; a metadata update from it would
+            // resurrect the room without its per-user roles subtree ( 0 players, everyone
+            // kicked ). The RTDB rules reject such a write too, this simply avoids attempting it.
+            const roomId = multiplayer.currentGameRoomId
+            const isLiveRoom = !!roomId && roomId in multiplayer.gameRooms
+            if (gameRoom && isLiveRoom && multiplayer.selfIsRoomWriter) {
+                broadcastRoomMeta(gameRoom).catch(logging.captureException)
             }
         },
         { deep: true }, // Watch for deep changes in the gameRoom object

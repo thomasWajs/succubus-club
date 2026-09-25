@@ -351,11 +351,13 @@ export async function broadcastGameRoom(gameRoom: GameRoom) {
 export async function broadcastRoomMeta(gameRoom: GameRoom) {
     const meta: Partial<GameRoom> = { ...gameRoom }
     delete meta.roles
-    rtdbUpdate(gameRoomRef(gameRoom.id), meta)
+    // Awaited so a rejected write ( e.g. the RTDB rules refusing a roles-less room ) rejects
+    // this promise for the caller to handle, rather than becoming an unhandled rejection.
+    await rtdbUpdate(gameRoomRef(gameRoom.id), meta)
 }
 
 export async function deleteGameRoom(roomId: RoomId) {
-    rtdbRemove(gameRoomRef(roomId))
+    await rtdbRemove(gameRoomRef(roomId))
 }
 
 // This is only for dev, because Vercel ain't here to prune the channels
