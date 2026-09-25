@@ -263,17 +263,49 @@ function gameRoomRef(roomId: RoomId) {
     return rtdbRef(getRtdb(), `${GAME_ROOMS_KEY}/${roomId}`)
 }
 
+// rtdbOnValue fires for a change to ANY room, and snapshot.val() rebuilds every room as a
+// fresh object. Handing each room a new reference on every event makes the whole lobby list
+// re-render ( flicker ), and gives every client's currentGameRoom ( = gameRooms[myRoom] ) a
+// new reference : the deep room watcher re-fires and every writer echoes its own room meta
+// back to rtdb - an avalanche of ( mostly no-op ) writes under load. So we diff against the
+// current map and keep the previous reference for any room whose content is unchanged.
+function sameRoomContent(a: GameRoom, b: GameRoom): boolean {
+    // Both sides come from a Firebase snapshot ( same child ordering ), so a stable
+    // serialization comparison is enough and cheap for the handful of small room objects.
+    return JSON.stringify(a) === JSON.stringify(b)
+}
+
 async function syncGameRooms(snapshot: DataSnapshot) {
     const { multiplayer } = await useLobby()
     const storedGameRooms = snapshot.val() as Record<RoomId, GameRoom> | null
+    const previous = multiplayer.gameRooms
     const gameRooms: Record<RoomId, GameRoom> = {}
+    let changed = false
 
     for (const [roomId, gameRoom] of Object.entries(storedGameRooms ?? {})) {
         // rtdb removes empty containers, which breaks typescript assumptions, which sucks
         gameRoom.roles ??= {}
         gameRoom.competingPlayers ??= []
 
-        gameRooms[roomId] = gameRoom
+        const prev = previous[roomId]
+        if (prev && sameRoomContent(prev, gameRoom)) {
+            // Unchanged : keep the previous reference so unrelated rooms don't re-render and
+            // the deep room watcher doesn't re-fire for writers whose room didn't change.
+            gameRooms[roomId] = prev
+        } else {
+            gameRooms[roomId] = gameRoom
+            changed = true
+        }
+    }
+
+    // A room that existed before is now gone : the set changed even if every survivor matched.
+    if (!changed) {
+        changed = Object.keys(previous).some(roomId => !(roomId in gameRooms))
+    }
+
+    // Nothing actually changed : leave the map ( and every reactive dependency ) untouched.
+    if (!changed) {
+        return
     }
 
     multiplayer.gameRooms = gameRooms
