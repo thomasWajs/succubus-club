@@ -7,6 +7,18 @@
             <h2>What's New in v{{ latestChangelog.version }}</h2>
             <p class="release-date">Released on {{ latestChangelog.date }}</p>
 
+            <div class="free-table-warning">
+                <p class="free-table-warning-title">Free-Table mode has landed</p>
+                <p>
+                    You can now choose between structured mode (the original) and free-table mode.
+                </p>
+                <p>
+                    This update involved a major overhaul of the codebase, so bugs may pop up even
+                    in structured mode. Please don't hesitate to report any strange behavior you
+                    notice.
+                </p>
+            </div>
+
             <div class="changelog-content">
                 <div
                     v-if="latestChangelog.features && latestChangelog.features.length > 0"
@@ -67,6 +79,8 @@ const LOCAL_STORAGE_KEY = 'succubus-club-changelog-version'
 const WELCOME_MODAL_KEY = 'succubus-club-visited'
 
 function checkAndShowChangelog() {
+    dialogRef.value?.showModal()
+
     if (!latestChangelog.version) {
         return
     }
@@ -189,5 +203,27 @@ onMounted(() => {
 
 .close-button {
     @include button-purple;
+}
+
+.free-table-warning {
+    background: rgba($royal-purple, 0.25);
+    border: 1px solid $royal-purple;
+    color: $ghost-white;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1.5rem;
+    font-size: 0.9rem;
+    line-height: 1.5;
+
+    p {
+        margin: 0.35rem 0;
+    }
+}
+
+.free-table-warning-title {
+    font-weight: bold;
+    color: $pearl-grey;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    letter-spacing: 0.05em;
 }
 </style>
