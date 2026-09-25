@@ -113,7 +113,7 @@
                                     {{ gameRoom.isCasual ? 'Casual' : 'Competitive' }}
                                 </span>
                                 <span class="room-setting-badge">
-                                    {{ gameRoom.isFreeTable ? 'Free Table' : 'Structured' }}
+                                    {{ gameRoom.isFreeTable ? 'Free-Form' : 'Structured' }}
                                 </span>
                                 <span class="room-setting-badge">
                                     {{
@@ -281,7 +281,7 @@
                                         },
                                         {
                                             value: 'free',
-                                            label: 'Free Table',
+                                            label: 'Free-Form Table',
                                             description: 'Shared tabletop',
                                             tooltip:
                                                 'A single shared tabletop with no per-player play areas : players draw, play, and manipulate cards freely, like around a physical table.',

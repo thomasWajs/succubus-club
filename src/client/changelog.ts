@@ -2,15 +2,15 @@ import { CURRENT_VERSION } from '@/shared/version.mjs'
 
 export const latestChangelog = {
     version: CURRENT_VERSION,
-    date: '2026-09-17',
+    date: '2026-09-25',
     features: [
-        'Social feature : Chat in the main lobby and the game room',
-        'Social feature : Player Availability',
-        '"Aids" renamed to a casual / competitive terminology',
+        'Free-Form Table Mode',
+        'Access the main chat from a game room ( in addition to the room chat )',
+        'Automatically delete lapsed availability slots.',
     ],
     bugfixes: [
-        'Improve vote casting overlapping when minions are too close',
-        'Disable residual glow in casual mode',
-        'Hide redundant separators in ActonUsageEditor',
+        'Prevent role flickering in the game rooms',
+        'Bugfixes and improvements on the Player Availability calendar',
+        'Bot: Prevent double-play of the same action modifier',
     ],
 }

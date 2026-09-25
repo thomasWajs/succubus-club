@@ -16,8 +16,8 @@ import {
 import { Point2D } from '@/shared/types/model.ts'
 import {
     PLAY_AREA_CENTER,
-    rotatePoint,
     rotatedAabbHalfExtents,
+    rotatePoint,
 } from '@/shared/state/freeTableLayout.ts'
 import Pointer = Phaser.Input.Pointer
 
@@ -256,7 +256,7 @@ export function createFreeTableUICamera(scene: Phaser.Scene): Phaser.Cameras.Sce
 // specifically, not the default main one.
 export function getFreeTableUICamera() {
     if (!freeTableUICamera) {
-        throw new Error('Free Table UI camera not initialized.')
+        throw new Error('Free-Form Table UI camera not initialized.')
     }
     return freeTableUICamera
 }

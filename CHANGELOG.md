@@ -1,3 +1,15 @@
+## [0.13.0] - 2026-09-25
+
+Features:
+- Free-Form Table Mode
+- Access the main chat from a game room ( in addition to the room chat )
+- Automatically delete lapsed availability slots.
+
+Bugfix:
+- Prevent role flickering in the game rooms
+- Bugfixes and improvements on the Player Availability calendar
+- Bot: Prevent double-play of the same action modifier
+
 ## [0.12.1] - 2026-09-18
 
 Features:
@@ -18,7 +30,6 @@ Bugfix:
 - Improve vote casting overlapping when minions are too close
 - Disable residual glow in casual mode
 - Hide redundant separators in ActonUsageEditor
-
 
 ## [0.11.0] - 2026-09-11
 

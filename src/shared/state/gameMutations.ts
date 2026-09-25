@@ -2724,7 +2724,7 @@ class FreeTableDrawCrypt extends GameMutation<FreeTableDrawCryptParams> {
 
     getValidity(gameState: GameState) {
         if (!gameState.isFreeTable || !gameState.table) {
-            return Invalid('Free Table Draw Crypt is only available in Free Table mode')
+            return Invalid('Free-Form Table Draw Crypt is only available in Free Table mode')
         }
         return this.params.player.crypt.isEmpty ? Invalid('Cannot draw from an empty Crypt') : VALID
     }
