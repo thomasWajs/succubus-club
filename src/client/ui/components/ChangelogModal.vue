@@ -79,8 +79,6 @@ const LOCAL_STORAGE_KEY = 'succubus-club-changelog-version'
 const WELCOME_MODAL_KEY = 'succubus-club-visited'
 
 function checkAndShowChangelog() {
-    dialogRef.value?.showModal()
-
     if (!latestChangelog.version) {
         return
     }
