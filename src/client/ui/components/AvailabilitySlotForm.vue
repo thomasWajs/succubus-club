@@ -9,6 +9,23 @@
         </div>
 
         <div class="form-row">
+            <span class="form-label">Name</span>
+            <input
+                v-model="playerName"
+                type="text"
+                class="form-input"
+                :class="{ 'form-input-invalid': !canSave }"
+                placeholder="Your name"
+                maxlength="60"
+            />
+            <span
+                v-if="!canSave"
+                class="name-error"
+                >A name is required</span
+            >
+        </div>
+
+        <div class="form-row">
             <span class="form-label">When</span>
             <div class="segment">
                 <button
@@ -121,6 +138,7 @@
             </button>
             <button
                 class="save-btn"
+                :disabled="!canSave"
                 @click="onSave"
             >
                 Save
@@ -146,10 +164,13 @@ const props = defineProps<{
     initialSlot?: AvailabilitySlot | null
     // The language board this slot is being added to, shown as a reminder.
     languageName?: string
+    // Prefill for the name field : the player's name, or empty when it is still the
+    // placeholder default. The player must confirm or type one before saving.
+    defaultName?: string
 }>()
 
 const emit = defineEmits<{
-    save: [slot: AvailabilitySlot]
+    save: [slot: AvailabilitySlot, name: string]
     cancel: []
 }>()
 
@@ -164,6 +185,7 @@ function todayWeekday(): number {
     return (new Date().getDay() + 6) % 7
 }
 
+const playerName = ref(props.defaultName ?? '')
 const recurrence = ref<SlotRecurrence>(SlotRecurrence.Weekly)
 const weekday = ref(todayWeekday())
 const dateIso = ref(todayLocalDateIso())
@@ -236,7 +258,13 @@ function durationHours(): number {
     return (endHour.value - startHour.value + 24) % 24 || 24
 }
 
+// The name field is mandatory : an empty ( or whitespace-only ) name blocks saving.
+const canSave = computed(() => playerName.value.trim().length > 0)
+
 function onSave() {
+    if (!canSave.value) {
+        return
+    }
     const id = props.initialSlot?.id ?? crypto.randomUUID()
     // Keep an existing slot's timezone ( so editing, or a shared slot opened from another
     // zone, preserves its instant ) ; a brand-new slot is stamped with the creator's zone.
@@ -249,12 +277,18 @@ function onSave() {
         durationHours: durationHours(),
     }
 
+    const trimmedName = playerName.value.trim()
+
     if (recurrence.value === SlotRecurrence.Weekly) {
-        emit('save', { ...common, recurrence: SlotRecurrence.Weekly, weekday: weekday.value })
+        emit(
+            'save',
+            { ...common, recurrence: SlotRecurrence.Weekly, weekday: weekday.value },
+            trimmedName,
+        )
         return
     }
 
-    emit('save', { ...common, recurrence: recurrence.value, date: dateIso.value })
+    emit('save', { ...common, recurrence: recurrence.value, date: dateIso.value }, trimmedName)
 }
 </script>
 
@@ -299,6 +333,15 @@ function onSave() {
     color: $silver-grey;
     font-size: 0.8rem;
     font-style: italic;
+}
+
+.form-input-invalid {
+    border-color: $crimson-red;
+}
+
+.name-error {
+    color: $rose-red;
+    font-size: 0.8rem;
 }
 
 .active-language {

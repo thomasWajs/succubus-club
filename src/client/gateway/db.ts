@@ -14,7 +14,7 @@ import { ConductorState } from '@/client/bot/conductor.ts'
 import { GameId } from '@/shared/types/model.ts' // If you know, you know ;-)
 
 // If you know, you know ;-)
-const DEFAULT_PLAYER_NAME = 'The Unnamed'
+export const DEFAULT_PLAYER_NAME = 'The Unnamed'
 
 export enum DeckSource {
     Precon = 'Precon',

@@ -267,6 +267,7 @@
                     v-if="formOpen"
                     :initial-slot="editingSlot"
                     :language-name="activeLanguageName"
+                    :default-name="defaultSlotName"
                     @save="onSaveSlot"
                     @cancel="closeForm"
                 />
@@ -347,6 +348,7 @@ import {
     warmUpAvailabilityAuth,
 } from '@/client/gateway/playerAvailability.ts'
 import { ensureAnonymousAuth } from '@/client/gateway/realtime.ts'
+import { DEFAULT_PLAYER_NAME } from '@/client/gateway/db.ts'
 import {
     DEFAULT_SLOT_DURATION_HOURS,
     formatColumnDate,
@@ -438,6 +440,20 @@ const languageLabel = computed(() => getTranslations(languagePreference.language
 const mySlots = computed(() => {
     const me = players.value.find(player => player.uid === myUid.value)
     return me ? me.slots : []
+})
+
+// The current player's stored name, if they already have availability saved.
+const myStoredName = computed(() => {
+    const me = players.value.find(player => player.uid === myUid.value)
+    return me ? me.name : ''
+})
+
+// Prefill for the form's name field : a previously stored name, otherwise the profile
+// name. The placeholder default name yields an empty field, forcing the player to type
+// a real one before saving.
+const defaultSlotName = computed(() => {
+    const candidate = myStoredName.value || core.userProfile.playerName
+    return candidate === DEFAULT_PLAYER_NAME ? '' : candidate
 })
 
 const weekStart = computed(() => localWeekStart(weekOffset.value))
@@ -693,16 +709,11 @@ function onDialogClick(event: MouseEvent) {
 
 // Overwrite the whole slot list ( the gateway saves the player's full document ). The
 // subscription then echoes the change back into `players`, updating the display.
-function persist(slots: AvailabilitySlot[]) {
-    savePlayerAvailability(
-        languagePreference.language,
-        core.userProfile.permanentId,
-        core.userProfile.playerName,
-        slots,
-    )
+function persist(slots: AvailabilitySlot[], name: string) {
+    savePlayerAvailability(languagePreference.language, core.userProfile.permanentId, name, slots)
 }
 
-function onSaveSlot(slot: AvailabilitySlot) {
+function onSaveSlot(slot: AvailabilitySlot, name: string) {
     const slots = mySlots.value.slice()
     const index = slots.findIndex(entry => entry.id === slot.id)
     const isNew = index < 0
@@ -711,7 +722,7 @@ function onSaveSlot(slot: AvailabilitySlot) {
     } else {
         slots.push(slot)
     }
-    persist(slots)
+    persist(slots, name)
     closeForm()
     // A freshly added slot flows straight into sharing : close the form and open the
     // share panel so the player can invite others without an extra step.
@@ -721,7 +732,13 @@ function onSaveSlot(slot: AvailabilitySlot) {
 }
 
 function onDeleteSlot(slot: AvailabilitySlot) {
-    persist(mySlots.value.filter(entry => entry.id !== slot.id))
+    // Deleting keeps the already-stored name ( it falls back to the profile name only if
+    // none was stored ) ; removing the last slot deletes the document, name and all.
+    const name = myStoredName.value || core.userProfile.playerName
+    persist(
+        mySlots.value.filter(entry => entry.id !== slot.id),
+        name,
+    )
 }
 
 // Build a shareable link to this slot and open the share modal. The link is
