@@ -25,15 +25,11 @@ import Database from 'better-sqlite3'
 const DB_PATH = process.env.SCS_DB_PATH || '../../data/game-server.db'
 const DRY_RUN = process.argv.includes('--dry-run')
 
-type ColumnInfo = {
-    name: string
-}
-
 function run() {
     const db = new Database(DB_PATH)
 
     try {
-        const columns = db.prepare('PRAGMA table_info(rooms)').all() as ColumnInfo[]
+        const columns = db.prepare('PRAGMA table_info(rooms)').all()
         const columnNames = columns.map(column => column.name)
 
         if (columnNames.includes('roles')) {

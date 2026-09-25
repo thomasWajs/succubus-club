@@ -6,7 +6,6 @@ import {
     getRtdb,
     releaseScsClient,
     rtdbRef,
-    rtdbRunTransaction,
     rtdbUpdate,
 } from '@/client/gateway/realtime.ts'
 import {
@@ -22,7 +21,6 @@ import {
     RoomId,
     RoomPresence,
     RoomRole,
-    RoomRoles,
     ScsRollSeatingMessage,
     SerializedChatMessage,
     SerializedMultiplayerGame,
@@ -31,6 +29,7 @@ import {
 } from '@/shared/types/multiplayer.ts'
 import {
     canTakeRoomRole,
+    getRoomPermIds,
     getRoomRole,
     isSeated,
     removeFromSeating,
@@ -195,20 +194,16 @@ export async function joinGameRoom(gameRoom: GameRoom, key?: Key) {
             }
         }
 
-        // The host is responsible for sending game room updates to the other players
-        if (multiplayer.selfIsHost) {
-            setupGameRoomWatcher()
-        }
+        // Anyone can become the room writer, so all client must setup a room watcher
+        setupGameRoomWatcher()
 
         // If ably, it's already joined. If SCS, we need to join.
         await comm.joinRoom(gameRoom.id, key)
 
         multiplayer.setGameRoomRole(permId, role)
-        // Persist our own role merge-safely, preferring the role we just declared. The host
-        // that just created the room isn't in rtdb yet ( broadcastGameRoom runs right after
-        // createGameRoom ), so this transaction simply aborts for them : they're already
-        // seeded as a player.
-        await commitJoinRoomRole(gameRoom.id, permId, role)
+        // Persist our own role. The host that just created the room already seeded itself as a
+        // player in the create write, so this is a harmless idempotent re-write for them.
+        await commitRoomRole(gameRoom.id, permId, role)
 
         if (multiplayer.selfDeck) {
             await comm.sendDeck()
@@ -278,10 +273,10 @@ export function setupGameRoomWatcher() {
                 multiplayer.snapshotCurrentGameRoom()
             }
 
-            // Seats are transaction-owned ( see commitRoomRole ), so the host only
-            // persists the room metadata and seating here : a whole-object set would
-            // clobber a role move made concurrently by another client.
-            if (gameRoom && multiplayer.selfIsHost) {
+            // Roles are written per-user ( see commitRoomRole ), so the room writer only persists
+            // the room metadata and seating here : a whole-object set would clobber a role
+            // move made concurrently by another client.
+            if (gameRoom && multiplayer.selfIsRoomWriter) {
                 broadcastRoomMeta(gameRoom)
             }
         },
@@ -324,9 +319,9 @@ function onMemberJoin(presence: PresenceMessage) {
 
     // The single elected writer persists the (re)joining member's role, so an auto-reconnect
     // ( which never re-runs joinGameRoom ) is restored durably in rtdb, not just optimistically
-    // here. Merge-safe and idempotent : the transaction aborts when nothing changes.
+    // here. A per-user child write, so it can't clobber another member's role.
     if (multiplayer.selfIsRoomWriter) {
-        commitJoinRoomRole(gameRoom.id, user.permId, role)
+        commitRoomRole(gameRoom.id, user.permId, role)
     }
 
     // In Ably mode, send our decklist to the newly connected user
@@ -346,12 +341,14 @@ function onMemberLeave(presence: PresenceMessage) {
 
     if (user) {
         alertDisconnect(user)
-        multiplayer.releaseGameRoomRole(user.permId)
+        // Only a player release is worth persisting : judges and spectators keep their role
+        // while offline so they reclaim it on reconnect.
+        const releasedPlayer = multiplayer.releaseGameRoomRole(user.permId)
 
         // The departing client can't persist its own release, so the single elected room
         // writer does it ( host while present, else lowest permId in the room ). Every
         // client agrees on that one writer, so they no longer all race to write.
-        if (gameRoom && multiplayer.selfIsRoomWriter) {
+        if (gameRoom && releasedPlayer && multiplayer.selfIsRoomWriter) {
             commitReleaseRoomRole(gameRoom.id, user.permId)
         }
     }
@@ -553,7 +550,7 @@ export async function setSelfRoomRole(role: RoomRole) {
     }
 
     // Persist the move merge-safely, then broadcast it over ably for immediate peer UI.
-    // The transaction is the durable truth ; the ably intent is only optimistic.
+    // The rtdb write is the durable truth ; the ably intent is only optimistic.
     await commitRoomRole(gameRoom.id, permId, role)
     await broadcastSetRoomRole(permId, role)
 
@@ -577,9 +574,8 @@ async function onReceiveSetRoomRole(message: SetRoomRoleMessage) {
 
     // Cannot change role if the game is already started
     // Don't apply our own role changes (already applied locally)
-    // Validate the role is still available. Two users racing for the last player role
-    // both pass locally ; the sender's own transaction ( commitRoomRole ) is the durable
-    // arbiter, this is only the optimistic local echo of their intent.
+    // Validate the role is still available. This is only the optimistic local echo of the
+    // sender's intent ; their own per-user rtdb write is the durable truth.
     if (
         gameRoom.isStarted ||
         message.permId === multiplayer.selfUser.permId ||
@@ -588,7 +584,7 @@ async function onReceiveSetRoomRole(message: SetRoomRoleMessage) {
         return
     }
 
-    // Optimistic local update only : the sender persists the move through a transaction,
+    // Optimistic local update only : the sender persists the move with a per-user write,
     // so we no longer broadcast the whole room here.
     multiplayer.setGameRoomRole(message.permId, message.role)
 }
@@ -603,6 +599,12 @@ export async function launchGame() {
     // Cannot launch a game that's already started
     if (gameRoom.isStarted || core.gameIsStarted) {
         throw new Error(`Game already started`)
+    }
+
+    // Guard the player cap here : role writes don't enforce it atomically, so a race could
+    // have seated a 6th player. Refuse rather than start an oversized game.
+    if (getRoomPermIds(gameRoom, RoomRole.Player).length > MAX_PLAYERS) {
+        throw new Error(`Cannot launch with more than ${MAX_PLAYERS} players`)
     }
 
     if (!gameRoom.seating || gameRoom.seating == EMPTY_SEATING) {
@@ -714,10 +716,12 @@ export async function connectIntoGame(gameRoom?: GameRoom) {
 /**
  * Role writes.
  *
- * The roles map is the only part of a room several clients mutate at once. Because each user
- * owns their own key, a move to judge/spectator ( no cap ) is a plain per-user child merge :
- * concurrent moves on different users never conflict. Only taking a player role has a cross-
- * user constraint ( MAX_PLAYERS ), so that path runs a transaction scoped to the roles node.
+ * The roles map is the only part of a room several clients mutate at once, and each user owns
+ * their own key, so every role change is a plain per-user child write : concurrent moves on
+ * different users merge instead of clobbering. MAX_PLAYERS is not enforced atomically here -
+ * the client guards it optimistically ( canTakeRoomRole / resolveRoomRole ) and launchGame
+ * refuses an oversized table - so a precise last-seat race could momentarily seat a 6th
+ * player, which we accept rather than pay for a transaction.
  *
  * Leaving the player role drops the user from the turn-order seating too ; that seating write
  * rides the host's broadcastRoomMeta ( driven by the ably intent ), not these role writes.
@@ -726,79 +730,22 @@ function rolesRef(roomId: RoomId) {
     return rtdbRef(getRtdb(), `${GAME_ROOMS_KEY}/${roomId}/roles`)
 }
 
-function countPlayers(roles: RoomRoles): number {
-    return Object.values(roles).filter(role => role === RoomRole.Player).length
+/**
+ * Move a user to a role ( player / judge / spectator ), or seat a ( re )joining user with the
+ * role the caller already resolved. A single-key child write, so it merges with concurrent
+ * role changes on other users.
+ */
+async function commitRoomRole(roomId: RoomId, permId: PermanentId, role: RoomRole) {
+    await rtdbUpdate(rolesRef(roomId), { [permId]: role })
 }
 
 /**
- * Run a transaction on just the roles node. Aborts ( no write ) when the room doesn't exist
- * or when mutate reports no change. The lobby caches rooms through rtdbOnValue, so the first
- * pass holds the real value rather than a spurious null.
+ * Release a disconnecting user's player role. Only call this for a player : judges and
+ * spectators keep their role while offline ( see releaseRoomRole ) so they reclaim it on
+ * reconnect. The caller gates on the local release having removed a player.
  */
-function runRolesTransaction(roomId: RoomId, mutate: (roles: RoomRoles) => boolean) {
-    return rtdbRunTransaction(rolesRef(roomId), (roles: RoomRoles | null) => {
-        // null means the room isn't there : never create a roles-only room ( it would fail
-        // the room shape validation anyway ).
-        if (roles === null) {
-            return undefined
-        }
-        return mutate(roles) ? roles : undefined
-    })
-}
-
-/**
- * Deliberately move a user to a role ( player / judge / spectator ).
- */
-export async function commitRoomRole(roomId: RoomId, permId: PermanentId, role: RoomRole) {
-    if (role === RoomRole.Player) {
-        // MAX_PLAYERS is a cross-user constraint : two clients racing for the last role both
-        // pass their local guard, but only the first transaction to commit here wins. The
-        // loser's move simply reverts on the next sync.
-        await runRolesTransaction(roomId, roles => {
-            if (roles[permId] === RoomRole.Player || countPlayers(roles) >= MAX_PLAYERS) {
-                return false
-            }
-            roles[permId] = RoomRole.Player
-            return true
-        })
-    } else {
-        // Judge / spectator have no cap : a per-user child merge is enough, and it never
-        // clobbers a concurrent role change on another user.
-        await rtdbUpdate(rolesRef(roomId), { [permId]: role })
-    }
-}
-
-/**
- * Seat a ( re )joining user with the role already resolved by the caller ( which knows the
- * room's started/seating state ). Keeps a role they still hold ; if they were resolved to a
- * player role but the table filled up meanwhile, falls back to spectator.
- */
-export async function commitJoinRoomRole(roomId: RoomId, permId: PermanentId, role: RoomRole) {
-    await runRolesTransaction(roomId, roles => {
-        // Already seated : keep it, never override a seat they currently hold.
-        if (roles[permId]) {
-            return false
-        }
-        roles[permId] =
-            role === RoomRole.Player && countPlayers(roles) >= MAX_PLAYERS ?
-                RoomRole.Spectator
-            :   role
-        return true
-    })
-}
-
-/**
- * Release a disconnecting user's player role. Judges and spectators keep their role while
- * offline ( see releaseRoomRole ), so they reclaim it on reconnect.
- */
-export async function commitReleaseRoomRole(roomId: RoomId, permId: PermanentId) {
-    await runRolesTransaction(roomId, role => {
-        if (role[permId] !== RoomRole.Player) {
-            return false
-        }
-        delete role[permId]
-        return true
-    })
+async function commitReleaseRoomRole(roomId: RoomId, permId: PermanentId) {
+    await rtdbUpdate(rolesRef(roomId), { [permId]: null })
 }
 
 /**

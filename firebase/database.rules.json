@@ -15,14 +15,14 @@
         ".write": false,
 
         // Legacy lobby game-room list. Each entry is a GameRoom : created as a whole
-        // object (broadcastGameRoom -> set), then its roles are updated by transaction
-        // (commitRoomRole) and its metadata by partial update (broadcastRoomMeta), or it
-        // is removed. Validation runs on the merged node. See types/multiplayer.ts.
+        // object (broadcastGameRoom -> set), then its roles are updated per-user under
+        // roles/$permId (commitRoomRole) and its metadata by partial update
+        // (broadcastRoomMeta), or it is removed. See types/multiplayer.ts.
         "gameRooms": {
             ".read": true,
             "$roomId": {
                 ".write": true,
-                ".validate": "newData.hasChildren(['id', 'name', 'hostId', 'communication', 'isStarted', 'isSavedGame', 'hasPassword', 'isCasual', 'allowSpectators'])",
+                ".validate": "newData.hasChildren(['id', 'name', 'hostId', 'communication', 'isStarted', 'isSavedGame', 'hasPassword', 'isCasual', 'allowSpectators', 'isFreeTable'])",
                 "id": {
                     ".validate": "newData.isString() && newData.val() === $roomId"
                 },
@@ -57,7 +57,9 @@
                     ".validate": "newData.isBoolean()"
                 },
                 "roles": {
+                    ".write": true,
                     "$permId": {
+                        ".write": true,
                         ".validate": "newData.isString() && (newData.val() === 'Player' || newData.val() === 'Judge' || newData.val() === 'Spectator')"
                     }
                 },

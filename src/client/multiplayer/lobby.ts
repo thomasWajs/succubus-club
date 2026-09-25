@@ -329,12 +329,15 @@ export async function createGameRoom(
         gameRoom.seating = savedGame.seating
     }
     multiplayer.upsertGameRoom(gameRoom)
-    await joinGameRoom(gameRoom, key)
+    // The room object must exist in rtdb before any per-user role write (commitRoomRole,
+    // triggered inside joinGameRoom), else that write is a roles-only update on a
+    // nonexistent room node, which fails the $roomId shape validation (hasChildren(...)).
     await broadcastGameRoom(gameRoom)
+    await joinGameRoom(gameRoom, key)
 }
 
 export async function broadcastGameRoom(gameRoom: GameRoom) {
-    rtdbSet(gameRoomRef(gameRoom.id), gameRoom)
+    await rtdbSet(gameRoomRef(gameRoom.id), gameRoom)
 }
 
 /**

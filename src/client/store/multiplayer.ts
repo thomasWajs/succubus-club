@@ -269,11 +269,11 @@ export const useMultiplayerStore = defineStore('multiplayer', {
                 applyRoomRole(this.currentGameRoom, permId, role)
             }
         },
-        // A disconnecting user only gives up a player role : see releaseRoomRole
-        releaseGameRoomRole(permId: PermanentId) {
-            if (this.currentGameRoom) {
-                releaseRoomRole(this.currentGameRoom, permId)
-            }
+        // A disconnecting user only gives up a player role : see releaseRoomRole.
+        // Returns true when a player role was actually released, so the caller can decide
+        // whether the release is worth persisting.
+        releaseGameRoomRole(permId: PermanentId): boolean {
+            return this.currentGameRoom ? releaseRoomRole(this.currentGameRoom, permId) : false
         },
     },
 })
