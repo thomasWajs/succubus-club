@@ -281,6 +281,13 @@ export function setupGameRoomWatcher() {
             // currentGameRoom is just the local fallback ; a metadata update from it would
             // resurrect the room without its per-user roles subtree ( 0 players, everyone
             // kicked ). The RTDB rules reject such a write too, this simply avoids attempting it.
+            //
+            // This check is best-effort, not airtight : it's a TOCTOU window. Between the room
+            // being removed in RTDB and onGameRoomRemoved clearing the local gameRooms entry,
+            // isLiveRoom is still true, so a deep change here could still fire a resurrecting
+            // broadcastRoomMeta. That write is the last line of defence's job : being at the
+            // $roomId node, it re-runs the 'roles' required-child validation and is rejected,
+            // so it lands in the .catch below rather than recreating a roles-less room.
             const roomId = multiplayer.currentGameRoomId
             const isLiveRoom = !!roomId && roomId in multiplayer.gameRooms
             if (gameRoom && isLiveRoom && multiplayer.selfIsRoomWriter) {
@@ -327,8 +334,15 @@ function onMemberJoin(presence: PresenceMessage) {
     // The single elected writer persists the (re)joining member's role, so an auto-reconnect
     // ( which never re-runs joinGameRoom ) is restored durably in rtdb, not just optimistically
     // here. A per-user child write, so it can't clobber another member's role.
+    //
+    // Note this is a second writer on the joiner's own key : a fresh join also commits its
+    // role from joinGameRoom. The two resolve the role against their own local snapshots, so
+    // near MAX_PLAYERS they can disagree ( joiner sees Player, writer sees the table full and
+    // resolves Spectator, or vice-versa ) and last-write-wins may briefly flip that user's
+    // role. Accepted like the MAX_PLAYERS cap race ( see the Role writes note below ) : the
+    // next rtdb sync converges everyone on the winning value.
     if (multiplayer.selfIsRoomWriter) {
-        commitRoomRole(gameRoom.id, user.permId, role)
+        commitRoomRole(gameRoom.id, user.permId, role).catch(logging.captureException)
     }
 
     // In Ably mode, send our decklist to the newly connected user
@@ -356,7 +370,7 @@ function onMemberLeave(presence: PresenceMessage) {
         // writer does it ( host while present, else lowest permId in the room ). Every
         // client agrees on that one writer, so they no longer all race to write.
         if (gameRoom && releasedPlayer && multiplayer.selfIsRoomWriter) {
-            commitReleaseRoomRole(gameRoom.id, user.permId)
+            commitReleaseRoomRole(gameRoom.id, user.permId).catch(logging.captureException)
         }
     }
 }
