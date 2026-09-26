@@ -187,7 +187,7 @@ export async function joinGameRoom(gameRoom: GameRoom, key?: Key) {
         for (const member of await roomChannel.presence.get()) {
             const memberUser = member.data as User | undefined
             if (memberUser) {
-                multiplayer.upsertRoomMember(memberUser)
+                multiplayer.upsertRoomMember(memberUser.permId)
             }
         }
 
@@ -216,7 +216,7 @@ export async function joinGameRoom(gameRoom: GameRoom, key?: Key) {
 
 export async function leaveGameRoom() {
     const multiplayer = useMultiplayerStore()
-    // First call, in case we're returning early
+    // First call, to ensure there's no currentGameRoomFallback leftover
     multiplayer.currentGameRoomFallback = null
 
     const gameRoom = multiplayer.currentGameRoom
@@ -323,7 +323,7 @@ function onMemberJoin(presence: PresenceMessage) {
     }
 
     // Track room presence, and make sure their name / avatar are known for display.
-    multiplayer.upsertRoomMember(user)
+    multiplayer.upsertRoomMember(user.permId)
     multiplayer.upsertUser(user)
 
     // Resolve the (re)joining member's role from rtdb : a judge/spectator keeps the role

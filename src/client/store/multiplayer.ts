@@ -50,10 +50,10 @@ export const useMultiplayerStore = defineStore('multiplayer', {
         // id ==> User
         users: {} as Record<PermanentId, User>,
 
-        // permId ==> User, restricted to the current room channel's presence. Kept apart
-        // from `users` ( lobby-wide ) so host-presence and writer election track who is
-        // really in the room, not the churn-prone lobby presence.
-        roomMembers: {} as Record<PermanentId, User>,
+        // permIds present in the current room channel's presence. Kept apart from `users`
+        // ( lobby-wide ) so host-presence and writer election track who is really in the
+        // room, not the churn-prone lobby presence.
+        roomMembers: new Set<PermanentId>(),
 
         // Fetched from firebase. avatarId  => encoded image data
         avatars: {} as Record<AvatarId, string>,
@@ -135,10 +135,10 @@ export const useMultiplayerStore = defineStore('multiplayer', {
             if (!gameRoom) {
                 return null
             }
-            if (gameRoom.hostId in this.roomMembers) {
+            if (this.roomMembers.has(gameRoom.hostId)) {
                 return gameRoom.hostId
             }
-            const present = Object.keys(this.roomMembers)
+            const present = [...this.roomMembers]
             return present.length ? present.toSorted()[0] : null
         },
         selfIsRoomWriter(): boolean {
@@ -243,14 +243,14 @@ export const useMultiplayerStore = defineStore('multiplayer', {
         },
 
         // Room channel presence : mirror enter / leave so writer election stays accurate.
-        upsertRoomMember(user: User) {
-            this.roomMembers[user.permId] = user
+        upsertRoomMember(permId: PermanentId) {
+            this.roomMembers.add(permId)
         },
         removeRoomMember(permId: PermanentId) {
-            delete this.roomMembers[permId]
+            this.roomMembers.delete(permId)
         },
         clearRoomMembers() {
-            this.roomMembers = {}
+            this.roomMembers.clear()
         },
 
         upsertGameRoom(room: GameRoom) {
