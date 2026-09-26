@@ -28,7 +28,7 @@
             ".read": true,
             "$roomId": {
                 ".write": true,
-                ".validate": "newData.hasChildren(['id', 'name', 'hostId', 'communication', 'isStarted', 'isSavedGame', 'hasPassword', 'isCasual', 'allowSpectators', 'isFreeTable', 'roles'])",
+                ".validate": "newData.hasChildren(['id', 'name', 'hostId', 'communication', 'isStarted', 'isSavedGame', 'hasPassword', 'isCasual', 'allowSpectators', 'isFreeTable', 'roles', 'createdAt'])",
                 "id": {
                     ".validate": "newData.isString() && newData.val() === $roomId"
                 },
@@ -61,6 +61,9 @@
                 },
                 "isFreeTable": {
                     ".validate": "newData.isBoolean()"
+                },
+                "createdAt": {
+                    ".validate": "newData.isNumber()"
                 },
                 "roles": {
                     "$permId": {

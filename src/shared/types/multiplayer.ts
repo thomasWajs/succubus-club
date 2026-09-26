@@ -69,6 +69,11 @@ export type GameRoom = {
     roles: RoomRoles
     competingPlayers: PermanentId[] // Non-ousted players, in the order of the turn
     seating?: Seating // permanentId in the order of the seating
+    // Client timestamp (ms) set once at creation. The room is written to rtdb ( and thus
+    // becomes visible to pruneGameRooms ) before its creator's Ably presence enter resolves,
+    // so pruneGameRooms uses this to give a freshly created room a grace period instead of
+    // reading it as empty.
+    createdAt: number
 }
 
 /**

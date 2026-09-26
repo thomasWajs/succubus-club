@@ -338,6 +338,7 @@ export async function createGameRoom(
         isFreeTable,
         roles: { [multiplayer.selfUser.permId]: RoomRole.Player },
         competingPlayers: savedGame ? savedGame.competingPlayers : [],
+        createdAt: Date.now(),
     }
     // Don't try to coalesce inline with 'seating: savedGame?.seating',
     // as firebase refuse to receive undefined properties
@@ -376,23 +377,31 @@ export async function deleteGameRoom(roomId: RoomId) {
     await rtdbRemove(gameRoomRef(roomId))
 }
 
+// Mirrors MIN_ROOM_AGE_MS in api/pruneGameRooms.mjs : a freshly created room is written to
+// rtdb before its creator's Ably presence enter resolves, so it must not look empty yet.
+const MIN_ROOM_AGE_MS = 15_000
+
 // This is only for dev, because Vercel ain't here to prune the channels
 async function pruneAblyChannels() {
     const { ably } = await useLobby()
     const rtdb = getRtdb()
     const snapshot = await rtdbGet(rtdbRef(rtdb, GAME_ROOMS_KEY))
     const storedGameRooms = snapshot.val() as Record<RoomId, GameRoom> | null
+    const now = Date.now()
 
-    let activeChannels = []
-    // @ts-expect-error - Ably request method type compatibility
-    const channelsResponse = await ably.request('GET', '/channels', { by: 'value' })
-    activeChannels = channelsResponse.items
-        .filter(channel => channel.status?.occupancy?.metrics?.connections ?? 0 > 0)
-        .map(channel => channel.name)
+    await Promise.all(
+        Object.entries(storedGameRooms ?? {}).map(async ([roomId, gameRoom]) => {
+            if (now - gameRoom.createdAt < MIN_ROOM_AGE_MS) {
+                return
+            }
 
-    for (const roomId of Object.keys(storedGameRooms ?? {})) {
-        if (!activeChannels.includes(roomId)) {
-            await deleteGameRoom(roomId)
-        }
-    }
+            // Occupancy metrics from the channel-enumeration endpoint lag behind actual
+            // presence, which is exactly what caused live rooms to be pruned. Ask the
+            // channel directly for its current presence set instead.
+            const presenceSet = await ably.channels.get(roomId).presence.get()
+            if (presenceSet.length === 0) {
+                await deleteGameRoom(roomId as RoomId)
+            }
+        }),
+    )
 }
