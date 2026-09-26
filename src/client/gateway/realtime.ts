@@ -21,7 +21,8 @@ import {
     getDatabase,
     limitToLast as rtdbLimitToLast,
     onChildAdded as rtdbOnChildAdded,
-    onValue as rtdbOnValue,
+    onChildChanged as rtdbOnChildChanged,
+    onChildRemoved as rtdbOnChildRemoved,
     push as rtdbPush,
     query as rtdbQuery,
     ref as rtdbRef,
@@ -363,6 +364,7 @@ export function ensureAnonymousAuth(): Promise<string> {
 }
 
 // Make aliases to avoid name collision with vue ref
-export { DataSnapshot, rtdbRef, rtdbGet, rtdbSet, rtdbRemove, rtdbOnValue }
+export { DataSnapshot, rtdbRef, rtdbGet, rtdbSet, rtdbRemove }
 export { rtdbPush, rtdbQuery, rtdbLimitToLast, rtdbOnChildAdded, rtdbServerTimestamp, rtdbUpdate }
+export { rtdbOnChildChanged, rtdbOnChildRemoved }
 export { fsCollection, fsDoc, fsSetDoc, fsGetDoc, fsDeleteDoc, fsOnSnapshot, fsBytes, fsTimestamp }

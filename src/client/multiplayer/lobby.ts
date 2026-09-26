@@ -8,7 +8,9 @@ import {
     getScsClient,
     releaseScsClient,
     rtdbGet,
-    rtdbOnValue,
+    rtdbOnChildAdded,
+    rtdbOnChildChanged,
+    rtdbOnChildRemoved,
     rtdbRef,
     rtdbRemove,
     rtdbSet,
@@ -100,8 +102,12 @@ export async function joinLobby() {
         // reconcile the full set on every (re)attach to recover from continuity loss.
         lobbyChannel.on('attached', seedUsers)
 
-        // Game room list
-        rtdbOnValue(rtdbRef(rtdb, GAME_ROOMS_KEY), syncGameRooms)
+        // Game room list. Per-child listeners touch only the room they concern, instead
+        // of rebuilding the whole map on every change ( see onGameRoomUpserted/Removed ).
+        const gameRoomsRef = rtdbRef(rtdb, GAME_ROOMS_KEY)
+        rtdbOnChildAdded(gameRoomsRef, onGameRoomUpserted)
+        rtdbOnChildChanged(gameRoomsRef, onGameRoomUpserted)
+        rtdbOnChildRemoved(gameRoomsRef, onGameRoomRemoved)
 
         if (import.meta.env.DEV) {
             await pruneAblyChannels()
@@ -263,52 +269,30 @@ function gameRoomRef(roomId: RoomId) {
     return rtdbRef(getRtdb(), `${GAME_ROOMS_KEY}/${roomId}`)
 }
 
-// rtdbOnValue fires for a change to ANY room, and snapshot.val() rebuilds every room as a
-// fresh object. Handing each room a new reference on every event makes the whole lobby list
-// re-render ( flicker ), and gives every client's currentGameRoom ( = gameRooms[myRoom] ) a
-// new reference : the deep room watcher re-fires and every writer echoes its own room meta
-// back to rtdb - an avalanche of ( mostly no-op ) writes under load. So we diff against the
-// current map and keep the previous reference for any room whose content is unchanged.
-function sameRoomContent(a: GameRoom, b: GameRoom): boolean {
-    // Both sides come from a Firebase snapshot ( same child ordering ), so a stable
-    // serialization comparison is enough and cheap for the handful of small room objects.
-    return JSON.stringify(a) === JSON.stringify(b)
-}
+// Per-child listeners ( add/changed/removed ) instead of a single onValue : each event
+// names exactly the room it concerns, so only that room's map entry is touched. Every
+// other room keeps its existing reference, which avoids re-rendering the whole lobby
+// list and stops every writer's currentGameRoom ( = gameRooms[myRoom] ) from getting a
+// new reference on unrelated changes ( that used to re-fire the deep room watcher and
+// its broadcastRoomMeta for everyone, regardless of whose room actually changed ).
 
-async function syncGameRooms(snapshot: DataSnapshot) {
+// Same handling for both events : an added room and a changed room are both just
+// "this room now has this content".
+async function onGameRoomUpserted(snapshot: DataSnapshot) {
     const { multiplayer } = await useLobby()
-    const storedGameRooms = snapshot.val() as Record<RoomId, GameRoom> | null
-    const previous = multiplayer.gameRooms
-    const gameRooms: Record<RoomId, GameRoom> = {}
-    let changed = false
-
-    for (const [roomId, gameRoom] of Object.entries(storedGameRooms ?? {})) {
-        // rtdb removes empty containers, which breaks typescript assumptions, which sucks
-        gameRoom.roles ??= {}
-        gameRoom.competingPlayers ??= []
-
-        const prev = previous[roomId]
-        if (prev && sameRoomContent(prev, gameRoom)) {
-            // Unchanged : keep the previous reference so unrelated rooms don't re-render and
-            // the deep room watcher doesn't re-fire for writers whose room didn't change.
-            gameRooms[roomId] = prev
-        } else {
-            gameRooms[roomId] = gameRoom
-            changed = true
-        }
-    }
-
-    // A room that existed before is now gone : the set changed even if every survivor matched.
-    if (!changed) {
-        changed = Object.keys(previous).some(roomId => !(roomId in gameRooms))
-    }
-
-    // Nothing actually changed : leave the map ( and every reactive dependency ) untouched.
-    if (!changed) {
+    const gameRoom = snapshot.val() as GameRoom | null
+    if (!gameRoom) {
         return
     }
+    // rtdb removes empty containers, which breaks typescript assumptions, which sucks
+    gameRoom.roles ??= {}
+    gameRoom.competingPlayers ??= []
+    multiplayer.gameRooms[snapshot.key as RoomId] = gameRoom
+}
 
-    multiplayer.gameRooms = gameRooms
+async function onGameRoomRemoved(snapshot: DataSnapshot) {
+    const { multiplayer } = await useLobby()
+    delete multiplayer.gameRooms[snapshot.key as RoomId]
 }
 
 export async function createGameRoom(
