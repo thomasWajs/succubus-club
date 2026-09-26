@@ -232,6 +232,12 @@ export async function leaveGameRoom() {
     // Every role counts : judges and spectators still need the room to exist.
     if (multiplayer.allGameRoomUsers.length == 1 && multiplayer.currentGameRoomId) {
         await deleteGameRoom(multiplayer.currentGameRoomId)
+    } else {
+        // A deliberate leave always frees our role, whatever it is. The "keep role while
+        // offline" reservation ( see onMemberLeave ) only makes sense for an accidental
+        // disconnect ; here we're still connected, so we persist our own release directly
+        // instead of waiting on a peer to observe our presence 'leave'.
+        await commitReleaseRoomRole(gameRoom.id, multiplayer.selfUser.permId)
     }
 
     unwatchGameRoom?.()
@@ -719,9 +725,14 @@ async function commitRoomRole(roomId: RoomId, permId: PermanentId, role: RoomRol
 }
 
 /**
- * Release a disconnecting user's player role. Only call this for a player : judges and
- * spectators keep their role while offline ( see releaseRoomRole ) so they reclaim it on
- * reconnect. The caller gates on the local release having removed a player.
+ * Release a user's room role entirely ( a single-key delete, like commitRoomRole ). Two
+ * callers, two purposes :
+ * - onMemberLeave persists another member's release after an accidental disconnect, and
+ *   only for a player role : judges and spectators keep theirs while offline ( see
+ *   releaseRoomRole ) so they reclaim it on reconnect. The caller gates on the local
+ *   release having removed a player.
+ * - leaveGameRoom persists our own release on a deliberate leave, whatever our role, since
+ *   there's no "reconnect" to reserve it for.
  */
 async function commitReleaseRoomRole(roomId: RoomId, permId: PermanentId) {
     await rtdbUpdate(rolesRef(roomId), { [permId]: null })
