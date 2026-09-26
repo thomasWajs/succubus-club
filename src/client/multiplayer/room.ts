@@ -314,10 +314,10 @@ export function setupGameRoomWatcher() {
 
 function onMemberJoin(presence: PresenceMessage) {
     const multiplayer = useMultiplayerStore()
-    // Prefer the User carried by the event over the lobby map : a room member whose lobby
-    // presence lapsed under load would otherwise be dropped entirely.
-    const data = presence.data as User | undefined
-    const user = data ?? multiplayer.users[presence.clientId]
+    // presence.data is used as a fallback in the extremely rare case where
+    // the user lapse from the lobby presence.
+    // But it breaks user auto-update, so it should be avoided if possible
+    const user = multiplayer.users[presence.clientId] ?? (presence.data as User | undefined)
     const gameRoom = multiplayer.currentGameRoom
 
     if (!user || !gameRoom) {
@@ -359,7 +359,7 @@ function onMemberJoin(presence: PresenceMessage) {
 function onMemberLeave(presence: PresenceMessage) {
     const multiplayer = useMultiplayerStore()
     const gameRoom = multiplayer.currentGameRoom
-    const user = (presence.data as User | undefined) ?? multiplayer.users[presence.clientId]
+    const user = multiplayer.users[presence.clientId] ?? (presence.data as User | undefined)
 
     // Always drop them from room presence first, so a departed writer hands off to the
     // next remaining member when we elect below.
@@ -548,9 +548,7 @@ async function onReceiveLeaveSeat(message: LeaveSeatMessage) {
 /**
  * Move ourselves to another room role ( player / judge / spectator ).
  *
- * Persisted through rtdb only : this is not realtime-sensitive, so peers just pick it up
- * from the per-user role write via the room watcher, rather than also broadcasting an
- * optimistic intent over ably.
+ * Persisted through rtdb
  */
 export async function setSelfRoomRole(role: RoomRole) {
     const multiplayer = useMultiplayerStore()
