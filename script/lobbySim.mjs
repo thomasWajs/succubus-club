@@ -33,7 +33,7 @@ loadEnvLocal(join(root, '.env.local'))
  * Config (all overridable via env vars)
  */
 const config = {
-    bots: int('BOTS', 7),
+    bots: int('BOTS', 35),
     // Delay between each bot connecting, to spread the ramp-up (ms).
     rampMs: int('RAMP_MS', 200),
     // How often each bot mutates its presence (username / ready toggle). 0 disables churn.
@@ -68,13 +68,13 @@ const config = {
     // Bots per simulated room : 1 host + 4 players + 1 judge + 1 spectator.
     roomSize: int('ROOM_SIZE', 7),
     // Delay between the scripted phases of a room lifecycle (ms).
-    stepMs: int('STEP_MS', 500),
+    stepMs: int('STEP_MS', 400),
     // Stagger between joins/swaps fired within a phase (ms). Smaller = more collisions.
     joinJitterMs: int('JOIN_JITTER_MS', 40),
     // Once seeded, how often a room runs another round of role swaps (ms).
-    swapMs: int('SWAP_MS', 3000),
+    swapMs: int('SWAP_MS', 2000),
     // Every Nth swap round, one bot in the group leaves its seat entirely then rejoins.
-    leaveRejoinEvery: int('LEAVE_REJOIN_EVERY', 5),
+    leaveRejoinEvery: int('LEAVE_REJOIN_EVERY', 4),
 }
 
 // The lifecycle scenario is built on the RTDB game-room list.
