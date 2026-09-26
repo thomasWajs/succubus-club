@@ -33,7 +33,7 @@ loadEnvLocal(join(root, '.env.local'))
  * Config (all overridable via env vars)
  */
 const config = {
-    bots: int('BOTS', 28),
+    bots: int('BOTS', 7),
     // Delay between each bot connecting, to spread the ramp-up (ms).
     rampMs: int('RAMP_MS', 200),
     // How often each bot mutates its presence (username / ready toggle). 0 disables churn.
@@ -56,12 +56,14 @@ const config = {
     // With ROOM_LIFECYCLE=1 the bots stop just creating+leaving rooms. Instead they are
     // grouped into rooms and play out a realistic sequence: the first bot creates the
     // room, the next 4 join as players (filling MAX_PLAYERS), one more joins and moves to
-    // judge, one more joins and stays a spectator, then players and spectators swap roles.
-    // Roles are written the way the client now does : each move is a per-user child write on
-    // the roles map. Joins and swaps still overlap on purpose (see joinJitterMs), but because
-    // each user owns their own roles key, the concurrent writes merge instead of clobbering :
-    // the audit should stay clean, confirming roles no longer jump between players/spectators
-    // and users no longer vanish.
+    // judge, one more joins and stays a spectator. The room is then never destroyed : the
+    // group settles into a steady state where players/spectators keep swapping roles every
+    // SWAP_MS, and every LEAVE_REJOIN_EVERYth round one bot in the group leaves its seat
+    // entirely and rejoins a little later. Roles are written the way the client now does :
+    // each move is a per-user child write on the roles map. Joins and swaps still overlap
+    // on purpose (see joinJitterMs), but because each user owns their own roles key, the
+    // concurrent writes merge instead of clobbering : the audit should stay clean, confirming
+    // roles no longer jump between players/spectators and users no longer vanish.
     roomLifecycle: bool('ROOM_LIFECYCLE', false),
     // Bots per simulated room : 1 host + 4 players + 1 judge + 1 spectator.
     roomSize: int('ROOM_SIZE', 7),
@@ -69,8 +71,10 @@ const config = {
     stepMs: int('STEP_MS', 500),
     // Stagger between joins/swaps fired within a phase (ms). Smaller = more collisions.
     joinJitterMs: int('JOIN_JITTER_MS', 40),
-    // Pause before a group tears its room down and starts a fresh one (ms).
-    lifecycleLoopMs: int('LIFECYCLE_LOOP_MS', 5000),
+    // Once seeded, how often a room runs another round of role swaps (ms).
+    swapMs: int('SWAP_MS', 3000),
+    // Every Nth swap round, one bot in the group leaves its seat entirely then rejoins.
+    leaveRejoinEvery: int('LEAVE_REJOIN_EVERY', 5),
 }
 
 // The lifecycle scenario is built on the RTDB game-room list.
@@ -321,7 +325,9 @@ function resolveRoomRole(room, permId) {
 /**
  * Room lifecycle scenario.
  *
- * Group the bots into rooms and run a realistic join / role-change sequence per room.
+ * Group the bots into rooms and run a realistic join sequence per room, then settle into a
+ * steady state that never tears the room down : players/spectators keep swapping roles every
+ * SWAP_MS, and occasionally one bot leaves its seat entirely and rejoins a little later.
  * Role writes go through the same per-user protocol the client now uses : a child write on the
  * roles map, one key per user. Because each user owns their own key, overlapping writes merge
  * instead of clobbering, so the audit should stay clean ( the fix for roles jumping and users
@@ -343,35 +349,38 @@ function startRoomLifecycles() {
 
 async function runRoomLifecycle(group) {
     const host = group[0]
-    while (!stopping) {
-        const roomId = await createLifecycleRoom(host)
-        const participants = [host.permId]
+    const roomId = await createLifecycleRoom(host)
+    const participants = [host.permId]
 
-        // The next 4 bots join as players (host + 4 = MAX_PLAYERS). Fired with a stagger
-        // so near-simultaneous joins race on the whole-object write.
-        const players = group.slice(1, 5)
-        await fireStaggered(players.map(bot => () => joinSeat(roomId, bot.permId)))
-        players.forEach(bot => participants.push(bot.permId))
+    // The next 4 bots join as players (host + 4 = MAX_PLAYERS). Fired with a stagger
+    // so near-simultaneous joins race on the whole-object write.
+    const players = group.slice(1, 5)
+    await fireStaggered(players.map(bot => () => joinSeat(roomId, bot.permId)))
+    players.forEach(bot => participants.push(bot.permId))
+    await sleep(config.stepMs)
+
+    // One more bot joins (table full -> lands spectator) then moves to judge.
+    const judge = group[5]
+    if (judge) {
+        await joinSeat(roomId, judge.permId)
+        participants.push(judge.permId)
         await sleep(config.stepMs)
+        await moveRole(roomId, judge.permId, RoomRole.Judge)
+        await sleep(config.stepMs)
+    }
 
-        // One more bot joins (table full -> lands spectator) then moves to judge.
-        const judge = group[5]
-        if (judge) {
-            await joinSeat(roomId, judge.permId)
-            participants.push(judge.permId)
-            await sleep(config.stepMs)
-            await moveRole(roomId, judge.permId, RoomRole.Judge)
-            await sleep(config.stepMs)
-        }
+    // One more bot joins and stays a spectator (table full).
+    const spectator = group[6]
+    if (spectator) {
+        await joinSeat(roomId, spectator.permId)
+        participants.push(spectator.permId)
+        await sleep(config.stepMs)
+    }
 
-        // One more bot joins and stays a spectator (table full).
-        const spectator = group[6]
-        if (spectator) {
-            await joinSeat(roomId, spectator.permId)
-            participants.push(spectator.permId)
-            await sleep(config.stepMs)
-        }
-
+    // Steady state : the room is never destroyed. Players/spectators keep swapping roles,
+    // and every LEAVE_REJOIN_EVERYth round one bot leaves its seat entirely and rejoins.
+    let round = 0
+    while (!stopping) {
         // Some players -> spectators and some spectators -> players, concurrently.
         await shuffleSeats(roomId, group)
         await sleep(config.stepMs)
@@ -379,11 +388,33 @@ async function runRoomLifecycle(group) {
         // Surface any role that jumped or user that vanished during the churn.
         await auditRoom(roomId, participants)
 
-        // Tear the room down and start a fresh cycle.
-        await rtdbRemove(roomId)
-        lifecycleRooms.delete(roomId)
-        await sleep(config.lifecycleLoopMs)
+        round++
+        if (round % config.leaveRejoinEvery === 0) {
+            await leaveAndRejoin(roomId, group)
+        }
+
+        await sleep(config.swapMs)
     }
+}
+
+/**
+ * Pick a random bot from the group, drop it out of the roles map entirely (as if it closed
+ * the room), then bring it back in a little later, resolving a fresh role the same way a
+ * real rejoin would.
+ */
+async function leaveAndRejoin(roomId, group) {
+    const bot = group[Math.floor(Math.random() * group.length)]
+    await leaveSeat(roomId, bot.permId)
+    await sleep(config.stepMs)
+    await joinSeat(roomId, bot.permId)
+}
+
+/**
+ * Remove a user's own key from the roles map, mirroring what happens when a client leaves
+ * the room ( its per-user roles entry goes away, everyone else's is untouched ).
+ */
+async function leaveSeat(roomId, permId) {
+    await rtdbUpdateRoles(roomId, { [permId]: null })
 }
 
 async function createLifecycleRoom(host) {
