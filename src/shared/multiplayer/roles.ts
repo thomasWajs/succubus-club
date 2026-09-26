@@ -137,13 +137,13 @@ export function releaseRoomRole(gameRoom: GameRoom, permId: PermanentId): boolea
 }
 
 /**
- * Move a user to a role, exclusively. Returns false when it changes nothing.
+ * Move a user to a role, exclusively
  */
-export function applyRoomRole(gameRoom: GameRoom, permId: PermanentId, role: RoomRole): boolean {
+export function applyRoomRole(gameRoom: GameRoom, permId: PermanentId, role: RoomRole) {
     // Never touch the map on a no-op : the host watcher is deep, it would broadcast the
     // whole room metadata to RTDB for nothing on every presence event.
     if (getRoomRole(gameRoom, permId) == role) {
-        return false
+        return
     }
 
     if (role != RoomRole.Player) {
@@ -151,8 +151,6 @@ export function applyRoomRole(gameRoom: GameRoom, permId: PermanentId, role: Roo
         removeFromSeating(gameRoom, permId)
     }
     gameRoom.roles[permId] = role
-
-    return true
 }
 
 /**
