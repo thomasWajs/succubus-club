@@ -133,13 +133,6 @@ export async function joinGameRoom(gameRoom: GameRoom, key?: Key) {
          * Set up room event handlers
          */
 
-        // Enter presence declaring our role, so peers ( and ably on an auto-reconnect )
-        // can restore us to it rather than defaulting us to a player.
-        const permId = multiplayer.selfUser.permId
-        const role = resolveRoomRole(gameRoom, permId)
-        const roomPresence: RoomPresence = { ...multiplayer.selfUser, role }
-        await roomChannel.presence.enter(roomPresence)
-
         // In SCS mode, subscribe to RollSeating, GameState and MutationRejected from server
         let scsSubscriptions: Promise<void>[] = []
         if (gameRoom.communication === CommunicationMode.SCS) {
@@ -157,7 +150,10 @@ export async function joinGameRoom(gameRoom: GameRoom, key?: Key) {
             ]
         }
 
-        // Activate all subscriptions
+        // Activate all subscriptions before entering presence : peers react to our presence
+        // entry by re-sending state ( e.g. onMemberJoin resends decks ), and with
+        // echoMessages:false we'd otherwise race our own subscribe against their replies and
+        // miss messages sent while we were still announcing ourselves.
         await Promise.all([
             // Presence / Users
             roomChannel.presence.subscribe('enter', onMemberJoin),
@@ -182,6 +178,13 @@ export async function joinGameRoom(gameRoom: GameRoom, key?: Key) {
 
             ...scsSubscriptions,
         ])
+
+        // Enter presence declaring our role, so peers ( and ably on an auto-reconnect )
+        // can restore us to it rather than defaulting us to a player.
+        const permId = multiplayer.selfUser.permId
+        const role = resolveRoomRole(gameRoom, permId)
+        const roomPresence: RoomPresence = { ...multiplayer.selfUser, role }
+        await roomChannel.presence.enter(roomPresence)
 
         // Seed room membership from presence, so host-presence and writer election track
         // who is actually in the room rather than the churn-prone lobby presence. The
