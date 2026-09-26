@@ -19,12 +19,10 @@ import {
     PermanentId,
     PickSeatMessage,
     RoomId,
-    RoomPresence,
     RoomRole,
     ScsRollSeatingMessage,
     SerializedChatMessage,
     SerializedMultiplayerGame,
-    SetRoomRoleMessage,
     User,
 } from '@/shared/types/multiplayer.ts'
 import {
@@ -174,17 +172,13 @@ export async function joinGameRoom(gameRoom: GameRoom, key?: Key) {
             ),
             ablySubscribe(roomChannel, MultiplayerMessageType.PickSeat, onReceivePickSeat),
             ablySubscribe(roomChannel, MultiplayerMessageType.LeaveSeat, onReceiveLeaveSeat),
-            ablySubscribe(roomChannel, MultiplayerMessageType.SetRoomRole, onReceiveSetRoomRole),
 
             ...scsSubscriptions,
         ])
 
-        // Enter presence declaring our role, so peers ( and ably on an auto-reconnect )
-        // can restore us to it rather than defaulting us to a player.
-        const permId = multiplayer.selfUser.permId
-        const role = resolveRoomRole(gameRoom, permId)
-        const roomPresence: RoomPresence = { ...multiplayer.selfUser, role }
-        await roomChannel.presence.enter(roomPresence)
+        // Enter presence so peers ( onMemberJoin ) and ably ( on an auto-reconnect ) know
+        // we're in the room. Our role isn't part of it : it's read back from rtdb instead.
+        await roomChannel.presence.enter(multiplayer.selfUser)
 
         // Seed room membership from presence, so host-presence and writer election track
         // who is actually in the room rather than the churn-prone lobby presence. The
@@ -203,6 +197,8 @@ export async function joinGameRoom(gameRoom: GameRoom, key?: Key) {
         // If ably, it's already joined. If SCS, we need to join.
         await comm.joinRoom(gameRoom.id, key)
 
+        const permId = multiplayer.selfUser.permId
+        const role = resolveRoomRole(gameRoom, permId)
         multiplayer.setGameRoomRole(permId, role)
         // Persist our own role. The host that just created the room already seeded itself as a
         // player in the create write, so this is a harmless idempotent re-write for them.
@@ -307,9 +303,9 @@ export function setupGameRoomWatcher() {
 
 function onMemberJoin(presence: PresenceMessage) {
     const multiplayer = useMultiplayerStore()
-    // Prefer the RoomPresence carried by the event over the lobby map : a room member whose
-    // lobby presence lapsed under load would otherwise be dropped entirely.
-    const data = presence.data as RoomPresence | undefined
+    // Prefer the User carried by the event over the lobby map : a room member whose lobby
+    // presence lapsed under load would otherwise be dropped entirely.
+    const data = presence.data as User | undefined
     const user = data ?? multiplayer.users[presence.clientId]
     const gameRoom = multiplayer.currentGameRoom
 
@@ -321,14 +317,9 @@ function onMemberJoin(presence: PresenceMessage) {
     multiplayer.upsertRoomMember(user)
     multiplayer.upsertUser(user)
 
-    // Restore the role the user themselves declares ( so a reconnecting judge/spectator
-    // keeps their role even if their role array entry was lost ), unless it's no longer
-    // available ( e.g. the player table filled up while they were away ).
-    const declared = data?.role
-    const role =
-        declared && canTakeRoomRole(gameRoom, user.permId, declared) ? declared : (
-            resolveRoomRole(gameRoom, user.permId)
-        )
+    // Resolve the (re)joining member's role from rtdb : a judge/spectator keeps the role
+    // they hold there, a player gets their seat back if there's still room for them.
+    const role = resolveRoomRole(gameRoom, user.permId)
     if (role == RoomRole.Player) {
         alertReconnect(gameRoom, user)
     }
@@ -546,8 +537,9 @@ async function onReceiveLeaveSeat(message: LeaveSeatMessage) {
 /**
  * Move ourselves to another room role ( player / judge / spectator ).
  *
- * Mutate locally then broadcast, like pickSeat : only the host persists the room to
- * RTDB, so a local mutation alone would be wiped by the next host broadcast.
+ * Persisted through rtdb only : this is not realtime-sensitive, so peers just pick it up
+ * from the per-user role write via the room watcher, rather than also broadcasting an
+ * optimistic intent over ably.
  */
 export async function setSelfRoomRole(role: RoomRole) {
     const multiplayer = useMultiplayerStore()
@@ -573,44 +565,7 @@ export async function setSelfRoomRole(role: RoomRole) {
         multiplayer.selfIsReady = false
     }
 
-    // Persist the move merge-safely, then broadcast it over ably for immediate peer UI.
-    // The rtdb write is the durable truth ; the ably intent is only optimistic.
     await commitRoomRole(gameRoom.id, permId, role)
-    await broadcastSetRoomRole(permId, role)
-
-    // Re-declare our role in presence, so a later reconnect restores this new role.
-    const roomPresence: RoomPresence = { ...multiplayer.selfUser, role }
-    await getRoomChannel().presence.update(roomPresence)
-}
-
-async function broadcastSetRoomRole(permId: PermanentId, role: RoomRole) {
-    const gameRoom = ensureGameRoom()
-    if (gameRoom.isStarted) {
-        throw new Error(`Game already started`)
-    }
-    const roomChannel = getRoomChannel()
-    await ablyPublish(roomChannel, MultiplayerMessageType.SetRoomRole, { permId, role })
-}
-
-async function onReceiveSetRoomRole(message: SetRoomRoleMessage) {
-    const multiplayer = useMultiplayerStore()
-    const gameRoom = ensureGameRoom()
-
-    // Cannot change role if the game is already started
-    // Don't apply our own role changes (already applied locally)
-    // Validate the role is still available. This is only the optimistic local echo of the
-    // sender's intent ; their own per-user rtdb write is the durable truth.
-    if (
-        gameRoom.isStarted ||
-        message.permId === multiplayer.selfUser.permId ||
-        !canTakeRoomRole(gameRoom, message.permId, message.role)
-    ) {
-        return
-    }
-
-    // Optimistic local update only : the sender persists the move with a per-user write,
-    // so we no longer broadcast the whole room here.
-    multiplayer.setGameRoomRole(message.permId, message.role)
 }
 
 /** Game launching */

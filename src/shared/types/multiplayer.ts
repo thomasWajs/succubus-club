@@ -51,11 +51,6 @@ export enum RoomRole {
 
 export type RoomRoles = Record<PermanentId, RoomRole>
 
-// What a user broadcasts on a room channel's presence. It's their User plus the role they
-// chose, so a reconnecting judge/spectator is restored to their role instead of being
-// defaulted to a player when their role array entry was lost.
-export type RoomPresence = User & { role?: RoomRole }
-
 export type GameRoom = {
     id: RoomId
     name: string
@@ -243,7 +238,6 @@ export enum MultiplayerMessageType {
     RollSeating = 'RollSeating',
     PickSeat = 'PickSeat',
     LeaveSeat = 'LeaveSeat',
-    SetRoomRole = 'SetRoomRole',
 
     SetupGame = 'SetupGame',
     LaunchGame = 'LaunchGame',
@@ -272,11 +266,6 @@ export type PickSeatMessage = {
 
 export type LeaveSeatMessage = {
     permId: PermanentId
-}
-
-export type SetRoomRoleMessage = {
-    permId: PermanentId
-    role: RoomRole
 }
 
 export type GameMutationMessage = {
@@ -314,7 +303,6 @@ export type AblyMessage =
     | AblyLaunchGameMessage
     | PickSeatMessage
     | LeaveSeatMessage
-    | SetRoomRoleMessage
     | GameMutationMessage
     | AblyRequestResyncMessage
     | AblyGameStateMessage
