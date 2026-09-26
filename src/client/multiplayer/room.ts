@@ -216,6 +216,7 @@ export async function joinGameRoom(gameRoom: GameRoom, key?: Key) {
 
 export async function leaveGameRoom() {
     const multiplayer = useMultiplayerStore()
+    // First call, in case we're returning early
     multiplayer.currentGameRoomFallback = null
 
     const gameRoom = multiplayer.currentGameRoom
@@ -242,6 +243,8 @@ export async function leaveGameRoom() {
 
     unwatchGameRoom?.()
     unwatchGameRoom = null
+    // Second call, to erase the snapshot mades by the game room watcher
+    multiplayer.currentGameRoomFallback = null
     // We're always connected to ably ( for presence )
     await ablyCommunication.leaveRoom()
     // Needed if conencted to SCS
