@@ -122,6 +122,11 @@ export const useMultiplayerStore = defineStore('multiplayer', {
             return gameRoom ?? state.currentGameRoomFallback ?? undefined
         },
 
+        // Is the room still live in RTDB, or are we just running on a snapshot ?
+        isLiveRoom(): boolean {
+            return !!this.currentGameRoomId && this.currentGameRoomId in this.gameRooms
+        },
+
         selfIsHost(): boolean {
             return this.currentGameRoom?.hostId == this.selfUser.permId
         },
@@ -263,7 +268,7 @@ export const useMultiplayerStore = defineStore('multiplayer', {
             }
         },
 
-        // Seats are mutually exclusive : always go through these two.
+        // Roles are mutually exclusive : always go through these two.
         setGameRoomRole(permId: PermanentId, role: RoomRole) {
             if (this.currentGameRoom) {
                 applyRoomRole(this.currentGameRoom, permId, role)

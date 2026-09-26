@@ -177,7 +177,7 @@ export async function joinGameRoom(gameRoom: GameRoom, key?: Key) {
         ])
 
         // Enter presence so peers ( onMemberJoin ) and ably ( on an auto-reconnect ) know
-        // we're in the room. Our role isn't part of it : it's read back from rtdb instead.
+        // we're in the room.
         await roomChannel.presence.enter(multiplayer.selfUser)
 
         // Seed room membership from presence, so host-presence and writer election track
@@ -231,7 +231,11 @@ export async function leaveGameRoom() {
 
     // We're the last user in the room, we can delete it.
     // Every role counts : judges and spectators still need the room to exist.
-    if (multiplayer.allGameRoomUsers.length == 1 && multiplayer.currentGameRoomId) {
+    if (
+        multiplayer.isLiveRoom &&
+        multiplayer.allGameRoomUsers.length == 1 &&
+        multiplayer.currentGameRoomId
+    ) {
         await deleteGameRoom(multiplayer.currentGameRoomId)
     } else {
         // A deliberate leave always frees our role, whatever it is. The "keep role while
@@ -296,9 +300,7 @@ export function setupGameRoomWatcher() {
             // broadcastRoomMeta. That write is the last line of defence's job : being at the
             // $roomId node, it re-runs the 'roles' required-child validation and is rejected,
             // so it lands in the .catch below rather than recreating a roles-less room.
-            const roomId = multiplayer.currentGameRoomId
-            const isLiveRoom = !!roomId && roomId in multiplayer.gameRooms
-            if (gameRoom && isLiveRoom && multiplayer.selfIsRoomWriter) {
+            if (gameRoom && multiplayer.isLiveRoom && multiplayer.selfIsRoomWriter) {
                 broadcastRoomMeta(gameRoom).catch(logging.captureException)
             }
         },
