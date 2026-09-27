@@ -43,7 +43,7 @@ export async function POST(request) {
     for (const [roomId, gameRoom] of Object.entries(storedGameRooms)) {
         // Enforce the grace period
         if (typeof gameRoom?.createdAt === 'number' && now - gameRoom.createdAt < MIN_ROOM_AGE_MS) {
-            return
+            continue
         }
 
         if (!activeChannels.includes(roomId)) {
