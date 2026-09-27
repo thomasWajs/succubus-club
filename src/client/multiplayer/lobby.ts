@@ -379,7 +379,7 @@ export async function deleteGameRoom(roomId: RoomId) {
 
 // Mirrors MIN_ROOM_AGE_MS in api/pruneGameRooms.mjs : a freshly created room is written to
 // rtdb before its creator's Ably presence enter resolves, so it must not look empty yet.
-const MIN_ROOM_AGE_MS = 15_000
+const MIN_ROOM_AGE_MS = 2_000
 
 // This is only for dev, because Vercel ain't here to prune the channels
 async function pruneAblyChannels() {
@@ -389,6 +389,26 @@ async function pruneAblyChannels() {
     const storedGameRooms = snapshot.val() as Record<RoomId, GameRoom> | null
     const now = Date.now()
 
+    let activeChannels = []
+    // @ts-expect-error - Ably request method type compatibility
+    const channelsResponse = await ably.request('GET', '/channels', { by: 'value' })
+    activeChannels = channelsResponse.items
+        .filter(channel => channel.status?.occupancy?.metrics?.connections ?? 0 > 0)
+        .map(channel => channel.name)
+
+    for (const [roomId, gameRoom] of Object.entries(storedGameRooms ?? {})) {
+        // Enforce the grace period
+        if (typeof gameRoom?.createdAt === 'number' && now - gameRoom.createdAt < MIN_ROOM_AGE_MS) {
+            return
+        }
+
+        if (!activeChannels.includes(roomId)) {
+            await deleteGameRoom(roomId)
+        }
+    }
+
+    // If the occupancy metrics lags too much, use the direct presence length instead :
+    /*
     await Promise.all(
         Object.entries(storedGameRooms ?? {}).map(async ([roomId, gameRoom]) => {
             if (now - gameRoom.createdAt < MIN_ROOM_AGE_MS) {
@@ -404,4 +424,5 @@ async function pruneAblyChannels() {
             }
         }),
     )
+     */
 }
