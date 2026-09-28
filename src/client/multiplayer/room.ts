@@ -232,25 +232,14 @@ export async function leaveGameRoom() {
         return
     }
 
-    // Don't use multiplayer.users, because there's a race situation where leaveGameRoom()
-    // is called from joinGameRoom(), but the users are not populated yet.
-    const roomPermIds = getRoomPermIds(gameRoom)
-
     // We're the last user in the room, we can delete it.
-    // Every role counts : judges and spectators still need the room to exist.
     if (
         multiplayer.isLiveRoom &&
-        roomPermIds.length == 1 &&
+        multiplayer.roomMembers.size == 1 &&
         // Added guard, in the weird case the data are f**d up and we're not the last player
-        roomPermIds[0] == multiplayer.selfUser.permId
+        multiplayer.roomMembers.has(multiplayer.selfUser.permId)
     ) {
         await deleteGameRoom(gameRoom.id)
-    } else {
-        // A deliberate leave always frees our role, whatever it is. The "keep role while
-        // offline" reservation ( see onMemberLeave ) only makes sense for an accidental
-        // disconnect ; here we're still connected, so we persist our own release directly
-        // instead of waiting on a peer to observe our presence 'leave'.
-        await commitReleaseRoomRole(gameRoom.id, multiplayer.selfUser.permId)
     }
 
     unwatchGameRoom?.()
