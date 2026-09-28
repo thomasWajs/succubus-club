@@ -22,6 +22,8 @@ import CurrentRoom from '@/client/ui/components/CurrentRoom.vue'
     @include screen-page;
     display: flex;
     flex-direction: column;
-    min-height: calc(100vh - $topbar-height - 4rem);
+    height: calc(100vh - $topbar-height - 4rem);
+    min-height: unset;
+    overflow: hidden;
 }
 </style>
