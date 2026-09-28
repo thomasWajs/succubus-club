@@ -229,14 +229,18 @@ export async function leaveGameRoom() {
         return
     }
 
+    // Don't use multiplayer.users, because there's a race situation where leaveGameRoom()
+    // is called from joinGameRoom(), but the users are not populated yet.
+    const roomPermIds = getRoomPermIds(gameRoom)
+
     // We're the last user in the room, we can delete it.
     // Every role counts : judges and spectators still need the room to exist.
     if (
         multiplayer.currentGameRoomId &&
         multiplayer.isLiveRoom &&
-        multiplayer.allGameRoomUsers.length == 1 &&
+        roomPermIds.length == 1 &&
         // Added guard, in the weird case the data are f**d up and we're not the last player
-        multiplayer.allGameRoomUsers[0].permId == multiplayer.selfUser.permId
+        roomPermIds[0] == multiplayer.selfUser.permId
     ) {
         await deleteGameRoom(multiplayer.currentGameRoomId)
     } else {

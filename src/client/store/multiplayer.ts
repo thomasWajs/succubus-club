@@ -149,11 +149,6 @@ export const useMultiplayerStore = defineStore('multiplayer', {
         selfIsRoomWriter(): boolean {
             return this.roomWriterId == this.selfUser.permId
         },
-        // Every user in the room, whatever their role
-        allGameRoomUsers(): User[] {
-            return getRoomUsers(this.currentGameRoom, this.users)
-        },
-        // Players only. Everything that gates the game start is built on this.
         playerUsers(): User[] {
             return getRoomUsers(this.currentGameRoom, this.users, RoomRole.Player)
         },
@@ -172,9 +167,6 @@ export const useMultiplayerStore = defineStore('multiplayer', {
         },
         selfIsJudge(): boolean {
             return this.selfRoomRole == RoomRole.Judge
-        },
-        selfIsSpectator(): boolean {
-            return this.selfRoomRole == RoomRole.Spectator
         },
         sortedPlayerUsers(): User[] {
             if (!this.currentGameRoom) return []
