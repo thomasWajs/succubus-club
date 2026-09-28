@@ -1,11 +1,14 @@
-import { initializeApp } from 'firebase/app'
+import { cert, getApps, initializeApp } from 'firebase-admin/app'
 
-export const firebaseApp = initializeApp({
-    apiKey: process.env.VITE_FIREBASE_API_KEY,
-    authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN,
-    databaseURL: process.env.VITE_FIREBASE_DATABASE_URL,
-    projectId: process.env.VITE_FIREBASE_PROJECT_ID,
-    storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-    appId: process.env.VITE_FIREBASE_APP_ID,
-})
+// Runs through the Firebase Admin SDK, which bypasses security rules and App Check
+// enforcement : crons and webhooks have no per-player auth session or browser context to
+// obtain an App Check token. Credentials come from a service-account JSON in the
+// FIREBASE_SERVICE_ACCOUNT env var ( set per Vercel environment, since dev and prod are
+// separate Firebase projects ).
+export const firebaseAdminApp =
+    getApps().length ?
+        getApps()[0]
+    :   initializeApp({
+            credential: cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)),
+            databaseURL: process.env.VITE_FIREBASE_DATABASE_URL,
+        })

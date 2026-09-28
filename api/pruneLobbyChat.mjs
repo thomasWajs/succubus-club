@@ -1,16 +1,11 @@
-import {
-    get as rtdbGet,
-    getDatabase,
-    ref as rtdbRef,
-    remove as rtdbRemove,
-} from 'firebase/database'
-import { firebaseApp } from './firebaseConfig.mjs'
+import { getDatabase } from 'firebase-admin/database'
+import { firebaseAdminApp } from './firebaseConfig.mjs'
 
 const LOBBY_CHAT_KEY = 'lobbyChat'
 const RETENTION_MS = 120 * 24 * 60 * 60 * 1000 // 120 days
 
-const rtdb = getDatabase(firebaseApp)
-const lobbyChatRef = rtdbRef(rtdb, LOBBY_CHAT_KEY)
+const rtdb = getDatabase(firebaseAdminApp)
+const lobbyChatRef = rtdb.ref(LOBBY_CHAT_KEY)
 
 export async function GET(request) {
     const authHeader = request.headers.get('authorization')
@@ -19,7 +14,7 @@ export async function GET(request) {
         return Response.json({ success: false }, { status: 401 })
     }
 
-    const snapshot = await rtdbGet(lobbyChatRef)
+    const snapshot = await lobbyChatRef.once('value')
     const channels = snapshot.val()
 
     if (!channels) {
@@ -32,7 +27,7 @@ export async function GET(request) {
     for (const [languageCode, messages] of Object.entries(channels)) {
         for (const [messageId, message] of Object.entries(messages ?? {})) {
             if (typeof message?.ts === 'number' && message.ts < cutoff) {
-                await rtdbRemove(rtdbRef(rtdb, `${LOBBY_CHAT_KEY}/${languageCode}/${messageId}`))
+                await rtdb.ref(`${LOBBY_CHAT_KEY}/${languageCode}/${messageId}`).remove()
                 removed++
             }
         }

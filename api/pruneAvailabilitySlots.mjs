@@ -1,9 +1,9 @@
-import { cert, getApps, initializeApp } from 'firebase-admin/app'
 import { getFirestore } from 'firebase-admin/firestore'
 import {
     isAvailabilitySlot,
     nextOccurrenceStartUtc,
 } from '../src/shared/availability/recurrence.mjs'
+import { firebaseAdminApp } from './firebaseConfig.mjs'
 
 // Removes "once" availability slots whose occurrence ended more than 12h ago. They can
 // never recur, so once that grace window has passed they only clutter every viewer's
@@ -11,17 +11,11 @@ import {
 //
 // Runs through the Firebase Admin SDK, which bypasses Firestore security rules : the
 // `availability` collection is gated on `request.auth.uid == uid` per document
-// ( see firebase/firestore.rules ), and a cron has no such per-player auth session. The
-// credentials come from a service-account JSON in the FIREBASE_SERVICE_ACCOUNT env var
-// ( set per Vercel environment, since dev and prod are separate Firebase projects ).
+// ( see firebase/firestore.rules ), and a cron has no such per-player auth session.
 
 const GRACE_MS = 24 * 60 * 60 * 1000
 
-const app =
-    getApps().length ?
-        getApps()[0]
-    :   initializeApp({ credential: cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)) })
-const db = getFirestore(app)
+const db = getFirestore(firebaseAdminApp)
 
 // A one-time slot is stale once its occurrence's end is more than GRACE_MS in the past.
 // Malformed / legacy entries are left untouched : the shape guard keeps the occurrence

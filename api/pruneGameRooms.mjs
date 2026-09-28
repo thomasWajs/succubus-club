@@ -1,16 +1,11 @@
 import Ably from 'ably'
-import {
-    get as rtdbGet,
-    getDatabase,
-    ref as rtdbRef,
-    remove as rtdbRemove,
-} from 'firebase/database'
-import { firebaseApp } from './firebaseConfig.mjs'
+import { getDatabase } from 'firebase-admin/database'
+import { firebaseAdminApp } from './firebaseConfig.mjs'
 
 const GAME_ROOMS_KEY = 'gameRooms'
 const ABLY_API_KEY = process.env.ABLY_API_KEY
-const rtdb = getDatabase(firebaseApp)
-const gameRoomsRef = rtdbRef(rtdb, GAME_ROOMS_KEY)
+const rtdb = getDatabase(firebaseAdminApp)
+const gameRoomsRef = rtdb.ref(GAME_ROOMS_KEY)
 
 // A room is written to rtdb before its creator's Ably presence enter resolves (see
 // createGameRoom in lobby.ts), so a webhook firing in that window would otherwise see a
@@ -25,7 +20,7 @@ export async function POST(request) {
         return Response.json({ success: false }, { status: 401 })
     }
 
-    const snapshot = await rtdbGet(gameRoomsRef)
+    const snapshot = await gameRoomsRef.once('value')
     const storedGameRooms = snapshot.val()
 
     if (!storedGameRooms) {
@@ -41,13 +36,18 @@ export async function POST(request) {
         .map(channel => channel.name)
 
     for (const [roomId, gameRoom] of Object.entries(storedGameRooms)) {
+        // Temporary, for outdated clients
+        if (!gameRoom.createdAt) {
+            continue
+        }
+
         // Enforce the grace period
         if (typeof gameRoom?.createdAt === 'number' && now - gameRoom.createdAt < MIN_ROOM_AGE_MS) {
             continue
         }
 
         if (!activeChannels.includes(roomId)) {
-            await rtdbRemove(rtdbRef(rtdb, `${GAME_ROOMS_KEY}/${roomId}`))
+            await rtdb.ref(`${GAME_ROOMS_KEY}/${roomId}`).remove()
         }
     }
 
@@ -69,7 +69,7 @@ export async function POST(request) {
             // (unlike the Realtime client), so the members are under .items.
             const presenceSet = await ably.channels.get(roomId).presence.get()
             if (presenceSet.items.length === 0) {
-                await rtdbRemove(rtdbRef(rtdb, `${GAME_ROOMS_KEY}/${roomId}`))
+                await rtdb.ref(`${GAME_ROOMS_KEY}/${roomId}`).remove()
             }
         }),
     )
