@@ -213,8 +213,11 @@ function send() {
     }
 }
 
-// Keep the log pinned to the bottom as new messages arrive ( sent or received ).
-watch(() => props.messages.length, scrollToBottom)
+// Keep the log pinned to the bottom as new messages arrive ( sent or received ), and
+// start pinned to the bottom too : a chat mounted with history already loaded ( e.g. a
+// tab that wasn't active while its channel first populated ) never sees the length
+// change, so the initial scroll needs to run explicitly.
+watch(() => props.messages.length, scrollToBottom, { immediate: true })
 
 onUnmounted(() => {
     if (cooldownTimer) {
