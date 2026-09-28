@@ -176,6 +176,9 @@ export async function joinGameRoom(gameRoom: GameRoom, key?: Key) {
             ...scsSubscriptions,
         ])
 
+        // Wait that all subscriptions are done before entering presence,
+        // so we're sure to receive all other users data ( user + deck )
+
         // Enter presence so peers ( onMemberJoin ) and ably ( on an auto-reconnect ) know
         // we're in the room.
         await roomChannel.presence.enter(multiplayer.selfUser)
@@ -236,13 +239,12 @@ export async function leaveGameRoom() {
     // We're the last user in the room, we can delete it.
     // Every role counts : judges and spectators still need the room to exist.
     if (
-        multiplayer.currentGameRoomId &&
         multiplayer.isLiveRoom &&
         roomPermIds.length == 1 &&
         // Added guard, in the weird case the data are f**d up and we're not the last player
         roomPermIds[0] == multiplayer.selfUser.permId
     ) {
-        await deleteGameRoom(multiplayer.currentGameRoomId)
+        await deleteGameRoom(gameRoom.id)
     } else {
         // A deliberate leave always frees our role, whatever it is. The "keep role while
         // offline" reservation ( see onMemberLeave ) only makes sense for an accidental
@@ -257,7 +259,7 @@ export async function leaveGameRoom() {
     multiplayer.currentGameRoomFallback = null
     // We're always connected to ably ( for presence )
     await ablyCommunication.leaveRoom()
-    // Needed if conencted to SCS
+    // Needed if connected to SCS
     await comm.leaveRoom()
     multiplayer.selfIsReady = false
     multiplayer.currentGameRoomId = null

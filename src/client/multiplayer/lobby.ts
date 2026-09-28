@@ -374,6 +374,8 @@ export async function broadcastRoomMeta(gameRoom: GameRoom) {
 }
 
 export async function deleteGameRoom(roomId: RoomId) {
+    const multiplayer = useMultiplayerStore()
+    delete multiplayer.gameRooms[roomId]
     await rtdbRemove(gameRoomRef(roomId))
 }
 
