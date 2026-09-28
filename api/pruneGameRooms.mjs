@@ -35,6 +35,11 @@ export async function POST(request) {
         .filter(channel => channel.status?.occupancy?.metrics?.connections ?? 0 > 0)
         .map(channel => channel.name)
 
+    console.log('channelsResponse')
+    console.log(channelsResponse)
+    console.log('activeChannels')
+    console.log(activeChannels)
+
     for (const [roomId, gameRoom] of Object.entries(storedGameRooms)) {
         // Temporary, for outdated clients
         if (!gameRoom.createdAt) {
@@ -45,6 +50,9 @@ export async function POST(request) {
         if (typeof gameRoom?.createdAt === 'number' && now - gameRoom.createdAt < MIN_ROOM_AGE_MS) {
             continue
         }
+
+        console.log(`activeChannels.includes(roomId)`)
+        console.log(activeChannels.includes(roomId))
 
         if (!activeChannels.includes(roomId)) {
             await rtdb.ref(`${GAME_ROOMS_KEY}/${roomId}`).remove()
