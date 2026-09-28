@@ -264,6 +264,14 @@ abstract class ChangeCounterMutation extends GameMutation<ChangeCounterParams> {
     get card() {
         return this.params.card
     }
+
+    protected getStrictValidity(_gameState: GameState): Validity {
+        if (this.params.card.controllerOid != this.author.oid) {
+            return Invalid(`Players can change counters only on cards they control`)
+        }
+
+        return VALID
+    }
 }
 
 abstract class ChangeCardBoolMutation extends GameMutation<ChangeCardBoolParams> {
@@ -935,7 +943,7 @@ class Influence extends ChangeCounterMutation {
     }
 
     protected getStrictValidity(_gameState: GameState): Validity {
-        if (this.params.card.ownerOid != this.author.oid) {
+        if (this.params.card.controllerOid != this.author.oid) {
             return Invalid(`Players can only influence their own cards`)
         }
 
@@ -985,8 +993,8 @@ class MoveCard extends GameMutation<MoveCardParams> {
     }
 
     protected getStrictValidity(_gameState: GameState): Validity {
-        if (!this.params.card.isIn.play && this.params.card.ownerOid != this.author.oid) {
-            return Invalid(`Players can only reorder their own cards`)
+        if (this.params.card.region.owner?.oid != this.author.oid) {
+            return Invalid(`Players can only move their own cards`)
         }
 
         return VALID
@@ -1074,6 +1082,14 @@ class MoveCardToRegion extends GameMutation<MoveCardToRegionParams> {
         return validateCardMovement(this.params, this.params.toCardRegion)
     }
 
+    protected getStrictValidity(_gameState: GameState): Validity {
+        if (this.params.card.controllerOid != this.author.oid) {
+            return Invalid(`Players can only move their own cards`)
+        }
+
+        return VALID
+    }
+
     protected updateGameState(gameState: GameState) {
         const card = this.params.card
 
@@ -1155,6 +1171,14 @@ class MoveToBottom extends GameMutation<MoveToBottomParams> {
         // Can move only crypt cards to the crypt
         if (this.params.toCardRegion.is.crypt && !this.params.card.isCrypt) {
             return Invalid(`Can move only crypt cards to ${this.params.toCardRegion.name}`)
+        }
+
+        return VALID
+    }
+
+    protected getStrictValidity(_gameState: GameState): Validity {
+        if (this.params.card.controllerOid != this.author.oid) {
+            return Invalid(`Players can only move their own cards`)
         }
 
         return VALID
@@ -1421,7 +1445,7 @@ class SetFlip extends ChangeCardBoolMutation {
 
     protected getStrictValidity(_gameState: GameState): Validity {
         if (this.params.card.controllerOid != this.author.oid) {
-            return Invalid(`Players can only flip their own cards`)
+            return Invalid(`Players can only flip cards they control`)
         }
 
         return VALID
