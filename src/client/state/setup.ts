@@ -251,7 +251,7 @@ export function startGame() {
     initAutoSaveGame()
 }
 
-export function leaveGame(redirectToMenu: boolean = false) {
+export async function leaveGame(redirectToMenu: boolean = false) {
     const core = useCoreStore()
 
     if (!core.gameIsStarted) {
@@ -260,7 +260,7 @@ export function leaveGame(redirectToMenu: boolean = false) {
 
     stopClock()
     stopAutoSaveGame()
-    leaveMultiplayer()
+    await leaveMultiplayer()
     resetState()
 
     if (redirectToMenu) {

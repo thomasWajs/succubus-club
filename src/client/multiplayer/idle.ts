@@ -15,7 +15,7 @@ const idle = new IdleJs({
     onIdle, // callback function to be executed after idle time
 })
 
-function onIdle() {
+async function onIdle() {
     const core = useCoreStore()
     const multiplayer = useMultiplayerStore()
     const bus = useBusStore()
@@ -23,10 +23,10 @@ function onIdle() {
     bus.hasBeenIdle = true
 
     if (core.gameIsStarted && router.currentRoute.value.name == ROUTES.Game) {
-        leaveGame(true)
+        await leaveGame(true)
     } else if (multiplayer.hasJoinedLobby && router.currentRoute.value.name == ROUTES.Lobby) {
-        leaveMultiplayer()
-        router.push({ name: ROUTES.MainMenu })
+        await leaveMultiplayer()
+        await router.push({ name: ROUTES.MainMenu })
     }
 }
 

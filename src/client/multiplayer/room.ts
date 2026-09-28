@@ -232,9 +232,11 @@ export async function leaveGameRoom() {
     // We're the last user in the room, we can delete it.
     // Every role counts : judges and spectators still need the room to exist.
     if (
+        multiplayer.currentGameRoomId &&
         multiplayer.isLiveRoom &&
         multiplayer.allGameRoomUsers.length == 1 &&
-        multiplayer.currentGameRoomId
+        // Added guard, in the weird case the data are f**d up and we're not the last player
+        multiplayer.allGameRoomUsers[0].permId == multiplayer.selfUser.permId
     ) {
         await deleteGameRoom(multiplayer.currentGameRoomId)
     } else {
