@@ -14,6 +14,8 @@ const gameRoomsRef = rtdb.ref(GAME_ROOMS_KEY)
 const MIN_ROOM_AGE_MS = 30_000
 
 export async function POST(request) {
+    return Response.json({ success: true }, { status: 200 })
+
     const authHeader = request.headers.get('authorization')
 
     if (!process.env.ABLY_SECRET || authHeader !== `Bearer ${process.env.ABLY_SECRET}`) {

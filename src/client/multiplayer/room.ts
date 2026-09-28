@@ -48,7 +48,7 @@ import {
     resetPendingSyncMessage,
     startGameResync,
 } from '@/client/multiplayer/sync.ts'
-import { broadcastRoomMeta, GAME_ROOMS_KEY } from '@/client/multiplayer/lobby.ts'
+import { broadcastRoomMeta, deleteGameRoom, GAME_ROOMS_KEY } from '@/client/multiplayer/lobby.ts'
 import { Key } from '@/client/multiplayer/encryption.ts'
 import { ChatMessage } from '@/shared/types/history.ts'
 import {
@@ -244,7 +244,7 @@ export async function leaveGameRoom() {
         // Added guard, in the weird case the data are f**d up and we're not the last player
         roomPermIds[0] == multiplayer.selfUser.permId
     ) {
-        // await deleteGameRoom(gameRoom.id)
+        await deleteGameRoom(gameRoom.id)
     } else {
         // A deliberate leave always frees our role, whatever it is. The "keep role while
         // offline" reservation ( see onMemberLeave ) only makes sense for an accidental
