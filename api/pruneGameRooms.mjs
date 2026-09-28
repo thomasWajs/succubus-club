@@ -14,8 +14,6 @@ const gameRoomsRef = rtdb.ref(GAME_ROOMS_KEY)
 const MIN_ROOM_AGE_MS = 30_000
 
 export async function POST(request) {
-    return Response.json({ success: true }, { status: 200 })
-
     const authHeader = request.headers.get('authorization')
 
     if (!process.env.ABLY_SECRET || authHeader !== `Bearer ${process.env.ABLY_SECRET}`) {
@@ -32,29 +30,37 @@ export async function POST(request) {
     const ably = new Ably.Rest({ key: ABLY_API_KEY })
     const now = Date.now()
 
-    const channelsResponse = await ably.request('GET', '/channels', { by: 'value' })
+    let channelsResponse
+    try {
+        channelsResponse = await ably.request('GET', '/channels', { by: 'value' })
+    } catch (error) {
+        // Network/transport failure: never prune on incomplete data.
+        console.error('pruneGameRooms: Ably channel enumeration threw', error)
+        return Response.json({ success: false, error: 'ablyRequestFailed' }, { status: 200 })
+    }
+
+    // ably.request resolves with an HttpPaginatedResponse even when the REST call errored.
+    // It can return HTTP 200 while carrying an error payload (success === false), in which
+    // case items is empty. Treating that as "no active channels" would wipe every live room,
+    // so bail out without touching rtdb.
+    if (!channelsResponse.success || !Array.isArray(channelsResponse.items)) {
+        console.error('pruneGameRooms: Ably channel enumeration unsuccessful', {
+            statusCode: channelsResponse.statusCode,
+            errorCode: channelsResponse.errorCode,
+            errorMessage: channelsResponse.errorMessage,
+        })
+        return Response.json({ success: false, error: 'ablyRequestUnsuccessful' }, { status: 200 })
+    }
+
     const activeChannels = channelsResponse.items
         .filter(channel => channel.status?.occupancy?.metrics?.connections ?? 0 > 0)
         .map(channel => channel.name)
 
-    console.log('channelsResponse')
-    console.log(channelsResponse)
-    console.log('activeChannels')
-    console.log(activeChannels)
-
     for (const [roomId, gameRoom] of Object.entries(storedGameRooms)) {
-        // Temporary, for outdated clients
-        if (!gameRoom.createdAt) {
-            continue
-        }
-
         // Enforce the grace period
         if (typeof gameRoom?.createdAt === 'number' && now - gameRoom.createdAt < MIN_ROOM_AGE_MS) {
             continue
         }
-
-        console.log(`activeChannels.includes(roomId)`)
-        console.log(activeChannels.includes(roomId))
 
         if (!activeChannels.includes(roomId)) {
             await rtdb.ref(`${GAME_ROOMS_KEY}/${roomId}`).remove()
