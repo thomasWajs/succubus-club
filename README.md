@@ -83,6 +83,7 @@ An immense thanks to the amazing people who have financially supported this proj
  - Juan Carlos Eruntalon
  - tryptych
  - Diego Farras
+ - HeeBGB
 
 ---
 
