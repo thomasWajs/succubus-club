@@ -16,7 +16,8 @@
         "succubus-club-shared": "file:../shared",
         "unidecode": "^1.1.0",
         "vue-router": "^4.5.1",
-        "websocket-ts": "^2.2.1"
+        "websocket-ts": "^2.2.1",
+        "zvtes-wasm": "file:../../../zero-vtes/crates/wasm/pkg"
     },
     "devDependencies": {
         "@types/idle-js": "^1.2.3",

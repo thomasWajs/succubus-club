@@ -28,6 +28,7 @@ import {
 } from '@/client/multiplayer/communication/scs.ts'
 import { getLogger } from '@/shared/registries.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
+import { engineGesture, isEngineProjecting } from '@/client/engine/driver.ts'
 
 /**
  * Apply the mutation locally, if it's valid.
@@ -55,6 +56,10 @@ export function applyMutationIfValid(gameMutation: AnyGameMutation) {
     }
 }
 
+// The mutations the user keeps in a game run by the rules engine : arranging
+// the cards of a region, and the UI ones ( arrows, scale, separators, ping )
+const ENGINE_USER_MUTATIONS = /^(moveCard|UI_.*)$/
+
 /**
  * In multiplayer, apply immediately.
  * With TrainBot, enqueue the mutation to maintain correct ordering.
@@ -74,6 +79,21 @@ export function applyMutationLocally(gameMutation: AnyGameMutation) {
 export function dispatchMutation(gameMutation: AnyGameMutation) {
     const gameState = useGameStateStore()
     const bus = useBusStore()
+
+    // With the rules engine, the table changes only through the engine : the
+    // user's moves are read as decisions ( see engine/gestures.ts ), the
+    // cosmetic ones kept as they are.
+    if (
+        gameState.gameType == GameType.Engine &&
+        !isEngineProjecting() &&
+        !ENGINE_USER_MUTATIONS.test(gameMutation.name)
+    ) {
+        const validity = engineGesture(gameMutation)
+        if (!validity.isValid) {
+            bus.alertWarning(validity.reason)
+        }
+        return validity
+    }
 
     const validity = gameMutation.canApply()
     if (!validity.isValid) {

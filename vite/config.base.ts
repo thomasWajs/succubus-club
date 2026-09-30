@@ -71,6 +71,6 @@ export default defineConfig({
     },
 
     optimizeDeps: {
-        exclude: ['xxhash-wasm'],
+        exclude: ['xxhash-wasm', 'zvtes-wasm'],
     },
 })

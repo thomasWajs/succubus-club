@@ -120,6 +120,11 @@ export function initAutoSaveGame() {
     if (isScsGame()) {
         return
     }
+    // A game run by the rules engine can't be resumed from a saved state ( yet ) :
+    // its state lives in the engine. It has its own replay export.
+    if (useGameStateStore().gameType == GameType.Engine) {
+        return
+    }
     intervalId = setInterval(autoSaveGame, AUTO_SAVE_INTERVAL)
 }
 

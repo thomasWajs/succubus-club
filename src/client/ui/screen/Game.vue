@@ -29,6 +29,7 @@
         <Play />
         <GameGameRightColumn v-show="display.rightColumnVisible" />
         <GameTopArea />
+        <EngineDecisionPanel v-if="gameState.gameType == GameType.Engine" />
         <CameraControls />
         <ZoomedCard />
         <Transition name="focus-overlay">
@@ -47,6 +48,9 @@ import GameGameRightColumn from '@/client/ui/ingame/rightColumn/GameRightColumn.
 import GameTopArea from '@/client/ui/ingame/topArea/GameTopArea.vue'
 import CameraControls from '@/client/ui/ingame/CameraControls.vue'
 import { useCoreStore } from '@/client/store/core.ts'
+import { useGameStateStore } from '@/client/store/gameState.ts'
+import { GameType } from '@/shared/types/state.ts'
+import EngineDecisionPanel from '@/client/ui/ingame/EngineDecisionPanel.vue'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { display } from '@/client/game/display.ts'
 import ZoomedCard from '@/client/ui/ingame/ZoomedCard.vue'
@@ -54,6 +58,7 @@ import FocusModeDisclaimer from '@/client/ui/ingame/FocusModeDisclaimer.vue'
 import { ref, watch } from 'vue'
 
 const core = useCoreStore()
+const gameState = useGameStateStore()
 const gameBus = useGameBusStore()
 
 const focusModeDisclaimerRef = ref<InstanceType<typeof FocusModeDisclaimer> | null>(null)

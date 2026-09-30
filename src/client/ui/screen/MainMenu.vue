@@ -63,6 +63,13 @@
 
             <button
                 class="main-menu-button"
+                @click="startEngineGame()"
+            >
+                Play against Bots (rules engine)
+            </button>
+
+            <button
+                class="main-menu-button"
                 @click="bus.isSavedGamesPanelOpen = true"
             >
                 Load a saved game
@@ -106,6 +113,7 @@ import {
     setupTrainGame,
     startGame,
 } from '@/client/state/setup.ts'
+import { setupEngineGame } from '@/client/engine/setup.ts'
 import { useRouter } from 'vue-router'
 import TopBar from '@/client/ui/components/TopBar.vue'
 import { waitUntil } from '@/shared/utils.ts'
@@ -188,6 +196,32 @@ async function startTrainGame() {
     }
 }
 
+async function startEngineGame() {
+    if (core.gameIsStarted) {
+        throw new Error(`Game is already started`)
+    }
+
+    if (!core.selfDeck) {
+        bus.alertWarning('You must select a deck before starting a game')
+        return
+    }
+
+    try {
+        const runEngine = await setupEngineGame()
+        startGame()
+        runEngine()
+    } catch (error) {
+        let message = 'An error occurred while starting the game'
+        if (error instanceof Error) {
+            message = `${message} : ${error.message}`
+        }
+        bus.alertError(message)
+        if (!(error instanceof InvalidDeck)) {
+            logging.captureException(error)
+        }
+    }
+}
+
 async function startDevFreeTableGame() {
     if (core.gameIsStarted) {
         throw new Error(`Game is already started`)
@@ -236,6 +270,12 @@ async function startPuppeteerGame() {
             logging.captureException(error)
         }
     }
+}
+
+if (import.meta.env.VITE_FAST_TRACK_ENGINE_GAME) {
+    waitUntil(() => core.resourcesAreReady, 500).then(() => {
+        startEngineGame()
+    })
 }
 
 if (import.meta.env.VITE_FAST_TRACK_TRAIN_GAME) {
