@@ -1,3 +1,14 @@
+## [1.0.0] - 2026-10-02
+
+Features:
+- Everything's stable enough to leave beta status !
+- SCS: Prevent looking at an ousted player cards
+- Change card depth behaviour
+
+Bugfix:
+- Improve roles & game rooms stability in the Lobby
+- Add scrollbar in the lobby chat within a game room
+
 ## [0.13.0] - 2026-09-25
 
 Features:
