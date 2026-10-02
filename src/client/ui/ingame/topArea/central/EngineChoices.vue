@@ -1,0 +1,271 @@
+<template>
+    <template v-if="pending">
+        <!-- The allocation of points under way, answered whole -->
+        <CentralPanel
+            v-if="allocation"
+            class="engine-choices"
+            title="Referendum terms"
+        >
+            <div class="engine-choices-hint">
+                Allocate {{ allocation.points }} points{{
+                    allocation.min_nonzero > 1 ? ` among ${allocation.min_nonzero} or more` : ''
+                }}
+            </div>
+            <div
+                v-for="(recipient, i) in allocation.recipients"
+                :key="i"
+                class="engine-choices-row"
+                @mouseenter="hoverRecipient(i)"
+                @mouseleave="gameBus.hoveredCard = null"
+            >
+                <span class="engine-choices-name">{{ recipient.name }}</span>
+                <button
+                    class="game-button small"
+                    :disabled="amounts[i] == 0"
+                    @click="amounts[i]--"
+                >
+                    −
+                </button>
+                <strong class="engine-choices-amount">{{ amounts[i] }}</strong>
+                <button
+                    class="game-button small"
+                    :disabled="left == 0 || amounts[i] >= (recipient.cap ?? Infinity)"
+                    @click="amounts[i]++"
+                >
+                    +
+                </button>
+            </div>
+            <button
+                class="game-button"
+                :disabled="!!allocationProblem"
+                @click="allocate()"
+            >
+                {{ allocationProblem || 'Allocate' }}
+            </button>
+        </CentralPanel>
+
+        <!-- All the votes one way : a standing order for the polling ; and the pass -->
+        <CentralPanel
+            v-if="pending.votes || referendumPass"
+            class="engine-choices"
+        >
+            <div
+                v-if="pending.votes"
+                class="engine-choices-buttons"
+            >
+                <button
+                    v-if="pending.votes.favor > 0"
+                    class="game-button"
+                    @click="voteAllEngine(true)"
+                >
+                    All my votes in favour ( {{ pending.votes.favor }} )
+                </button>
+                <button
+                    v-if="pending.votes.against > 0"
+                    class="game-button"
+                    @click="voteAllEngine(false)"
+                >
+                    All my votes against ( {{ pending.votes.against }} )
+                </button>
+            </div>
+            <div
+                v-if="pending.votes"
+                class="engine-choices-hint"
+            >
+                Play cards first : a vampire's bonus votes count only before it votes.
+            </div>
+            <!-- During a referendum ( SC's action panel hidden ) : the pass, cast no more votes now -->
+            <button
+                v-if="referendumPass"
+                class="game-button"
+                @click="choose(referendumPass)"
+            >
+                {{ referendumPass.text }}
+            </button>
+        </CentralPanel>
+
+        <!-- A value for X -->
+        <CentralPanel
+            v-if="xValues.length > 0"
+            class="engine-choices"
+            title="Choose X"
+        >
+            <div class="engine-choices-row">
+                <button
+                    class="game-button small"
+                    :disabled="xAt == 0"
+                    @click="xAt--"
+                >
+                    −
+                </button>
+                <strong class="engine-choices-amount">{{ xValues[xAt]?.amount }}</strong>
+                <button
+                    class="game-button small"
+                    :disabled="xAt >= xValues.length - 1"
+                    @click="xAt++"
+                >
+                    +
+                </button>
+                <button
+                    class="game-button"
+                    @click="choose(xValues[xAt])"
+                >
+                    {{ xValues[xAt]?.text }}
+                </button>
+            </div>
+        </CentralPanel>
+
+        <!-- The steps of a combat ( and what follows a block ) -->
+        <CentralPanel
+            v-if="combatOptions.length > 0"
+            class="engine-choices"
+            :title="combatTitle"
+        >
+            <div class="engine-choices-buttons">
+                <button
+                    v-for="option in combatOptions"
+                    :key="option.index"
+                    class="game-button"
+                    @click="choose(option)"
+                    @mouseenter="gameBus.hoveredCard = engineOptionCards(option)[0] ?? null"
+                    @mouseleave="gameBus.hoveredCard = null"
+                >
+                    {{ option.text }}
+                </button>
+            </div>
+            <div
+                v-if="pending.combat"
+                class="engine-choices-hint"
+            >
+                Strike cards and maneuvers from your hand glow : click or drag them.
+            </div>
+        </CentralPanel>
+    </template>
+</template>
+
+<script setup lang="ts">
+/**
+ * The choices of a game with the rules engine that are no card of the table,
+ * in the central box : an allocation of points, all the votes one way, a value
+ * for X, the steps of a combat. The rest is on the table ( see
+ * engine/interaction.ts ), and every option in the console.
+ */
+import { computed, ref, watch } from 'vue'
+import CentralPanel from '@/client/ui/ingame/topArea/central/CentralPanel.vue'
+import { useEngineStore } from '@/client/store/engine.ts'
+import { useGameBusStore } from '@/client/store/bus.ts'
+import { useGameStateStore } from '@/client/store/gameState.ts'
+import {
+    allocateEngine,
+    chooseEngineOption,
+    engineOptionCards,
+    voteAllEngine,
+} from '@/client/engine/driver.ts'
+import { combatOptions as combatOf, xOptions } from '@/client/engine/interaction.ts'
+import { EngineOption } from '@/client/engine/protocol.ts'
+
+const engine = useEngineStore()
+const gameBus = useGameBusStore()
+
+const pending = computed(() => engine.pending)
+
+// The allocation of points under way : the amounts per recipient, all 0 at first
+const allocation = computed(() => pending.value?.allocation)
+const amounts = ref<number[]>([])
+watch(
+    allocation,
+    current => {
+        amounts.value = current?.recipients.map(() => 0) ?? []
+    },
+    { immediate: true },
+)
+const left = computed(
+    () => (allocation.value?.points ?? 0) - amounts.value.reduce((sum, n) => sum + n, 0),
+)
+// Why the amounts can't be allocated yet, if they can't
+const allocationProblem = computed(() => {
+    const current = allocation.value
+    if (!current) {
+        return ''
+    }
+    if (left.value > 0) {
+        return `${left.value} ${left.value == 1 ? 'point' : 'points'} left`
+    }
+    const given = amounts.value.filter(n => n > 0).length
+    if (given < current.min_nonzero) {
+        return `Points to ${current.min_nonzero} of them at least`
+    }
+    return ''
+})
+
+function allocate() {
+    if (!allocationProblem.value) {
+        gameBus.hoveredCard = null
+        allocateEngine([...amounts.value])
+    }
+}
+
+// Show on the table the card a recipient is ( a location or an equipment )
+function hoverRecipient(i: number) {
+    const card = allocation.value?.recipients[i].card
+    gameBus.hoveredCard =
+        card ?
+            (engineOptionCards({ index: -1, kind: 'allocate_to_card', text: '', card })[0] ?? null)
+        :   null
+}
+
+const xValues = computed(() => xOptions(pending.value?.options ?? []))
+const xAt = ref(0)
+watch(xValues, () => (xAt.value = 0))
+
+const gameState = useGameStateStore()
+const referendumPass = computed(() =>
+    gameState.referendum ? pending.value?.options.find(option => option.kind == 'pass') : undefined,
+)
+
+const combatOptions = computed(() => combatOf(pending.value?.options ?? []))
+const combatTitle = computed(() => {
+    const combat = pending.value?.combat
+    return combat ?
+            `${combat.minions[0]} vs ${combat.minions[1]} — round ${combat.round}, ${combat.range} range`
+        :   'After the block'
+})
+
+function choose(option: EngineOption) {
+    gameBus.hoveredCard = null
+    chooseEngineOption(option.index)
+}
+</script>
+
+<style lang="scss">
+.central-panel.engine-choices {
+    gap: 6px;
+
+    .engine-choices-hint {
+        font-size: 0.8rem;
+        color: $silver-grey;
+    }
+
+    .engine-choices-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .engine-choices-name {
+        min-width: 8rem;
+    }
+
+    .engine-choices-amount {
+        min-width: 1.5em;
+        text-align: center;
+    }
+
+    .engine-choices-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 6px;
+    }
+}
+</style>

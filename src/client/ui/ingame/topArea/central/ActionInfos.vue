@@ -81,6 +81,7 @@
         <div class="action-properties">
             <span class="action-property">
                 <PropertyStepper
+                    :readOnly="isEngine"
                     :value="action.stealth"
                     label="Stealth"
                     @change="changeProperty(ActionProperty.Stealth, $event)"
@@ -93,6 +94,7 @@
             >
                 <PropertyStepper
                     v-if="actions.isBleed(action.minionAction)"
+                    :readOnly="isEngine"
                     :value="action.bleed"
                     label="Bleed"
                     @change="changeProperty(ActionProperty.Bleed, $event)"
@@ -100,6 +102,7 @@
 
                 <PropertyStepper
                     v-if="actions.isHunt(action.minionAction)"
+                    :readOnly="isEngine"
                     :value="action.hunt"
                     label="Hunt"
                     @change="changeProperty(ActionProperty.Hunt, $event)"
@@ -115,6 +118,7 @@
                 :style="{ visibility: hasBlockingMinion ? 'visible' : 'hidden' }"
             >
                 <PropertyStepper
+                    :readOnly="isEngine"
                     :value="action.intercept"
                     label="Intercept"
                     @change="changeProperty(ActionProperty.Intercept, $event)"
@@ -123,7 +127,10 @@
         </div>
 
         <div class="action-impulse">
-            <div class="action-buttons">
+            <div
+                v-if="!isEngine"
+                class="action-buttons"
+            >
                 <button
                     v-if="politicalActionCard"
                     class="game-button"
@@ -148,8 +155,29 @@
                 </button>
             </div>
 
+            <!-- A game with the rules engine : who it asks now, and the user's pass -->
             <div
-                v-if="botDisplay || selfCanAttemptBlock()"
+                v-if="isEngine"
+                class="impulse-decision"
+            >
+                <span class="impulse-player">
+                    Impulse
+                    <strong :style="{ color: action.impulsePlayer?.rgbaColor }">
+                        {{ action.impulsePlayer?.shortName }}
+                    </strong>
+                </span>
+
+                <button
+                    v-if="enginePass"
+                    class="game-button"
+                    @click="chooseEngineOption(enginePass.index)"
+                >
+                    {{ enginePass.text }}
+                </button>
+            </div>
+
+            <div
+                v-else-if="botDisplay || selfCanAttemptBlock()"
                 class="impulse-decision"
             >
                 <span
@@ -204,6 +232,7 @@ import { ACTION_TYPES, ActionVerb } from '@/shared/const/model.ts'
 import {
     ActionProperty,
     ActionState,
+    GameType,
     MinionActionType,
     NO_BLOCK,
     NO_REACTION,
@@ -218,6 +247,8 @@ import { useGameStateStore } from '@/client/store/gameState.ts'
 import { LibraryCard } from '@/shared/model/Card.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
+import { useEngineStore } from '@/client/store/engine.ts'
+import { chooseEngineOption } from '@/client/engine/driver.ts'
 
 const props = defineProps<{
     action: ActionState
@@ -225,6 +256,11 @@ const props = defineProps<{
 
 const gameState = useGameStateStore()
 const players = usePlayersStore()
+const engine = useEngineStore()
+
+// A game with the rules engine : the engine plays the action out ( see engine/projection.ts )
+const isEngine = computed(() => gameState.gameType == GameType.Engine)
+const enginePass = computed(() => engine.pending?.options.find(option => option.kind == 'pass'))
 const gameBus = useGameBusStore()
 const { automaticCostPaymentEnabled } = useUIFeatures()
 

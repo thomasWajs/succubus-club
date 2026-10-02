@@ -18,9 +18,14 @@
 
         <template v-else-if="engine.pending">
             <div class="engine-window">Your decision : {{ engine.pending.window }}</div>
-            <div class="engine-hint">Act on the table, or pick an option :</div>
+            <div
+                v-if="elsewhere.length > 0"
+                class="engine-hint"
+            >
+                Act on the table{{ shown.length > 0 ? ', or :' : '' }}
+            </div>
             <button
-                v-for="option in options"
+                v-for="option in shown"
                 :key="option.index"
                 class="engine-option"
                 :class="{ pass: option.kind == 'pass', relevant: relevant.has(option.index) }"
@@ -30,6 +35,29 @@
             >
                 {{ option.text }}
             </button>
+
+            <!-- Every option, as a fallback : those answered on the table too -->
+            <template v-if="elsewhere.length > 0">
+                <a
+                    class="engine-all"
+                    @click="showAll = !showAll"
+                >
+                    {{ showAll ? 'Hide the other options' : `All options ( ${options.length} )` }}
+                </a>
+                <template v-if="showAll">
+                    <button
+                        v-for="option in elsewhere"
+                        :key="option.index"
+                        class="engine-option elsewhere"
+                        :class="{ pass: option.kind == 'pass' }"
+                        @click="choose(option)"
+                        @mouseenter="hover(option)"
+                        @mouseleave="gameBus.hoveredCard = null"
+                    >
+                        {{ option.text }}
+                    </button>
+                </template>
+            </template>
         </template>
 
         <div
@@ -44,7 +72,7 @@
             class="engine-option undo"
             @click="undoEngineStep()"
         >
-            Undo the last step
+            Take back my last decision ( ⟵ )
         </button>
 
         <a
@@ -57,7 +85,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useEngineStore } from '@/client/store/engine.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
@@ -67,6 +95,7 @@ import {
     engineReplay,
     undoEngineStep,
 } from '@/client/engine/driver.ts'
+import { answeredOnTable } from '@/client/engine/interaction.ts'
 import { display } from '@/client/game/display.ts'
 import { WorldAlignment } from '@/client/gateway/db.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
@@ -127,14 +156,25 @@ const relevant = computed(() => {
     return indexes
 })
 
-// The relevant options first
-const options = computed(() => {
-    const all = engine.pending?.options ?? []
-    return [
-        ...all.filter(option => relevant.value.has(option.index)),
-        ...all.filter(option => !relevant.value.has(option.index)),
-    ]
+const options = computed(() => engine.pending?.options ?? [])
+
+// Shown : the options with no place on the table ( or the central box ), and those the user's
+// last move can mean, first. The others on demand.
+const shown = computed(() => [
+    ...options.value.filter(option => relevant.value.has(option.index)),
+    ...options.value.filter(
+        option => !relevant.value.has(option.index) && !answeredOnTable(option),
+    ),
+])
+const elsewhere = computed(() => {
+    const listed = new Set(shown.value.map(option => option.index))
+    return options.value.filter(option => !listed.has(option.index))
 })
+const showAll = ref(false)
+watch(
+    () => engine.pending?.decision,
+    () => (showAll.value = false),
+)
 
 // Show on the table the card an option is about
 function hover(option: EngineOption) {
@@ -203,6 +243,15 @@ function choose(option: EngineOption) {
         font-size: 14px;
     }
 
+    .engine-all {
+        align-self: flex-start;
+        font-size: 12px;
+        color: $silver-grey;
+        cursor: pointer;
+        text-decoration: underline;
+        margin-top: 4px;
+    }
+
     .engine-replay {
         align-self: flex-end;
         font-size: 12px;
@@ -227,8 +276,17 @@ function choose(option: EngineOption) {
             margin-top: 6px;
         }
 
+        &.elsewhere {
+            opacity: 0.8;
+        }
+
         &.relevant {
             outline: 2px solid $status-amber;
+        }
+
+        &:disabled {
+            opacity: 0.6;
+            cursor: default;
         }
     }
 }

@@ -21,7 +21,8 @@
         <!-- Glow effect -->
         <FxGlow
             v-if="showGlowEffect"
-            :color="Colors.CARD_GLOW.color"
+            :key="glowColor"
+            :color="glowColor"
             :outerStrength="CARD_IN_HAND_GLOW_OUTER_STRENGTH"
             :innerStrength="CARD_IN_HAND_GLOW_INNER_STRENGTH"
         />
@@ -126,6 +127,7 @@ import { declareActionCardFromHand, playCard } from '@/client/game/declaration.t
 import { selfCanPlay } from '@/client/state/self.ts'
 import { useCardTexture } from '@/client/game/composables/useCardTexture.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
+import { engineGlow } from '@/client/engine/interaction.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 
 const { card, handWidth, interactive } = defineProps<{
@@ -346,9 +348,18 @@ function onDragEndFromHand(
  * Glow effect on usable card, depending on the phase of the turn.
  */
 
+// In a game with the rules engine, what the engine allows ( see engineGlow )
+const engineGlowColor = computed(() => engineGlow(card))
+
 const showGlowEffect = computed(
-    () => glowInHandEnabled.value && selfCanPlay(card) && !dragAttrs.isDragging,
+    () =>
+        !dragAttrs.isDragging &&
+        (engineGlowColor.value !== undefined ?
+            engineGlowColor.value !== null
+        :   glowInHandEnabled.value && selfCanPlay(card)),
 )
+
+const glowColor = computed(() => engineGlowColor.value ?? Colors.CARD_GLOW.color)
 
 /**
  * Expose/Emit

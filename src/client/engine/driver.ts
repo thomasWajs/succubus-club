@@ -7,8 +7,8 @@
 
 import { EngineHost } from '@/client/engine/host.ts'
 import { Projection } from '@/client/engine/projection.ts'
-import { EngineOption, EngineOut } from '@/client/engine/protocol.ts'
-import { useEngineStore } from '@/client/store/engine.ts'
+import { EngineAllocation, EngineOption, EngineOut, EngineView } from '@/client/engine/protocol.ts'
+import { EngineCombat, useEngineStore } from '@/client/store/engine.ts'
 import { useHistoryStore } from '@/client/store/history.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { getAuthorColorRgba } from '@/shared/colors.ts'
@@ -16,7 +16,8 @@ import { Card } from '@/shared/model/Card.ts'
 import * as logging from '@/client/logging.ts'
 import { AnyGameMutation } from '@/shared/state/gameMutations.ts'
 import { Invalid, VALID, Validity } from '@/shared/types/state.ts'
-import { matchGesture } from '@/client/engine/gestures.ts'
+import { matchGesture, onCardLabel } from '@/client/engine/gestures.ts'
+import { autoplayStaging } from '@/client/engine/interaction.ts'
 
 // Dev : the user's seat is played at random and nothing pauses, to run a whole game
 const AUTOPLAY = !!import.meta.env.VITE_ENGINE_AUTOPLAY
@@ -24,10 +25,13 @@ const AUTOPLAY = !!import.meta.env.VITE_ENGINE_AUTOPLAY
 const BOT_DECISION_PAUSE = 450
 const BOT_PASS_PAUSE = 120
 
+// What the user answers : an option, taking back a step, a whole allocation, or all their votes one way
+type Answer = { index: number } | { undo: true } | { amounts: number[] } | { favor: boolean }
+
 type Running = {
     host: EngineHost
     projection: Projection
-    answer: ((index: number) => void) | null
+    answer: ((answer: Answer) => void) | null
     // A move worth several decisions ( influence 3 ) : the option to take again
     repeat: { kind: string; copy: number | null | undefined; left: number } | null
 }
@@ -48,15 +52,86 @@ export function stopEngine() {
 
 // The user takes the pending decision
 export function chooseEngineOption(index: number) {
-    running?.answer?.(index)
+    running?.answer?.({ index })
 }
 
 // The user takes back the previous step of the multi-step choice under way
-const UNDO = -1
 export function undoEngineStep() {
     if (useEngineStore().pending?.undo) {
-        running?.answer?.(UNDO)
+        running?.answer?.({ undo: true })
     }
+}
+
+// The user allocates the points under way at once, in the allocation's recipients' order
+export function allocateEngine(amounts: number[]) {
+    if (useEngineStore().pending?.allocation) {
+        running?.answer?.({ amounts })
+    }
+}
+
+// The user casts all their votes one way : now and as their turn comes in this polling
+export function voteAllEngine(favor: boolean) {
+    if (useEngineStore().pending?.votes) {
+        running?.answer?.({ favor })
+    }
+}
+
+// Valid amounts at random ( dev autoplay ) : a point to `min_nonzero` recipients, the rest anywhere
+function randomAmounts(allocation: EngineAllocation): number[] {
+    const { recipients } = allocation
+    const room = (amounts: number[], i: number) => amounts[i] < (recipients[i].cap ?? Infinity)
+    const amounts = recipients.map(() => 0)
+    let left = allocation.points
+    while (amounts.filter(n => n > 0).length < allocation.min_nonzero) {
+        const i = Math.floor(Math.random() * recipients.length)
+        if (amounts[i] == 0 && room(amounts, i)) {
+            amounts[i] = 1
+            left--
+        }
+    }
+    while (left > 0) {
+        const i = Math.floor(Math.random() * recipients.length)
+        if (room(amounts, i)) {
+            amounts[i]++
+            left--
+        }
+    }
+    return amounts
+}
+
+// The combat under way, by its minions' names
+function combatOf(view: EngineView): EngineCombat | null {
+    if (!view.combat) {
+        return null
+    }
+    const minions = view.seats.flatMap(seat => [...seat.ready, ...seat.torpor])
+    const name = (id: number) => minions.find(m => m.minion == id)?.name ?? 'a minion'
+    const [acting, opposing] = view.combat.minions
+    return {
+        minions: [name(acting), name(opposing)],
+        round: view.combat.round,
+        range: view.combat.range,
+    }
+}
+
+// Dev autoplay : an option at random, sometimes the allocation or the votes at once
+function autoplay(out: EngineOut & { type: 'decision' }): Answer {
+    if (out.allocation && Math.random() < 0.5) {
+        return { amounts: randomAmounts(out.allocation) }
+    }
+    // Taken back now and then : the table must follow the game replayed to the decision before
+    if (out.undo && Math.random() < 0.1) {
+        return { undo: true }
+    }
+    if (out.votes && Math.random() < 0.3) {
+        return { favor: out.votes.favor > 0 }
+    }
+    // A card played as the user does on the table, now and then
+    const staged = Math.random() < 0.3 ? autoplayStaging(out.options) : null
+    if (staged) {
+        return { index: staged.index }
+    }
+    return { index: Math.floor(Math.random() * out.options.length) }
 }
 
 /**
@@ -104,6 +179,19 @@ export function engineOptionCards(option: EngineOption): Card[] {
     ].filter((card): card is Card => card !== undefined)
 }
 
+// The pending options answered by a button on a card of the table, and that card ( see onCardLabel )
+export function engineCardOptions(): { card: Card; option: EngineOption; label: string }[] {
+    const pending = useEngineStore().pending
+    if (!running || !pending) {
+        return []
+    }
+    return pending.options.flatMap(option => {
+        const label = onCardLabel(option)
+        const card = label ? engineOptionCards(option)[0] : undefined
+        return label && card ? [{ card, option, label }] : []
+    })
+}
+
 export async function engineReplay(): Promise<string | null> {
     return running ? running.host.replay() : null
 }
@@ -124,6 +212,9 @@ function project(current: Running, out: EngineOut) {
     projecting = true
     try {
         current.projection.apply(out.view)
+        if (out.type != 'over') {
+            current.projection.setImpulse(out.seat)
+        }
         if (AUTOPLAY) {
             const problems = current.projection.check(out.view)
             if (problems.length > 0) {
@@ -137,7 +228,19 @@ function project(current: Running, out: EngineOut) {
     }
 }
 
+// What happened since the previous message : an action's or a referendum's end, pool and blood moved…
+function tell(out: EngineOut) {
+    for (const event of out.events ?? []) {
+        useHistoryStore().addChatMessage({
+            text: event,
+            timestamp: new Date(),
+            authorName: 'Table',
+        })
+    }
+}
+
 function narrate(current: Running, out: EngineOut) {
+    tell(out)
     if (out.type != 'decided') {
         return
     }
@@ -166,6 +269,9 @@ export async function runEngine(host: EngineHost, projection: Projection) {
                 return
             }
             project(current, out)
+            if (out.type != 'decided') {
+                tell(out)
+            }
 
             if (out.type == 'over') {
                 engine.result = out.vps
@@ -182,11 +288,15 @@ export async function runEngine(host: EngineHost, projection: Projection) {
 
             engine.status = ''
             engine.focus = []
+            engine.staging = null
             engine.pending = {
                 decision: out.decision,
                 window: out.window,
                 options: out.options,
                 undo: out.undo,
+                allocation: out.allocation,
+                votes: out.votes,
+                combat: combatOf(out.view),
             }
             // The rest of a move worth several decisions
             const repeat = current.repeat
@@ -196,31 +306,42 @@ export async function runEngine(host: EngineHost, projection: Projection) {
                 :   undefined
             current.repeat =
                 repeat && again && repeat.left > 1 ? { ...repeat, left: repeat.left - 1 } : null
-            const index = await new Promise<number>(resolve => {
+            const answer = await new Promise<Answer>(resolve => {
                 current.answer = resolve
                 if (again) {
-                    resolve(again.index)
+                    resolve({ index: again.index })
                 }
                 if (AUTOPLAY) {
-                    sleep(0).then(() => resolve(Math.floor(Math.random() * out.options.length)))
+                    sleep(0).then(() => resolve(autoplay(out)))
                 }
             })
             current.answer = null
             engine.pending = null
+            engine.staging = null
             if (running !== current) {
                 return
             }
-            if (index == UNDO) {
+            if ('amounts' in answer) {
+                for (const decided of await host.allocate(out.decision, answer.amounts)) {
+                    narrate(current, decided)
+                }
+                continue
+            }
+            if ('favor' in answer) {
+                narrate(current, await host.voteAll(out.decision, answer.favor))
+                continue
+            }
+            if ('undo' in answer) {
                 await host.undo()
                 useHistoryStore().addChatMessage({
-                    text: `[${out.window}] Takes back the last step`,
+                    text: `[${out.window}] Takes back their last decision`,
                     timestamp: new Date(),
                     authorName: projection.player(out.seat).name,
                     authorColorRgba: getAuthorColorRgba(projection.player(out.seat).rgbaColor),
                 })
                 continue
             }
-            narrate(current, await host.answer(out.decision, index))
+            narrate(current, await host.answer(out.decision, answer.index))
         }
     } catch (error) {
         engine.pending = null

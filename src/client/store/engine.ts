@@ -1,5 +1,5 @@
 import { acceptHMRUpdate, defineStore } from 'pinia'
-import { EngineOption } from '@/client/engine/protocol.ts'
+import { EngineAllocation, EngineOption, EngineVotes } from '@/client/engine/protocol.ts'
 
 export type EngineDecision = {
     decision: number
@@ -7,6 +7,18 @@ export type EngineDecision = {
     options: EngineOption[]
     // The previous step of this multi-step choice can be taken back
     undo: boolean
+    // An allocation of points under way : answered whole in the panel
+    allocation?: EngineAllocation
+    // The votes the user can cast all at once, each way
+    votes?: EngineVotes
+    // The combat under way, if any
+    combat: EngineCombat | null
+}
+
+export type EngineCombat = {
+    minions: [string, string] // The acting minion's side first
+    round: number
+    range: string
 }
 
 /**
@@ -21,8 +33,12 @@ export const useEngineStore = defineStore('engine', {
         focus: [] as number[],
         // What the engine is waiting for, when it's not the user
         status: '',
+        // A choice made on the table, under way : the options ( by index ) still possible
+        staging: null as number[] | null,
         // Victory points per seat, once the game is over
         result: null as number[] | null,
+        // The referendum under way : its card and the terms chosen, as lines
+        terms: [] as string[],
     }),
 })
 

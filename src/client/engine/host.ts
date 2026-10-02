@@ -13,6 +13,12 @@ export interface EngineHost {
     advance(): Promise<EngineOut>
     // Answer the pending human decision
     answer(decision: number, index: number): Promise<EngineOut>
+    // Answer the allocation under way at once ( a decision's `allocation` ), in its recipients' order :
+    // one decision taken per step the engine asked
+    allocate(decision: number, amounts: number[]): Promise<EngineOut[]>
+    // Cast all the votes one way ( a decision's `votes` ) : this one now, the others as their turn
+    // comes in this polling ( `advance` takes them )
+    voteAll(decision: number, favor: boolean): Promise<EngineOut>
     // Take back the previous step of the multi-step choice under way ( when a decision says `undo` )
     undo(): Promise<void>
     // The game as a replay ( JSON ) : the spec and every decision
@@ -45,6 +51,14 @@ export class LocalEngineHost implements EngineHost {
 
     async answer(decision: number, index: number): Promise<EngineOut> {
         return JSON.parse(this.game.answer(decision, index))
+    }
+
+    async allocate(decision: number, amounts: number[]): Promise<EngineOut[]> {
+        return JSON.parse(this.game.allocate(decision, Uint8Array.from(amounts)))
+    }
+
+    async voteAll(decision: number, favor: boolean): Promise<EngineOut> {
+        return JSON.parse(this.game.voteAll(decision, favor))
     }
 
     async undo(): Promise<void> {

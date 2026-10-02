@@ -48,6 +48,10 @@ export const CARD_OUTLINE_COLOR_INDIRECT_HOVER = 'rgb(255, 228, 169)'
 export const ACTION_DECLARATION_OUTLINE_COLOR = 'rgb(70,150,255)'
 
 export const CARD_GLOW_COLOR = 'rgb(180,90,40)'
+// A game with the rules engine : a candidate of the choice under way ( the target declaration's
+// blue ), and the card that choice is about
+export const CARD_GLOW_CANDIDATE_COLOR = ACTION_DECLARATION_OUTLINE_COLOR
+export const CARD_GLOW_STAGED_COLOR = 'rgb(240,200,60)'
 export const CARD_IN_HAND_GLOW_INNER_STRENGTH = 0
 export const CARD_IN_HAND_GLOW_OUTER_STRENGTH = 2
 export const CARD_IN_PLAY_GLOW_INNER_STRENGTH = 0

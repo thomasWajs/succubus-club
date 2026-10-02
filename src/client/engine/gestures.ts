@@ -78,12 +78,13 @@ function playedFromHand(
     if (plays.length <= 1) {
         return plays
     }
-    // Played with a minion, or dropped onto one : the minion playing it, else its target
+    // Dropped onto a minion, or played with one ( SC's guess : the acting minion ) : the minion
+    // playing it, else its target. Where it is dropped comes first : that is the user's intent
     const x = params.x as number | undefined
     const y = params.y as number | undefined
     const onto =
-        (params.byMinion as Card | undefined) ??
-        (x !== undefined && y !== undefined ? cardAt(to, x, y, card) : undefined)
+        (x !== undefined && y !== undefined ? cardAt(to, x, y, card) : undefined) ??
+        (params.byMinion as Card | undefined)
     if (onto) {
         const by = plays.filter(n => is(n.actor, onto))
         const at = plays.filter(n => is(n.target, onto))
@@ -156,6 +157,12 @@ export function matchGesture(
                 found = kind(amount > 0 ? 'transfer' : 'withdraw').filter(n => is(n.card, card))
             } else if (card) {
                 found = all.filter(n => names(n, card))
+                // Blood moved onto or off a vampire : the ability moving it that way, if any
+                // ( a Blood Doll on it )
+                const moving = found.filter(
+                    n => n.option.blood !== undefined && n.option.blood * amount > 0,
+                )
+                found = moving.length > 0 ? moving : found
             }
             break
         }
@@ -203,10 +210,16 @@ export function matchGesture(
             found = kind('pass')
             break
 
-        // Locking a minion : it acts, or blocks
+        // Locking a minion : it acts, or blocks ; locking a card : it is used
         case 'setLock':
             if (card) {
-                found = all.filter(n => is(n.minion, card) || is(n.actor, card))
+                // A card in play locked : its ability ( a location, a master card )
+                // ( not a Blood Doll's blood, moved by changing the vampire's blood )
+                found = all.filter(
+                    n =>
+                        n.option.blood === undefined &&
+                        (is(n.minion, card) || is(n.actor, card) || is(n.card, card)),
+                )
                 const acts = found.filter(n =>
                     ['take_action', 'declare_block'].includes(n.option.kind),
                 )
@@ -246,12 +259,17 @@ export function matchGesture(
             found = kind('pass')
             break
 
+        // The Edge burned : for a vote
         case 'changeTheEdgeControl':
-            found = kind('burn_edge', 'cast_edge')
+            found = kind('cast_edge')
             break
 
+        // Pool gained : the Edge's ; pool lost : a cost
         case 'changePool':
-            found = kind('burn_pool', 'pay_contest', 'pay_block_toll', 'pay_to_cancel')
+            found =
+                (params.amount as number) > 0 ?
+                    kind('edge_pool')
+                :   kind('burn_pool', 'pay_contest', 'pay_block_toll', 'pay_to_cancel')
             break
 
         default:
@@ -261,4 +279,27 @@ export function matchGesture(
     }
 
     return found.map(n => n.option)
+}
+
+// The options answered by a button on the card they are about ( SC's floating actions ) : what a
+// card or minion in play can be made to do ( picks glow instead : engine/interaction.ts ). The
+// label is short : the button sits under the card.
+const ON_CARD: Record<string, (option: EngineOption) => string> = {
+    resolve_rider: () => 'Resolve',
+    resolve_printed: () => 'Resolve',
+    burn_blood_from: () => 'Burn 1 blood',
+    burn_blood_for_intercept: () => '+1 intercept',
+    unlock_for_blood: () => 'Burn blood to unlock',
+    burn_corruption_to_fail: () => 'Block fails',
+    burn_corruption_to_unlock: () => 'Unlock',
+    draw_stored: option => option.text,
+    burn_weapon_strike: () => 'Burn to strike',
+}
+
+/**
+ * The label of the button on the card an option is about, or null when the
+ * option is not answered there.
+ */
+export function onCardLabel(option: EngineOption): string | null {
+    return ON_CARD[option.kind]?.(option) ?? null
 }

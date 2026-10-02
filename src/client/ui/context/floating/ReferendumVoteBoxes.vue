@@ -16,6 +16,7 @@
         <template v-if="voteBox.isSelfControlled">
             <div class="vote-sides">
                 <button
+                    :disabled="isEngine && !voteBox.engine?.[VoteSide.InFavour]"
                     class="game-button small vote-in-favour"
                     :class="{ 'is-cast': voteBox.castVote.side == VoteSide.InFavour }"
                     @click="castVote(voteBox.vampire, VoteSide.InFavour)"
@@ -24,6 +25,7 @@
                 </button>
 
                 <button
+                    :disabled="isEngine && !voteBox.engine?.[VoteSide.Against]"
                     class="game-button small vote-against"
                     :class="{ 'is-cast': voteBox.castVote.side == VoteSide.Against }"
                     @click="castVote(voteBox.vampire, VoteSide.Against)"
@@ -32,7 +34,16 @@
                 </button>
             </div>
 
-            <div class="vote-amount">
+            <div
+                v-if="isEngine"
+                class="vote-amount"
+            >
+                {{ voteBox.castVote.amount }} votes
+            </div>
+            <div
+                v-else
+                class="vote-amount"
+            >
                 <PropertyStepper
                     :value="voteBox.castVote.amount"
                     :label="voteBox.isBallot ? 'ballots' : 'votes'"
@@ -73,11 +84,15 @@ import { usePlayersStore } from '@/client/state/players.ts'
 import { getCardRectangle, getScreenPoint, getScreenScale } from '@/client/game/utils.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
 import { getCastBallot, getCastVote, isBallotVampire } from '@/shared/state/referendumState.ts'
-import { CastVote, VoteSide } from '@/shared/types/state.ts'
+import { CastVote, GameType, VoteSide } from '@/shared/types/state.ts'
+import { useEngineStore } from '@/client/store/engine.ts'
+import { chooseEngineOption, engineOptionCards } from '@/client/engine/driver.ts'
+import { EngineOption } from '@/client/engine/protocol.ts'
 import { Vampire } from '@/shared/model/Card.ts'
 import PropertyStepper from '@/client/ui/components/PropertyStepper.vue'
 
 const gameState = useGameStateStore()
+const engine = useEngineStore()
 const gameBus = useGameBusStore()
 const players = usePlayersStore()
 
@@ -91,7 +106,25 @@ type VoteBoxData = {
     // A priscus casts ballots into the subreferendum rather than plain votes
     isBallot: boolean
     style: Record<string, string>
+    // A game with the rules engine : the vote it offers this vampire now, each way
+    engine?: Partial<Record<VoteSide, EngineOption>>
 }
+
+// A game with the rules engine : the boxes of the vampires that voted, or can vote now ( theirs
+// are the interactive ones )
+const isEngine = computed(() => gameState.gameType == GameType.Engine)
+const engineVotes = computed(() => {
+    const offered = new Map<string, Partial<Record<VoteSide, EngineOption>>>()
+    for (const option of engine.pending?.options ?? []) {
+        const vampire = option.kind == 'cast_votes' ? engineOptionCards(option)[0] : undefined
+        if (vampire) {
+            const sides = offered.get(vampire.oid) ?? {}
+            sides[option.favor ? VoteSide.InFavour : VoteSide.Against] = option
+            offered.set(vampire.oid, sides)
+        }
+    }
+    return offered
+})
 
 // Anchored just below the vampire, centered on it
 function getBoxStyle(vampire: Vampire): Record<string, string> | null {
@@ -125,7 +158,21 @@ const voteBoxes = computed<VoteBoxData[]>(() => {
         for (const vampire of player.vampiresReady) {
             const style = getBoxStyle(vampire)
             // A vampire whose game object is not on the tabletop yet gets no box
-            if (style) {
+            if (style && isEngine.value) {
+                const offered = engineVotes.value.get(vampire.oid)
+                const cast = referendum.votes[vampire.oid]
+                if (offered || cast) {
+                    const amount = Object.values(offered ?? {})[0]?.amount ?? 0
+                    boxes.push({
+                        vampire,
+                        castVote: cast ?? { side: null, amount },
+                        isSelfControlled: !!offered,
+                        isBallot: false,
+                        style,
+                        engine: offered,
+                    })
+                }
+            } else if (style) {
                 const isBallot = isBallotVampire(vampire)
                 boxes.push({
                     vampire,
@@ -145,6 +192,13 @@ const voteBoxes = computed<VoteBoxData[]>(() => {
 })
 
 function castVote(vampire: Vampire, side: VoteSide) {
+    const option = engineVotes.value.get(vampire.oid)?.[side]
+    if (isEngine.value) {
+        if (option) {
+            chooseEngineOption(option.index)
+        }
+        return
+    }
     gameMutations.REFERENDUM_castVote.actSelf({ vampire, side })
 }
 

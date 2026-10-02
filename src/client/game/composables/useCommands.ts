@@ -9,7 +9,9 @@ import { Card } from '@/shared/model/Card.ts'
 import { resetCamera } from '@/client/game/camera.ts'
 import { useHistoryStore } from '@/client/store/history.ts'
 import { useCoreStore } from '@/client/store/core.ts'
-import { ALL_PLAYERS } from '@/shared/types/state.ts'
+import { ALL_PLAYERS, GameType } from '@/shared/types/state.ts'
+import { useEngineStore } from '@/client/store/engine.ts'
+import { undoEngineStep } from '@/client/engine/driver.ts'
 import { startTargetDeclaration } from '@/client/game/declaration.ts'
 import { cancelMutation } from '@/client/state/gameMutations.ts'
 import { GRID_SIZE } from '@/shared/const/game.ts'
@@ -157,7 +159,11 @@ function createCommands(): Commands {
             label: 'Next Phase',
             repr: '→',
             keyCodes: [KeyCodes.RIGHT, KeyCodes.SPACE],
+            // With the rules engine, the pass ( see engine/gestures.ts ), during an action too
             isDisabled: () => {
+                if (gameState.gameType == GameType.Engine) {
+                    return false
+                }
                 return (
                     gameState.turnPhaseIndex >= TurnSequence.length - 1 ||
                     !!gameState.action ||
@@ -430,10 +436,18 @@ function createCommands(): Commands {
             label: 'Cancel',
             repr: '⟵',
             keyCodes: [KeyCodes.BACKSPACE],
+            // With the rules engine : take back the user's last decision ( see Session::undo )
             isDisabled: () => {
+                if (gameState.gameType == GameType.Engine) {
+                    return !useEngineStore().pending?.undo
+                }
                 return !useHistoryStore().nextCancellableMutation
             },
             trigger: () => {
+                if (gameState.gameType == GameType.Engine) {
+                    undoEngineStep()
+                    return
+                }
                 const mutationEntry = useHistoryStore().nextCancellableMutation
                 if (mutationEntry) {
                     cancelMutation(mutationEntry)

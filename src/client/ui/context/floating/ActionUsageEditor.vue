@@ -1,6 +1,6 @@
 <template>
     <div
-        v-if="editor && gameState.action"
+        v-if="editor && gameState.action && gameState.gameType != GameType.Engine"
         class="action-usage-editor"
         :class="{ 'read-only': !editor.editable }"
         :style="editor.style"
@@ -111,7 +111,12 @@ import { useGameStateStore } from '@/client/store/gameState.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
 import { display } from '@/client/game/display.ts'
 import { getCardRectangle, getScreenPoint } from '@/client/game/utils.ts'
-import { DisciplineUse, LibraryCardUsage, MinionActionType } from '@/shared/types/state.ts'
+import {
+    DisciplineUse,
+    GameType,
+    LibraryCardUsage,
+    MinionActionType,
+} from '@/shared/types/state.ts'
 import { LibraryCardType } from '@/shared/const/model.ts'
 import { parseCardUsage } from '@/shared/state/usageParsing.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'

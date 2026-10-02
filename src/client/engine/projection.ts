@@ -14,13 +14,24 @@
 
 import { GameState } from '@/shared/state/gameState.ts'
 import { Player } from '@/shared/model/Player.ts'
-import { Card, CryptCard, LibraryCard } from '@/shared/model/Card.ts'
+import { Card, CryptCard, LibraryCard, Minion } from '@/shared/model/Card.ts'
 import { AnyCardRegion, CardOid, PlayerOid } from '@/shared/types/model.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
 import { generateCardOid } from '@/shared/state/ids.ts'
-import { TurnPhase, TurnSequence } from '@/shared/const/model.ts'
+import { DisciplineCode, DisciplineLevel, TurnPhase, TurnSequence } from '@/shared/const/model.ts'
 import { GRID_SIZE, TORPOR_ZONE_Y } from '@/shared/const/game.ts'
 import { findFreePlayPosition } from '@/client/game/utils.ts'
+import { createReferendumState } from '@/shared/state/referendumState.ts'
+import {
+    BlockingDecision,
+    DisciplineUse,
+    MinionAction,
+    MinionActionType,
+    NO_BLOCK,
+    VoteCount,
+    VoteSide,
+} from '@/shared/types/state.ts'
+import { useEngineStore } from '@/client/store/engine.ts'
 import {
     EngineCard,
     EngineInPlay,
@@ -127,6 +138,15 @@ export class Projection {
         this.setProperties(placements)
         this.setSeats(view)
         this.setTurn(view)
+        this.setAction(view)
+        this.setReferendum(view)
+    }
+
+    // The Methuselah who has the impulse : the one the engine asks now
+    setImpulse(seat: number) {
+        if (this.gameState.action) {
+            this.gameState.action.impulsePlayer = this.player(seat)
+        }
     }
 
     // Dev : what differs between the game state and the view, once applied
@@ -532,4 +552,192 @@ export class Projection {
             gameMutations.goToTurnPhase.act(active, { index: TurnSequence.indexOf(phase) })
         }
     }
+
+    /**
+     * The action under way, as SC's action panel shows it ( ActionInfos ) :
+     * written directly, for display. The engine plays it out : SC's own
+     * action flow never runs.
+     */
+    private setAction(view: EngineView) {
+        const action = view.action
+        const acting = action ? this.minion(action.acting) : undefined
+        if (!action || !acting?.isMinion()) {
+            this.gameState.action = null
+            return
+        }
+        const target =
+            action.target?.kind == 'minion' ? this.minion(action.target.minion)
+            : action.target?.kind == 'card' ? this.cardInPlay(action.target.card_id)
+            : action.target?.kind == 'seat' ? this.player(action.target.seat)
+            : undefined
+        const minionAction = this.minionAction(view, action, acting, target)
+        const blocker = this.minion(action.blocker ?? undefined)
+        const decisions: BlockingDecision[] = action.declined.map(seat => ({
+            player: this.player(seat),
+            block: NO_BLOCK,
+        }))
+        if (blocker?.isMinion()) {
+            decisions.push({ player: blocker.controller, block: blocker })
+        }
+        const impulse = this.gameState.action?.impulsePlayer ?? acting.controller
+        this.gameState.action = {
+            minionAction,
+            blockingDecisions: decisions,
+            stealth: action.stealth,
+            intercept: action.intercept ?? 0,
+            bleed: action.bleed ?? 0,
+            hunt: 0,
+            impulsePlayer: impulse,
+        }
+    }
+
+    private minionAction(
+        view: EngineView,
+        action: NonNullable<EngineView['action']>,
+        acting: Minion,
+        target: Card | Player | undefined,
+    ): MinionAction {
+        const base = { actingMinion: acting, target } as const
+        // An action card, on its way to play ( limbo ) : played from hand, with its Disciplines and X
+        const played =
+            action.card === null ?
+                undefined
+            :   view.seats[action.seat].limbo.find(card => card.id == action.card)
+        const card = played ? this.card(played.copy) : undefined
+        if (card) {
+            const bled =
+                action.kind == 'bleed' ? this.player(action.bleed_target ?? action.seat) : undefined
+            return {
+                ...base,
+                target: bled ?? target,
+                type: MinionActionType.ActionCardFromHand,
+                card,
+                usage: {
+                    target: bled ?? target,
+                    disciplines: disciplineUses(action.mode?.tags ?? []),
+                    x: action.x,
+                },
+            } as MinionAction
+        }
+        switch (action.kind) {
+            case 'bleed':
+                return {
+                    ...base,
+                    type: MinionActionType.Bleed,
+                    target: this.player(action.bleed_target ?? action.seat),
+                } as MinionAction
+            case 'hunt':
+                return { ...base, type: MinionActionType.Hunt } as MinionAction
+            case 'leave torpor':
+                return { ...base, type: MinionActionType.LeaveTorpor } as MinionAction
+            case 'rescue':
+                return { ...base, type: MinionActionType.RescueFromTorpor } as MinionAction
+            case 'diablerie':
+                return { ...base, type: MinionActionType.Diablerize } as MinionAction
+        }
+        // Granted by a card in play, or by the minion itself
+        return {
+            ...base,
+            type: MinionActionType.ActionInPlay,
+            card: this.cardInPlay(action.source) ?? acting,
+        } as MinionAction
+    }
+
+    /**
+     * The referendum under way, as SC's referendum panel and vote boxes show
+     * it : the votes of each vampire, the others per Methuselah ( the Edge, a
+     * political action card, a card in play ). Written directly, for display.
+     */
+    /**
+     * What the referendum is about, for its panel : the card calling it,
+     * and the terms chosen so far ( Methuselahs, minions, a clan, cards,
+     * points ).
+     */
+    private referendumTerms(view: EngineView): string[] {
+        const referendum = view.referendum
+        if (!referendum) {
+            return []
+        }
+        const lines: string[] = []
+        const action = view.action
+        const played =
+            action?.card != null ?
+                view.seats[action.seat].limbo.find(card => card.id == action.card)
+            :   undefined
+        const card =
+            (played ? this.card(played.copy) : undefined) ?? this.cardInPlay(action?.source)
+        const calling = this.minion(referendum.calling ?? undefined)
+        if (card || calling) {
+            lines.push(
+                [card?.name, calling && `called by ${calling.name}`].filter(Boolean).join(', '),
+            )
+        }
+        const seat = (s: number) => this.player(s).name
+        const chosen = [
+            ...(referendum.chosen !== null ? [referendum.chosen] : []),
+            ...referendum.seats,
+        ]
+        if (chosen.length > 0) {
+            lines.push(`Methuselah${chosen.length > 1 ? 's' : ''} : ${chosen.map(seat).join(', ')}`)
+        }
+        const minions = referendum.minions.map(m => this.minion(m)?.name ?? '?')
+        if (minions.length > 0) {
+            lines.push(`Minion${minions.length > 1 ? 's' : ''} : ${minions.join(', ')}`)
+        }
+        if (referendum.clan) {
+            lines.push(`Clan : ${referendum.clan}`)
+        }
+        const cards = referendum.cards.map(c => this.cardInPlay(c)?.name ?? '?')
+        if (cards.length > 0) {
+            lines.push(`Card${cards.length > 1 ? 's' : ''} : ${cards.join(', ')}`)
+        }
+        const points = [
+            ...referendum.allocated.map(([s, n]) => `${seat(s)} ${n}`),
+            ...referendum.card_allocated.map(([c, n]) => `${this.cardInPlay(c)?.name ?? '?'} ${n}`),
+        ]
+        if (points.length > 0) {
+            lines.push(`Points : ${points.join(', ')}`)
+        }
+        return lines
+    }
+
+    private setReferendum(view: EngineView) {
+        const referendum = view.referendum
+        useEngineStore().terms = this.referendumTerms(view)
+        if (!referendum) {
+            this.gameState.referendum = null
+            return
+        }
+        const state = createReferendumState()
+        const side = (favor: boolean) => (favor ? VoteSide.InFavour : VoteSide.Against)
+        for (const vote of referendum.votes.filter(v => !v.canceled)) {
+            const vampire = vote.source == 'vampire' ? this.minion(vote.minion) : undefined
+            if (vampire) {
+                const cast = state.votes[vampire.oid]
+                state.votes[vampire.oid] = {
+                    side: side(vote.favor),
+                    amount: (cast?.amount ?? 0) + vote.n,
+                }
+                continue
+            }
+            const player = this.player(vote.seat)
+            const votes: VoteCount = state.playerVotes[player.oid] ?? {
+                [VoteSide.InFavour]: 0,
+                [VoteSide.Against]: 0,
+            }
+            votes[side(vote.favor)] += vote.n
+            state.playerVotes[player.oid] = votes
+        }
+        this.gameState.referendum = state
+    }
+}
+
+// A mode's printed tags as Disciplines used ( 'dom' basic, 'DOM' superior ) : the other tags dropped
+export function disciplineUses(tags: string[]): DisciplineUse[] {
+    return tags
+        .filter(tag => DisciplineCode[tag.toLowerCase()])
+        .map(tag => ({
+            discipline: DisciplineCode[tag.toLowerCase()],
+            level: tag == tag.toLowerCase() ? DisciplineLevel.INFERIOR : DisciplineLevel.SUPERIOR,
+        }))
 }

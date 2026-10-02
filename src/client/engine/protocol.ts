@@ -99,6 +99,16 @@ export type EngineView = {
         card: number | null
         target: EngineTarget | null
         bleed_target: number | null
+        source: number | null // The card in play granting the action ( engine card id )
+        // 'announced', 'open', 'attempt', 'declined', 'would succeed', 'blocked', 'after combat', 'resolved'
+        step: string
+        stealth: number
+        bleed: number | null // For a bleed
+        blocker: number | null // The minion attempting the block, or that blocked
+        intercept: number | null // The blocker's
+        declined: number[] // The Methuselahs who declined to block
+        mode?: EngineMode // The action card's Disciplines and level
+        x?: number // The action card's X
     } | null
     combat: { minions: [number, number]; round: number; range: string } | null
     referendum: {
@@ -108,7 +118,27 @@ export type EngineView = {
         votes_against: number
         chosen: number | null // The Methuselah the terms chose
         allocated: [number, number][] // The points allocated so far : [seat, points]
+        // The other terms chosen : Methuselahs, minions, a clan, cards in play ( engine card ids )
+        seats: number[]
+        minions: number[]
+        clan?: string
+        cards: number[]
+        card_allocated: [number, number][] // [card id, points]
+        step: 'terms' | 'polling' | 'shortfall'
+        votes: EngineVote[] // Every vote cast so far
     } | null
+}
+
+// Votes cast : by whom, from what ( a vampire, votes printed on one, the Edge, a political action
+// card, a card in play ), which way, how many ; canceled ones are not tallied
+export type EngineVote = {
+    seat: number
+    source: 'vampire' | 'printed' | 'edge' | 'card' | 'in_play'
+    minion?: number
+    card_id?: number
+    favor: boolean
+    n: number
+    canceled: boolean
 }
 
 export type EngineOption = {
@@ -122,7 +152,30 @@ export type EngineOption = {
     action?: string // The action a minion takes : 'bleed', 'hunt', ...
     amount?: number
     favor?: boolean
+    mode?: EngineMode // A card played : its mode
+    blood?: number // The blood an ability moves onto ( + ) or off ( − ) its vampire ( minion )
 }
+
+// The mode a card is played in : its index, and its printed tags ( 'dom' basic, 'DOM' superior, 'COMBAT'... )
+export type EngineMode = { index: number; tags: string[] }
+
+// A recipient of referendum points : a Methuselah ( seat ) or a card in play
+export type EngineRecipient = {
+    name: string
+    seat?: number
+    card?: { id: number | null; copy: number | null; card_id: number | null }
+    cap?: number // At most this many ( a shortfall : what the terms gave )
+}
+
+// An allocation of points under way, whole : answered at once ( EngineHost.allocate )
+export type EngineAllocation = {
+    points: number // All of them, in the end
+    recipients: EngineRecipient[] // In the order the engine asks them
+    min_nonzero: number // How many recipients must get a point at least
+}
+
+// The votes castable now, each way, by the user's vampires and calling card ( EngineHost.voteAll )
+export type EngineVotes = { favor: number; against: number }
 
 export type EngineOut =
     | {
@@ -132,6 +185,9 @@ export type EngineOut =
           window: string
           options: EngineOption[]
           undo: boolean // The previous step of this multi-step choice can be taken back
+          allocation?: EngineAllocation
+          votes?: EngineVotes
+          events?: string[] // What happened since the previous message
           view: EngineView
       }
     | {
@@ -140,9 +196,10 @@ export type EngineOut =
           seat: number
           window: string
           choice: EngineOption
+          events?: string[]
           view: EngineView
       }
-    | { type: 'over'; vps: number[]; view: EngineView }
+    | { type: 'over'; vps: number[]; events?: string[]; view: EngineView }
 
 export type EngineDeckError =
     | { error: 'unsupported'; ids: string[] }

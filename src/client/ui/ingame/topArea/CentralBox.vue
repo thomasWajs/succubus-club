@@ -12,6 +12,10 @@
             @close="gameBus.secretInterfaceShown = false"
         />
 
+        <!-- The choice under way on the table ( a game with the rules engine ) -->
+        <EngineStaging v-if="gameState.gameType == GameType.Engine" />
+        <EngineChoices v-if="gameState.gameType == GameType.Engine" />
+
         <!-- Action Infos -->
         <ActionInfos
             v-if="gameState.action && !gameState.referendum"
@@ -66,6 +70,8 @@ import ReferendumInfos from '@/client/ui/ingame/topArea/central/ReferendumInfos.
 import TimerSetup from '@/client/ui/ingame/topArea/central/TimerSetup.vue'
 import NextTurn from '@/client/ui/ingame/topArea/central/NextTurn.vue'
 import TurnNotification from '@/client/ui/ingame/topArea/central/TurnNotification.vue'
+import EngineStaging from '@/client/ui/ingame/topArea/central/EngineStaging.vue'
+import EngineChoices from '@/client/ui/ingame/topArea/central/EngineChoices.vue'
 import { GameType } from '@/shared/types/state.ts'
 
 const gameState = useGameStateStore()
@@ -143,5 +149,11 @@ const centralContent = computed(() => ({
 
     margin: 15px 0;
     padding: 0;
+
+    // Taller than the top area ( a referendum's terms, votes and pass ) : it scrolls, its top
+    // kept in sight
+    min-height: 0;
+    overflow-y: auto;
+    justify-content: safe center;
 }
 </style>

@@ -3,6 +3,17 @@
         class="referendum-infos"
         title="Referendum"
     >
+        <div
+            v-if="isEngine && engine.terms.length > 0"
+            class="referendum-terms"
+        >
+            <div
+                v-for="(line, i) in engine.terms"
+                :key="i"
+            >
+                {{ line }}
+            </div>
+        </div>
         <div class="referendum-body">
             <!--
             Left column : votes that don't come from a vampire, one row per
@@ -30,6 +41,7 @@
                     <span class="methuselah-votes-cell">
                         <PropertyStepper
                             v-if="row.isSelf"
+                            :readOnly="isEngine"
                             :value="row.votes[VoteSide.InFavour]"
                             @change="changePlayerVotes(row.player, VoteSide.InFavour, $event)"
                         />
@@ -40,6 +52,7 @@
                     <span class="methuselah-votes-cell">
                         <PropertyStepper
                             v-if="row.isSelf"
+                            :readOnly="isEngine"
                             :value="row.votes[VoteSide.Against]"
                             @change="changePlayerVotes(row.player, VoteSide.Against, $event)"
                         />
@@ -100,7 +113,10 @@
                     </span>
                 </div>
 
-                <div class="referendum-controls">
+                <div
+                    v-if="!isEngine"
+                    class="referendum-controls"
+                >
                     <!--
                     Fixed slots : the Interrupt button takes the place of the
                     Last call button, and the countdown takes the room between
@@ -163,7 +179,7 @@ import { computed, onUnmounted, ref, watch } from 'vue'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
-import { ReferendumState, VoteSide } from '@/shared/types/state.ts'
+import { GameType, ReferendumState, VoteSide } from '@/shared/types/state.ts'
 import {
     getLastCallRemainingTime,
     getPlayerVotes,
@@ -177,12 +193,16 @@ import {
 import { Player } from '@/shared/model/Player.ts'
 import PropertyStepper from '@/client/ui/components/PropertyStepper.vue'
 import CentralPanel from '@/client/ui/ingame/topArea/central/CentralPanel.vue'
+import { useEngineStore } from '@/client/store/engine.ts'
 
 const props = defineProps<{
     referendum: ReferendumState
 }>()
 
 const gameState = useGameStateStore()
+// A game with the rules engine : the engine counts the votes ( see engine/projection.ts )
+const isEngine = computed(() => gameState.gameType == GameType.Engine)
+const engine = useEngineStore()
 const players = usePlayersStore()
 
 /**
@@ -278,6 +298,13 @@ function changePlayerVotes(player: Player, side: VoteSide, amount: number) {
 
 <style lang="scss">
 .central-panel.referendum-infos {
+    .referendum-terms {
+        font-size: 0.85rem;
+        color: $pearl-grey;
+        text-align: center;
+        margin-bottom: 4px;
+    }
+
     // The central box is short, so this panel stays deliberately dense
     font-size: 13px;
     padding: 0.5rem 0.75rem;
