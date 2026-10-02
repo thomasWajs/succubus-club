@@ -16,6 +16,23 @@
                     <span class="about-icon">?</span>
                     About
                 </RouterLink>
+
+                <template v-if="screenBigEnough">
+                    <span
+                        class="fullscreen-button"
+                        :class="{ 'show-hint-arrow': showFullscreenHint }"
+                        @click="isFullscreen ? exitFullscreen() : requestFullscreen()"
+                    >
+                        ⛶
+                    </span>
+
+                    <div
+                        v-if="showFullscreenHint"
+                        class="fullscreen-hint"
+                    >
+                        For a better experience, play in fullscreen mode
+                    </div>
+                </template>
             </div>
 
             <div
@@ -43,15 +60,6 @@
                     <sup class="new-badge">NEW</sup>
                 </span>
 
-                <span
-                    v-if="screenBigEnough"
-                    class="fullscreen-button"
-                    :class="{ 'show-hint-arrow': showFullscreenHint }"
-                    @click="isFullscreen ? exitFullscreen() : requestFullscreen()"
-                >
-                    ⛶
-                </span>
-
                 <div
                     v-if="screenBigEnough"
                     class="user-profile-display"
@@ -69,13 +77,6 @@
             </div>
         </div>
     </div>
-
-    <div
-        v-if="showFullscreenHint"
-        class="fullscreen-hint"
-    >
-        For a better experience, play in fullscreen mode
-    </div>
 </template>
 
 <script setup lang="ts">
@@ -85,7 +86,8 @@ import { useCoreStore } from '@/client/store/core.ts'
 import UserAvatar from '@/client/ui/components/UserAvatar.vue'
 import DeckIcon from '@/client/ui/components/DeckIcon.vue'
 import router, { ROUTES } from '@/client/ui/router.ts'
-import { display, screenBigEnough } from '@/client/game/display.ts'
+import { screenBigEnough } from '@/client/game/display.ts'
+import { HD_WIDTH, WORLD_HEIGHT } from '@/shared/const/game.ts'
 
 const core = useCoreStore()
 const bus = useBusStore()
@@ -110,8 +112,23 @@ const isFullscreen = ref(!!document.fullscreenElement)
 const updateFullscreenState = () => {
     isFullscreen.value = !!document.fullscreenElement
 }
-onMounted(() => document.addEventListener('fullscreenchange', updateFullscreenState))
-onUnmounted(() => document.removeEventListener('fullscreenchange', updateFullscreenState))
+
+// `display` is only populated once a game scene is mounted, so the main menu tracks the window itself
+const windowWidth = ref(window.innerWidth)
+const windowHeight = ref(window.innerHeight)
+const updateWindowSize = () => {
+    windowWidth.value = window.innerWidth
+    windowHeight.value = window.innerHeight
+}
+
+onMounted(() => {
+    document.addEventListener('fullscreenchange', updateFullscreenState)
+    window.addEventListener('resize', updateWindowSize)
+})
+onUnmounted(() => {
+    document.removeEventListener('fullscreenchange', updateFullscreenState)
+    window.removeEventListener('resize', updateWindowSize)
+})
 
 /* This function could get collapsed into a single return statements, but then it gets illegible */
 const showFullscreenHint = computed(() => {
@@ -123,8 +140,8 @@ const showFullscreenHint = computed(() => {
         return false
     }
     return (
-        (display.actualWidth < display.targetWidth && window.screen.width > window.innerWidth) ||
-        (display.actualHeight < display.targetHeight && window.screen.height > window.innerHeight)
+        (windowWidth.value < HD_WIDTH && window.screen.width > windowWidth.value) ||
+        (windowHeight.value < WORLD_HEIGHT && window.screen.height > windowHeight.value)
     )
 })
 </script>
@@ -261,9 +278,9 @@ const showFullscreenHint = computed(() => {
 }
 
 .fullscreen-hint {
-    position: absolute;
+    position: fixed;
     top: 85px;
-    right: 0;
+    left: 0;
     padding: 16px 16px;
     background: radial-gradient(ellipse at center, rgba($royal-purple, 0.7) 60%, transparent 80%);
     font-size: 1.1rem;

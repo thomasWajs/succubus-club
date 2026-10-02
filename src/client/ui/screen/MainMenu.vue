@@ -18,8 +18,6 @@
             </p>
         </div>
 
-        <div id="Beta">BETA</div>
-
         <img
             id="WelcomeSign"
             :class="{ isAnniversary }"
@@ -274,21 +272,6 @@ const showMobileMessage = !screenBigEnough && !isCrawler()
     line-height: 1.4;
     z-index: 850;
     max-width: 750px;
-}
-
-#Beta {
-    position: absolute;
-    top: 80px;
-    left: -95px;
-    font-size: 35px;
-    line-height: 40px;
-    padding: 5px 100px;
-    transform: rotate(-45deg);
-    background: $royal-purple;
-    font-family:
-        Verdana,
-        Tahoma,
-        sans serif;
 }
 
 #MainMenu {
