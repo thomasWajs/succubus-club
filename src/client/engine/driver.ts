@@ -212,6 +212,10 @@ function project(current: Running, out: EngineOut) {
     projecting = true
     try {
         current.projection.apply(out.view)
+        // The cards played during the action, until it is over
+        if (!out.view.action) {
+            useEngineStore().played = []
+        }
         if (out.type != 'over') {
             current.projection.setImpulse(out.seat)
         }
@@ -228,15 +232,33 @@ function project(current: Running, out: EngineOut) {
     }
 }
 
-// What happened since the previous message : an action's or a referendum's end, pool and blood moved…
+// A line of the log ; the same line again from the same author is counted, not repeated
+// ( "Transfer 1 pool to … ( ×3 )" )
+let lastLine: { authorName: string; text: string; times: number } | null = null
+
+function say(authorName: string, text: string, authorColorRgba?: string) {
+    const history = useHistoryStore()
+    const last = history.logEntries[history.logEntries.length - 1]
+    if (lastLine && last && lastLine.authorName == authorName && lastLine.text == text) {
+        lastLine.times++
+        history.logEntries.splice(-1, 1, { ...last, text: `${text} ( ×${lastLine.times} )` })
+        return
+    }
+    lastLine = { authorName, text, times: 1 }
+    history.addChatMessage({ text, timestamp: new Date(), authorName, authorColorRgba })
+}
+
+// What happened since the previous message : an action's or a referendum's end, pool and blood moved,
+// cards drawn, combats…
 function tell(out: EngineOut) {
     for (const event of out.events ?? []) {
-        useHistoryStore().addChatMessage({
-            text: event,
-            timestamp: new Date(),
-            authorName: 'Table',
-        })
+        say('Table', event)
     }
+}
+
+// A decision, as the log tells it : its text ; a bare pass with the window it passes
+function decisionLine(out: Extract<EngineOut, { type: 'decided' }>): string {
+    return out.choice.text == 'Pass' ? `Pass ( ${out.window} )` : out.choice.text
 }
 
 function narrate(current: Running, out: EngineOut) {
@@ -245,12 +267,17 @@ function narrate(current: Running, out: EngineOut) {
         return
     }
     const player = current.projection.player(out.seat)
-    useHistoryStore().addChatMessage({
-        text: `[${out.window}] ${out.choice.text}`,
-        timestamp: new Date(),
-        authorName: player.name,
-        authorColorRgba: getAuthorColorRgba(player.rgbaColor),
-    })
+    const text = decisionLine(out)
+    say(player.name, text, getAuthorColorRgba(player.rgbaColor))
+    // A card played during an action : kept in sight until the action is over
+    if (out.choice.kind == 'play' && out.view.action) {
+        useEngineStore().played.push({
+            decision: out.decision,
+            player: player.name,
+            text,
+            option: out.choice,
+        })
+    }
     const cards = engineOptionCards(out.choice)
     if (cards.length > 0 && out.choice.kind != 'pass') {
         useGameBusStore().pingCard(cards[0].oid)
@@ -333,12 +360,13 @@ export async function runEngine(host: EngineHost, projection: Projection) {
             }
             if ('undo' in answer) {
                 await host.undo()
-                useHistoryStore().addChatMessage({
-                    text: `[${out.window}] Takes back their last decision`,
-                    timestamp: new Date(),
-                    authorName: projection.player(out.seat).name,
-                    authorColorRgba: getAuthorColorRgba(projection.player(out.seat).rgbaColor),
-                })
+                // The decision taken back : out of the cards played too
+                engine.played = engine.played.filter(p => p.decision < out.decision - 1)
+                say(
+                    projection.player(out.seat).name,
+                    'Takes back their last decision',
+                    getAuthorColorRgba(projection.player(out.seat).rgbaColor),
+                )
                 continue
             }
             narrate(current, await host.answer(out.decision, answer.index))

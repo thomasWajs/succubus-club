@@ -22,6 +22,9 @@
             :action="gameState.action"
         />
 
+        <!-- The cards played during the action ( a game with the rules engine ) -->
+        <EnginePlayed v-if="gameState.gameType == GameType.Engine" />
+
         <!-- Referendum Infos -->
         <ReferendumInfos
             v-if="gameState.referendum"
@@ -72,6 +75,7 @@ import NextTurn from '@/client/ui/ingame/topArea/central/NextTurn.vue'
 import TurnNotification from '@/client/ui/ingame/topArea/central/TurnNotification.vue'
 import EngineStaging from '@/client/ui/ingame/topArea/central/EngineStaging.vue'
 import EngineChoices from '@/client/ui/ingame/topArea/central/EngineChoices.vue'
+import EnginePlayed from '@/client/ui/ingame/topArea/central/EnginePlayed.vue'
 import { GameType } from '@/shared/types/state.ts'
 
 const gameState = useGameStateStore()

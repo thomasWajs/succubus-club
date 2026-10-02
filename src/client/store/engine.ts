@@ -39,6 +39,8 @@ export const useEngineStore = defineStore('engine', {
         result: null as number[] | null,
         // The referendum under way : its card and the terms chosen, as lines
         terms: [] as string[],
+        // The cards played during the action under way, by whom ( the log's line ), until it is over
+        played: [] as { decision: number; player: string; text: string; option: EngineOption }[],
     }),
 })
 

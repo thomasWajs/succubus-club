@@ -39,7 +39,8 @@ export function applyMutationIfValid(gameMutation: AnyGameMutation) {
         gameMutation.apply()
 
         try {
-            useHistoryStore().addGameMutation(gameMutation)
+            // The rules engine's table moves are narrated by the engine ( see engine/driver.ts )
+            useHistoryStore().addGameMutation(gameMutation, undefined, !isEngineProjecting())
 
             // Special handlings
             if (gameMutation instanceof ResolveAction || gameMutation instanceof ResolveBlock) {
