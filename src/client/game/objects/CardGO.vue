@@ -310,12 +310,7 @@ import { useGameBusStore } from '@/client/store/bus.ts'
 import { CardAttrs, CardDragEvent, PhaserDataKey, RegionCategory } from '@/client/game/types.ts'
 import { useCardClick } from '@/client/game/composables/useCardClick.ts'
 import { useCardOutline } from '@/client/game/composables/useCardOutline.ts'
-import {
-    cardHalfExtents,
-    getCardScale,
-    getOverlappingCards,
-    getRegionScale,
-} from '@/client/game/utils.ts'
+import { cardHalfExtents, getCardScale, getRegionScale } from '@/client/game/utils.ts'
 import ButtonGO from '@/client/game/objects/ButtonGO.vue'
 import { useCommands } from '@/client/game/composables/useCommands.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
@@ -625,12 +620,16 @@ function onPointerOver() {
 function onPointerOut() {
     outlineOut()
 
-    const overlappingCards = getOverlappingCards(card)
-    // When not overing, always keep minions on top of other cards
-    for (const otherCard of overlappingCards) {
-        if (otherCard.isMinion()) {
-            gameBus.cardsInGame[otherCard.oid]?.bringToTop()
-        }
+    // Restack every card of this play area in a predictable order :
+    // lower y = lower, then lower x = lower.
+    // Non-minion cards first, then minions, so minions always stay on top.
+    const stackedCards = [...card.region.cards].sort(
+        (c1, c2) => c1.y - c2.y || c1.x - c2.x || c1.oid.localeCompare(c2.oid),
+    )
+    const nonMinions = stackedCards.filter(c => !c.isMinion())
+    const minions = stackedCards.filter(c => c.isMinion())
+    for (const stackedCard of [...nonMinions, ...minions]) {
+        gameBus.cardsInGame[stackedCard.oid]?.bringToTop()
     }
 }
 

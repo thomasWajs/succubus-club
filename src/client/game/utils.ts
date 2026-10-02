@@ -316,18 +316,6 @@ export function cardHalfExtents(
         :   { halfWidth, halfHeight }
 }
 
-export function getOverlappingCards(card: Card) {
-    const overlappingCards: Card[] = []
-    const rectangle = getCardRectangle(card)
-    const otherCards = card.region.cards.filter(c => c.oid != card.oid)
-    for (const otherCard of otherCards) {
-        if (Rectangle.Overlaps(rectangle, getCardRectangle(otherCard))) {
-            overlappingCards.push(otherCard)
-        }
-    }
-    return overlappingCards
-}
-
 // Overlap above this fraction of a card's own area is too much : the played card
 // would sit too hidden behind the one already in place.
 const MAX_PLAY_OVERLAP_RATIO = 0.1
