@@ -32,6 +32,8 @@ import {
     VoteSide,
 } from '@/shared/types/state.ts'
 import { useEngineStore } from '@/client/store/engine.ts'
+import { useGameBusStore } from '@/client/store/bus.ts'
+import { nextTick } from 'vue'
 import {
     EngineCard,
     EngineInPlay,
@@ -46,7 +48,7 @@ const MINION_ROW_Y = 22 * GRID_SIZE
 const IN_PLAY_ROW_Y = 1 * GRID_SIZE
 const LIMBO_ROW_Y = 10 * GRID_SIZE
 const CARD_SPACING_X = 9 * GRID_SIZE
-// A card on a minion peeks out above it
+// A card on a minion peeks out from under it, below and to the right
 const ATTACHED_OFFSET_X = 2 * GRID_SIZE
 const ATTACHED_OFFSET_Y = 3 * GRID_SIZE
 
@@ -90,6 +92,9 @@ export class Projection {
     // Copy of each minion, by the engine's minion id, and of each card in play
     private minions = new Map<number, number>()
     private inPlay = new Map<number, number>()
+    // Where each copy was in the previous view ( spot and host ) : a card that
+    // changes spot without changing region is moved too ( played, then attached )
+    private spots = new Map<number, string>()
 
     // playersOid : by engine seat. The players are always read through the
     // game state, to stay reactive.
@@ -436,18 +441,50 @@ export class Projection {
         const ordered = [...placements].sort(
             ([, a], [, b]) => Number(a.host !== undefined) - Number(b.host !== undefined),
         )
+        const hosts = new Set<CardOid>()
         for (const [copy, placement] of ordered) {
+            const spot = `${placement.spot}:${placement.host ?? ''}`
+            const before = this.spots.get(copy)
+            this.spots.set(copy, spot)
             const card = this.card(copy)
-            if (!card || card.region.oid == placement.region.oid) {
+            if (!card) {
                 continue
             }
             const to = placement.region
-            const movement = to.is.play ? this.position(card, placement) : { position: 0 }
-            gameMutations.moveCardToRegion.act(placement.player, {
-                card,
-                fromCardRegion: card.region,
-                toCardRegion: to,
-                ...movement,
+            const host = this.card(placement.host)
+            // Just created ( placed already ) or moved below
+            if (placement.spot == Spot.Attached && host && before != spot) {
+                hosts.add(host.oid)
+            }
+            if (card.region.oid == to.oid) {
+                // Same region : moved only when its spot changed, the user may arrange the rest
+                if (!to.is.play || before === undefined || before == spot) {
+                    continue
+                }
+                gameMutations.moveCard.act(placement.player, {
+                    card,
+                    ...this.position(card, placement),
+                })
+            } else {
+                const movement = to.is.play ? this.position(card, placement) : { position: 0 }
+                gameMutations.moveCardToRegion.act(placement.player, {
+                    card,
+                    fromCardRegion: card.region,
+                    toCardRegion: to,
+                    ...movement,
+                })
+            }
+        }
+        for (const copy of [...this.spots.keys()]) {
+            if (!placements.has(copy)) {
+                this.spots.delete(copy)
+            }
+        }
+        // The hosts over the cards on them, once those are on the table
+        if (hosts.size) {
+            void nextTick(() => {
+                const gameBus = useGameBusStore()
+                hosts.forEach(oid => gameBus.cardsInGame[oid]?.bringToTop())
             })
         }
     }
@@ -468,7 +505,7 @@ export class Projection {
                 if (host && host.region.oid == region.oid) {
                     return {
                         x: host.x + ATTACHED_OFFSET_X * (rank + 1),
-                        y: Math.max(0, host.y - ATTACHED_OFFSET_Y * (rank + 1)),
+                        y: host.y + ATTACHED_OFFSET_Y,
                     }
                 }
                 return findFreePlayPosition(region, card, start, IN_PLAY_ROW_Y)
