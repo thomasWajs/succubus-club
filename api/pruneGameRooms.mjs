@@ -11,7 +11,7 @@ const gameRoomsRef = rtdb.ref(GAME_ROOMS_KEY)
 // createGameRoom in lobby.ts), so a webhook firing in that window would otherwise see a
 // room with nobody in it yet and delete it. Give every room a grace period before it's
 // eligible for pruning at all.
-const MIN_ROOM_AGE_MS = 30_000
+const MIN_ROOM_AGE_MS = 5_000
 
 export async function POST(request) {
     const authHeader = request.headers.get('authorization')
@@ -53,7 +53,7 @@ export async function POST(request) {
     }
 
     const activeChannels = channelsResponse.items
-        .filter(channel => channel.status?.occupancy?.metrics?.connections ?? 0 > 0)
+        .filter(channel => (channel.status?.occupancy?.metrics?.connections ?? 0) > 0)
         .map(channel => channel.name)
 
     for (const [roomId, gameRoom] of Object.entries(storedGameRooms)) {

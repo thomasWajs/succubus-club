@@ -394,7 +394,7 @@ async function pruneAblyChannels() {
     // @ts-expect-error - Ably request method type compatibility
     const channelsResponse = await ably.request('GET', '/channels', { by: 'value' })
     const activeChannels = channelsResponse.items
-        .filter(channel => channel.status?.occupancy?.metrics?.connections ?? 0 > 0)
+        .filter(channel => (channel.status?.occupancy?.metrics?.connections ?? 0) > 0)
         .map(channel => channel.name)
 
     for (const [roomId, gameRoom] of Object.entries(storedGameRooms ?? {})) {
