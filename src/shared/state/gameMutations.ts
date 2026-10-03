@@ -1901,7 +1901,11 @@ class DeclareActionModifier extends GameMutation<DeclareActionModifierParams> {
         if (!gameState.action) {
             throw new Error('gameState.action is null')
         }
-        passImpulse(gameState)
+        // Playing a modifier is an effect: the acting player keeps the impulse.
+        // Only declining to play one passes it.
+        if (this.params.actionModifier === NO_ACTION_MODIFIER) {
+            passImpulse(gameState)
+        }
     }
 
     formatForLog() {
@@ -2019,7 +2023,13 @@ class DeclareReaction extends GameMutation<DeclareReactionParams> {
         if (!gameState.action) {
             throw new Error('gameState.action is null')
         }
-        passImpulse(gameState)
+        // Playing a reaction is an effect: the acting player regains the impulse.
+        // Only declining to react passes it.
+        if (this.params.reaction === NO_REACTION) {
+            passImpulse(gameState)
+        } else {
+            regainImpulse(gameState)
+        }
     }
 
     formatForLog() {
