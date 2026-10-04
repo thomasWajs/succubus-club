@@ -17,7 +17,7 @@ import * as logging from '@/client/logging.ts'
 import { AnyGameMutation } from '@/shared/state/gameMutations.ts'
 import { Invalid, VALID, Validity } from '@/shared/types/state.ts'
 import { matchGesture, onCardLabel } from '@/client/engine/gestures.ts'
-import { autoplayStaging } from '@/client/engine/interaction.ts'
+import { autoplayStaging, narrowStaging } from '@/client/engine/interaction.ts'
 import { forgetCardNames, learnCardNames } from '@/client/engine/cardNames.ts'
 
 // Dev : the user's seat is played at random and nothing pauses, to run a whole game
@@ -161,8 +161,11 @@ export function engineGesture(gameMutation: AnyGameMutation): Validity {
         chooseEngineOption(option.index)
         return VALID
     }
-    engine.focus = matches.map(option => option.index)
-    return Invalid(`${matches.length} ways to do this : pick one in the panel`)
+    // Several : the choice goes on as a click on the card would ( the Disciplines, the target… in
+    // the central box, the candidates glowing ), not in the panel
+    engine.focus = []
+    narrowStaging(matches)
+    return VALID
 }
 
 // The cards an option is about, to show them on the table. `seat` : the seat deciding ( the
@@ -182,6 +185,12 @@ export function engineOptionCards(option: EngineOption, seat?: number): Card[] {
         target?.kind == 'card' ? projection.cardInPlay(target.card_id) : undefined,
         target?.kind == 'uncontrolled' ? projection.uncontrolled(decider, target.slot) : undefined,
     ].filter((card): card is Card => card !== undefined)
+}
+
+// The cards alike to this one ( itself included ) : copies of the same card in the same hand, or
+// stored on the same card, which the engine offers as one choice ( see Projection.alike )
+export function engineAlikeCards(card: Card): Card[] {
+    return running ? running.projection.alike(card) : [card]
 }
 
 // The pending options answered by a button on a card of the table, and that card ( see onCardLabel )

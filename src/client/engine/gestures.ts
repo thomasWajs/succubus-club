@@ -56,6 +56,12 @@ function is(a: Card | undefined, b: Card | undefined) {
     return !!a && !!b && a.oid == b.oid
 }
 
+// The option's card is the card moved, or a copy alike : copies alike in hand ( or stored on the
+// same card ) are one choice, about the first of them ( see Projection.alike )
+function isMoved(projection: Projection, a: Card | undefined, moved: Card) {
+    return !!a && projection.alike(moved).some(card => card.oid == a.oid)
+}
+
 // Any role of the option is this card
 function names(n: Named, card: Card) {
     return is(n.card, card) || is(n.minion, card) || is(n.actor, card) || is(n.target, card)
@@ -69,12 +75,13 @@ function cardAt(region: AnyCardRegion, x: number, y: number, except: Card): Card
 }
 
 function playedFromHand(
+    projection: Projection,
     all: Named[],
     card: Card,
     params: Record<string, unknown>,
     to: AnyCardRegion,
 ): Named[] {
-    let plays = all.filter(n => n.option.kind == 'play' && is(n.card, card))
+    let plays = all.filter(n => n.option.kind == 'play' && isMoved(projection, n.card, card))
     if (plays.length <= 1) {
         return plays
     }
@@ -146,6 +153,7 @@ export function matchGesture(
     const params = gameMutation.params as Record<string, unknown>
     const card = gameMutation.card ?? undefined
     const kind = (...kinds: string[]) => all.filter(n => kinds.includes(n.option.kind))
+    const moved = (named: Named) => !!card && isMoved(projection, named.card, card)
     let found: Named[] = []
 
     switch (gameMutation.name) {
@@ -177,21 +185,21 @@ export function matchGesture(
             const from = card.region
             const to = (params.toCardRegion as AnyCardRegion | undefined) ?? card.owner.ashHeap
             if (gameMutation.name == 'moveToBottom') {
-                found = kind('bottom').filter(n => is(n.card, card))
+                found = kind('bottom').filter(moved)
             } else if (from.is.uncontrolled && to.is.controlled) {
                 found = kind('influence_out').filter(n => is(n.card, card))
             } else if (from.is.hand && (to.is.ashHeap || gameMutation.name == 'discard')) {
-                found = kind('discard', 'burn_for_vote').filter(n => is(n.card, card))
+                found = kind('discard', 'burn_for_vote').filter(moved)
             } else if (from.is.hand && to.is.library) {
-                found = kind('bottom').filter(n => is(n.card, card))
+                found = kind('bottom').filter(moved)
             } else if (from.is.hand) {
-                found = playedFromHand(all, card, params, to)
+                found = playedFromHand(projection, all, card, params, to)
             } else if (to.is.ashHeap) {
                 found = kind('burn_in_play', 'yield_contest').filter(n => is(n.card, card))
             }
-            // Any other move of a card : whatever is offered about it
+            // Any other move of a card : whatever is offered about it ( or a copy alike )
             if (found.length == 0) {
-                found = all.filter(n => names(n, card))
+                found = all.filter(n => names(n, card) || moved(n))
             }
             break
         }
@@ -249,7 +257,10 @@ export function matchGesture(
                 : typeof declared == 'object' && declared !== null ?
                     (declared as { card: Card }).card
                 :   undefined
-            found = played ? kind('play').filter(n => is(n.card, played)) : kind('pass')
+            found =
+                played ?
+                    kind('play').filter(n => isMoved(projection, n.card, played))
+                :   kind('pass')
             break
         }
 

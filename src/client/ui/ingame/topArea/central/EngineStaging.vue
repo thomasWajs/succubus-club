@@ -15,14 +15,18 @@
                 @mouseenter="hoverEngineCard(choice.card)"
                 @mouseleave="hoverEngineCard(null)"
             >
-                <template v-if="current.step.ask == 'mode' && icons(choice).length > 0">
+                <span
+                    v-if="current.step.ask == 'mode' && icons(choice).length > 0"
+                    class="engine-staging-mode"
+                >
                     <DisciplineIcon
                         v-for="icon in icons(choice)"
                         :key="`${icon.discipline}:${icon.level}`"
                         :discipline="icon.discipline"
                         :level="icon.level"
                     />
-                </template>
+                    {{ levelName(choice) }}
+                </span>
                 <template v-else>{{ choice.label }}</template>
             </button>
 
@@ -127,6 +131,16 @@ function icons(choice: StagingChoice): { discipline: Discipline; level: Discipli
     return all.every(icon => icon.discipline) ? all : []
 }
 
+// A mode's level, in words, when its Disciplines are all at one level
+function levelName(choice: StagingChoice): string {
+    const levels = new Set(icons(choice).map(icon => icon.level))
+    return (
+        levels.size != 1 ? ''
+        : levels.has(DisciplineLevel.SUPERIOR) ? 'superior'
+        : 'inferior'
+    )
+}
+
 function onKey(event: KeyboardEvent) {
     if (event.key == 'Escape' && current.value) {
         cancelStaging()
@@ -149,6 +163,18 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
     .engine-staging-prompt {
         font-size: 14px;
         margin-bottom: 6px;
+    }
+
+    // A mode : its Disciplines, large enough to tell apart, and its level
+    .engine-staging-mode {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+
+        .discipline-icon {
+            height: 1.8em;
+            width: 1.8em;
+        }
     }
 
     .engine-staging-choices {

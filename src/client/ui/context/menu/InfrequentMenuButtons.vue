@@ -72,7 +72,7 @@
     </ContextMenuButton>
 
     <ContextMenuButton
-        v-if="singleCard && !singleCard.isVampire() && singleCard.isIn.ready"
+        v-if="!isEngine && singleCard && !singleCard.isVampire() && singleCard.isIn.ready"
         :closeOnClick="true"
         :cardAction="
             (card: Card) =>
@@ -85,7 +85,7 @@
     </ContextMenuButton>
 
     <ContextMenuButton
-        v-if="singleCard && !singleCard.isMinion() && singleCard.isIn.ready"
+        v-if="!isEngine && singleCard && !singleCard.isMinion() && singleCard.isIn.ready"
         :closeOnClick="true"
         :cardAction="
             (card: Card) =>
@@ -105,7 +105,10 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
+import { useGameStateStore } from '@/client/store/gameState.ts'
+import { GameType } from '@/shared/types/state.ts'
 import { Card } from '@/shared/model/Card.ts'
 import CommandContextMenuButton from '@/client/ui/context/menu/CommandContextMenuButton.vue'
 import ContextMenuButton from '@/client/ui/context/menu/ContextMenuButton.vue'
@@ -115,6 +118,9 @@ import { useCommands } from '@/client/game/composables/useCommands.ts'
 import { useSelection } from '@/client/game/composables/useSelection.ts'
 
 const gameBus = useGameBusStore()
+const gameState = useGameStateStore()
+// A game with the rules engine : the engine makes a card a minion ( see engine/projection.ts )
+const isEngine = computed(() => gameState.gameType == GameType.Engine)
 const players = usePlayersStore()
 const commands = useCommands()
 const { firstCard, singleCard } = useSelection(() => gameBus.contextMenu.cards)

@@ -121,9 +121,9 @@
             </div>
         </CentralPanel>
 
-        <!-- The steps of a combat ( and what follows a block ) -->
+        <!-- The steps of a combat ( and what follows a block ), the cards to play or use then -->
         <CentralPanel
-            v-if="combatOptions.length > 0 || combatPass"
+            v-if="combatOptions.length > 0 || combatPass || (pending.combat && cards.length > 0)"
             class="engine-choices"
             :title="combatTitle"
         >
@@ -138,6 +138,17 @@
                 >
                     {{ option.text }}
                 </button>
+                <!-- A strike from a weapon, a card from hand : its choice goes on in the central box -->
+                <button
+                    v-for="choice in pending.combat ? cards : []"
+                    :key="choice.key"
+                    class="game-button"
+                    @click="stage(choice)"
+                    @mouseenter="hoverEngineCard(choice.card)"
+                    @mouseleave="hoverEngineCard(null)"
+                >
+                    {{ choice.label }}
+                </button>
                 <!-- The combat's pass ( no press, no maneuver… ) next to its choices -->
                 <button
                     v-if="combatPass"
@@ -148,10 +159,30 @@
                 </button>
             </div>
             <div
-                v-if="pending.combat"
+                v-if="pending.combat && cards.length == 0"
                 class="engine-choices-hint"
             >
                 Strike cards and maneuvers from your hand glow : click or drag them.
+            </div>
+        </CentralPanel>
+
+        <!-- During an action : the cards to play or use now ( a modifier, a reaction… ) -->
+        <CentralPanel
+            v-if="!pending.combat && cards.length > 0"
+            class="engine-choices"
+            :title="pending.window"
+        >
+            <div class="engine-choices-buttons">
+                <button
+                    v-for="choice in cards"
+                    :key="choice.key"
+                    class="game-button small"
+                    @click="stage(choice)"
+                    @mouseenter="hoverEngineCard(choice.card)"
+                    @mouseleave="hoverEngineCard(null)"
+                >
+                    {{ choice.label }}
+                </button>
             </div>
         </CentralPanel>
     </template>
@@ -176,7 +207,13 @@ import {
     engineOptionCards,
     voteAllEngine,
 } from '@/client/engine/driver.ts'
-import { combatOptions as combatOf, xOptions } from '@/client/engine/interaction.ts'
+import {
+    cardChoices,
+    combatOptions as combatOf,
+    narrowStaging,
+    StagingChoice,
+    xOptions,
+} from '@/client/engine/interaction.ts'
 import { EngineOption } from '@/client/engine/protocol.ts'
 
 const engine = useEngineStore()
@@ -247,6 +284,15 @@ const combatTitle = computed(() => {
             `${combat.minions[0]} vs ${combat.minions[1]} — round ${combat.round}, ${combat.range} range`
         :   'After the block'
 })
+
+// The cards to play or use now, during a combat or an action ( see cardChoices )
+const cards = computed(() => cardChoices(pending.value?.options ?? []))
+
+// A card's choice, as a click on the card starts it ( a single option is taken )
+function stage(choice: StagingChoice) {
+    hoverEngineCard(null)
+    narrowStaging(choice.options)
+}
 
 function choose(option: EngineOption) {
     hoverEngineCard(null)

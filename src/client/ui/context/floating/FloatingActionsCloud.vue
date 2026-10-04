@@ -149,7 +149,8 @@ const floatingActions = computed<FloatingActionData[]>(() => {
 
     const card = focusedCard.value
     if (card) {
-        if (card.isEmbraceLike()) {
+        // A game with the rules engine : the engine makes the card a vampire ( see engine/projection.ts )
+        if (card.isEmbraceLike() && gameState.gameType != GameType.Engine) {
             actions.push(...getEmbraceLikeActions(card))
         }
         // Only a primed minion gets the action buttons, and focusedCard returns

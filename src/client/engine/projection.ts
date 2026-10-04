@@ -83,6 +83,10 @@ type Placement = {
     greenCounter: number
     isLocked: boolean
     isFlipped: boolean
+    // A minion : the engine's own ( its kind : a vampire, an ally, a created vampire, a token )
+    minion?: EngineMinion
+    // Stored on a card in play ( Fleshforge Chamber ), not attached to it
+    stored?: boolean
 }
 
 export class Projection {
@@ -97,6 +101,10 @@ export class Projection {
     // Where each copy was in the previous view ( spot and host ) : a card that
     // changes spot without changing region is moved too ( played, then attached )
     private spots = new Map<number, string>()
+    // Where each copy is in the last view
+    private placements = new Map<number, Placement>()
+    // The library cards made minions here ( a created vampire, a token ) : unmade once no more
+    private madeMinions = new Set<number>()
 
     // playersOid : by engine seat. The players are always read through the
     // game state, to stay reactive.
@@ -131,12 +139,56 @@ export class Projection {
         return seat === undefined ? undefined : this.card(this.uncontrolledSlots.get(seat)?.[slot])
     }
 
+    /**
+     * The cards alike to this one, itself included : the copies of the same
+     * card in the same hand, or stored on the same card. The engine offers one
+     * choice for them all, about the first copy ( any of them is the same ).
+     */
+    alike(card: Card): Card[] {
+        const copy = this.copyOf(card)
+        const placement = copy === undefined ? undefined : this.placements.get(copy)
+        const id = placement?.card.id
+        if (!placement || id === null || id === undefined) {
+            return [card]
+        }
+        const inHand = placement.spot == Spot.Stack && placement.region.is.hand
+        if (!inHand && !placement.stored) {
+            return [card]
+        }
+        const alike: Card[] = []
+        for (const [other, at] of this.placements) {
+            if (
+                at.card.id == id &&
+                at.region.oid == placement.region.oid &&
+                at.spot == placement.spot &&
+                !!at.stored == !!placement.stored &&
+                at.host == placement.host
+            ) {
+                const otherCard = this.card(other)
+                if (otherCard) {
+                    alike.push(otherCard)
+                }
+            }
+        }
+        return alike.length > 0 ? alike : [card]
+    }
+
+    private copyOf(card: Card): number | undefined {
+        for (const [copy, oid] of this.cards) {
+            if (oid == card.oid) {
+                return copy
+            }
+        }
+        return undefined
+    }
+
     player(seat: number): Player {
         return this.gameState.players[this.playersOid[seat]]
     }
 
     apply(view: EngineView) {
         const placements = this.read(view)
+        this.placements = placements
 
         this.removeGone(placements)
         for (const [copy, placement] of placements) {
@@ -148,6 +200,7 @@ export class Projection {
         this.move(placements)
         this.order()
         this.setProperties(placements)
+        this.setMinions(placements)
         this.setSeats(view)
         this.setTurn(view)
         this.setAction(view)
@@ -312,6 +365,7 @@ export class Projection {
                         greenCounter: 0,
                         isLocked: false,
                         isFlipped: card.id === null,
+                        stored: true,
                     }),
                 )
             }
@@ -330,6 +384,7 @@ export class Projection {
                         greenCounter: minion.corruption ?? 0,
                         isLocked: minion.locked,
                         isFlipped: minion.contested,
+                        minion,
                     })
                     minion.cards.forEach((inPlayCard, attachedRank) =>
                         inPlay(inPlayCard, region, attachedRank, minion.card.copy),
@@ -556,6 +611,43 @@ export class Projection {
             }
             if (card.isFlipped != placement.isFlipped) {
                 gameMutations.setFlip.act(author, { card, newValue: placement.isFlipped })
+            }
+        }
+    }
+
+    /**
+     * A library card in play as a minion is one for SC too ( its menus, its
+     * blood ) : a vampire created by a card ( Childe of the Revolution ), an
+     * ally, a token. Written directly, like the identity : the engine made it
+     * so. Unmade once it is no longer one ( burned, to the ash heap ).
+     */
+    private setMinions(placements: Map<number, Placement>) {
+        for (const [copy, placement] of placements) {
+            const card = this.card(copy)
+            const minion = placement.minion
+            if (!card || card instanceof CryptCard) {
+                continue
+            }
+            if (minion && minion.kind != 'vampire') {
+                if (minion.kind == 'created') {
+                    card.becomeVampire()
+                } else {
+                    card.becomeMinion()
+                }
+                if (minion.capacity !== null && card.isMinion()) {
+                    card.minionAttrs.capacity = minion.capacity
+                }
+                this.madeMinions.add(copy)
+            } else if (this.madeMinions.delete(copy)) {
+                card.minionAttrs = undefined
+                card.vampireAttrs = undefined
+                // An ally is a minion anywhere for SC ( see LibraryCard.initMinionAttrs )
+                card.initMinionAttrs()
+            }
+        }
+        for (const copy of [...this.madeMinions]) {
+            if (!placements.has(copy)) {
+                this.madeMinions.delete(copy)
             }
         }
     }

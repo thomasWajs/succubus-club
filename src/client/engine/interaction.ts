@@ -19,7 +19,7 @@ import { computed } from 'vue'
 import { Card } from '@/shared/model/Card.ts'
 import { EngineOption, EngineTarget } from '@/client/engine/protocol.ts'
 import { useEngineStore } from '@/client/store/engine.ts'
-import { chooseEngineOption, engineOptionCards } from '@/client/engine/driver.ts'
+import { chooseEngineOption, engineAlikeCards, engineOptionCards } from '@/client/engine/driver.ts'
 import { Colors } from '@/client/colors.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { GameType } from '@/shared/types/state.ts'
@@ -74,6 +74,17 @@ function actorOf(option: EngineOption): Card | undefined {
 
 function is(a: Card | undefined, b: Card | undefined) {
     return !!a && !!b && a.oid == b.oid
+}
+
+// The copies alike to a card ( itself included ) : the engine offers one choice for the copies of
+// a card in hand ( or stored on the same card ), about the first. Any of them stands for it
+function alike(card: Card | undefined): Card[] {
+    return card ? engineAlikeCards(card) : []
+}
+
+// The card is this one, or a copy alike
+function isAlike(a: Card | undefined, b: Card | undefined) {
+    return !!a && !!b && (a.oid == b.oid || alike(a).some(card => card.oid == b.oid))
 }
 
 function targetKey(target: EngineTarget | undefined): string {
@@ -225,12 +236,12 @@ const highlights = computed(() => {
     const current = staging.value
     if (current) {
         for (const choice of current.step.choices) {
-            if (choice.card) {
-                map.set(choice.card.oid, 'candidate')
+            for (const card of alike(choice.card)) {
+                map.set(card.oid, 'candidate')
             }
         }
-        if (current.card) {
-            map.set(current.card.oid, 'staged')
+        for (const card of alike(current.card)) {
+            map.set(card.oid, 'staged')
         }
         return map
     }
@@ -240,9 +251,13 @@ const highlights = computed(() => {
             continue
         }
         if (isUse(option)) {
-            map.set(card.oid, 'usable')
+            for (const copy of alike(card)) {
+                map.set(copy.oid, 'usable')
+            }
         } else if (isPick(option)) {
-            map.set(card.oid, 'candidate')
+            for (const copy of alike(card)) {
+                map.set(copy.oid, 'candidate')
+            }
         } else if (option.kind == 'take_action' && !map.has(card.oid)) {
             map.set(card.oid, 'actor')
         }
@@ -312,12 +327,12 @@ export function engineCardClick(card: Card): boolean {
     }
     const current = staging.value
     if (current) {
-        const choice = current.step.choices.find(c => is(c.card, card))
+        const choice = current.step.choices.find(c => isAlike(c.card, card))
         if (choice) {
             narrowStaging(choice.options)
             return true
         }
-        if (is(current.card, card)) {
+        if (isAlike(current.card, card)) {
             return true
         }
         cancelStaging()
@@ -326,7 +341,7 @@ export function engineCardClick(card: Card): boolean {
         return false
     }
     const options = pendingOptions()
-    const about = options.filter(o => (isUse(o) || isPick(o)) && is(cardOf(o), card))
+    const about = options.filter(o => (isUse(o) || isPick(o)) && isAlike(cardOf(o), card))
     const played = options.filter(
         o => (o.kind == 'play' || o.kind == 'use_ability') && is(actorOf(o), card),
     )
@@ -394,6 +409,37 @@ export function isCombatOption(option: EngineOption): boolean {
 
 export function combatOptions(options: EngineOption[]): EngineOption[] {
     return options.filter(isCombatOption)
+}
+
+/**
+ * The cards that can be played or used now, during a combat or an action, one
+ * entry per card for the central box : a strike from a weapon in play, a card
+ * from hand ( a strike, a maneuver, a prevention, a modifier, a reaction ). An
+ * entry starts the choice about its card, as a click on it does ( its
+ * Disciplines, its target… ) : the card keeps glowing on the table too.
+ */
+export function cardChoices(options: EngineOption[]): StagingChoice[] {
+    const engine = useEngineStore()
+    if (!engine.pending?.combat && !useGameStateStore().action) {
+        return []
+    }
+    const about = options.filter(
+        option => isUse(option) || (option.kind == 'round_strike' && !!option.card),
+    )
+    return group(
+        about,
+        option => cardOf(option)?.oid ?? `option:${option.index}`,
+        option => {
+            const card = cardOf(option)
+            return { card, label: card?.name ?? option.text }
+        },
+    ).map(choice => ({
+        ...choice,
+        label:
+            choice.options.length == 1 ? choice.options[0].text
+            : choice.options[0].kind == 'play' ? `Play ${choice.label}`
+            : `Use ${choice.label}`,
+    }))
 }
 
 /**
