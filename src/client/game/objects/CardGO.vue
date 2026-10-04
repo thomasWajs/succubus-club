@@ -326,7 +326,7 @@ import FxPingCard from './FxPingCard.vue'
 import FxCardCost from './FxCardCost.vue'
 import { useCardTexture } from '@/client/game/composables/useCardTexture.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
-import { engineGlow } from '@/client/engine/interaction.ts'
+import { engineGlow, engineHighlight } from '@/client/engine/interaction.ts'
 import Pointer = Phaser.Input.Pointer
 
 const { card, regionName } = defineProps<{
@@ -498,9 +498,19 @@ function bringToTop() {
  * Overlay ( counters & buttons )
  */
 
+// A card the engine's choice under way can be ( a candidate : a pick, a target, the minion
+// playing a card ) or is about ( staged ) : a click anywhere on it is that choice, so SC's hover
+// buttons ( blood, Influence, ash heap ) don't cover parts of it ( see engine/interaction.ts ).
+// A card that can be used or a minion that can act keeps them : moving blood is a gesture too
+const engineChoosing = computed(() => {
+    const highlight = engineHighlight(card)
+    return highlight == 'candidate' || highlight == 'staged'
+})
+
 const showOverlay = computed(() => {
     return (
         isHovered.value &&
+        !engineChoosing.value &&
         gameBus.selectedCards.length <= 1 &&
         players.isPlayer &&
         !dragAttrs.isDragging &&

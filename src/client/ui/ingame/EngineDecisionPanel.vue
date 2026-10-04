@@ -19,6 +19,12 @@
         <template v-else-if="engine.pending">
             <div class="engine-window">Your decision : {{ engine.pending.window }}</div>
             <div
+                v-if="engine.pending.prompt"
+                class="engine-prompt"
+            >
+                <EngineText :text="engine.pending.prompt" />
+            </div>
+            <div
                 v-if="elsewhere.length > 0"
                 class="engine-hint"
             >
@@ -31,7 +37,7 @@
                 :class="{ pass: option.kind == 'pass', relevant: relevant.has(option.index) }"
                 @click="choose(option)"
                 @mouseenter="hover(option)"
-                @mouseleave="gameBus.hoveredCard = null"
+                @mouseleave="hoverEngineCard(null)"
             >
                 {{ option.text }}
             </button>
@@ -52,7 +58,7 @@
                         :class="{ pass: option.kind == 'pass' }"
                         @click="choose(option)"
                         @mouseenter="hover(option)"
-                        @mouseleave="gameBus.hoveredCard = null"
+                        @mouseleave="hoverEngineCard(null)"
                     >
                         {{ option.text }}
                     </button>
@@ -86,6 +92,8 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { hoverEngineCard } from '@/client/engine/cardNames.ts'
+import EngineText from '@/client/ui/ingame/EngineText.vue'
 import { useEngineStore } from '@/client/store/engine.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
@@ -178,7 +186,7 @@ watch(
 
 // Show on the table the card an option is about
 function hover(option: EngineOption) {
-    gameBus.hoveredCard = engineOptionCards(option)[0] ?? null
+    hoverEngineCard(engineOptionCards(option)[0])
 }
 
 // The replay ( the game's setup and every decision ) reproduces the game in the engine : to report a bug
@@ -195,7 +203,7 @@ async function exportReplay() {
 }
 
 function choose(option: EngineOption) {
-    gameBus.hoveredCard = null
+    hoverEngineCard(null)
     chooseEngineOption(option.index)
 }
 </script>
@@ -230,6 +238,20 @@ function choose(option: EngineOption) {
         padding-bottom: 4px;
         border-bottom: 1px solid $slate-grey;
         margin-bottom: 4px;
+    }
+
+    // What the choice is for : the question itself, above its answers
+    .engine-prompt {
+        font-size: 14px;
+        font-weight: bold;
+        color: $ghost-white;
+        background: $bone-grey;
+        padding: 4px 6px;
+
+        .engine-card-name {
+            color: inherit;
+            text-decoration: underline dotted;
+        }
     }
 
     .engine-hint {

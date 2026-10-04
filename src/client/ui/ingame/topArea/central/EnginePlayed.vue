@@ -8,10 +8,10 @@
             v-for="(play, i) in engine.played"
             :key="i"
             class="engine-played-line"
-            @mouseenter="gameBus.hoveredCard = engineOptionCards(play.option)[0] ?? null"
-            @mouseleave="gameBus.hoveredCard = null"
+            @mouseenter="hoverEngineCard(engineOptionCards(play.option)[0])"
+            @mouseleave="hoverEngineCard(null)"
         >
-            <strong>{{ play.player }}</strong> : {{ play.text }}
+            <strong>{{ play.player }}</strong> : <EngineText :text="play.text" />
         </div>
     </CentralPanel>
 </template>
@@ -23,20 +23,21 @@
  */
 import CentralPanel from '@/client/ui/ingame/topArea/central/CentralPanel.vue'
 import { useEngineStore } from '@/client/store/engine.ts'
-import { useGameBusStore } from '@/client/store/bus.ts'
 import { engineOptionCards } from '@/client/engine/driver.ts'
+import { hoverEngineCard } from '@/client/engine/cardNames.ts'
+import EngineText from '@/client/ui/ingame/EngineText.vue'
 
 const engine = useEngineStore()
-const gameBus = useGameBusStore()
 </script>
 
 <style lang="scss">
 .central-panel.engine-played {
+    // As legible as the other panels : their dark text on the panel's light ground
     gap: 2px;
-    font-size: 0.8rem;
+    font-size: 14px;
 
     .engine-played-line {
-        color: $pearl-grey;
+        cursor: default;
     }
 }
 </style>

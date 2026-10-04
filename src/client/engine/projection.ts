@@ -92,6 +92,8 @@ export class Projection {
     // Copy of each minion, by the engine's minion id, and of each card in play
     private minions = new Map<number, number>()
     private inPlay = new Map<number, number>()
+    // Copies in each seat's uncontrolled region, by slot
+    private uncontrolledSlots = new Map<number, number[]>()
     // Where each copy was in the previous view ( spot and host ) : a card that
     // changes spot without changing region is moved too ( played, then attached )
     private spots = new Map<number, string>()
@@ -122,6 +124,11 @@ export class Projection {
         return cardId === null || cardId === undefined ?
                 undefined
             :   this.card(this.inPlay.get(cardId))
+    }
+
+    // The card in a seat's uncontrolled region, by the engine's slot
+    uncontrolled(seat: number | undefined, slot: number): Card | undefined {
+        return seat === undefined ? undefined : this.card(this.uncontrolledSlots.get(seat)?.[slot])
     }
 
     player(seat: number): Player {
@@ -228,6 +235,7 @@ export class Projection {
         this.stacks = []
         this.minions.clear()
         this.inPlay.clear()
+        this.uncontrolledSlots.clear()
 
         for (const seat of view.seats) {
             const player = this.player(seat.seat)
@@ -255,6 +263,10 @@ export class Projection {
             stack(player.ashHeap, [...seat.ash_heap].reverse())
             stack(player.removed, [...seat.removed].reverse())
 
+            this.uncontrolledSlots.set(
+                seat.seat,
+                seat.uncontrolled.map(slot => slot.card.copy),
+            )
             seat.uncontrolled.forEach((slot, rank) =>
                 placements.set(slot.card.copy, {
                     card: slot.card,
@@ -314,7 +326,8 @@ export class Projection {
                         spot,
                         rank,
                         blood: minion.blood,
-                        greenCounter: 0,
+                        // Its corruption counters, as SC's green counter
+                        greenCounter: minion.corruption ?? 0,
                         isLocked: minion.locked,
                         isFlipped: minion.contested,
                     })

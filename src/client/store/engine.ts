@@ -3,8 +3,11 @@ import { EngineAllocation, EngineOption, EngineVotes } from '@/client/engine/pro
 
 export type EngineDecision = {
     decision: number
+    seat: number // The user's seat : what the options' slots and targets are relative to
     window: string
     options: EngineOption[]
+    // What the choice is for, when the options alone do not say ( a referendum's terms )
+    prompt?: string
     // The previous step of this multi-step choice can be taken back
     undo: boolean
     // An allocation of points under way : answered whole in the panel

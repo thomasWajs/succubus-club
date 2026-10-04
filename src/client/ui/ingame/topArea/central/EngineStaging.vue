@@ -12,8 +12,8 @@
                 :key="choice.key"
                 class="game-button small"
                 @click="narrowStaging(choice.options)"
-                @mouseenter="gameBus.hoveredCard = choice.card ?? null"
-                @mouseleave="gameBus.hoveredCard = null"
+                @mouseenter="hoverEngineCard(choice.card)"
+                @mouseleave="hoverEngineCard(null)"
             >
                 <template v-if="current.step.ask == 'mode' && icons(choice).length > 0">
                     <DisciplineIcon
@@ -41,6 +41,12 @@
         class="engine-staging"
         :title="engine.pending?.window"
     >
+        <div
+            v-if="engine.pending?.prompt"
+            class="engine-staging-question"
+        >
+            <EngineText :text="engine.pending.prompt" />
+        </div>
         <div class="engine-staging-prompt">Click a glowing card, or :</div>
         <div class="engine-staging-choices">
             <button
@@ -48,8 +54,8 @@
                 :key="option.index"
                 class="game-button small"
                 @click="pick(option)"
-                @mouseenter="gameBus.hoveredCard = engineOptionCards(option)[0] ?? null"
-                @mouseleave="gameBus.hoveredCard = null"
+                @mouseenter="hoverEngineCard(engineOptionCards(option)[0])"
+                @mouseleave="hoverEngineCard(null)"
             >
                 {{ option.text }}
             </button>
@@ -59,9 +65,10 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted } from 'vue'
+import { hoverEngineCard } from '@/client/engine/cardNames.ts'
+import EngineText from '@/client/ui/ingame/EngineText.vue'
 import CentralPanel from '@/client/ui/ingame/topArea/central/CentralPanel.vue'
 import DisciplineIcon from '@/client/ui/components/DisciplineIcon.vue'
-import { useGameBusStore } from '@/client/store/bus.ts'
 import { useEngineStore } from '@/client/store/engine.ts'
 import { chooseEngineOption, engineOptionCards } from '@/client/engine/driver.ts'
 import { EngineOption } from '@/client/engine/protocol.ts'
@@ -81,14 +88,13 @@ import { Discipline, DisciplineCode, DisciplineLevel } from '@/shared/const/mode
  * of the table ( those glow ), and a way out.
  */
 
-const gameBus = useGameBusStore()
 const engine = useEngineStore()
 
 const picks = computed(() => engine.pending?.options.filter(isPick) ?? [])
 const picking = computed(() => picks.value.length > 0)
 
 function pick(option: EngineOption) {
-    gameBus.hoveredCard = null
+    hoverEngineCard(null)
     chooseEngineOption(option.index)
 }
 
@@ -133,6 +139,13 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
 
 <style lang="scss">
 .engine-staging {
+    // What the pick is for : the panel's question
+    .engine-staging-question {
+        font-size: 15px;
+        font-weight: bold;
+        text-align: center;
+    }
+
     .engine-staging-prompt {
         font-size: 14px;
         margin-bottom: 6px;

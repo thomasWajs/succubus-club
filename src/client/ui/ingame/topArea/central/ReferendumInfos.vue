@@ -11,7 +11,7 @@
                 v-for="(line, i) in engine.terms"
                 :key="i"
             >
-                {{ line }}
+                <EngineText :text="line" />
             </div>
         </div>
         <div class="referendum-body">
@@ -194,6 +194,7 @@ import { Player } from '@/shared/model/Player.ts'
 import PropertyStepper from '@/client/ui/components/PropertyStepper.vue'
 import CentralPanel from '@/client/ui/ingame/topArea/central/CentralPanel.vue'
 import { useEngineStore } from '@/client/store/engine.ts'
+import EngineText from '@/client/ui/ingame/EngineText.vue'
 
 const props = defineProps<{
     referendum: ReferendumState
@@ -298,9 +299,9 @@ function changePlayerVotes(player: Player, side: VoteSide, amount: number) {
 
 <style lang="scss">
 .central-panel.referendum-infos {
+    // The panel's own dark text, a little larger than its dense table
     .referendum-terms {
-        font-size: 0.85rem;
-        color: $pearl-grey;
+        font-size: 14px;
         text-align: center;
         margin-bottom: 4px;
     }

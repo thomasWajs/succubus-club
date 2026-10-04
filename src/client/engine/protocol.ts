@@ -49,6 +49,7 @@ export type EngineMinion = {
     owner: number | null
     cards: EngineInPlay[]
     markers: string[]
+    corruption?: number // Corruption counters on it, all Methuselahs'
 }
 
 export type EngineSlot = {
@@ -184,6 +185,7 @@ export type EngineOut =
           seat: number
           window: string
           options: EngineOption[]
+          prompt?: string // What the choice is for, when the options alone do not say ( a referendum's terms )
           undo: boolean // The previous step of this multi-step choice can be taken back
           allocation?: EngineAllocation
           votes?: EngineVotes

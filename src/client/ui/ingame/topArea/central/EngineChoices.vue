@@ -6,6 +6,12 @@
             class="engine-choices"
             title="Referendum terms"
         >
+            <div
+                v-if="pending.prompt"
+                class="engine-choices-prompt"
+            >
+                <EngineText :text="pending.prompt" />
+            </div>
             <div class="engine-choices-hint">
                 Allocate {{ allocation.points }} points{{
                     allocation.min_nonzero > 1 ? ` among ${allocation.min_nonzero} or more` : ''
@@ -16,7 +22,7 @@
                 :key="i"
                 class="engine-choices-row"
                 @mouseenter="hoverRecipient(i)"
-                @mouseleave="gameBus.hoveredCard = null"
+                @mouseleave="hoverEngineCard(null)"
             >
                 <span class="engine-choices-name">{{ recipient.name }}</span>
                 <button
@@ -117,7 +123,7 @@
 
         <!-- The steps of a combat ( and what follows a block ) -->
         <CentralPanel
-            v-if="combatOptions.length > 0"
+            v-if="combatOptions.length > 0 || combatPass"
             class="engine-choices"
             :title="combatTitle"
         >
@@ -127,10 +133,18 @@
                     :key="option.index"
                     class="game-button"
                     @click="choose(option)"
-                    @mouseenter="gameBus.hoveredCard = engineOptionCards(option)[0] ?? null"
-                    @mouseleave="gameBus.hoveredCard = null"
+                    @mouseenter="hoverEngineCard(engineOptionCards(option)[0])"
+                    @mouseleave="hoverEngineCard(null)"
                 >
                     {{ option.text }}
+                </button>
+                <!-- The combat's pass ( no press, no maneuver… ) next to its choices -->
+                <button
+                    v-if="combatPass"
+                    class="game-button"
+                    @click="choose(combatPass)"
+                >
+                    {{ combatPass.text }}
                 </button>
             </div>
             <div
@@ -151,9 +165,10 @@
  * engine/interaction.ts ), and every option in the console.
  */
 import { computed, ref, watch } from 'vue'
+import { hoverEngineCard } from '@/client/engine/cardNames.ts'
+import EngineText from '@/client/ui/ingame/EngineText.vue'
 import CentralPanel from '@/client/ui/ingame/topArea/central/CentralPanel.vue'
 import { useEngineStore } from '@/client/store/engine.ts'
-import { useGameBusStore } from '@/client/store/bus.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import {
     allocateEngine,
@@ -165,7 +180,6 @@ import { combatOptions as combatOf, xOptions } from '@/client/engine/interaction
 import { EngineOption } from '@/client/engine/protocol.ts'
 
 const engine = useEngineStore()
-const gameBus = useGameBusStore()
 
 const pending = computed(() => engine.pending)
 
@@ -200,7 +214,7 @@ const allocationProblem = computed(() => {
 
 function allocate() {
     if (!allocationProblem.value) {
-        gameBus.hoveredCard = null
+        hoverEngineCard(null)
         allocateEngine([...amounts.value])
     }
 }
@@ -208,10 +222,9 @@ function allocate() {
 // Show on the table the card a recipient is ( a location or an equipment )
 function hoverRecipient(i: number) {
     const card = allocation.value?.recipients[i].card
-    gameBus.hoveredCard =
-        card ?
-            (engineOptionCards({ index: -1, kind: 'allocate_to_card', text: '', card })[0] ?? null)
-        :   null
+    hoverEngineCard(
+        card ? engineOptionCards({ index: -1, kind: 'allocate_to_card', text: '', card })[0] : null,
+    )
 }
 
 const xValues = computed(() => xOptions(pending.value?.options ?? []))
@@ -224,6 +237,10 @@ const referendumPass = computed(() =>
 )
 
 const combatOptions = computed(() => combatOf(pending.value?.options ?? []))
+// During a combat, its pass in the central box too : not only in the side panel
+const combatPass = computed(() =>
+    pending.value?.combat ? pending.value.options.find(option => option.kind == 'pass') : undefined,
+)
 const combatTitle = computed(() => {
     const combat = pending.value?.combat
     return combat ?
@@ -232,7 +249,7 @@ const combatTitle = computed(() => {
 })
 
 function choose(option: EngineOption) {
-    gameBus.hoveredCard = null
+    hoverEngineCard(null)
     chooseEngineOption(option.index)
 }
 </script>
@@ -241,9 +258,15 @@ function choose(option: EngineOption) {
 .central-panel.engine-choices {
     gap: 6px;
 
+    // What the allocation is for : the panel's question
+    .engine-choices-prompt {
+        font-size: 15px;
+        font-weight: bold;
+        text-align: center;
+    }
+
     .engine-choices-hint {
-        font-size: 0.8rem;
-        color: $silver-grey;
+        font-size: 14px;
     }
 
     .engine-choices-row {

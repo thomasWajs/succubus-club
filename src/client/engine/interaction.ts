@@ -115,16 +115,14 @@ function modeLabel(option: EngineOption): string {
 function targetLabel(option: EngineOption): string {
     // The text ends with the target : "Play X with A on B"
     const on = option.text.lastIndexOf(' on ')
-    return (
-        option.target?.kind == 'seat' && on >= 0 ? option.text.slice(on + 4)
-        : option.target ? option.text
-        : 'No target'
-    )
+    return option.target?.kind == 'seat' && on >= 0 ? option.text.slice(on + 4) : option.text
 }
 
+// The card of the table a target is : a minion, a card in play, a vampire in the uncontrolled
+// region ( Govern the Unaligned, Enchant Kindred at superior )
 function targetCard(option: EngineOption): Card | undefined {
     const target = option.target
-    if (target?.kind != 'minion' && target?.kind != 'card') {
+    if (target?.kind != 'minion' && target?.kind != 'card' && target?.kind != 'uncontrolled') {
         return undefined
     }
     return engineOptionCards({ index: -1, kind: 'target', text: '', target })[0]

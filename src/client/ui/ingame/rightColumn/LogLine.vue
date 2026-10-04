@@ -48,12 +48,16 @@
             class="mutation"
             v-html="mutationLogHtml"
         />
-        <!-- Escape text from chat to avoid XSS -->
+        <!-- Escape text from chat to avoid XSS. A game with the rules engine : its lines name cards -->
         <span
             v-else
             class="mutation"
         >
-            {{ logEntry.text }}
+            <EngineText
+                v-if="isEngine"
+                :text="logEntry.text"
+            />
+            <template v-else>{{ logEntry.text }}</template>
         </span>
     </div>
     <Teleport to="body">
@@ -96,6 +100,8 @@ import { OID_PREFIX } from '@/shared/const/multiplayer.ts'
 import { LogEntry } from '@/shared/types/history.ts'
 import { CardOid } from '@/shared/types/model.ts'
 import { cancelMutation } from '@/client/state/gameMutations.ts'
+import { GameType } from '@/shared/types/state.ts'
+import EngineText from '@/client/ui/ingame/EngineText.vue'
 
 const players = usePlayersStore()
 const gameBus = useGameBusStore()
@@ -130,6 +136,9 @@ const mutationLogHtml = computed(() => {
     }
     return logEntry.text.replace(CARD_LOG_PLACEHOLDER, cardText)
 })
+
+// A game with the rules engine : its lines name cards ( see EngineText )
+const isEngine = computed(() => gameState.gameType == GameType.Engine)
 
 /** Unlock All helpers **/
 

@@ -18,6 +18,7 @@ import { AnyGameMutation } from '@/shared/state/gameMutations.ts'
 import { Invalid, VALID, Validity } from '@/shared/types/state.ts'
 import { matchGesture, onCardLabel } from '@/client/engine/gestures.ts'
 import { autoplayStaging } from '@/client/engine/interaction.ts'
+import { forgetCardNames, learnCardNames } from '@/client/engine/cardNames.ts'
 
 // Dev : the user's seat is played at random and nothing pauses, to run a whole game
 const AUTOPLAY = !!import.meta.env.VITE_ENGINE_AUTOPLAY
@@ -47,6 +48,7 @@ export function isEngineProjecting() {
 
 export function stopEngine() {
     running = null
+    forgetCardNames()
     useEngineStore().$reset()
 }
 
@@ -163,19 +165,22 @@ export function engineGesture(gameMutation: AnyGameMutation): Validity {
     return Invalid(`${matches.length} ways to do this : pick one in the panel`)
 }
 
-// The cards an option is about, to show them on the table
-export function engineOptionCards(option: EngineOption): Card[] {
+// The cards an option is about, to show them on the table. `seat` : the seat deciding ( the
+// user's pending decision by default ), whose uncontrolled region a slot target is in
+export function engineOptionCards(option: EngineOption, seat?: number): Card[] {
     if (!running) {
         return []
     }
     const { projection } = running
     const target = option.target
+    const decider = seat ?? useEngineStore().pending?.seat
     return [
         projection.card(option.card?.copy) ?? projection.cardInPlay(option.card?.card_id),
         projection.minion(option.minion),
         projection.minion(option.actor),
         target?.kind == 'minion' ? projection.minion(target.minion) : undefined,
         target?.kind == 'card' ? projection.cardInPlay(target.card_id) : undefined,
+        target?.kind == 'uncontrolled' ? projection.uncontrolled(decider, target.slot) : undefined,
     ].filter((card): card is Card => card !== undefined)
 }
 
@@ -212,6 +217,8 @@ function project(current: Running, out: EngineOut) {
     projecting = true
     try {
         current.projection.apply(out.view)
+        // The cards the log's lines can name
+        learnCardNames()
         // The cards played during the action, until it is over
         if (!out.view.action) {
             useEngineStore().played = []
@@ -278,7 +285,7 @@ function narrate(current: Running, out: EngineOut) {
             option: out.choice,
         })
     }
-    const cards = engineOptionCards(out.choice)
+    const cards = engineOptionCards(out.choice, out.seat)
     if (cards.length > 0 && out.choice.kind != 'pass') {
         useGameBusStore().pingCard(cards[0].oid)
     }
@@ -288,6 +295,7 @@ export async function runEngine(host: EngineHost, projection: Projection) {
     const engine = useEngineStore()
     const current: Running = { host, projection, answer: null, repeat: null }
     running = current
+    forgetCardNames()
 
     try {
         while (running === current) {
@@ -318,8 +326,10 @@ export async function runEngine(host: EngineHost, projection: Projection) {
             engine.staging = null
             engine.pending = {
                 decision: out.decision,
+                seat: out.seat,
                 window: out.window,
                 options: out.options,
+                prompt: out.prompt,
                 undo: out.undo,
                 allocation: out.allocation,
                 votes: out.votes,

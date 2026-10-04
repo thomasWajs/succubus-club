@@ -14,6 +14,7 @@ import { BOT_NAME, BOT_PERM_ID } from '@/shared/const/bot.ts'
 import { InvalidDeck } from '@/shared/types/errors.ts'
 import { shuffleArray } from '@/shared/utils.ts'
 import { PlayerOid } from '@/shared/types/model.ts'
+import { DeckList } from '@/shared/types/gateway.ts'
 import {
     checkEngineDeck,
     engineCatalog,
@@ -30,6 +31,17 @@ const ENGINE_NB_BOT_DECKS = 14
 // Without the trained network's weights, the engine's scripted bots play
 const ENGINE_SCRIPTED_STYLES = ['aggro_bleed', 'wall']
 const ENGINE_NETWORK_STYLE = 'network'
+
+// Same cards in the same numbers ( a card at 0 copies counts as absent )
+function sameDeck(a: DeckList, b: DeckList): boolean {
+    const cards = (list: DeckList) =>
+        Object.entries(list)
+            .filter(([, n]) => n > 0)
+            .map(([id, n]) => `${id}:${n}`)
+            .sort()
+            .join(',')
+    return cards(a) == cards(b)
+}
 
 function deckErrorMessage(error: EngineDeckError): string {
     if (error.error == 'too_small') {
@@ -56,7 +68,13 @@ export async function setupEngineGame(): Promise<() => void> {
     if (deckError) {
         throw new InvalidDeck(deckErrorMessage(deckError))
     }
-    const botDecks = shuffleArray((await engineCatalog()).slice(0, ENGINE_NB_BOT_DECKS))
+    // Not the user's own deck, when it is one of the preconstructed decks
+    const selfCards = core.selfDeck.cards
+    const botDecks = shuffleArray(
+        (await engineCatalog())
+            .slice(0, ENGINE_NB_BOT_DECKS)
+            .filter(([, deck]) => !sameDeck(deck, selfCards)),
+    )
     const policy = await loadEnginePolicy()
 
     resetState()

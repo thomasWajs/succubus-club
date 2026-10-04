@@ -67,6 +67,10 @@ export function preloadAllTextures() {
 }
 
 export function setupTextureListener(scene: Phaser.Scene) {
+    // A new Phaser game starts with an empty texture manager : the images loaded on demand by an
+    // earlier game in this page are gone with it, and must be loaded again
+    loadedTextures.clear()
+    loadAttempts.clear()
     scene.textures.on('addtexture', (textureName: string) => {
         loadedTextures.add(textureName)
     })
