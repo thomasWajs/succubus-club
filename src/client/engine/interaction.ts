@@ -53,6 +53,17 @@ function isUse(option: EngineOption): boolean {
     return option.kind == 'play' || (option.kind == 'use_ability' && !!option.card)
 }
 
+// A vampire's own ability ( its card text ), during a combat or an action : a card of the
+// central box, as a card in play's is ( Flávio Gonçalves's dodge, Abaddon's maneuver ). Out of
+// them, the minion's menu holds it
+function isOwnAbility(option: EngineOption): boolean {
+    return (
+        option.kind == 'use_ability' &&
+        !option.card &&
+        (!!useEngineStore().pending?.combat || !!useGameStateStore().action)
+    )
+}
+
 // The card of the table an option is about : the card played or used, the minion acting, the
 // card picked
 function cardOf(option: EngineOption): Card | undefined {
@@ -250,7 +261,7 @@ const highlights = computed(() => {
         if (!card) {
             continue
         }
-        if (isUse(option)) {
+        if (isUse(option) || isOwnAbility(option)) {
             for (const copy of alike(card)) {
                 map.set(copy.oid, 'usable')
             }
@@ -341,7 +352,9 @@ export function engineCardClick(card: Card): boolean {
         return false
     }
     const options = pendingOptions()
-    const about = options.filter(o => (isUse(o) || isPick(o)) && isAlike(cardOf(o), card))
+    const about = options.filter(
+        o => (isUse(o) || isPick(o) || isOwnAbility(o)) && isAlike(cardOf(o), card),
+    )
     const played = options.filter(
         o => (o.kind == 'play' || o.kind == 'use_ability') && is(actorOf(o), card),
     )
@@ -424,7 +437,10 @@ export function cardChoices(options: EngineOption[]): StagingChoice[] {
         return []
     }
     const about = options.filter(
-        option => isUse(option) || (option.kind == 'round_strike' && !!option.card),
+        option =>
+            isUse(option) ||
+            isOwnAbility(option) ||
+            (option.kind == 'round_strike' && !!option.card),
     )
     return group(
         about,
@@ -466,7 +482,7 @@ export function answeredOnTable(option: EngineOption): boolean {
         case 'set_x':
             return xOptions(options).length > 0
     }
-    if (isUse(option) || isPick(option)) {
+    if (isUse(option) || isPick(option) || isOwnAbility(option)) {
         return !!cardOf(option)
     }
     // A vampire's own ability : in its menu, when it can act
