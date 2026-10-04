@@ -48,11 +48,12 @@
             >
                 {{ allocationProblem || 'Allocate' }}
             </button>
+            <EnginePassButton host="allocation" />
         </CentralPanel>
 
         <!-- All the votes one way : a standing order for the polling ; and the pass -->
         <CentralPanel
-            v-if="pending.votes || referendumPass"
+            v-if="pending.votes || passHost == 'votes'"
             class="engine-choices"
         >
             <div
@@ -80,14 +81,8 @@
             >
                 Play cards first : a vampire's bonus votes count only before it votes.
             </div>
-            <!-- During a referendum ( SC's action panel hidden ) : the pass, cast no more votes now -->
-            <button
-                v-if="referendumPass"
-                class="game-button"
-                @click="choose(referendumPass)"
-            >
-                {{ referendumPass.text }}
-            </button>
+            <!-- During a referendum : the pass, cast no more votes now -->
+            <EnginePassButton host="votes" />
         </CentralPanel>
 
         <!-- A value for X -->
@@ -119,14 +114,45 @@
                     {{ xValues[xAt]?.text }}
                 </button>
             </div>
+            <EnginePassButton host="x" />
         </CentralPanel>
 
         <!-- The steps of a combat ( and what follows a block ), the cards to play or use then -->
         <CentralPanel
-            v-if="combatOptions.length > 0 || combatPass || (pending.combat && cards.length > 0)"
+            v-if="combatOptions.length > 0 || pending.combat"
             class="engine-choices"
             :title="combatTitle"
         >
+            <!-- Each side : its strike, once declared ( the opponent's, to answer it ), what it has -->
+            <div
+                v-if="pending.combat && pending.combat.sides.length > 0"
+                class="engine-combat-sides"
+            >
+                <div
+                    v-for="(side, i) in pending.combat.sides"
+                    :key="i"
+                    class="engine-combat-side"
+                    :class="{ own: side.own, opponent: !side.own }"
+                >
+                    <span class="engine-combat-name">{{ side.name }}</span>
+                    <span
+                        v-if="side.strike"
+                        class="engine-combat-strike"
+                        >{{ side.strike }}</span
+                    >
+                    <span
+                        v-else
+                        class="engine-combat-choosing"
+                        >choosing…</span
+                    >
+                    <span
+                        v-if="side.maneuvers > 0 || side.presses > 0"
+                        class="engine-combat-banked"
+                    >
+                        {{ banked(side) }}
+                    </span>
+                </div>
+            </div>
             <div class="engine-choices-buttons">
                 <button
                     v-for="option in combatOptions"
@@ -150,13 +176,7 @@
                     {{ choice.label }}
                 </button>
                 <!-- The combat's pass ( no press, no maneuver… ) next to its choices -->
-                <button
-                    v-if="combatPass"
-                    class="game-button"
-                    @click="choose(combatPass)"
-                >
-                    {{ combatPass.text }}
-                </button>
+                <EnginePassButton host="combat" />
             </div>
             <div
                 v-if="pending.combat && cards.length == 0"
@@ -183,6 +203,8 @@
                 >
                     {{ choice.label }}
                 </button>
+                <!-- The action's pass ( no block, no reaction… ), with what can be played instead -->
+                <EnginePassButton host="cards" />
             </div>
         </CentralPanel>
     </template>
@@ -199,8 +221,8 @@ import { computed, ref, watch } from 'vue'
 import { hoverEngineCard } from '@/client/engine/cardNames.ts'
 import EngineText from '@/client/ui/ingame/EngineText.vue'
 import CentralPanel from '@/client/ui/ingame/topArea/central/CentralPanel.vue'
-import { useEngineStore } from '@/client/store/engine.ts'
-import { useGameStateStore } from '@/client/store/gameState.ts'
+import { EngineCombatSideView, useEngineStore } from '@/client/store/engine.ts'
+import EnginePassButton from '@/client/ui/ingame/topArea/central/EnginePassButton.vue'
 import {
     allocateEngine,
     chooseEngineOption,
@@ -209,6 +231,7 @@ import {
 } from '@/client/engine/driver.ts'
 import {
     cardChoices,
+    centralPass,
     combatOptions as combatOf,
     narrowStaging,
     StagingChoice,
@@ -268,16 +291,22 @@ const xValues = computed(() => xOptions(pending.value?.options ?? []))
 const xAt = ref(0)
 watch(xValues, () => (xAt.value = 0))
 
-const gameState = useGameStateStore()
-const referendumPass = computed(() =>
-    gameState.referendum ? pending.value?.options.find(option => option.kind == 'pass') : undefined,
-)
+// The pass's panel, the topmost ( see centralPass )
+const passHost = computed(() => centralPass.value?.host)
 
 const combatOptions = computed(() => combatOf(pending.value?.options ?? []))
-// During a combat, its pass in the central box too : not only in the side panel
-const combatPass = computed(() =>
-    pending.value?.combat ? pending.value.options.find(option => option.kind == 'pass') : undefined,
-)
+
+// What a side has for the round
+function banked(side: EngineCombatSideView): string {
+    const parts = []
+    if (side.maneuvers > 0) {
+        parts.push(`${side.maneuvers} maneuver${side.maneuvers > 1 ? 's' : ''}`)
+    }
+    if (side.presses > 0) {
+        parts.push(`${side.presses} press${side.presses > 1 ? 'es' : ''}`)
+    }
+    return parts.join(', ')
+}
 const combatTitle = computed(() => {
     const combat = pending.value?.combat
     return combat ?
@@ -328,6 +357,44 @@ function choose(option: EngineOption) {
     .engine-choices-amount {
         min-width: 1.5em;
         text-align: center;
+    }
+
+    // The combat's sides, the acting minion first : the opponent's strike stands out
+    .engine-combat-sides {
+        align-self: stretch;
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+        font-size: 14px;
+    }
+
+    .engine-combat-side {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-width: 0;
+        flex: 1 1 0;
+        padding: 3px 8px;
+        border: 1px solid rgba($shadow-grey, 0.4);
+
+        .engine-combat-name {
+            font-weight: bold;
+        }
+
+        .engine-combat-choosing {
+            font-style: italic;
+            opacity: 0.7;
+        }
+
+        .engine-combat-banked {
+            font-size: 12px;
+        }
+
+        &.opponent .engine-combat-strike {
+            font-size: 16px;
+            font-weight: bold;
+            color: $crimson-red;
+        }
     }
 
     .engine-choices-buttons {

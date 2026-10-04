@@ -115,12 +115,11 @@ export function resetCamera() {
         camera.scrollX = scrollToX0 - display.horizontalSpaceAvailable / display.scale
         // If there's some horizontal space left, add some padding
         camera.scrollX += display.horizontalPadding
-
-        camera.scrollY = scrollToY0
     } else {
         camera.scrollX = scrollToX0 - display.horizontalSpaceAvailable / 2 / display.scale
-        camera.scrollY = scrollToY0 - display.verticalSpaceAvailable / 2 / display.scale
     }
+    // At the bottom of the display ( see display.worldTop )
+    camera.scrollY = scrollToY0 - display.worldTop / display.scale
 }
 
 /**

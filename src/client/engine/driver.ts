@@ -102,17 +102,30 @@ function randomAmounts(allocation: EngineAllocation): number[] {
 }
 
 // The combat under way, by its minions' names
-function combatOf(view: EngineView): EngineCombat | null {
+// `seat` : the user's, deciding
+function combatOf(view: EngineView, seat: number): EngineCombat | null {
     if (!view.combat) {
         return null
     }
     const minions = view.seats.flatMap(seat => [...seat.ready, ...seat.torpor])
     const name = (id: number) => minions.find(m => m.minion == id)?.name ?? 'a minion'
+    const own = (id: number) =>
+        view.seats.some(
+            other =>
+                other.seat == seat && [...other.ready, ...other.torpor].some(m => m.minion == id),
+        )
     const [acting, opposing] = view.combat.minions
     return {
         minions: [name(acting), name(opposing)],
         round: view.combat.round,
         range: view.combat.range,
+        sides: (view.combat.sides ?? []).map(side => ({
+            name: name(side.minion),
+            own: own(side.minion),
+            strike: side.strike,
+            maneuvers: side.maneuvers,
+            presses: side.presses,
+        })),
     }
 }
 
@@ -342,7 +355,7 @@ export async function runEngine(host: EngineHost, projection: Projection) {
                 undo: out.undo,
                 allocation: out.allocation,
                 votes: out.votes,
-                combat: combatOf(out.view),
+                combat: combatOf(out.view, out.seat),
             }
             // The rest of a move worth several decisions
             const repeat = current.repeat

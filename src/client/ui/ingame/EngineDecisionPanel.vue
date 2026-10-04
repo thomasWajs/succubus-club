@@ -1,92 +1,108 @@
 <template>
     <div
-        v-if="engine.pending || engine.status || engine.result"
-        class="engine-decision-panel"
+        v-if="onTable || hasDecision"
+        class="engine-side"
         :class="{ 'on-table': onTable }"
         :style="style"
     >
-        <template v-if="engine.result">
-            <div class="engine-window">Game over</div>
-            <div
-                v-for="player in players.orderedPlayers"
-                :key="player.oid"
-                class="engine-result"
-            >
-                {{ player.name }} : {{ player.victoryPoints }} VP
-            </div>
-        </template>
-
-        <template v-else-if="engine.pending">
-            <div class="engine-window">Your decision : {{ engine.pending.window }}</div>
-            <div
-                v-if="engine.pending.prompt"
-                class="engine-prompt"
-            >
-                <EngineText :text="engine.pending.prompt" />
-            </div>
-            <div
-                v-if="elsewhere.length > 0"
-                class="engine-hint"
-            >
-                Act on the table{{ shown.length > 0 ? ', or :' : '' }}
-            </div>
-            <button
-                v-for="option in shown"
-                :key="option.index"
-                class="engine-option"
-                :class="{ pass: option.kind == 'pass', relevant: relevant.has(option.index) }"
-                @click="choose(option)"
-                @mouseenter="hover(option)"
-                @mouseleave="hoverEngineCard(null)"
-            >
-                {{ option.text }}
-            </button>
-
-            <!-- Every option, as a fallback : those answered on the table too -->
-            <template v-if="elsewhere.length > 0">
-                <a
-                    class="engine-all"
-                    @click="showAll = !showAll"
-                >
-                    {{ showAll ? 'Hide the other options' : `All options ( ${options.length} )` }}
-                </a>
-                <template v-if="showAll">
-                    <button
-                        v-for="option in elsewhere"
-                        :key="option.index"
-                        class="engine-option elsewhere"
-                        :class="{ pass: option.kind == 'pass' }"
-                        @click="choose(option)"
-                        @mouseenter="hover(option)"
-                        @mouseleave="hoverEngineCard(null)"
-                    >
-                        {{ option.text }}
-                    </button>
-                </template>
-            </template>
-        </template>
-
+        <!-- The turn and its phases, SC's controls : here, the top area left to the central box -->
         <div
-            v-else
-            class="engine-status"
+            v-if="onTable"
+            class="engine-tracker"
         >
-            {{ engine.status }}
+            <TurnControls />
+            <GameControlsBar />
         </div>
 
-        <button
-            v-if="engine.pending?.undo"
-            class="engine-option undo"
-            @click="undoEngineStep()"
+        <div
+            v-if="hasDecision"
+            class="engine-decision-panel"
         >
-            Take back my last decision ( ⟵ )
-        </button>
+            <template v-if="engine.result">
+                <div class="engine-window">Game over</div>
+                <div
+                    v-for="player in players.orderedPlayers"
+                    :key="player.oid"
+                    class="engine-result"
+                >
+                    {{ player.name }} : {{ player.victoryPoints }} VP
+                </div>
+            </template>
 
-        <a
-            class="engine-replay"
-            @click="exportReplay()"
-        >
-            Export replay
-        </a>
+            <template v-else-if="engine.pending">
+                <div class="engine-window">Your decision : {{ engine.pending.window }}</div>
+                <div
+                    v-if="engine.pending.prompt"
+                    class="engine-prompt"
+                >
+                    <EngineText :text="engine.pending.prompt" />
+                </div>
+                <div
+                    v-if="elsewhere.length > 0"
+                    class="engine-hint"
+                >
+                    Act on the table{{ shown.length > 0 ? ', or :' : '' }}
+                </div>
+                <button
+                    v-for="option in shown"
+                    :key="option.index"
+                    class="engine-option"
+                    :class="{ pass: option.kind == 'pass', relevant: relevant.has(option.index) }"
+                    @click="choose(option)"
+                    @mouseenter="hover(option)"
+                    @mouseleave="hoverEngineCard(null)"
+                >
+                    {{ option.text }}
+                </button>
+
+                <!-- Every option, as a fallback : those answered on the table too -->
+                <template v-if="elsewhere.length > 0">
+                    <a
+                        class="engine-all"
+                        @click="showAll = !showAll"
+                    >
+                        {{
+                            showAll ? 'Hide the other options' : `All options ( ${options.length} )`
+                        }}
+                    </a>
+                    <template v-if="showAll">
+                        <button
+                            v-for="option in elsewhere"
+                            :key="option.index"
+                            class="engine-option elsewhere"
+                            :class="{ pass: option.kind == 'pass' }"
+                            @click="choose(option)"
+                            @mouseenter="hover(option)"
+                            @mouseleave="hoverEngineCard(null)"
+                        >
+                            {{ option.text }}
+                        </button>
+                    </template>
+                </template>
+            </template>
+
+            <div
+                v-else
+                class="engine-status"
+            >
+                {{ engine.status }}
+            </div>
+
+            <button
+                v-if="engine.pending?.undo"
+                class="engine-option undo"
+                @click="undoEngineStep()"
+            >
+                Take back my last decision ( ⟵ )
+            </button>
+
+            <a
+                class="engine-replay"
+                @click="exportReplay()"
+            >
+                Export replay
+            </a>
+        </div>
     </div>
 </template>
 
@@ -107,6 +123,9 @@ import { answeredOnTable } from '@/client/engine/interaction.ts'
 import { display } from '@/client/game/display.ts'
 import { WorldAlignment } from '@/client/gateway/db.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
+import { useEngineSide } from '@/client/ui/ingame/engineSide.ts'
+import TurnControls from '@/client/ui/ingame/topArea/TurnControls.vue'
+import GameControlsBar from '@/client/ui/ingame/topArea/GameControlsBar.vue'
 import {
     BOTTOM_PLAYERS_Y,
     HAND_Y,
@@ -124,12 +143,14 @@ const { worldAlignment } = useUIFeatures()
 /**
  * Where the panel sits : on the table, in the seat left free at the bottom
  * right by a table of 4 players or less ( placed and scaled like the top
- * area ). Floating at the top right otherwise ( 5 players, focus mode ).
+ * area ), under the turn and its phases. Floating at the top right otherwise
+ * ( 5 players, focus mode ), the turn in the top area then.
  */
 const PANEL_WIDTH = WORLD_WIDTH - RIGHT_PLAYERS_X - OTHER_PLAYERS_HORIZONTAL_GUTTER
 const PANEL_HEIGHT = HAND_Y - BOTTOM_PLAYERS_Y - 2 * OTHER_PLAYERS_HORIZONTAL_GUTTER
 
-const onTable = computed(() => display.rightColumnVisible && players.orderedPlayers.length <= 4)
+const onTable = useEngineSide()
+const hasDecision = computed(() => !!(engine.pending || engine.status || engine.result))
 
 const style = computed(() => {
     if (!onTable.value) {
@@ -140,7 +161,7 @@ const style = computed(() => {
         topRight ?
             display.actualWidth - (WORLD_WIDTH + display.horizontalPadding) * display.scale
         :   display.horizontalSpaceAvailable / 2
-    const offsetTop = topRight ? 0 : display.verticalSpaceAvailable / 2
+    const offsetTop = display.worldTop
     return {
         left: `${RIGHT_PLAYERS_X * display.scale + offsetLeft}px`,
         top: `${(BOTTOM_PLAYERS_Y + OTHER_PLAYERS_HORIZONTAL_GUTTER) * display.scale + offsetTop}px`,
@@ -209,7 +230,7 @@ function choose(option: EngineOption) {
 </script>
 
 <style lang="scss">
-.engine-decision-panel {
+.engine-side {
     // Floating at the top right, unless it sits on the table ( see `style` )
     position: absolute;
     top: 70px;
@@ -218,14 +239,72 @@ function choose(option: EngineOption) {
     width: 300px;
     max-height: 60vh;
     box-sizing: border-box;
-    overflow-y: auto;
-    background: $ash-grey;
-    border: 2px solid $lighter-teal;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
 
     &.on-table {
         right: auto;
         transform-origin: top left;
     }
+}
+
+// The turn and its phases, SC's controls ( TurnControls, GameControlsBar ), laid out for the
+// seat's width : the turn and the menus, then the phases and Unlock All
+.engine-tracker {
+    flex: none;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    justify-content: space-between;
+    row-gap: 5px;
+
+    .turn-controls,
+    .game-controls {
+        display: contents;
+    }
+
+    .turn {
+        order: 1;
+    }
+    .game-mutations {
+        order: 2;
+        width: auto;
+        gap: 4px;
+    }
+    .phases {
+        order: 3;
+    }
+    .right-controls {
+        order: 4;
+        width: auto;
+        margin-left: 0;
+    }
+    .timer {
+        order: 5;
+        &:empty {
+            display: none;
+        }
+    }
+
+    .turn .active-player {
+        width: 110px;
+        max-width: 110px;
+    }
+
+    // SC's count of the cards with an effect now : the engine's glow tells what can be used
+    .cards-during-current-phase {
+        display: none;
+    }
+}
+
+.engine-decision-panel {
+    flex: 0 1 auto;
+    min-height: 0;
+    box-sizing: border-box;
+    overflow-y: auto;
+    background: $ash-grey;
+    border: 2px solid $lighter-teal;
 
     display: flex;
     flex-direction: column;

@@ -85,7 +85,6 @@ export const WORLD_HEIGHT = HD_HEIGHT // 1080 px
 
 export const PLAY_AREA_WIDTH = 64 * GRID_SIZE //640px
 export const PLAY_AREA_X = (WORLD_WIDTH - PLAY_AREA_WIDTH) / 2 // 469 px
-export const PLAY_AREA_Y = WORLD_HEIGHT * 0.25 + 1 // 271px
 
 export const PLAYER_BAR_HEIGHT = 3 * GRID_SIZE // 30px
 export const CONTROLLED_ZONE_HEIGHT = 39 * GRID_SIZE // 370px
@@ -105,13 +104,19 @@ export const VERTICAL_SEPARATOR_DEFAULT_X = PLAY_AREA_WIDTH - UNCONTROLLED_WIDTH
 export const VERTICAL_SEPARATOR_MIN_X = 8 * GRID_SIZE
 export const VERTICAL_SEPARATOR_MAX_X = PLAY_AREA_WIDTH - VERTICAL_SEPARATOR_MIN_X
 
-export const HAND_HEIGHT = 205
+// The hand at the very bottom of the world : its cards ( CARD_IN_HAND_SCALE ) fill its height
+export const HAND_HEIGHT = CARD_HEIGHT * CARD_IN_HAND_SCALE // 200px
 export const HAND_WIDTH = WORLD_WIDTH * 0.99
 export const HAND_X = (WORLD_WIDTH - HAND_WIDTH) / 2
-export const HAND_Y = WORLD_HEIGHT - HAND_HEIGHT
+export const HAND_Y = WORLD_HEIGHT - HAND_HEIGHT // 880px
+
+// The central player's play area right above the hand, leaving the room above it to the top area
+export const HAND_GUTTER = 8
+export const PLAY_AREA_Y = HAND_Y - HAND_GUTTER - PLAY_AREA_HEIGHT // 298px
 
 export const TOP_AREA_WIDTH = PLAY_AREA_WIDTH
-export const TOP_AREA_HEIGHT = WORLD_HEIGHT - PLAY_AREA_HEIGHT - HAND_HEIGHT - 10
+// Down to the central player's bar ( its name and pool, overlapped by the top area's margin )
+export const TOP_AREA_HEIGHT = PLAY_AREA_Y + 20 // 318px
 export const TOP_AREA_X = PLAY_AREA_X
 
 export const OTHER_PLAYERS_HORIZONTAL_GUTTER = 12

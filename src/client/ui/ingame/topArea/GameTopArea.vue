@@ -28,9 +28,12 @@
             @pointerdown="forwardPointerEvent"
             @pointerup="forwardPointerEvent"
         >
-            <TurnControls />
+            <!-- On the side in a game with the rules engine ( see EngineDecisionPanel ) -->
+            <template v-if="!trackerAside">
+                <TurnControls />
 
-            <GameControlsBar />
+                <GameControlsBar />
+            </template>
 
             <CentralBox />
         </div>
@@ -49,6 +52,7 @@ import { useGameStateStore } from '@/client/store/gameState.ts'
 import TurnControls from '@/client/ui/ingame/topArea/TurnControls.vue'
 import GameControlsBar from '@/client/ui/ingame/topArea/GameControlsBar.vue'
 import CentralBox from '@/client/ui/ingame/topArea/CentralBox.vue'
+import { useEngineSide } from '@/client/ui/ingame/engineSide.ts'
 
 const core = useCoreStore()
 const bus = useBusStore()
@@ -58,6 +62,7 @@ const gameState = useGameStateStore()
 const isCollapsed = ref(false)
 
 const { worldAlignment } = useUIFeatures()
+const trackerAside = useEngineSide()
 
 const style = computed(() => {
     const baseStyle = {
@@ -72,20 +77,21 @@ const style = computed(() => {
         return baseStyle
     }
 
-    let offsetLeft, top
-    if (worldAlignment.value == WorldAlignment.TopRight) {
-        offsetLeft = display.actualWidth - (WORLD_WIDTH + display.horizontalPadding) * display.scale
-        top = 0
-    } else {
-        offsetLeft = display.horizontalSpaceAvailable / 2
-        top = display.verticalSpaceAvailable / 2
-    }
-
+    const offsetLeft =
+        worldAlignment.value == WorldAlignment.TopRight ?
+            display.actualWidth - (WORLD_WIDTH + display.horizontalPadding) * display.scale
+        :   display.horizontalSpaceAvailable / 2
     const left = TOP_AREA_X * display.scale + offsetLeft
+
+    // The world at the bottom of the display ( see display.worldTop ) : the space above it is
+    // the top area's too
+    const height = TOP_AREA_HEIGHT + display.worldTop / display.scale
 
     return {
         ...baseStyle,
-        top: `${top}px`,
+        height: `${height}px`,
+        maxHeight: `${height}px`,
+        top: '0px',
         left: `${left}px`,
     }
 })

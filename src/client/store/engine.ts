@@ -22,6 +22,18 @@ export type EngineCombat = {
     minions: [string, string] // The acting minion's side first
     round: number
     range: string
+    // Each side, the acting minion's first ( when the engine tells them )
+    sides: EngineCombatSideView[]
+}
+
+// A side of the combat : its minion, whether it is the user's, its strike once declared ( its text ),
+// its maneuvers and presses for the round
+export type EngineCombatSideView = {
+    name: string
+    own: boolean
+    strike?: string
+    maneuvers: number
+    presses: number
 }
 
 /**

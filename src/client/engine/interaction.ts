@@ -479,3 +479,34 @@ export function answeredOnTable(option: EngineOption): boolean {
     }
     return isCombatOption(option)
 }
+
+// The panels of the central box that can hold the pass, top first ( see centralPass )
+export type PassHost = 'picking' | 'allocation' | 'votes' | 'x' | 'combat' | 'cards' | 'action'
+
+/**
+ * The pass during an action, a combat or a referendum ( "Pass (no block)", "Pass (no press)"… ),
+ * and the panel of the central box it goes in : the topmost one shown, with what is happening
+ * ( a choice under way excepted : its own panel is about that choice ). Null for no pass there :
+ * in the side panel then.
+ */
+export const centralPass = computed((): { option: EngineOption; host: PassHost } | null => {
+    const pending = useEngineStore().pending
+    const gameState = useGameStateStore()
+    if (!pending || !(gameState.action || gameState.referendum || pending.combat)) {
+        return null
+    }
+    const option = pending.options.find(o => o.kind == 'pass')
+    if (!option) {
+        return null
+    }
+    // In the order of the central box's panels ( EngineStaging, EngineChoices, ActionInfos )
+    const host: PassHost =
+        !staging.value && pending.options.some(isPick) ? 'picking'
+        : pending.allocation ? 'allocation'
+        : pending.votes || gameState.referendum ? 'votes'
+        : xOptions(pending.options).length > 0 ? 'x'
+        : pending.combat || combatOptions(pending.options).length > 0 ? 'combat'
+        : cardChoices(pending.options).length > 0 ? 'cards'
+        : 'action'
+    return { option, host }
+})

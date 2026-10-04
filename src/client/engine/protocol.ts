@@ -84,6 +84,13 @@ export type EngineTarget =
     | { kind: 'uncontrolled'; slot: number }
     | { kind: 'card'; card_id: number }
 
+export type EngineCombatSide = {
+    minion: number
+    strike?: string
+    maneuvers: number
+    presses: number
+}
+
 export type EnginePhase = 'unlock' | 'master' | 'minion' | 'influence' | 'discard' | 'over'
 
 export type EngineView = {
@@ -111,7 +118,14 @@ export type EngineView = {
         mode?: EngineMode // The action card's Disciplines and level
         x?: number // The action card's X
     } | null
-    combat: { minions: [number, number]; round: number; range: string } | null
+    combat: {
+        minions: [number, number]
+        round: number
+        range: string
+        // Each side, the acting minion's first : the strike it declared this round ( its text, absent
+        // until declared ), the maneuvers and presses it has for the round
+        sides?: EngineCombatSide[]
+    } | null
     referendum: {
         caller: number
         calling: number | null

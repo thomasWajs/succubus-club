@@ -167,13 +167,8 @@
                     </strong>
                 </span>
 
-                <button
-                    v-if="enginePass"
-                    class="game-button"
-                    @click="chooseEngineOption(enginePass.index)"
-                >
-                    {{ enginePass.text }}
-                </button>
+                <!-- Here when no panel above it holds it ( see centralPass ) -->
+                <EnginePassButton host="action" />
             </div>
 
             <div
@@ -247,8 +242,7 @@ import { useGameStateStore } from '@/client/store/gameState.ts'
 import { LibraryCard } from '@/shared/model/Card.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
-import { useEngineStore } from '@/client/store/engine.ts'
-import { chooseEngineOption } from '@/client/engine/driver.ts'
+import EnginePassButton from '@/client/ui/ingame/topArea/central/EnginePassButton.vue'
 
 const props = defineProps<{
     action: ActionState
@@ -256,11 +250,9 @@ const props = defineProps<{
 
 const gameState = useGameStateStore()
 const players = usePlayersStore()
-const engine = useEngineStore()
 
 // A game with the rules engine : the engine plays the action out ( see engine/projection.ts )
 const isEngine = computed(() => gameState.gameType == GameType.Engine)
-const enginePass = computed(() => engine.pending?.options.find(option => option.kind == 'pass'))
 const gameBus = useGameBusStore()
 const { automaticCostPaymentEnabled } = useUIFeatures()
 

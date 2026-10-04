@@ -61,15 +61,15 @@
         v-if="players.isPlayer"
         ref="cardOutline"
         :key="key + 'cardOutline'"
-        :visible="!!getCardOutlineColor"
+        :visible="!!outlineColor"
         :origin="0.5"
         :x="cardAttrs.x"
         :y="cardAttrs.y"
         :width="displaySize.width"
         :height="displaySize.height"
         :rotation="cardAttrs.rotation"
-        :lineWidth="CARD_OUTLINE_THICKNESS"
-        :strokeColor="getCardOutlineColor"
+        :lineWidth="outlineThickness"
+        :strokeColor="outlineColor"
         :tween="rotationTween"
     />
 
@@ -502,6 +502,20 @@ function bringToTop() {
 // playing a card ) or is about ( staged ) : a click anywhere on it is that choice, so SC's hover
 // buttons ( blood, Influence, ash heap ) don't cover parts of it ( see engine/interaction.ts ).
 // A card that can be used or a minion that can act keeps them : moving blood is a gesture too
+// A candidate of the engine's choice under way ( a target, a pick ) is outlined in its glow's blue
+// too : a frame that reads at any scale, even under the cards on it
+const engineCandidate = computed(() => engineHighlight(card) == 'candidate')
+const outlineColor = computed(
+    () =>
+        getCardOutlineColor.value ??
+        (engineCandidate.value ? Colors.CARD_GLOW_CANDIDATE.color : undefined),
+)
+const outlineThickness = computed(() =>
+    !getCardOutlineColor.value && engineCandidate.value ?
+        2 * CARD_OUTLINE_THICKNESS
+    :   CARD_OUTLINE_THICKNESS,
+)
+
 const engineChoosing = computed(() => {
     const highlight = engineHighlight(card)
     return highlight == 'candidate' || highlight == 'staged'
