@@ -125,7 +125,8 @@ export abstract class Card extends BaseModel implements PropertiesInPlay {
     }
 
     get region() {
-        return this.gameState.cardLocations[this.oid] ?? this.gameState.limboRegion
+        const gameState = this.gameState
+        return gameState.locateCard(this.oid) ?? gameState.limboRegion
     }
 
     // Shortcuts to check this card's region

@@ -17,6 +17,7 @@ import {
     CombatState,
     GameType,
     KnownCards,
+    LocationIndex,
     ReferendumState,
     TargetDeclaration,
 } from '@/shared/types/state.ts'
@@ -33,6 +34,8 @@ import {
 } from '@/shared/types/model.ts'
 import { KrcgId } from '@/shared/types/gateway.ts'
 import { CardRegion } from '@/shared/model/CardRegion.ts'
+
+const locationIndexes = new WeakMap<GameState, LocationIndex>()
 
 export class GameState {
     gameId: GameId = ''
@@ -90,6 +93,7 @@ export class GameState {
 
     /** Resources for the bot **/
     turnResources = {
+        unlocked: false, // "unlock as normal" done this turn
         mpa: DEFAULT_MPA, // masterPhaseActions
         transfers: 1,
         dpa: DEFAULT_DPA, // discardPhaseActions
@@ -141,33 +145,46 @@ export class GameState {
     }
 
     /**
-     * Tells in which CardRegion each card is located
-     * cardOid ==> Card Region
+     * The CardRegion in which a card is located, if any.
+     *
+     * Backed by a card -> region index that is NOT part of the state ( kept out of
+     * the serialized fields ). Regions are mutated directly through `cardsOid`
+     * from many places, so a cached entry is verified on every hit and the index
+     * is rebuilt on a miss. It is also dropped when `players` or `table` is
+     * replaced wholesale ( resync, deserialization ).
      */
-    get cardLocations(): Record<CardOid, AnyCardRegion> {
-        const locations: Record<CardOid, AnyCardRegion> = {}
-
-        for (const cardRegion of Object.values(this.cardRegions)) {
-            for (const card of cardRegion.cards) {
-                locations[card.oid] = cardRegion
+    locateCard(cardOid: CardOid): AnyCardRegion | undefined {
+        const index = locationIndexes.get(this)
+        if (index && index.players === this.players && index.table === this.table) {
+            const region = index.regions.get(cardOid)
+            if (region && region.cardsOid.includes(cardOid)) {
+                return region
             }
         }
-        return locations
+
+        const regions = new Map<CardOid, AnyCardRegion>()
+        for (const cardRegion of Object.values(this.cardRegions)) {
+            for (const oid of cardRegion.cardsOid) {
+                regions.set(oid, cardRegion)
+            }
+        }
+        locationIndexes.set(this, { players: this.players, table: this.table, regions })
+        return regions.get(cardOid)
     }
 
     /**
-     * Tells which Player own each CardRegion
-     * CardRegionOid ==> Player
+     * The Player owning a CardRegion. The shared Free Table region has no owner.
      */
-    get regionOwners(): Record<CardRegionOid, Player> {
-        const owners: Record<CardRegionOid, Player> = {}
-
-        for (const player of this.orderedPlayers) {
+    getRegionOwner(regionOid: CardRegionOid): Player | undefined {
+        for (const playerOid of this.turnOrder) {
+            const player = this.players[playerOid]
             for (const cardRegion of player.allCardRegions) {
-                owners[cardRegion.oid] = player
+                if (cardRegion.oid == regionOid) {
+                    return player
+                }
             }
         }
-        return owners
+        return undefined
     }
 
     // Cards with an effect in the current phase
@@ -271,6 +288,7 @@ export class GameState {
         const nbPlayers = this.orderedPlayers.length
         const transfers = Math.min(DEFAULT_TRANSFERS, this.turnNumber + (nbPlayers == 2 ? 2 : 0))
         this.turnResources = {
+            unlocked: false,
             mpa: DEFAULT_MPA,
             transfers,
             dpa: DEFAULT_DPA,

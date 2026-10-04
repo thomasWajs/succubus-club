@@ -186,6 +186,8 @@ export enum DisciplineLevel {
 export const INITIAL_HAND_SIZE = 7
 export const INITIAL_UNCONTROLLED_SIZE = 4
 export const INITIAL_POOL = 30
+// Pool the predator gains when its prey is ousted, on top of the victory point
+export const OUST_POOL_GAIN = 6
 
 export const MIN_LIB_SIZE = 60
 export const MAX_LIB_SIZE = 90

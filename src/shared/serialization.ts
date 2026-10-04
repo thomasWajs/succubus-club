@@ -160,6 +160,9 @@ export function rehydrateCard(
     const CardClass = cardData.isCrypt ? CryptCard : LibraryCard
     const card = new CardClass(gameState.gameId, cardData.oid, cardData.ownerOid)
     Object.assign(card, cardData)
+    // The serialized card carries the gameId of its source game: the card belongs
+    // to the game it is rehydrated into ( a clone gets a fresh id )
+    card.gameId = gameState.gameId
     gameState[target][card.oid] = card
 }
 
@@ -167,9 +170,22 @@ export function rehydrateCard(
  * Game state serialization
  */
 
+// The state fields of a GameState, as opposed to its getters and methods
+let gameStateFields: string[] | null = null
+
+// Only the state fields are serialized. A plain GameState has nothing else as own
+// properties, but the client Pinia store also exposes its getters, actions and
+// internals as enumerable properties: serializing those would write garbage
+// (functions as null, computed maps) that deserialization would then assign onto
+// the target GameState, over its getters and methods.
+function pickStateFields(gameState: GameState): Partial<GameState> {
+    gameStateFields ??= Object.keys(new GameState())
+    return Object.fromEntries(gameStateFields.map(field => [field, Reflect.get(gameState, field)]))
+}
+
 export function serializeGameState(gameState: GameState): SerializedGameState {
     return {
-        ...serializeObject(gameState),
+        ...serializeObject(pickStateFields(gameState)),
         // Override the serializeObject values here,
         // because it has transformed Player, Card and CardRegion objects into and "OID_" string
         cards: JSON.parse(JSON.stringify(gameState.cards)),

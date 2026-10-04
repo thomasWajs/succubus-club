@@ -1,4 +1,3 @@
-import { useCoreStore } from '@/client/store/core.ts'
 import { useBusStore, useGameBusStore } from '@/client/store/bus.ts'
 import { GameType, Invalid, VALID, Validity } from '@/shared/types/state.ts'
 import { broadcastGameMutation } from '@/client/multiplayer/room.ts'
@@ -11,8 +10,6 @@ import {
     GameMutationParams,
     gameMutations,
     PingCard,
-    ResolveAction,
-    ResolveBlock,
 } from '@/shared/state/gameMutations.ts'
 import { useHistoryStore } from '@/client/store/history.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
@@ -41,10 +38,6 @@ export function applyMutationIfValid(gameMutation: AnyGameMutation) {
             useHistoryStore().addGameMutation(gameMutation)
 
             // Special handlings
-            if (gameMutation instanceof ResolveAction || gameMutation instanceof ResolveBlock) {
-                useCoreStore().conductor?.onActionResolve()
-            }
-
             if (gameMutation instanceof PingCard) {
                 // This one is kinda special : we update the game bus instead of the game state
                 useGameBusStore().pingCard(gameMutation.params.card.oid)
@@ -52,6 +45,12 @@ export function applyMutationIfValid(gameMutation: AnyGameMutation) {
         } catch (error) {
             getLogger().captureException(error)
         }
+    } else if (gameMutation.author.isBot) {
+        // A bot mutation rejected here ( after being valid at dispatch time ) must not vanish silently
+        getLogger().captureMessage(
+            `Bot mutation '${gameMutation.name}' rejected : ${validity.reason}`,
+            'error',
+        )
     }
 }
 

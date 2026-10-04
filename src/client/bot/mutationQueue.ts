@@ -20,6 +20,10 @@ export function enqueueBotMutation(gameMutation: AnyGameMutation) {
     }
 }
 
+export function isBotQueueIdle() {
+    return !processingQueue && botMutationQueue.length == 0
+}
+
 function processNextInBotQueue() {
     // Dequeue the next mutation
     const gameMutation = botMutationQueue.shift()
@@ -40,6 +44,6 @@ function processNextInBotQueue() {
     // but check for the next decision of the bot
     else {
         processingQueue = false
-        useCoreStore().conductor?.runDecisionMaking()
+        useCoreStore().botRunner?.runDecisionMaking()
     }
 }

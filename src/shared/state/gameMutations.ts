@@ -69,6 +69,7 @@ import { getGameState, getMutationTrigger } from '@/shared/registries.ts'
 import { hashObject, rehydrateCard, serializeObject } from '@/shared/serialization.ts'
 import { simpleEscapeHtml } from '@/shared/utils.ts'
 import { disciplineUsesImg } from '@/shared/disciplineIcons.ts'
+import { formatOustChange, OustChange } from '@/shared/state/oust.ts'
 
 export type GameMutationId = number
 export interface GameMutationParams {
@@ -619,6 +620,7 @@ interface ChangePoolParams extends GameMutationParams {
 
 class ChangePool extends GameMutation<ChangePoolParams> {
     readonly syncMode = MutationSyncMode.Merge
+    declare public previousState: { oustChange?: OustChange }
 
     getValidity() {
         // Cannot get a negative pool amount
@@ -638,12 +640,13 @@ class ChangePool extends GameMutation<ChangePoolParams> {
     }
 
     protected updateGameState() {
-        this.params.player.changePool(this.params.amount)
+        this.previousState.oustChange =
+            this.params.player.changePool(this.params.amount) ?? undefined
     }
 
     formatForLog() {
         const stateLog = `(now: ${this.params.player.pool})`
-        return `${this.params.amount > 0 ? '+' : ''}${this.params.amount} pool on ${this.params.player.name} ${stateLog}`
+        return `${this.params.amount > 0 ? '+' : ''}${this.params.amount} pool on ${this.params.player.name} ${stateLog}${formatOustChange(this.previousState.oustChange)}`
     }
 
     getCancelMutation(): AnyGameMutation {
@@ -934,6 +937,7 @@ class GoToTurnPhase extends GameMutation<ChangeIndexParams> {
 
 class Influence extends ChangeCounterMutation {
     readonly syncMode = MutationSyncMode.Merge
+    declare public previousState: { oustChange?: OustChange }
 
     getValidity() {
         if (!this.params.card.canBeInfluenced()) {
@@ -953,13 +957,13 @@ class Influence extends ChangeCounterMutation {
     protected updateGameState(gameState: GameState) {
         const card = this.params.card
         card.changeBlood(this.params.amount)
-        card.controller.changePool(-this.params.amount)
+        this.previousState.oustChange = card.controller.changePool(-this.params.amount) ?? undefined
         gameState.turnResources.transfers -= this.params.amount
     }
 
     formatForLog() {
         const stateLog = `(blood: ${this.params.card.blood} | pool: ${this.params.card.controller.pool})`
-        return `Influence ${this.params.amount} on ${CARD_LOG_PLACEHOLDER} ${stateLog}`
+        return `Influence ${this.params.amount} on ${CARD_LOG_PLACEHOLDER} ${stateLog}${formatOustChange(this.previousState.oustChange)}`
     }
 
     getCancelMutation(): AnyGameMutation {
@@ -1651,6 +1655,7 @@ class UnlockAll extends PlayerMutation {
                 card.unlock()
             }
         }
+        gameState.turnResources.unlocked = true
 
         // Free Table : the shared table isn't one of this player's
         // allCardRegions, so their cards there must be unlocked separately.
@@ -1683,10 +1688,11 @@ class UnlockAllInverse extends GameMutation<UnlockAllInverseParams> {
         return this.params.player
     }
 
-    protected updateGameState() {
+    protected updateGameState(gameState: GameState) {
         for (const card of this.params.cards) {
             card.lock()
         }
+        gameState.turnResources.unlocked = false
     }
 
     formatForLog() {
@@ -1975,6 +1981,9 @@ class DeclareBlock extends GameMutation<DeclareBlockParams> {
         // no minion is attempting the block anymore.
         if (block instanceof Card) {
             gameState.action.intercept = block.minionAttrs.intercept
+            if (!gameState.action.blockAttempters.includes(block)) {
+                gameState.action.blockAttempters.push(block)
+            }
         } else if (!getBlockingMinion(gameState)) {
             gameState.action.intercept = 0
         }

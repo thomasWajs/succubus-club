@@ -1,6 +1,7 @@
 import { ORDERED_PLAYER_COLORS } from '@/shared/const/game.ts'
-import { GovernBot } from '@/client/bot/governBot.ts'
-import { Conductor } from '@/client/bot/conductor.ts'
+import { BotRunner } from '@/client/bot/botRunner.ts'
+import { GovernAgent } from '@/shared/bot/agents/governAgent.ts'
+import { GovernDeck } from '@/shared/bot/decks.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { useCoreStore } from '@/client/store/core.ts'
 import { EMPTY_SEATING, GameRoom } from '@/shared/types/multiplayer.ts'
@@ -42,7 +43,7 @@ export function resetState() {
     core.gameIsStarted = false
     core.phaserIsReady = false
     core.gameStateIsReady = false
-    core.conductor = null
+    core.botRunner = null
 }
 
 export function setupTrainGame() {
@@ -74,11 +75,10 @@ export function setupTrainGame() {
             ORDERED_PLAYER_COLORS[i + 1],
             `${BOT_PERM_ID}${i + 1}`,
         )
-        const bot = new GovernBot(botPlayer)
         if (i == 0) {
-            core.conductor = new Conductor(bot)
+            core.botRunner = new BotRunner(botPlayer.oid, new GovernAgent())
         }
-        setupPlayArea(gameState, botPlayer, GovernBot.deckList)
+        setupPlayArea(gameState, botPlayer, GovernDeck)
     }
 
     // Random starting order
@@ -138,7 +138,7 @@ export function setupFreeTableGame() {
         const opponentLayout = computePerimeterLayout(nbPlayers, i + 1)
         opponent.widgetPosition = opponentLayout.position
         opponent.widgetRotation = opponentLayout.rotation
-        setupPlayArea(gameState, opponent, GovernBot.deckList)
+        setupPlayArea(gameState, opponent, GovernDeck)
     }
 
     gameState.setNewTurnResources()
@@ -226,13 +226,7 @@ export function setupSavedGame(savedGame: DbSavedGame) {
             throw new Error(`Bot player not found`)
         }
 
-        if (!savedGame.conductorState) {
-            throw new Error(`Saved Game has no conductor state`)
-        }
-
-        const bot = new GovernBot(botPlayer)
-        core.conductor = new Conductor(bot)
-        core.conductor.setConductorState(savedGame.conductorState)
+        core.botRunner = new BotRunner(botPlayer.oid, new GovernAgent())
     }
 }
 

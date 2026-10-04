@@ -25,8 +25,10 @@ import { GameState } from '@/shared/state/gameState.ts'
 import { setupMultiplayerGameState } from '@/shared/state/setup.ts'
 import { getUser } from './users.ts'
 import { KnownCards } from '@/shared/types/state.ts'
-import { anyoneCanSee, canSeeOrPeek } from '@/shared/state/cardVisibility.ts'
-import { UNKNOWN_MINION_ATTRS, UNKNOWN_VAMPIRE_ATTRS } from '@/shared/model/Card.ts'
+import {
+    getKnownCards as getKnownCardsOf,
+    redactUnknownCard,
+} from '@/shared/state/cardVisibility.ts'
 import {
     hashObject,
     packGameMutation,
@@ -117,43 +119,9 @@ export function getKnownCards(
     permId: PermanentId,
     roles: RoomRoles,
 ): KnownCards {
-    const userKnownCards: KnownCards = {}
     // A judge oversees the game : they see and peek every card
     const isJudge = roles[permId] == RoomRole.Judge
-    const player = getPlayer(gameState, permId)
-    for (const card of Object.values(gameState.cards)) {
-        if (
-            card.krcgId &&
-            (isJudge || anyoneCanSee(card) || (player && canSeeOrPeek(player, card)))
-        ) {
-            userKnownCards[card.oid] = card.krcgId
-        }
-    }
-    return userKnownCards
-}
-
-/**
- * Hide the attributes of a card the user doesn't know, to avoid leaking info on hidden
- * cards. Does nothing for a card they know.
- *
- * A crypt card keeps the UNKNOWN markers : everyone can see it's a crypt card, and
- * that's exactly the state CryptCard builds by default. It also has to keep them, as
- * initMinionAttrs only refills attrs that hold the marker.
- * A library card drops them entirely : being an ally is hidden information, and
- * LibraryCard.initMinionAttrs recreates them on reveal.
- */
-function redactUnknownCard(card: SerializedCard, knownCards: KnownCards) {
-    if (card.oid in knownCards) {
-        return
-    }
-
-    if (card.isCrypt) {
-        card.minionAttrs = UNKNOWN_MINION_ATTRS
-        card.vampireAttrs = UNKNOWN_VAMPIRE_ATTRS
-    } else {
-        delete card.minionAttrs
-        delete card.vampireAttrs
-    }
+    return getKnownCardsOf(gameState, getPlayer(gameState, permId), isJudge)
 }
 
 /**

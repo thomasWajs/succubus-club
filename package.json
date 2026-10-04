@@ -35,6 +35,7 @@
         "build": "vite build --config vite/config.prod.mjs",
         "loadtest": "node script/lobbySim.mjs",
         "clear-banlist": "node script/clearBanlist.mjs",
+        "bot:harness": "tsx script/botHarness.mjs --games 100 --players 4 --agents govern",
         "type:check": "vue-tsc --noEmit",
         "lint:check": "eslint .",
         "lint:fix": "eslint . --fix",

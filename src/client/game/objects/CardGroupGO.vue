@@ -78,12 +78,8 @@ import Phaser from 'phaser'
 import { Image, Rectangle } from 'phavuer'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
-import {
-    cardHalfExtents,
-    dilateRectangle,
-    getCardRectangle,
-    getCardRectangleAt,
-} from '@/client/game/utils.ts'
+import { cardHalfExtents } from '@/shared/state/cardPlacement.ts'
+import { dilateRectangle, getCardRectangle, getCardRectangleAt } from '@/client/game/utils.ts'
 import { Texture } from '@/client/resources/textures.ts'
 import { Colors } from '@/client/colors.ts'
 import {

@@ -10,7 +10,6 @@ import {
     SerializedGame,
 } from '@/shared/types/multiplayer.ts'
 import { AvatarId, Deck, DeckList } from '@/shared/types/gateway.ts'
-import { ConductorState } from '@/client/bot/conductor.ts'
 import { GameId } from '@/shared/types/model.ts' // If you know, you know ;-)
 
 // If you know, you know ;-)
@@ -152,7 +151,6 @@ export class DbSavedGame extends Entity<SuccubusDb> {
     competingPlayers: PermanentId[]
     gameId: GameId
     game: SerializedGame
-    conductorState?: ConductorState
 }
 
 /**

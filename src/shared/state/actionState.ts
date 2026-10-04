@@ -10,6 +10,7 @@ export function createActionState(minionAction: MinionAction): ActionState {
     return {
         minionAction,
         blockingDecisions: [],
+        blockAttempters: [],
         stealth: actingMinion.minionAttrs.stealth + actions.getDefaultStealth(minionAction),
         intercept: 0,
         bleed: actingMinion.minionAttrs.bleed,

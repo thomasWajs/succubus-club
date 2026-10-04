@@ -28,11 +28,10 @@ export const Invalid = (reason: string) => new Validity(false, reason)
 // A marker for game mutations that can be done by any player
 export const ANY_PLAYER = 'ANY_PLAYER' as const
 /**
- * Flags for Conductor
+ * Declined impulses
  */
 export const NO_BLOCK = 'NO_BLOCK' as const // No block for this impulse
 export const NO_ACTION_MODIFIER = 'NO_ACTION_MODIFIER' as const // No action modifier for this impulse
-export const NO_COMBAT = 'NO_COMBAT' as const // No combat card for this impulse
 export const NO_REACTION = 'NO_REACTION' as const // No reaction for this impulse
 
 /**
@@ -68,6 +67,9 @@ export type BlockingDecision = {
 export type ActionState = {
     minionAction: MinionAction
     blockingDecisions: BlockingDecision[]
+    // Minions that attempted a block during this action. Unlike blockingDecisions
+    // it survives a failed block, so the referee can avoid offering a retry.
+    blockAttempters: Minion[]
     stealth: number
     intercept: number
     bleed: number
@@ -315,4 +317,12 @@ export interface AlignmentGuide {
     // unrotated table space, so RegionGO.vue must apply this when rendering
     // it to match the ( rotated ) cards it aligns with.
     rotation: number
+}
+
+/** Helper for caching model object locations **/
+
+export type LocationIndex = {
+    players: Record<PlayerOid, Player>
+    table: AnyCardRegion | null
+    regions: Map<CardOid, AnyCardRegion>
 }

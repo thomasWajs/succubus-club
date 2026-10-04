@@ -1,6 +1,6 @@
 import Phaser from 'phaser'
 import { acceptHMRUpdate, defineStore } from 'pinia'
-import { Conductor } from '@/client/bot/conductor.ts'
+import { BotRunner } from '@/client/bot/botRunner.ts'
 import { DbDeck, DbUserProfile } from '@/client/gateway/db.ts'
 import { shallowRef } from 'vue'
 import { storeAvatar } from '@/client/gateway/user.ts'
@@ -38,7 +38,7 @@ export const useCoreStore = defineStore('core', {
         userProfile,
         selfDeck: lastDeck as DbDeck | null,
 
-        conductor: null as Conductor | null,
+        botRunner: null as BotRunner | null,
     }),
     getters: {
         phaserGame(): Phaser.Game {

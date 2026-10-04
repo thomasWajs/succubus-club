@@ -1,7 +1,6 @@
 import { toRaw } from 'vue'
 import { db } from '@/client/gateway/db.ts'
 import { serializeGame } from '@/client/gateway/serialization.ts'
-import { useCoreStore } from '@/client/store/core.ts'
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { CommunicationMode, EMPTY_SEATING } from '@/shared/types/multiplayer.ts'
@@ -29,7 +28,6 @@ export function isScsGame() {
 }
 
 export async function saveGame(isAutoSave: boolean) {
-    const core = useCoreStore()
     const gameState = useGameStateStore()
     const gameBus = useGameBusStore()
     const multiplayer = useMultiplayerStore()
@@ -78,7 +76,6 @@ export async function saveGame(isAutoSave: boolean) {
             competingPlayers: gameState.competingPlayers.map(p => p.permId),
             gameId: gameState.gameId,
             game: serializeGame(),
-            conductorState: core.conductor?.getConductorState(),
         }
 
         await db.savedGames.add(savedGame)

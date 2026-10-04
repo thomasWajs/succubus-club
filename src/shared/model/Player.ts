@@ -2,6 +2,7 @@ import { BaseModel } from '@/shared/model/BaseModel.ts'
 import { CardRegion } from '@/shared/model/CardRegion.ts'
 import {
     CardRegionVisibility,
+    OUST_POOL_GAIN,
     PLAYER_NAME_LEGIBLE_LENGTH,
     RegionName,
 } from '@/shared/const/model.ts'
@@ -23,6 +24,7 @@ import {
     Point2D,
     Separators,
 } from '@/shared/types/model.ts'
+import { describeOustChange, OustChange } from '@/shared/state/oust.ts'
 
 export class Player extends BaseModel {
     shortName: string
@@ -196,10 +198,6 @@ export class Player extends BaseModel {
         return this.ready.cards.filter(c => c.isVampire()) as Vampire[]
     }
 
-    get vampiresReadyUnlocked() {
-        return this.vampiresReady.filter(c => !c.isLocked)
-    }
-
     get vampiresInTorpor() {
         return this.torpor.cards.filter(c => c.isVampire()) as Vampire[]
     }
@@ -208,19 +206,26 @@ export class Player extends BaseModel {
         return this.uncontrolled.cards.filter(c => c.isVampire()) as Vampire[]
     }
 
-    changePool(amount: number) {
+    // Returns what an oust / de-oust did to the predator, so the mutation can log it
+    changePool(amount: number): OustChange | null {
         const nbCompetingPlayers = this.gameState.competingPlayers.length
         const activePlayerOid = this.gameState.activePlayer?.oid ?? ''
         const activePlayerTurnIndex = this.gameState.turnOrder.indexOf(activePlayerOid)
         const thisPlayerTurnIndex = this.gameState.turnOrder.indexOf(this.oid)
         const wasOusted = this.isOusted
+        let oustChange: OustChange | null = null
 
         // De-oust this player ( e.g. : when cancelling an ousting mutation )
         if (wasOusted && this.pool == 0 && amount > 0) {
             this.isOusted = false
             if (this.predator) {
                 // The last oust had given 2 VP
-                this.predator.victoryPoints -= nbCompetingPlayers == 1 ? 2 : 1
+                const vp = nbCompetingPlayers == 1 ? 2 : 1
+                this.predator.victoryPoints -= vp
+                // Take back the gain, as far as the predator still has it (it never ousts it)
+                const pool = Math.min(OUST_POOL_GAIN, this.predator.pool - 1)
+                this.predator.changePool(-pool)
+                oustChange = describeOustChange(this, this.predator, 'deoust', -vp, -pool)
             }
 
             // Update the activePlayerIndex if it's after the de-ousted player
@@ -235,7 +240,10 @@ export class Player extends BaseModel {
         if (this.pool == 0 && !wasOusted) {
             if (this.predator) {
                 // The last oust gives 2 VP
-                this.predator.victoryPoints += nbCompetingPlayers == 2 ? 2 : 1
+                const vp = nbCompetingPlayers == 2 ? 2 : 1
+                this.predator.victoryPoints += vp
+                this.predator.changePool(OUST_POOL_GAIN)
+                oustChange = describeOustChange(this, this.predator, 'oust', vp, OUST_POOL_GAIN)
             }
             this.isOusted = true
 
@@ -248,5 +256,7 @@ export class Player extends BaseModel {
                 this.gameState.changeTurn(this.gameState.turnNumber + 1)
             }
         }
+
+        return oustChange
     }
 }

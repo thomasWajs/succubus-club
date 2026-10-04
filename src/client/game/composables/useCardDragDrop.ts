@@ -3,8 +3,8 @@ import { ComputedRef, reactive, Ref } from 'vue'
 import Phaser from 'phaser'
 import { CardMovement, gameMutations } from '@/shared/state/gameMutations.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
+import { cardHalfExtents } from '@/shared/state/cardPlacement.ts'
 import {
-    cardHalfExtents,
     dilateRectangle,
     dropCoordinates,
     getCardRectangle,

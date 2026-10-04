@@ -38,7 +38,7 @@ export class CardRegion<CardType extends Card> extends BaseModel {
     }
 
     get owner(): Player | undefined {
-        return this.gameState.regionOwners[this.oid]
+        return this.gameState.getRegionOwner(this.oid)
     }
 
     // Shortcuts to check this region
