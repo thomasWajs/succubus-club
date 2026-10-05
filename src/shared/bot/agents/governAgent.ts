@@ -9,6 +9,7 @@ import { DisciplineLevel } from '@/shared/const/model.ts'
 import { Card, Minion } from '@/shared/model/Card.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { getBlockingMinion } from '@/shared/state/actionState.ts'
+import { hasUniqueCopyInPlay } from '@/shared/state/cardRequirements.ts'
 import { isBleed } from '@/shared/state/minionActions.ts'
 import { CombatRange, CombatStep, MinionActionType } from '@/shared/types/state.ts'
 import { isStrikeEffective } from '@/shared/state/combatState.ts'
@@ -135,17 +136,25 @@ export class GovernAgent extends BaseAgent {
         return super.influencePhase(decision)
     }
 
-    // Keeps the Govern cards
+    // A dead card first ( a unique card whose other copy is in play ), then keeps the Govern cards
     protected override discardExcess(decision: DecisionPoint): BotOption {
+        const options = optionsOfType(decision.options, 'discardExcess')
         return (
-            optionsOfType(decision.options, 'discardExcess').find(
-                option => option.card.krcgId != GOVERN_ID,
-            ) ?? super.discardExcess(decision)
+            options.find(option => hasUniqueCopyInPlay(decision.player, option.card)) ??
+            options.find(option => option.card.krcgId != GOVERN_ID) ??
+            super.discardExcess(decision)
         )
     }
 
     protected override discardPhase(decision: DecisionPoint): BotOption {
         const hand = decision.player.hand.cards
+        // A unique card that cannot be played while its other copy is in play is dead weight
+        const dead = optionsOfType(decision.options, 'discard').find(option =>
+            hasUniqueCopyInPlay(decision.player, option.card),
+        )
+        if (dead) {
+            return dead
+        }
         // No more Govern: discard the first card in hand to try to get one
         if (!hand.some(card => card.krcgId == GOVERN_ID)) {
             const discard = optionsOfType(decision.options, 'discard').find(

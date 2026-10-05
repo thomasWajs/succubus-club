@@ -39,6 +39,29 @@ export function registerSyncMutationTrigger(): void {
     })
 }
 
+// Like the browser, where the mutations of a bot are queued and applied later: act() only
+// checks the validity and returns, the state changes when flush() runs the queue.
+export function registerQueuedMutationTrigger(): { flush: () => void; queued: () => number } {
+    const queue: (() => void)[] = []
+    registerMutationTrigger({
+        act(gameMutationClass, author, params) {
+            const mutation = createMutation(gameMutationClass, author, params)
+            const validity = mutation.canApply()
+            if (validity.isValid) {
+                queue.push(() => mutation.apply())
+            }
+            return validity
+        },
+        actSelf() {
+            throw new Error('actSelf is not available in headless games')
+        },
+    })
+    return {
+        flush: () => queue.splice(0).forEach(apply => apply()),
+        queued: () => queue.length,
+    }
+}
+
 export function createHeadlessGame(decks: DeckList[]) {
     const gameState = new GameState()
     gameState.gameId = generateGameId()
@@ -187,7 +210,23 @@ function checkCombat(gameState: GameState): void {
     }
 }
 
+// Never two copies of a unique library card in play
+function checkUniqueCards(gameState: GameState): void {
+    const seen = new Set<string>()
+    for (const player of gameState.orderedPlayers) {
+        for (const card of player.ready.cards) {
+            if (card instanceof LibraryCard && card.isUnique && card.krcgId) {
+                if (seen.has(card.krcgId)) {
+                    throw new HarnessFailure(`Two copies of the unique card ${card.name} in play`)
+                }
+                seen.add(card.krcgId)
+            }
+        }
+    }
+}
+
 function checkInvariants(gameState: GameState, tracker: TurnTracker): void {
+    checkUniqueCards(gameState)
     const players = gameState.orderedPlayers
     const nbOusted = players.filter(player => player.isOusted).length
 

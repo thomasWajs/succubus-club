@@ -397,6 +397,14 @@ export class LibraryCard extends Card {
         return match ? Number(match[1]) : null
     }
 
+    // Only one copy of a unique card can be in play. Read from the first line of the text,
+    // where the card says it ( "Unique location.", "Master: unique location.", "Unique mummy
+    // with 3 life." ), ignoring "non-unique" and the later lines that talk about other cards.
+    get isUnique(): boolean {
+        const firstLine = this.text.split('\n')[0]
+        return /(^|[.:;,] )unique\b/i.test(firstLine)
+    }
+
     initMinionAttrs() {
         if (!this.resource) {
             return

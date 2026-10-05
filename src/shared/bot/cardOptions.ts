@@ -24,7 +24,7 @@ import {
 } from '@/shared/state/minionActionFactories.ts'
 import { singleDisciplineUsage } from '@/shared/state/cardUsage.ts'
 import { canPayCosts, canPayPoolCost } from '@/shared/state/cardCosts.ts'
-import { meetsClanRequirement } from '@/shared/state/cardRequirements.ts'
+import { hasUniqueCopyInPlay, meetsClanRequirement } from '@/shared/state/cardRequirements.ts'
 import { BotOptionOf, CombatCardOption } from '@/shared/bot/types.ts'
 
 /**
@@ -213,8 +213,8 @@ export function getReactionCardOptions(minion: Minion): BotOptionOf<'playReactio
 }
 
 // The master cards in the player's hand that can be played now: implemented, the pool
-// pays for them and the player meets their requirements. The master phase action is checked
-// by the referee.
+// pays for them, the player meets their requirements and no other copy of a unique card is
+// in play. The master phase action is checked by the referee.
 export function getMasterCardOptions(player: Player): BotOptionOf<'playMaster'>[] {
     const options: BotOptionOf<'playMaster'>[] = []
 
@@ -223,7 +223,8 @@ export function getMasterCardOptions(player: Player): BotOptionOf<'playMaster'>[
             !(card instanceof LibraryCard) ||
             card.type != LibraryCardType.Master ||
             !canPayPoolCost(player, card) ||
-            !meetsClanRequirement(player, card)
+            !meetsClanRequirement(player, card) ||
+            hasUniqueCopyInPlay(player, card)
         ) {
             continue
         }

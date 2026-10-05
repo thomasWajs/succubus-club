@@ -48,7 +48,11 @@ import { createPlayerView } from '@/shared/bot/playerView.ts'
 import { findOption } from '@/shared/bot/helpers.ts'
 import { createBleedAction, createHuntAction } from '@/shared/state/minionActionFactories.ts'
 import { GovernAgent } from '@/shared/bot/agents/governAgent.ts'
-import { createHeadlessGame, registerSyncMutationTrigger } from './harness.ts'
+import {
+    createHeadlessGame,
+    registerQueuedMutationTrigger,
+    registerSyncMutationTrigger,
+} from './harness.ts'
 import { GovernDeck } from '@/shared/bot/decks.ts'
 import { DeckList } from '@/shared/types/gateway.ts'
 import { applyOption, getDecidingPlayer, getDecisionPoint } from '@/shared/bot/referee.ts'
@@ -1628,6 +1632,33 @@ function getVampireOfClan(player: Player, clan: string): Vampire {
 const countUnlockEffects = (turn: MasterTurn) =>
     optionsOfType(getMasterDecision(turn).options, 'unlockEffect').length
 
+const FORGERS_HAMMER_ID = '100767'
+
+// A card of the player that is not in play yet ( hand or library )
+function findHeldCard(player: Player, krcgId: string): LibraryCard {
+    const card = [...player.hand.cards, ...player.library.cards].find(
+        candidate => candidate.krcgId == krcgId,
+    )
+    if (!(card instanceof LibraryCard)) {
+        throw new ScenarioFailure(`Card ${krcgId} is not in hand or library`)
+    }
+    return card
+}
+
+type UniqueTurn = MasterTurn & { other: Player; theirs: LibraryCard }
+
+// The master phase of a player holding Elder Library, while the other player has theirs in play
+function createUniqueTurn(): UniqueTurn {
+    const turn = createMasterPhase()
+    const other = turn.gameState.orderedPlayers.find(candidate => candidate != turn.player)
+    if (!other) {
+        throw new ScenarioFailure('No other player')
+    }
+    const theirs = findHeldCard(other, ELDER_LIBRARY_ID)
+    turn.gameState.moveCardToRegion(theirs, other.ready)
+    return { ...turn, other, theirs }
+}
+
 const MASTER_SCENARIOS: { name: string; run: () => void }[] = [
     {
         name: 'Elder Library is offered with a master phase action and more pool than its cost',
@@ -2040,6 +2071,147 @@ const MASTER_SCENARIOS: { name: string; run: () => void }[] = [
             expectEqual(stepBot(full.player, agent)?.option.type, 'unlockAll', 'unlocks first')
             expectEqual(stepBot(full.player, agent)?.option.type, 'endPhase', 'no vampire to feed')
             expectEqual(vampire.blood, 5, 'never above the capacity')
+        },
+    },
+    {
+        name: 'with queued mutations ( the browser ) the draw to hand size ends and queues the right count',
+        run() {
+            const turn = createMasterPhase()
+            const { player } = turn
+            const queue = registerQueuedMutationTrigger()
+            try {
+                const decision = getMasterDecision(turn)
+                applyOption(decision, findOption(decision.options, 'playMaster'))
+                queue.flush()
+                expectEqual(player.handSize, 8, 'hand size')
+                expectEqual(player.hand.length, 6, 'hand before the draw')
+
+                // The next decision draws back: it must not loop on the hand length
+                const next = getMasterDecision(turn)
+                applyOption(next, findOption(next.options, 'endPhase'))
+                expectEqual(queue.queued() >= 2, true, 'draws queued')
+                queue.flush()
+                expectEqual(player.hand.length, 8, 'hand after the draw')
+            } finally {
+                registerSyncMutationTrigger()
+            }
+        },
+    },
+    {
+        name: 'a card is unique when its first line says so, and not when it says non-unique',
+        run() {
+            const { gameState, players } = createHeadlessGame([
+                { ...GovernDeck, [FORGERS_HAMMER_ID]: 1 },
+                GovernDeck,
+            ])
+            createdGames.push(gameState)
+            const [player] = players
+            expectEqual(findHeldCard(player, ELDER_LIBRARY_ID).isUnique, true, 'Elder Library')
+            expectEqual(findHeldCard(player, ASYLUM_HUNTING_GROUND_ID).isUnique, true, 'Asylum')
+            expectEqual(findHeldCard(player, GOVERN_ID).isUnique, false, 'Govern')
+            expectEqual(findHeldCard(player, DEFLECTION_ID).isUnique, false, 'Deflection')
+            expectEqual(findHeldCard(player, FORGERS_HAMMER_ID).isUnique, false, 'non-unique text')
+        },
+    },
+    {
+        name: 'a unique master is not offered while another copy is in play, whoever has it',
+        run() {
+            const turn = createUniqueTurn()
+            const { gameState, player, other, theirs, library } = turn
+            expectEqual(countMasterOptions(turn), 0, 'a copy in another play area')
+
+            gameState.moveCardToRegion(theirs, other.ashHeap)
+            expectEqual(countMasterOptions(turn), 1, 'the other copy is burned')
+
+            gameState.moveCardToRegion(theirs, other.library)
+            expectEqual(countMasterOptions(turn), 1, 'the other copy is not in play')
+
+            gameState.moveCardToRegion(theirs, player.ready)
+            expectEqual(countMasterOptions(turn), 0, 'a copy in its own play area')
+            expectEqual(library.isIn.hand, true, 'the card stays in hand')
+        },
+    },
+    {
+        name: 'the Govern agent does not play a dead unique master',
+        run() {
+            const turn = createUniqueTurn()
+            const step = stepBot(turn.player, new GovernAgent())
+            expectEqual(step?.option.type, 'endPhase', 'ends the master phase')
+            expectEqual(turn.library.isIn.hand, true, 'still in hand')
+        },
+    },
+    {
+        name: 'the Govern agent discards a dead unique card in its discard phase, then draws back',
+        run() {
+            const turn = createUniqueTurn()
+            const { gameState, player, library } = turn
+            gameState.turnPhaseIndex = TurnSequence.indexOf(TurnPhase.Discard)
+            const dpa = gameState.turnResources.dpa
+            const ash = player.ashHeap.length
+            const libraryLength = player.library.length
+            expectEqual(player.hand.length, 7, 'hand before')
+            expectEqual(getMasterDecision(turn).kind, DecisionKind.Discard, 'decision kind')
+
+            const step = stepBot(player, new GovernAgent())
+            expectEqual(step?.option.type, 'discard', 'step')
+            expectEqual(library.isIn.ashHeap, true, 'in the ash heap')
+            expectEqual(player.ashHeap.length, ash + 1, 'ash heap')
+            expectEqual(gameState.turnResources.dpa, dpa - 1, 'discard phase action spent')
+            expectEqual(player.hand.length, 7, 'drawn back to the hand size')
+            expectEqual(player.library.length, libraryLength - 1, 'one card drawn')
+
+            const next = getMasterDecision(turn)
+            expectEqual(next.options.length, 1, 'no discard left')
+            findOption(next.options, 'endTurn')
+        },
+    },
+    {
+        name: 'the Govern agent discards the dead unique card even when it holds Govern',
+        run() {
+            const turn = createUniqueTurn()
+            const { gameState, player, library } = turn
+            const govern = giveCard(gameState, player, GOVERN_ID)
+            gameState.turnPhaseIndex = TurnSequence.indexOf(TurnPhase.Discard)
+            const step = stepBot(player, new GovernAgent())
+            if (step?.option.type != 'discard') {
+                throw new ScenarioFailure('The agent does not discard')
+            }
+            expectEqual(step.option.card, library, 'the dead card')
+            expectEqual(govern.isIn.hand, true, 'Govern kept')
+        },
+    },
+    {
+        name: 'the Govern agent keeps a unique card that can still be played',
+        run() {
+            const turn = createUniqueTurn()
+            const { gameState, player, other, theirs, library } = turn
+            gameState.moveCardToRegion(theirs, other.ashHeap)
+            giveCard(gameState, player, GOVERN_ID)
+            gameState.turnPhaseIndex = TurnSequence.indexOf(TurnPhase.Discard)
+            const step = stepBot(player, new GovernAgent())
+            expectEqual(step?.option.type, 'endTurn', 'discards nothing')
+            expectEqual(library.isIn.hand, true, 'still in hand')
+        },
+    },
+    {
+        name: 'a bot over its hand size discards the dead unique card first',
+        run() {
+            const turn = createUniqueTurn()
+            const { gameState, player, library } = turn
+            giveCard(gameState, player, GOVERN_ID)
+            const extra = player.library.cards.find(
+                card => card.krcgId != GOVERN_ID && card.krcgId != ELDER_LIBRARY_ID,
+            )
+            if (!extra) {
+                throw new ScenarioFailure('No card left to draw')
+            }
+            gameState.moveCardToRegion(extra, player.hand)
+            expectEqual(player.hand.length, 8, 'hand')
+            const step = stepBot(player, new GovernAgent())
+            if (step?.option.type != 'discardExcess') {
+                throw new ScenarioFailure('The agent does not discard the excess')
+            }
+            expectEqual(step.option.card, library, 'the dead card')
         },
     },
 ]

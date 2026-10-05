@@ -402,9 +402,12 @@ function check(validity: Validity, what: string): void {
     }
 }
 
-// The hand is always kept full: a player draws back up to their hand size
+// The hand is always kept full: a player draws back up to their hand size. The number of draws
+// is computed once: in the browser the mutations of a bot are queued, so the hand does not
+// grow while this runs ( looping on the hand length would never end ).
 function drawToHandSize(player: Player): void {
-    while (player.hand.length < player.handSize && !player.library.isEmpty) {
+    const missing = Math.min(player.handSize - player.hand.length, player.library.length)
+    for (let i = 0; i < missing; i++) {
         check(gameMutations.drawLibrary.act(player, { player }), 'drawLibrary')
     }
 }
