@@ -219,6 +219,16 @@ function resolveAction(gameState: GameState): void {
         return
     }
 
+    // Humans resolve their own actions by hand: once the bots have passed, the impulse goes
+    // back to the human (who ends the action), instead of stalling on the bot that passed
+    if (
+        !getBlockingMinion(gameState) &&
+        !gameState.action.minionAction.actingMinion.controller.isBot
+    ) {
+        regainImpulse(gameState)
+        return
+    }
+
     // Block attempt
     if (getBlockingMinion(gameState)) {
         gameMutations.ACTION_resolveBlock.act(gameState.activePlayer, {})

@@ -1445,6 +1445,44 @@ const BOUNCE_SCENARIOS: { name: string; run: () => void }[] = [
         },
     },
     {
+        name: 'a bot passing on the bleed of a human gives the impulse back to the human, the action stays',
+        run() {
+            const bounce = createBounce(DisciplineLevel.SUPERIOR)
+            const { gameState, bleeder, bled } = bounce
+            bleeder.permId = 'human'
+            gameState.moveCardToRegion(bounce.deflection, bled.library)
+            const pool = bled.pool
+
+            expectEqual(getDecidingPlayer(gameState), bleeder, 'the human holds the impulse')
+            decideWith(gameState, bleeder, 'noModifier')
+            expectEqual(getDecidingPlayer(gameState), bled, 'the bot holds the impulse')
+
+            const step = stepBot(bled, new GovernAgent())
+            expectEqual(step?.option.type, 'noReaction', 'the bot passes')
+            expectEqual(getDecidingPlayer(gameState), bleeder, 'the human holds the impulse again')
+            expectEqual(gameState.action !== null, true, 'the human ends the action by hand')
+            expectEqual(bled.pool, pool, 'the bleed is not applied for the human')
+        },
+    },
+    {
+        name: 'the Govern agent bounces the bleed of a human once the human passes the impulse',
+        run() {
+            const bounce = createBounce(DisciplineLevel.SUPERIOR)
+            const { gameState, bleeder, bled, third } = bounce
+            bleeder.permId = 'human'
+            const agent = new GovernAgent()
+
+            // The bot declines the block, the human passes again, the bot bounces
+            decideWith(gameState, bleeder, 'noModifier')
+            expectEqual(stepBot(bled, agent)?.option.type, 'noBlock', 'the bot declines to block')
+            expectEqual(getDecidingPlayer(gameState), bleeder, 'back to the human')
+            decideWith(gameState, bleeder, 'noModifier')
+            expectEqual(stepBot(bled, agent)?.option.type, 'playReaction', 'the bot bounces')
+            expectEqual(gameState.action?.minionAction.target, third, 'new target')
+            expectEqual(getDecidingPlayer(gameState), bleeder, 'back to the human')
+        },
+    },
+    {
         name: 'the Govern agent keeps the youngest of more than 2 ready minions unlocked',
         run() {
             const { gameState, players } = createHeadlessGame([GovernDeck, GovernDeck])

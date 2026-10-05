@@ -1,7 +1,7 @@
 <template>
     <CentralPanel
         class="action-infos"
-        :class="{ 'bot-display': botDisplay }"
+        :class="{ 'bot-display': impulseDisplay }"
     >
         <div class="action-minions">
             <div class="acting-minion">
@@ -159,11 +159,11 @@
             </div>
 
             <div
-                v-if="botDisplay || selfCanAttemptBlock()"
+                v-if="impulseDisplay || selfCanAttemptBlock()"
                 class="impulse-decision"
             >
                 <span
-                    v-if="botDisplay"
+                    v-if="impulseDisplay"
                     class="impulse-player"
                 >
                     Impulse
@@ -190,9 +190,9 @@
                 </button>
 
                 <button
-                    v-if="botDisplay"
+                    v-if="impulseDisplay"
                     class="game-button"
-                    :disabled="!selfHasImpulse || !selfCanAttemptBlock()"
+                    :disabled="!selfHasImpulse || !(humanBleedsBot || selfCanAttemptBlock())"
                     @click="
                         gameMutations.ACTION_declareReaction.actSelf({
                             reaction: NO_REACTION,
@@ -228,6 +228,7 @@ import { canChangeTarget, getBlockingDecision } from '@/shared/state/actionState
 import { GameType } from '@/shared/types/state.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { LibraryCard } from '@/shared/model/Card.ts'
+import { Player } from '@/shared/model/Player.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
 
@@ -308,6 +309,19 @@ function payActionCost() {
 }
 
 const botDisplay = computed(() => props.action.minionAction.actingMinion.controller.isBot)
+
+// The bot only reacts once it holds the impulse, so the human bleeding a bot passes it by hand
+// ( after playing their modifiers ), and gets it back whenever the bot did something.
+const humanBleedsBot = computed(() => {
+    const minionAction = props.action.minionAction
+    return (
+        actions.isBleed(minionAction) &&
+        minionAction.actingMinion.controller == players.selfPlayer &&
+        minionAction.target instanceof Player &&
+        minionAction.target.isBot
+    )
+})
+const impulseDisplay = computed(() => botDisplay.value || humanBleedsBot.value)
 const politicalActionCard = computed(() =>
     actions.getPoliticalActionCard(props.action.minionAction),
 )
