@@ -1,7 +1,9 @@
-import { GOVERN_ID, LOST_IN_CROWDS_ID } from '@/shared/cardImpl/cardIds.ts'
+import { DEFLECTION_ID, GOVERN_ID, LOST_IN_CROWDS_ID } from '@/shared/cardImpl/cardIds.ts'
 import { DisciplineLevel } from '@/shared/const/model.ts'
-import { Card } from '@/shared/model/Card.ts'
+import { Card, Minion } from '@/shared/model/Card.ts'
+import { Player } from '@/shared/model/Player.ts'
 import { getBlockingMinion } from '@/shared/state/actionState.ts'
+import { isBleed } from '@/shared/state/minionActions.ts'
 import { CombatRange, CombatStep, MinionActionType } from '@/shared/types/state.ts'
 import { isStrikeEffective } from '@/shared/state/combatState.ts'
 import { BaseAgent } from '@/shared/bot/agents/baseAgent.ts'
@@ -11,8 +13,26 @@ import { BotOption, BotOptionOf, DecisionPoint, optionsOfType } from '@/shared/b
 /**
  * Port of the GovernBot strategy onto the referee's options: hunt when empty,
  * Govern with the oldest able vampire, influence the highest-capacity
- * uncontrolled vampire. Never blocks.
+ * uncontrolled vampire. Never blocks. With more than 2 ready minions, the youngest
+ * stays unlocked (it hunts only when empty). When bled, it declines to block then
+ * bounces the bleed to its prey with Deflection.
  */
+
+// With more than 2 ready minions, the youngest one is kept unlocked
+function getReservedMinion(player: Player): Minion | null {
+    const ready = player.minionsReady
+    if (ready.length <= 2) {
+        return null
+    }
+    return ready.reduce((youngest, minion) =>
+        minion.minionAttrs.capacity < youngest.minionAttrs.capacity ? minion : youngest,
+    )
+}
+
+function isBledByAction(player: Player): boolean {
+    const action = player.gameState.action?.minionAction
+    return !!action && isBleed(action) && action.target?.oid == player.oid
+}
 
 function asGovern(option: BotOptionOf<'declareAction'>) {
     const action = option.action
@@ -41,7 +61,12 @@ export class GovernAgent extends BaseAgent {
             return hunt
         }
 
-        const governs = actions.map(asGovern).filter(govern => govern !== null)
+        // The reserved minion stays unlocked, ready to react
+        const reserved = getReservedMinion(decision.player)
+        const governs = actions
+            .filter(option => option.action.actingMinion != reserved)
+            .map(asGovern)
+            .filter(govern => govern !== null)
         if (governs.length > 0) {
             // Oldest able vampire
             const oldest = Math.max(...governs.map(govern => govern.capacity))
@@ -139,6 +164,37 @@ export class GovernAgent extends BaseAgent {
         }
 
         return super.combat(decision)
+    }
+
+    protected override reactionImpulse(decision: DecisionPoint): BotOption {
+        const player = decision.player
+        if (!isBledByAction(player)) {
+            return super.reactionImpulse(decision)
+        }
+
+        // Bounce the bleed to the prey, with the vampire that is the cheapest to lock
+        // (superior does not lock; else the oldest)
+        const prey = player.prey
+        const bounce = optionsOfType(decision.options, 'playReaction')
+            .filter(
+                option =>
+                    option.card.krcgId == DEFLECTION_ID && option.effect.target.oid == prey?.oid,
+            )
+            .toSorted(
+                (a, b) =>
+                    Number(a.effect.lockMinion) - Number(b.effect.lockMinion) ||
+                    b.minion.minionAttrs.capacity - a.minion.minionAttrs.capacity,
+            )[0]
+        if (bounce) {
+            return bounce
+        }
+
+        // Deflection is only usable once blocks are declined
+        const noBlock = decision.options.find(option => option.type == 'noBlock')
+        if (noBlock && player.hand.cards.some(card => card.krcgId == DEFLECTION_ID)) {
+            return noBlock
+        }
+        return super.reactionImpulse(decision)
     }
 
     protected override actionImpulse(decision: DecisionPoint): BotOption {

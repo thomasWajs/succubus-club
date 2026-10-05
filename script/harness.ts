@@ -80,6 +80,8 @@ export function describeOption(option: BotOption): string {
             return `playModifier ${option.modifier.card.name}`
         case 'block':
             return `block with ${option.minion.name}`
+        case 'playReaction':
+            return `playReaction ${option.card.name} (${option.minion.name}) ${option.effect.type} -> ${option.effect.target.name}`
         case 'cleanup':
             return `cleanup ${option.cards.map(card => card.name).join(', ')}`
         case 'combatStrike':

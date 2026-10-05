@@ -11,6 +11,7 @@ import {
     ACTION_CARD_IMPLEMENTATIONS,
     ACTION_MODIFIER_CARD_IMPLEMENTATIONS,
     COMBAT_CARD_IMPLEMENTATIONS,
+    REACTION_CARD_IMPLEMENTATIONS,
     getImplementation,
     hasImplementation,
 } from '@/shared/cardImpl/index.ts'
@@ -22,7 +23,7 @@ import {
 } from '@/shared/state/minionActionFactories.ts'
 import { singleDisciplineUsage } from '@/shared/state/cardUsage.ts'
 import { canPayCosts } from '@/shared/state/cardCosts.ts'
-import { CombatCardOption } from '@/shared/bot/types.ts'
+import { BotOptionOf, CombatCardOption } from '@/shared/bot/types.ts'
 
 /**
  * Card-specific legality for the bot.
@@ -169,6 +170,40 @@ export function getCombatCardOptions(minion: Minion): CombatCardOption[] {
             )
             for (const effect of implementation?.getEffects() ?? []) {
                 options.push(toCombatOption(minion, card, effect))
+            }
+        }
+    }
+    return options
+}
+
+// What the reaction cards in the minion's player's hand can do to the action in progress.
+// Each discipline level the minion can use is a separate way to play the card. The card
+// only checks its own conditions: the referee asks the engine whether the effect is allowed.
+export function getReactionCardOptions(minion: Minion): BotOptionOf<'playReaction'>[] {
+    const options: BotOptionOf<'playReaction'>[] = []
+
+    for (const card of minion.controller.hand.cards) {
+        if (
+            !(card instanceof LibraryCard) ||
+            !hasImplementation(REACTION_CARD_IMPLEMENTATIONS, card) ||
+            card.type != LibraryCardType.Reaction ||
+            !canPayCosts(minion, card)
+        ) {
+            continue
+        }
+
+        for (const disciplines of disciplineChoices(minion, card)) {
+            const usage: LibraryCardUsage = {
+                disciplines: disciplines.length > 0 ? disciplines : undefined,
+            }
+            const implementation = getImplementation(
+                REACTION_CARD_IMPLEMENTATIONS,
+                card,
+                minion,
+                usage,
+            )
+            for (const effect of implementation?.getEffects() ?? []) {
+                options.push({ type: 'playReaction', minion, card, usage, effect })
             }
         }
     }

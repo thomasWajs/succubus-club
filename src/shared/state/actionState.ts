@@ -1,7 +1,16 @@
 import { Card, Minion } from '@/shared/model/Card.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
-import { ActionState, BlockingDecision, MinionAction, NO_BLOCK } from '@/shared/types/state.ts'
+import {
+    ActionState,
+    BlockingDecision,
+    Invalid,
+    MinionAction,
+    MinionActionType,
+    NO_BLOCK,
+    VALID,
+    Validity,
+} from '@/shared/types/state.ts'
 import * as actions from '@/shared/state/minionActions.ts'
 import { GameState } from '@/shared/state/gameState.ts'
 
@@ -85,6 +94,79 @@ export function playerCanAttemptBlock(gameState: GameState, player: Player): boo
 
 export function minionCanAttemptBlock(gameState: GameState, minion: Minion): boolean {
     return playerCanAttemptBlock(gameState, minion.controller)
+}
+
+// Can the Methuselah targeted by the action in progress be replaced by `target` ( a bounce
+// card ) ? Only actions aimed at a Methuselah can change target, and never to the acting
+// minion's controller.
+export function canChangeTarget(gameState: GameState, target: Player): Validity {
+    const action = gameState.action
+    if (!action) {
+        return Invalid('Must be applied during an action')
+    }
+    const minionAction = action.minionAction
+    if (
+        minionAction.type != MinionActionType.Bleed &&
+        minionAction.type != MinionActionType.ActionCardFromHand
+    ) {
+        return Invalid('This action cannot change target')
+    }
+    if (!(minionAction.target instanceof Player)) {
+        return Invalid('The action is not aimed at a Methuselah')
+    }
+    if (target.isOusted) {
+        return Invalid('The new target is ousted')
+    }
+    if (target == minionAction.target) {
+        return Invalid('The new target is already the target')
+    }
+    if (target == minionAction.actingMinion.controller) {
+        return Invalid("The new target cannot be the acting minion's controller")
+    }
+    return VALID
+}
+
+// The new target gets a fresh opportunity to block and react, even if the previous
+// target declined: the blocking window is reopened, and the acting player regains the
+// impulse ( playing the bounce card was an effect, the impulse then passes to the new
+// target as for any directed action ).
+export function changeActionTarget(gameState: GameState, target: Player): void {
+    const action = gameState.action
+    if (!action) {
+        throw new Error('gameState.action is null')
+    }
+    const minionAction = action.minionAction
+    const previousTarget = minionAction.target
+
+    if (minionAction.type == MinionActionType.Bleed) {
+        minionAction.target = target
+    } else if (minionAction.type == MinionActionType.ActionCardFromHand) {
+        minionAction.target = target
+        minionAction.usage = { ...minionAction.usage, target }
+    } else {
+        throw new Error('This action cannot change target')
+    }
+
+    // Keep the target arrows in line with the new target
+    const origins = [
+        minionAction.actingMinion.oid,
+        ...(minionAction.type == MinionActionType.ActionCardFromHand ?
+            [minionAction.card.oid]
+        :   []),
+    ]
+    for (const declaration of gameState.targetDeclarations) {
+        if (
+            declaration.targetOid == previousTarget?.oid &&
+            origins.includes(declaration.originOid)
+        ) {
+            declaration.targetOid = target.oid
+        }
+    }
+
+    action.blockingDecisions = []
+    action.blockAttempters = []
+    action.intercept = 0
+    regainImpulse(gameState)
 }
 
 // Acting player regain impulse after another player used it

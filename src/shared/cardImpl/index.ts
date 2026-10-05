@@ -1,5 +1,6 @@
 import {
     BEHIND_YOU_ID,
+    DEFLECTION_ID,
     FAR_MASTERY_ID,
     GOVERN_ID,
     LOST_IN_CROWDS_ID,
@@ -10,8 +11,10 @@ import {
     CardImplementation,
     CombatCardImplementation,
     CryptCardImplementation,
+    ReactionCardImplementation,
 } from '@/shared/cardImpl/base.ts'
 import { BehindYou } from '@/shared/cardImpl/behindyou.ts'
+import { Deflection } from '@/shared/cardImpl/deflection.ts'
 import { FarMastery } from '@/shared/cardImpl/farmastery.ts'
 import { JasonSonNewberryG6 } from '@/shared/cardImpl/jasonsonnewberryg6.ts'
 import { GovernTheUnaligned } from '@/shared/cardImpl/governtheunaligned.ts'
@@ -47,6 +50,11 @@ export const ACTION_MODIFIER_CARD_IMPLEMENTATIONS: CardImplementationRegistry<Ac
 export const COMBAT_CARD_IMPLEMENTATIONS: CardImplementationRegistry<CombatCardImplementation> = {
     [BEHIND_YOU_ID]: BehindYou,
 }
+
+export const REACTION_CARD_IMPLEMENTATIONS: CardImplementationRegistry<ReactionCardImplementation> =
+    {
+        [DEFLECTION_ID]: Deflection,
+    }
 
 export function hasImplementation<T extends CardImplementation>(
     registry: CardImplementationRegistry<T>,

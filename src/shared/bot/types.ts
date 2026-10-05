@@ -1,6 +1,12 @@
 import { Player } from '@/shared/model/Player.ts'
 import { LibraryCard, Minion, Vampire } from '@/shared/model/Card.ts'
-import { ActionModifier, CombatStrike, MinionAction } from '@/shared/types/state.ts'
+import {
+    ActionModifier,
+    CombatStrike,
+    LibraryCardUsage,
+    MinionAction,
+} from '@/shared/types/state.ts'
+import { ReactionCardEffect } from '@/shared/cardImpl/base.ts'
 
 export enum DecisionKind {
     Unlock = 'Unlock',
@@ -13,6 +19,14 @@ export enum DecisionKind {
     ReactionImpulse = 'ReactionImpulse',
     // A window of a combat step, or the choice of a strike
     Combat = 'Combat',
+}
+
+interface ReactionOption {
+    type: 'playReaction'
+    minion: Minion
+    card: LibraryCard
+    usage: LibraryCardUsage
+    effect: ReactionCardEffect
 }
 
 interface CombatPreventOption {
@@ -45,6 +59,9 @@ export type BotOption =
     | { type: 'block'; minion: Minion }
     // Declines to block, the acting player regains the impulse
     | { type: 'noBlock' }
+    // Plays a reaction card from the hand with a ready minion, which changes the action in
+    // progress. One option per minion, discipline level and effect (e.g. new target).
+    | ReactionOption
     // A reacting player is done (no block, no reaction): passes the impulse
     | { type: 'noReaction' }
     // Nothing more to play in this window of the combat step

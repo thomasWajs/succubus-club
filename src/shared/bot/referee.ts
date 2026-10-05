@@ -27,7 +27,11 @@ import {
     createRescueFromTorporAction,
 } from '@/shared/state/minionActionFactories.ts'
 import { payCardCosts } from '@/shared/state/cardCosts.ts'
-import { getBlockingDecision, getBlockingMinion } from '@/shared/state/actionState.ts'
+import {
+    canChangeTarget,
+    getBlockingDecision,
+    getBlockingMinion,
+} from '@/shared/state/actionState.ts'
 import { getAutoPlayPosition, getPlayRegion } from '@/shared/state/cardPlacement.ts'
 import {
     canChooseStrike,
@@ -40,10 +44,12 @@ import {
     getActionCardOptions,
     getActionModifierOptions,
     getCombatCardOptions,
+    getReactionCardOptions,
     hasPlayedModifierThisAction,
 } from '@/shared/bot/cardOptions.ts'
 import {
     BotOption,
+    BotOptionOf,
     CombatCardOption,
     DecisionKind,
     DecisionPoint,
@@ -284,8 +290,25 @@ function reactionImpulseDecision(gameState: GameState, player: Player): Decision
         options.push({ type: 'noBlock' })
     }
 
+    // Reaction cards: each card checks its own conditions (a bounce needs the block to be
+    // declined first), the engine checks the effect
+    for (const minion of player.minionsReadyUnlocked) {
+        for (const option of getReactionCardOptions(minion)) {
+            if (isReactionOptionValid(gameState, option)) {
+                options.push(option)
+            }
+        }
+    }
+
     options.push({ type: 'noReaction' })
     return decision(DecisionKind.ReactionImpulse, player, options)
+}
+
+function isReactionOptionValid(gameState: GameState, option: BotOptionOf<'playReaction'>): boolean {
+    switch (option.effect.type) {
+        case 'changeTarget':
+            return canChangeTarget(gameState, option.effect.target).isValid
+    }
 }
 
 /**
@@ -386,15 +409,20 @@ function playCombatCard(player: Player, minion: Minion, card?: LibraryCard): voi
     }
 }
 
-// Once the combat is over, bots put away the combat cards played in it, whoever played them.
-// Humans do it themselves.
-function cleanupCombatCards(gameState: GameState, player: Player): void {
-    if (gameState.combat) {
+// Cards a bot plays out of its own turn: they are played while someone else's action or
+// combat is going on, so the owner's cleanup (own turn only) comes too late.
+const OUT_OF_TURN_TYPES = [LibraryCardType.Combat, LibraryCardType.Reaction]
+
+// Once the action and the combat are over, bots put away the combat and reaction cards
+// played in them, whoever played them. Humans do it themselves.
+function cleanupOutOfTurnCards(gameState: GameState, player: Player): void {
+    if (gameState.combat || gameState.action) {
         return
     }
     for (const bot of gameState.orderedPlayers.filter(candidate => candidate.isBot)) {
         const cards = bot.ready.cards.filter(
-            card => card instanceof LibraryCard && card.type == LibraryCardType.Combat,
+            card =>
+                card instanceof LibraryCard && !!card.type && OUT_OF_TURN_TYPES.includes(card.type),
         )
         for (const card of cards) {
             check(
@@ -405,7 +433,7 @@ function cleanupCombatCards(gameState: GameState, player: Player): void {
                     x: 0,
                     y: 0,
                 }),
-                'combat cleanup',
+                'out of turn cards cleanup',
             )
         }
     }
@@ -547,6 +575,32 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
             check(gameMutations.ACTION_declareBlock.act(player, { block: NO_BLOCK }), 'noBlock')
             break
 
+        case 'playReaction': {
+            const { minion, card, effect } = option
+            playCardFromHand(player, card, minion)
+            payCosts(minion, card)
+            // Playing a reaction is an effect: the acting player regains the impulse
+            check(
+                gameMutations.ACTION_declareReaction.act(player, { reaction: card }),
+                'declare reaction',
+            )
+            switch (effect.type) {
+                case 'changeTarget':
+                    if (effect.lockMinion) {
+                        check(
+                            gameMutations.setLock.act(player, { card: minion, newValue: true }),
+                            'lock reacting minion',
+                        )
+                    }
+                    check(
+                        gameMutations.ACTION_changeTarget.act(player, { target: effect.target }),
+                        'change target',
+                    )
+                    break
+            }
+            break
+        }
+
         case 'noReaction':
             check(
                 gameMutations.ACTION_declareReaction.act(player, { reaction: NO_REACTION }),
@@ -598,7 +652,5 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
             break
     }
 
-    if (decisionPoint.kind == DecisionKind.Combat) {
-        cleanupCombatCards(gameState, player)
-    }
+    cleanupOutOfTurnCards(gameState, player)
 }

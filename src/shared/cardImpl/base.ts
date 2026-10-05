@@ -1,4 +1,5 @@
 import { CryptCard, Minion } from '@/shared/model/Card.ts'
+import { Player } from '@/shared/model/Player.ts'
 import { CombatStrike, LibraryCardUsage, Validity } from '@/shared/types/state.ts'
 import { DisciplineLevel } from '@/shared/const/model.ts'
 
@@ -71,6 +72,18 @@ export abstract class CombatCardImplementation extends CardImplementation {
     // conditions of the card ( "first round only" ) ; the step it is played in is checked
     // by the combat engine, from the kind of effect.
     abstract getEffects(): CombatCardEffect[]
+}
+
+// What a reaction card does to the action in progress, once played by a reacting minion
+export type ReactionCardEffect =
+    // A bounce: the new target of the action ( who gets a new chance to block and react ).
+    // The reacting minion is locked when the card says so.
+    { type: 'changeTarget'; target: Player; lockMinion: boolean }
+
+export abstract class ReactionCardImplementation extends CardImplementation {
+    // The effects the card could have right now ( at the declared level ). It checks the
+    // conditions of the card ( "only usable if a minion is bleeding you" ).
+    abstract getEffects(): ReactionCardEffect[]
 }
 
 export abstract class ActionModifierCardImplementation extends CardImplementation {

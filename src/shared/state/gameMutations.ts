@@ -46,6 +46,8 @@ import { isRevealedToViewer, secureName } from '@/shared/state/cardVisibility.ts
 import { useTimer } from '@/shared/state/useTimer.ts'
 import { freeTableCryptSlotPosition } from '@/shared/state/freeTableLayout.ts'
 import {
+    canChangeTarget,
+    changeActionTarget,
     createActionState,
     endAction,
     getBlockingMinion,
@@ -2080,6 +2082,36 @@ class DeclareReaction extends GameMutation<DeclareReactionParams> {
 }
 
 /**
+ * Action: Change target ( a bounce card )
+ */
+
+interface ChangeActionTargetParams extends GameMutationParams {
+    target: Player
+}
+
+class ChangeActionTarget extends GameMutation<ChangeActionTargetParams> {
+    _isUserCancellable = false
+    readonly syncMode = MutationSyncMode.Exclusive
+
+    get allowedPlayer() {
+        // Relax the rules here, we don't handle impulse in multiplayer
+        return ANY_PLAYER
+    }
+
+    getValidity(gameState: GameState) {
+        return canChangeTarget(gameState, this.params.target)
+    }
+
+    protected updateGameState(gameState: GameState) {
+        changeActionTarget(gameState, this.params.target)
+    }
+
+    formatForLog() {
+        return `Change the target of the action to ${this.params.target.name}`
+    }
+}
+
+/**
  * Action: End action
  */
 
@@ -3058,6 +3090,7 @@ export const gameMutations = {
      * Action mutations
      */
     ACTION_changeProperty: defineMutation(ChangeActionProperty),
+    ACTION_changeTarget: defineMutation(ChangeActionTarget),
     ACTION_declareAction: defineMutation(DeclareAction),
     ACTION_declareActionInverse: defineMutation(DeclareActionInverse),
     ACTION_updateUsage: defineMutation(UpdateActionUsage),

@@ -141,6 +141,16 @@
                 </button>
 
                 <button
+                    v-for="target in bounceTargets"
+                    :key="target.oid"
+                    class="game-button"
+                    title="Tell the game that you changed the target of the bleed (Deflection...). Play the card by hand first."
+                    @click="gameMutations.ACTION_changeTarget.actSelf({ target })"
+                >
+                    Bounce to {{ target.shortName }}
+                </button>
+
+                <button
                     class="game-button is-danger"
                     @click="gameMutations.ACTION_endAction.actSelf({})"
                 >
@@ -214,7 +224,8 @@ import { selfCanAttemptBlock, selfSecureName } from '@/client/state/self.ts'
 import PropertyStepper from '@/client/ui/components/PropertyStepper.vue'
 import DisciplineIcon from '@/client/ui/components/DisciplineIcon.vue'
 import CentralPanel from '@/client/ui/ingame/topArea/central/CentralPanel.vue'
-import { getBlockingDecision } from '@/shared/state/actionState.ts'
+import { canChangeTarget, getBlockingDecision } from '@/shared/state/actionState.ts'
+import { GameType } from '@/shared/types/state.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { LibraryCard } from '@/shared/model/Card.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
@@ -308,6 +319,22 @@ function callReferendum() {
         gameMutations.REFERENDUM_call.actSelf({ card })
     }
 }
+// Bounce cards ( Deflection... ) are played by hand : the human tells the game about the
+// new target. Only against a bot, when the self player is the target of a bleed.
+const bounceTargets = computed(() => {
+    const self = players.selfPlayer
+    const minionAction = props.action.minionAction
+    if (
+        gameState.gameType != GameType.TrainBot ||
+        !self ||
+        !actions.isBleed(minionAction) ||
+        minionAction.target != self
+    ) {
+        return []
+    }
+    return gameState.competingPlayers.filter(player => canChangeTarget(gameState, player).isValid)
+})
+
 const selfHasImpulse = computed(() => props.action.impulsePlayer == players.selfPlayer)
 const selfDeclinedBlock = computed(
     () =>

@@ -1,10 +1,16 @@
-import { BEHIND_YOU_ID, GOVERN_ID, LOST_IN_CROWDS_ID } from '@/shared/cardImpl/cardIds.ts'
+import {
+    BEHIND_YOU_ID,
+    DEFLECTION_ID,
+    GOVERN_ID,
+    LOST_IN_CROWDS_ID,
+} from '@/shared/cardImpl/cardIds.ts'
 import { DeckList } from '@/shared/types/gateway.ts'
 
 export const GovernDeck = <DeckList>{
-    [GOVERN_ID]: 38,
+    [BEHIND_YOU_ID]: 8,
+    [DEFLECTION_ID]: 8,
+    [GOVERN_ID]: 32,
     [LOST_IN_CROWDS_ID]: 12,
-    [BEHIND_YOU_ID]: 10,
 
     '201634': 1,
     '201626': 1,
