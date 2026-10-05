@@ -30,6 +30,9 @@ coverage
 # Typescript build
 *.tsbuildinfo
 
+#Python cache
+__pycache__/
+
 #Server persistence
 *.db
 *.db-shm

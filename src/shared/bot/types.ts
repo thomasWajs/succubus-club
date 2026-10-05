@@ -1,6 +1,6 @@
 import { Player } from '@/shared/model/Player.ts'
 import { LibraryCard, Minion, Vampire } from '@/shared/model/Card.ts'
-import { ActionModifier, MinionAction } from '@/shared/types/state.ts'
+import { ActionModifier, CombatStrike, MinionAction } from '@/shared/types/state.ts'
 
 export enum DecisionKind {
     Unlock = 'Unlock',
@@ -11,6 +11,16 @@ export enum DecisionKind {
     Cleanup = 'Cleanup',
     ActionImpulse = 'ActionImpulse',
     ReactionImpulse = 'ReactionImpulse',
+    // A window of a combat step, or the choice of a strike
+    Combat = 'Combat',
+}
+
+interface CombatPreventOption {
+    type: 'combatPrevent'
+    minion: Minion
+    amount: number
+    aggravated: boolean
+    card?: LibraryCard
 }
 
 /**
@@ -37,9 +47,26 @@ export type BotOption =
     | { type: 'noBlock' }
     // A reacting player is done (no block, no reaction): passes the impulse
     | { type: 'noReaction' }
+    // Nothing more to play in this window of the combat step
+    | { type: 'combatPass' }
+    // The four combat options below come with the combat card (from the hand) that
+    // provides them, played as part of applying the option. No card = the default
+    // hand strike.
+    // The strike of the round
+    | { type: 'combatStrike'; minion: Minion; strike: CombatStrike; card?: LibraryCard }
+    // Moves the range to long, or back to close. May also choose the strike (strike card).
+    | { type: 'combatManeuver'; minion: Minion; strike?: CombatStrike; card?: LibraryCard }
+    // A press to continue, or the cancellation of the opposing one
+    | { type: 'combatPress'; minion: Minion; card?: LibraryCard }
+    | CombatPreventOption
 
 export type BotOptionType = BotOption['type']
 export type BotOptionOf<T extends BotOptionType> = Extract<BotOption, { type: T }>
+
+// What a card can add to a combat step. The referee keeps the ones that fit the step.
+export type CombatCardOption = BotOptionOf<
+    'combatStrike' | 'combatManeuver' | 'combatPress' | 'combatPrevent'
+>
 
 export function optionsOfType<T extends BotOptionType>(
     options: BotOption[],

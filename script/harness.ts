@@ -1,12 +1,13 @@
 import { GameState } from '@/shared/state/gameState.ts'
 import { Player } from '@/shared/model/Player.ts'
+import { LibraryCard } from '@/shared/model/Card.ts'
 import { createMutation } from '@/shared/state/gameMutations.ts'
 import { registerGameState, registerMutationTrigger, deleteGameState } from '@/shared/registries.ts'
 import { setupPlayArea } from '@/shared/state/setup.ts'
 import { generateGameId } from '@/shared/state/ids.ts'
 import { ORDERED_PLAYER_COLORS } from '@/shared/const/game.ts'
 import { BOT_NAME, BOT_PERM_ID } from '@/shared/const/bot.ts'
-import { GameType, MinionActionType, NO_BLOCK } from '@/shared/types/state.ts'
+import { CombatStep, GameType, MinionActionType, NO_BLOCK } from '@/shared/types/state.ts'
 import { DeckList } from '@/shared/types/gateway.ts'
 import { PlayerOid } from '@/shared/types/model.ts'
 import { shuffleArray } from '@/shared/utils.ts'
@@ -60,6 +61,8 @@ export function createHeadlessGame(decks: DeckList[]) {
     return { gameState, players }
 }
 
+const withCard = (card?: LibraryCard) => (card ? ` [${card.name}]` : '')
+
 export function describeOption(option: BotOption): string {
     switch (option.type) {
         case 'declareAction': {
@@ -79,6 +82,14 @@ export function describeOption(option: BotOption): string {
             return `block with ${option.minion.name}`
         case 'cleanup':
             return `cleanup ${option.cards.map(card => card.name).join(', ')}`
+        case 'combatStrike':
+            return `combatStrike ${option.minion.name}: ${option.strike.name}${withCard(option.card)}`
+        case 'combatManeuver':
+            return `combatManeuver ${option.minion.name}${option.strike ? ` (${option.strike.name})` : ''}${withCard(option.card)}`
+        case 'combatPress':
+            return `combatPress ${option.minion.name}${withCard(option.card)}`
+        case 'combatPrevent':
+            return `combatPrevent ${option.minion.name} ${option.amount}${option.aggravated ? ' aggravated' : ''}${withCard(option.card)}`
         default:
             return option.type
     }
@@ -93,7 +104,9 @@ function describeState(gameState: GameState): string {
         action ?
             `action ${action.minionAction.type} (impulse ${action.impulsePlayer.name})`
         :   'no action',
-        gameState.combat ? 'combat in progress' : '',
+        gameState.combat ?
+            `combat round ${gameState.combat.round} step ${gameState.combat.step} (impulse ${gameState.combat.impulsePlayer.name})`
+        :   '',
         gameState.referendum ? 'referendum in progress' : '',
     ]
         .filter(Boolean)
@@ -138,6 +151,34 @@ function getNextCompetingPlayer(gameState: GameState, oid: PlayerOid): Player | 
     return null
 }
 
+// A combat only goes on while both combatants are ready, someone holds the impulse
+// in the strike step only if they still have to choose, and no counter goes negative.
+function checkCombat(gameState: GameState): void {
+    const combat = gameState.combat
+    if (combat) {
+        const combatants = [combat.acting, combat.defending]
+        if (!combat.isOver && combatants.some(combatant => !combatant.minion.isIn.ready)) {
+            throw new HarnessFailure('A combatant is not ready but the combat goes on')
+        }
+        if (combat.step == CombatStep.Strike) {
+            const striker = combatants.find(
+                combatant => combatant.minion.controller == combat.impulsePlayer,
+            )
+            if (!striker || striker.strike) {
+                throw new HarnessFailure('The impulse is on a minion that has nothing to choose')
+            }
+        }
+    }
+
+    for (const player of gameState.orderedPlayers) {
+        for (const minion of [...player.ready.cards, ...player.torpor.cards]) {
+            if (minion.blood < 0) {
+                throw new HarnessFailure(`${minion.name} has ${minion.blood} blood`)
+            }
+        }
+    }
+}
+
 function checkInvariants(gameState: GameState, tracker: TurnTracker): void {
     const players = gameState.orderedPlayers
     const nbOusted = players.filter(player => player.isOusted).length
@@ -157,6 +198,8 @@ function checkInvariants(gameState: GameState, tracker: TurnTracker): void {
     if (nbStandingBlocks > 1) {
         throw new HarnessFailure(`${nbStandingBlocks} block attempts stand at the same time`)
     }
+
+    checkCombat(gameState)
 
     if (gameState.competingPlayers.length <= 1) {
         return

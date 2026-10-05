@@ -1,13 +1,8 @@
 import { Card, LibraryCard, Minion } from '@/shared/model/Card.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
-import {
-    ACTION_TYPES,
-    Discipline,
-    DisciplineLevel,
-    LEAVE_TORPOR_COST,
-    LibraryCardType,
-} from '@/shared/const/model.ts'
+import { payCardCosts } from '@/shared/state/cardCosts.ts'
+import { Discipline, LEAVE_TORPOR_COST, LibraryCardType, Sect } from '@/shared/const/model.ts'
 import {
     ActionCardFromHandAction,
     ActionModifier,
@@ -18,7 +13,6 @@ import {
     HuntAction,
     Invalid,
     LeaveTorporAction,
-    LibraryCardUsage,
     MinionAction,
     MinionActionNames,
     MinionActionType,
@@ -31,22 +25,18 @@ import {
 import {
     ACTION_CARD_IMPLEMENTATIONS,
     ACTION_MODIFIER_CARD_IMPLEMENTATIONS,
-} from '@/shared/cardImpl'
+    getImplementation,
+} from '@/shared/cardImpl/index.ts'
 
 // Returns the hand-written implementation for an action card, or null when the
-// card has none. Only a handful of ( bot-deck ) cards are implemented ; a human
-// can play any of the ~4000 cards, most of which fall here.
+// card has none. A human can play any of the ~4000 cards, most of which fall here.
 function tryGetImplementationACA(action: ActionCardFromHandAction) {
-    if (!action.card.krcgId) {
-        return null
-    }
-    const ImplementationClass = ACTION_CARD_IMPLEMENTATIONS[action.card.krcgId]
-
-    if (!ImplementationClass) {
-        return null
-    }
-
-    return new ImplementationClass(action.card.owner, action.usage)
+    return getImplementation(
+        ACTION_CARD_IMPLEMENTATIONS,
+        action.card,
+        action.actingMinion,
+        action.usage,
+    )
 }
 
 // Same as tryGetImplementationACA, but throws when there is no implementation.
@@ -59,101 +49,18 @@ function getImplementationACA(action: ActionCardFromHandAction) {
     return implementation
 }
 
-function getImplementationAM(actionModifier: ActionModifier) {
-    if (!actionModifier.card.krcgId) {
-        throw new Error('ActionCardAction has no krcgId')
-    }
-    const ImplementationClass = ACTION_MODIFIER_CARD_IMPLEMENTATIONS[actionModifier.card.krcgId]
-
-    if (!ImplementationClass) {
+// The modifier is played by the minion of the action in progress.
+export function applyActionModifier(actionModifier: ActionModifier, actingMinion: Minion): void {
+    const implementation = getImplementation(
+        ACTION_MODIFIER_CARD_IMPLEMENTATIONS,
+        actionModifier.card,
+        actingMinion,
+        actionModifier.usage,
+    )
+    if (!implementation) {
         throw new Error('ActionModifier has no implementation')
     }
-    return new ImplementationClass(actionModifier.card.owner, actionModifier.usage)
-}
-
-/**
- * Factory functions
- */
-
-export function createBleedAction(actingMinion: Minion, targetPlayer: Player): BleedAction {
-    return {
-        type: MinionActionType.Bleed,
-        actingMinion,
-        target: targetPlayer,
-    }
-}
-
-export function createHuntAction(actingMinion: Minion): HuntAction {
-    return {
-        type: MinionActionType.Hunt,
-        actingMinion,
-    }
-}
-
-export function createLeaveTorporAction(actingMinion: Minion): LeaveTorporAction {
-    return {
-        type: MinionActionType.LeaveTorpor,
-        actingMinion,
-    }
-}
-
-export function createRescueFromTorporAction(
-    actingMinion: Minion,
-    rescuedMinion: Minion,
-    bloodPaidByActingMinion: number,
-    bloodPaidByRescuedMinion: number,
-): RescueFromTorporAction {
-    return {
-        type: MinionActionType.RescueFromTorpor,
-        actingMinion,
-        bloodPaidByActingMinion,
-        bloodPaidByRescuedMinion,
-        target: rescuedMinion,
-    }
-}
-
-export function createBecomeAnarchAction(actingMinion: Minion): BecomeAnarchAction {
-    return {
-        type: MinionActionType.BecomeAnarch,
-        actingMinion,
-    }
-}
-
-export function createActionCardAction(
-    actingMinion: Minion,
-    actionCard: LibraryCard,
-    usage: LibraryCardUsage,
-): ActionCardFromHandAction {
-    if (!actionCard.type || !ACTION_TYPES.includes(actionCard.type)) {
-        throw new Error('ActionCardAction needs a LibraryCard with an action type')
-    }
-
-    return {
-        type: MinionActionType.ActionCardFromHand,
-        actingMinion,
-        card: actionCard,
-        usage,
-        target: usage.target,
-    }
-}
-
-export function createActionModifier(
-    actionModifierCard: LibraryCard,
-    usage: LibraryCardUsage,
-): ActionModifier {
-    if (actionModifierCard.type != LibraryCardType.ActionModifier) {
-        throw new Error("ActionModifier needs a LibraryCard with type 'ActionModifier'")
-    }
-
-    return {
-        type: ActionModifierType,
-        card: actionModifierCard,
-        usage,
-    }
-}
-
-export function applyActionModifier(actionModifier: ActionModifier): void {
-    getImplementationAM(actionModifier).apply()
+    implementation.apply()
 }
 
 /**
@@ -252,41 +159,6 @@ export function isPoliticalAction(action: MinionAction): boolean {
     return getPoliticalActionCard(action) !== null
 }
 
-// A usage built from a single discipline at a single level ( with an optional
-// target ). Covers the common case where a card is played with just one
-// discipline, sparing callers the nested disciplines array.
-export function singleDisciplineUsage(
-    discipline: Discipline,
-    level: DisciplineLevel,
-    target?: Card | Player,
-): LibraryCardUsage {
-    return { disciplines: [{ discipline, level }], target }
-}
-
-// Resolve a card's raw cost ( which may be the variable "X" ) to the number to
-// actually spend. A declared X value is used when the cost is "X" ; an undeclared
-// X falls back to 0.
-export function resolveCost(cost: number | 'X', declaredX?: number): number {
-    return cost == 'X' ? (declaredX ?? 0) : cost
-}
-
-// The " X=n " fragment appended to usage log lines, or an empty string when no X
-// value has been declared.
-export function usageXLog(usage: LibraryCardUsage): string {
-    return usage.x !== undefined ? ` X=${usage.x}` : ''
-}
-
-// Whether two usages declare the same set of discipline uses ( order-independent ),
-// ignoring the target. Used to skip no-op usage updates in the log.
-export function sameDisciplineUses(a: LibraryCardUsage, b: LibraryCardUsage): boolean {
-    const key = (usage: LibraryCardUsage) =>
-        (usage.disciplines ?? [])
-            .map(use => `${use.discipline}:${use.level}`)
-            .sort()
-            .join('|')
-    return key(a) == key(b)
-}
-
 /**
  * Behaviours
  */
@@ -300,12 +172,75 @@ type Behaviors = {
     [key in MinionActionType]: MinionActionBehaviour<Extract<MinionAction, { type: key }>>
 }
 
-const behaviors: Partial<Behaviors> = {
+// For the actions that need nothing more than their generic ( state ) handling
+const NO_BEHAVIOUR: MinionActionBehaviour = {
+    canDeclare: () => VALID,
+    declare() {},
+    resolve() {},
+}
+
+// A minion can only start an action while ready and unlocked
+function canAct(minion: Minion): Validity {
+    if (!minion.isIn.ready) {
+        return Invalid('Acting minion must be ready')
+    }
+    if (minion.isLocked) {
+        return Invalid('Acting minion must be unlocked')
+    }
+    return VALID
+}
+
+const behaviors: Behaviors = {
+    [MinionActionType.Bleed]: {
+        ...NO_BEHAVIOUR,
+        canDeclare(action: BleedAction) {
+            if (action.target != action.actingMinion.controller.prey) {
+                return Invalid('A bleed can only target the prey')
+            }
+            return canAct(action.actingMinion)
+        },
+        resolve: resolveBleed,
+    },
+
+    [MinionActionType.Hunt]: {
+        ...NO_BEHAVIOUR,
+        canDeclare(action: HuntAction) {
+            if (!action.actingMinion.isVampire()) {
+                return Invalid('Only a vampire can hunt')
+            }
+            return canAct(action.actingMinion)
+        },
+        resolve: resolveHunt,
+    },
+
+    [MinionActionType.BecomeAnarch]: {
+        ...NO_BEHAVIOUR,
+        canDeclare(action: BecomeAnarchAction) {
+            const minion = action.actingMinion
+            if (!minion.isVampire()) {
+                return Invalid('Only a vampire can become anarch')
+            }
+            if (minion.vampireAttrs.sect == Sect.Anarch) {
+                return Invalid('Acting vampire is already an anarch')
+            }
+            return canAct(minion)
+        },
+    },
+
+    // Played by hand ( ActionInfos ), nothing is resolved by the engine
+    [MinionActionType.ActionInPlay]: NO_BEHAVIOUR,
+
+    // Resolved by hand, not offered to bots yet
+    [MinionActionType.Diablerize]: NO_BEHAVIOUR,
+
     [MinionActionType.LeaveTorpor]: {
         declare() {},
         canDeclare(action: LeaveTorporAction) {
             if (!action.actingMinion.isIn.torpor) {
                 return Invalid('Acting vampire must be in torpor')
+            }
+            if (action.actingMinion.isLocked) {
+                return Invalid('Acting vampire must be unlocked')
             }
             if (action.actingMinion.blood < LEAVE_TORPOR_COST) {
                 return Invalid("Acting vampire doesn't have enough blood")
@@ -330,13 +265,19 @@ const behaviors: Partial<Behaviors> = {
     [MinionActionType.RescueFromTorpor]: {
         declare() {},
         canDeclare(action: RescueFromTorporAction) {
-            if (!action.actingMinion.isIn.ready) {
-                return Invalid('Acting vampire must be ready')
+            const acting = canAct(action.actingMinion)
+            if (!acting.isValid) {
+                return acting
             }
             if (!action.target.isIn.torpor) {
                 return Invalid('Rescued vampire must be in torpor')
             }
-            if (action.actingMinion.blood + action.target.blood < LEAVE_TORPOR_COST) {
+            const paidByActing = action.bloodPaidByActingMinion ?? 0
+            const paidByRescued = action.bloodPaidByRescuedMinion ?? 0
+            if (paidByActing + paidByRescued != LEAVE_TORPOR_COST) {
+                return Invalid('The blood paid must be exactly the cost to leave torpor')
+            }
+            if (paidByActing > action.actingMinion.blood || paidByRescued > action.target.blood) {
                 return Invalid('Not enough blood')
             }
             return VALID
@@ -374,6 +315,13 @@ const behaviors: Partial<Behaviors> = {
             if (!action.card.resource) {
                 return Invalid('Action card has no resource')
             }
+            if (!action.card.isIn.hand) {
+                return Invalid('Action card must be in hand')
+            }
+            const acting = canAct(action.actingMinion)
+            if (!acting.isValid) {
+                return acting
+            }
 
             // Check the acting vampire actually has each declared discipline
             // use. Multi-discipline cards declare several uses ; the vampire must
@@ -390,24 +338,22 @@ const behaviors: Partial<Behaviors> = {
                     }
                 }
             }
-            return getImplementationACA(action).canDeclare(action.actingMinion)
-        },
-        resolve(action: ActionCardFromHandAction) {
-            // Pay blood cost. A variable "X" cost uses the declared value, or 0.
-            const bloodCost = resolveCost(action.card.bloodCost, action.usage.x)
-            if (bloodCost > 0) {
-                gameMutations.changeBlood.act(action.actingMinion.controller, {
-                    card: action.actingMinion,
-                    amount: -bloodCost,
-                })
+            // Rule: a bleed can only target the prey
+            if (isBleed(action) && action.target !== action.actingMinion.controller.prey) {
+                return Invalid('A bleed can only target the prey')
             }
-            // Pay pool cost. A variable "X" cost uses the declared value, or 0.
-            const poolCost = resolveCost(action.card.poolCost, action.usage.x)
-            if (poolCost > 0) {
-                gameMutations.changePool.act(action.actingMinion.controller, {
-                    player: action.actingMinion.controller,
-                    amount: -poolCost,
-                })
+            // A card with no implementation ( any card a human plays ) is never refused
+            return tryGetImplementationACA(action)?.canDeclare() ?? VALID
+        },
+        // An action only pays its costs when it succeeds ( a blocked action
+        // never resolves ). The other card types pay when they are played.
+        resolve(action: ActionCardFromHandAction) {
+            payCardCosts(action.actingMinion, action.card, action.usage.x)
+            if (isBleed(action)) {
+                resolveBleed(action)
+            }
+            if (isHunt(action)) {
+                resolveHunt(action)
             }
             getImplementationACA(action).resolve()
         },
@@ -415,33 +361,19 @@ const behaviors: Partial<Behaviors> = {
 }
 
 function getBehaviour(action: MinionAction) {
-    return behaviors[action.type] as MinionActionBehaviour | undefined
+    return behaviors[action.type] as MinionActionBehaviour
 }
 
 export function canDeclare(action: MinionAction): Validity {
-    const behavior = getBehaviour(action)
-    return behavior ? behavior.canDeclare(action) : VALID
+    return getBehaviour(action).canDeclare(action)
 }
 
 export function declare(action: MinionAction): void {
-    const behavior = getBehaviour(action)
-    if (behavior) {
-        behavior.declare(action)
-    }
+    getBehaviour(action).declare(action)
 }
 
 export function resolve(action: MinionAction): void {
-    if (isBleed(action)) {
-        return resolveBleed(action)
-    }
-    if (isHunt(action)) {
-        return resolveHunt(action)
-    }
-
-    const behavior = getBehaviour(action)
-    if (behavior) {
-        behavior.resolve(action)
-    }
+    getBehaviour(action).resolve(action)
 }
 
 function resolveBleed(action: MinionAction): void {

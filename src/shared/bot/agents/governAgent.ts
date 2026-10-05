@@ -2,7 +2,8 @@ import { GOVERN_ID, LOST_IN_CROWDS_ID } from '@/shared/cardImpl/cardIds.ts'
 import { DisciplineLevel } from '@/shared/const/model.ts'
 import { Card } from '@/shared/model/Card.ts'
 import { getBlockingMinion } from '@/shared/state/actionState.ts'
-import { MinionActionType } from '@/shared/types/state.ts'
+import { CombatRange, CombatStep, MinionActionType } from '@/shared/types/state.ts'
+import { isStrikeEffective } from '@/shared/state/combatState.ts'
 import { BaseAgent } from '@/shared/bot/agents/baseAgent.ts'
 import { capacityOf } from '@/shared/bot/helpers.ts'
 import { BotOption, BotOptionOf, DecisionPoint, optionsOfType } from '@/shared/bot/types.ts'
@@ -95,6 +96,49 @@ export class GovernAgent extends BaseAgent {
             }
         }
         return super.discardPhase(decision)
+    }
+
+    // Hand strikes only, so the stronger minion wants close range and the weaker one
+    // long range (where nobody hurts anybody). Dodge when the opposing strike would hurt.
+    protected override combat(decision: DecisionPoint): BotOption {
+        const combat = decision.player.gameState.combat
+        if (!combat) {
+            return super.combat(decision)
+        }
+        const me =
+            combat.acting.minion.controller == decision.player ? combat.acting : combat.defending
+        const opponent = me == combat.acting ? combat.defending : combat.acting
+
+        if (combat.step == CombatStep.DetermineRange) {
+            const wanted =
+                me.strength > opponent.strength ? CombatRange.Close
+                : me.strength < opponent.strength ? CombatRange.Long
+                : combat.range
+            // A maneuver that also chooses a strike (strike card) is not worth it here
+            const maneuver = optionsOfType(decision.options, 'combatManeuver').find(
+                option => !option.strike,
+            )
+            if (maneuver && wanted != combat.range) {
+                return maneuver
+            }
+        }
+
+        if (combat.step == CombatStep.Strike) {
+            const incoming = opponent.strike
+            const dodge = optionsOfType(decision.options, 'combatStrike').find(
+                option => option.strike.dodge,
+            )
+            if (
+                dodge &&
+                incoming &&
+                incoming.damage > 0 &&
+                isStrikeEffective(incoming, combat.range)
+            ) {
+                return dodge
+            }
+        }
+
+        return super.combat(decision)
     }
 
     protected override actionImpulse(decision: DecisionPoint): BotOption {

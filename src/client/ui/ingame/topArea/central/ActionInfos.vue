@@ -209,6 +209,7 @@ import {
     NO_REACTION,
 } from '@/shared/types/state.ts'
 import * as actions from '@/shared/state/minionActions.ts'
+import { resolveCost } from '@/shared/state/cardCosts.ts'
 import { selfCanAttemptBlock, selfSecureName } from '@/client/state/self.ts'
 import PropertyStepper from '@/client/ui/components/PropertyStepper.vue'
 import DisciplineIcon from '@/client/ui/components/DisciplineIcon.vue'
@@ -262,8 +263,8 @@ const payableActionCard = computed<LibraryCard | null>(() => {
 
     // A variable "X" cost resolves to the declared value, or 0 while undeclared,
     // in which case there is nothing to pay yet.
-    const bloodCost = actions.resolveCost(card.bloodCost, minionAction.usage.x)
-    const poolCost = actions.resolveCost(card.poolCost, minionAction.usage.x)
+    const bloodCost = resolveCost(card.bloodCost, minionAction.usage.x)
+    const poolCost = resolveCost(card.poolCost, minionAction.usage.x)
     if (bloodCost <= 0 && poolCost <= 0) {
         return null
     }
@@ -279,8 +280,8 @@ function payActionCost() {
     }
 
     const actingMinion = minionAction.actingMinion
-    const bloodCost = actions.resolveCost(card.bloodCost, minionAction.usage.x)
-    const poolCost = actions.resolveCost(card.poolCost, minionAction.usage.x)
+    const bloodCost = resolveCost(card.bloodCost, minionAction.usage.x)
+    const poolCost = resolveCost(card.poolCost, minionAction.usage.x)
     // Only the costs actually spent are shown : a mutation is rejected when the
     // minion has not enough blood or the player not enough pool.
     const bloodPaid =

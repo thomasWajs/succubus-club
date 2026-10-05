@@ -126,18 +126,70 @@ export type ReferendumState = {
 }
 
 /** Combat state **/
+
+// The seven steps of a combat round, in order
+export enum CombatStep {
+    BeforeRange = 'BeforeRange',
+    DetermineRange = 'DetermineRange',
+    BeforeStrikes = 'BeforeStrikes',
+    Strike = 'Strike',
+    DamageResolution = 'DamageResolution',
+    Press = 'Press',
+    EndOfRound = 'EndOfRound',
+}
+
+export enum CombatRange {
+    Close = 'Close',
+    Long = 'Long',
+}
+
+// What a minion does in the strike step: a hand strike, or whatever a card, a
+// weapon or an ability gives. A dodge is a strike that deals nothing.
+export type CombatStrike = {
+    name: string
+    // The card providing the strike, null for a hand strike
+    source: Card | null
+    damage: number
+    aggravated: boolean
+    // Usable at long range ( "R" damage or a ranged strike )
+    ranged: boolean
+    dodge: boolean
+    combatEnds: boolean
+    firstStrike: boolean
+    // Blood ( or life ) moved from the opposing minion to the striking one
+    stealBlood: number
+}
+
+export type PendingDamage = {
+    regular: number
+    aggravated: number
+}
+
 export type CombatantMinion = {
     minion: Minion
     strength: number
-    strike: null
+    strike: CombatStrike | null
+    // Damage inflicted by the strikes just resolved, not yet mended
+    pendingDamage: PendingDamage
 }
 
 export type CombatState = {
     acting: CombatantMinion
     defending: CombatantMinion
+    round: number
+    step: CombatStep
+    range: CombatRange
+    // Who may act in the current window of the current step
     impulsePlayer: Player
-    range: null
-    pressed: null
+    // Maneuver and press windows: who played the last maneuver / press there.
+    // A minion cannot play two in a row.
+    lastPlayedBy: Player | null
+    // A press to continue is standing
+    pressed: boolean
+    // Strikes of tiers up to this one are resolved ( see combatState.ts )
+    resolvedStrikeTier: number
+    // The combat ends after the end of round step
+    isOver: boolean
 }
 
 /** Minion Actions **/

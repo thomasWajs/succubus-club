@@ -25,18 +25,10 @@
         />
 
         <!-- Combat Infos -->
-        <!--
-        <div v-if="gameState.combat">
-            <strong>Combat</strong>
-
-            Acting Minion : {{ gameState.combat?.acting?.minion?.name }} <br />
-            Strength : {{ gameState.combat?.acting?.strength }} <br />
-
-            Defending Minion : {{ gameState.combat?.defending?.minion?.name }}
-            <br />
-            Strength : {{ gameState.combat?.defending?.strength }} <br />
-        </div>
-        -->
+        <CombatInfos
+            v-if="gameState.combat"
+            :combat="gameState.combat"
+        />
 
         <!-- Timer Setup -->
         <TimerSetup v-if="centralContent.timer" />
@@ -63,6 +55,7 @@ import DeclarationHint from '@/client/ui/ingame/topArea/central/DeclarationHint.
 import SecretChoice from '@/client/ui/ingame/topArea/central/SecretChoice.vue'
 import ActionInfos from '@/client/ui/ingame/topArea/central/ActionInfos.vue'
 import ReferendumInfos from '@/client/ui/ingame/topArea/central/ReferendumInfos.vue'
+import CombatInfos from '@/client/ui/ingame/topArea/central/CombatInfos.vue'
 import TimerSetup from '@/client/ui/ingame/topArea/central/TimerSetup.vue'
 import NextTurn from '@/client/ui/ingame/topArea/central/NextTurn.vue'
 import TurnNotification from '@/client/ui/ingame/topArea/central/TurnNotification.vue'

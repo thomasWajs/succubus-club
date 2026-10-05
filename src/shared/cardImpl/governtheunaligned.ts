@@ -1,7 +1,7 @@
 import { ActionCardImplementation } from '@/shared/cardImpl/base.ts'
 import { DisciplineLevel } from '@/shared/const/model.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
-import { Card, CryptCard, Minion } from '@/shared/model/Card.ts'
+import { Card, CryptCard } from '@/shared/model/Card.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { ActionProperty, Invalid, VALID } from '@/shared/types/state.ts'
 
@@ -14,7 +14,7 @@ export class GovernTheUnaligned extends ActionCardImplementation {
         return this.level == DisciplineLevel.INFERIOR
     }
 
-    canDeclare(actingMinion: Minion) {
+    canDeclare() {
         if (!this.level) {
             return Invalid('Usage has no level')
         }
@@ -33,7 +33,7 @@ export class GovernTheUnaligned extends ActionCardImplementation {
             if (!this.usage.target.region.is.uncontrolled) {
                 return Invalid('[SUP] Target must be uncontrolled')
             }
-            if (actingMinion.minionAttrs.capacity <= this.usage.target.minionAttrs.capacity) {
+            if (this.minion.minionAttrs.capacity <= this.usage.target.minionAttrs.capacity) {
                 return Invalid('[SUP] Target must be younger')
             }
         }

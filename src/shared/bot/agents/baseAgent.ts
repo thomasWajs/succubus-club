@@ -21,6 +21,8 @@ export abstract class BaseAgent implements BotAgent {
                 return this.actionImpulse(decision)
             case DecisionKind.ReactionImpulse:
                 return this.reactionImpulse(decision)
+            case DecisionKind.Combat:
+                return this.combat(decision)
         }
     }
 
@@ -56,5 +58,13 @@ export abstract class BaseAgent implements BotAgent {
 
     protected reactionImpulse(decision: DecisionPoint): BotOption {
         return findOption(decision.options, 'noReaction')
+    }
+
+    // Strikes with the first strike offered (the hand strike), and plays nothing else
+    protected combat(decision: DecisionPoint): BotOption {
+        return (
+            decision.options.find(option => option.type == 'combatStrike') ??
+            findOption(decision.options, 'combatPass')
+        )
     }
 }

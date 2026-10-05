@@ -367,7 +367,7 @@ export class LibraryCard extends Card {
 
     // The card's raw cost, keeping the variable "X" as-is ( e.g. "burn X blood" ).
     // Callers that need to spend it must resolve X to a declared value : see
-    // resolveCost() in minionActions.ts.
+    // resolveCost() in cardCosts.ts.
     get bloodCost(): number | 'X' {
         return this.resource?.blood ?? 0
     }

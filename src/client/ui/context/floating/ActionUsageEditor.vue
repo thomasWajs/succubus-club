@@ -119,6 +119,7 @@ import { startTargetDeclaration } from '@/client/game/declaration.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
 import DisciplineIcon from '@/client/ui/components/DisciplineIcon.vue'
 import * as actions from '@/shared/state/minionActions.ts'
+import { sameDisciplineUses } from '@/shared/state/cardUsage.ts'
 
 const gameBus = useGameBusStore()
 const gameState = useGameStateStore()
@@ -300,7 +301,7 @@ function updateDisciplines(disciplines: DisciplineUse[]) {
     const usage = currentUsage()
     // Re-selecting the same discipline(s) changes nothing : skip the mutation so
     // it does not append a redundant log line.
-    if (actions.sameDisciplineUses(usage, { disciplines })) {
+    if (sameDisciplineUses(usage, { disciplines })) {
         return
     }
     gameMutations.ACTION_updateUsage.actSelf({

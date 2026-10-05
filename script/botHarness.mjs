@@ -11,7 +11,7 @@ import {
     describeOption,
     playHeadlessGame,
     registerSyncMutationTrigger,
-} from '@/shared/bot/harness.ts'
+} from './harness.ts'
 import { GovernAgent } from '@/shared/bot/agents/governAgent.ts'
 import { RandomAgent } from '@/shared/bot/agents/randomAgent.ts'
 import { GovernDeck } from '@/shared/bot/decks.ts'

@@ -16,6 +16,7 @@ import {
     CardBaseAttribute,
     CardRevelationTarget,
     CardRevelationViewer,
+    CombatStrike,
     GameType,
     getViewerKey,
     Invalid,
@@ -51,7 +52,22 @@ import {
     passImpulse,
     regainImpulse,
 } from '@/shared/state/actionState.ts'
-import { createCombatState, inflictDamage } from '@/shared/state/combatState.ts'
+import {
+    applyDamageNow,
+    canApplyDamage,
+    canChooseStrike,
+    canManeuver,
+    canPass,
+    canPress,
+    canPreventDamage,
+    chooseStrike,
+    createCombatState,
+    endCombatNow,
+    passCombatImpulse,
+    playManeuver,
+    playPress,
+    preventDamage,
+} from '@/shared/state/combatState.ts'
 import {
     createReferendumState,
     createVoteCount,
@@ -64,6 +80,7 @@ import {
     tallyVotes,
 } from '@/shared/state/referendumState.ts'
 import * as actions from '@/shared/state/minionActions.ts'
+import { sameDisciplineUses, usageXLog } from '@/shared/state/cardUsage.ts'
 import { GameState } from '@/shared/state/gameState.ts'
 import { getGameState, getMutationTrigger } from '@/shared/registries.ts'
 import { hashObject, rehydrateCard, serializeObject } from '@/shared/serialization.ts'
@@ -1755,7 +1772,15 @@ class DeclareAction extends GameMutation<DeclareActionParams> {
     }
 
     getValidity(gameState: GameState) {
-        return gameState.action ? Invalid('An action is already in progress') : VALID
+        if (gameState.action) {
+            return Invalid('An action is already in progress')
+        }
+        // canDeclare only guides the bot: a human may declare anything
+        const minionAction = this.params.minionAction
+        if (minionAction.actingMinion.controller.isBot) {
+            return actions.canDeclare(minionAction)
+        }
+        return VALID
     }
 
     protected updateGameState(gameState: GameState) {
@@ -1775,7 +1800,7 @@ class DeclareAction extends GameMutation<DeclareActionParams> {
             actionVerb = `${ActionVerb[this.params.minionAction.card.type as keyof typeof ActionVerb]} `
             disciplines =
                 disciplineUsesImg(this.params.minionAction.usage.disciplines ?? []) +
-                actions.usageXLog(this.params.minionAction.usage)
+                usageXLog(this.params.minionAction.usage)
         }
         if (
             this.params.minionAction.type == MinionActionType.ActionInPlay &&
@@ -1867,13 +1892,13 @@ class UpdateActionUsage extends GameMutation<UpdateActionUsageParams> {
         const previous = this.previousState.usage as LibraryCardUsage | undefined
         if (
             previous &&
-            actions.sameDisciplineUses(previous, this.params.usage) &&
+            sameDisciplineUses(previous, this.params.usage) &&
             previous.x === this.params.usage.x
         ) {
             return null
         }
         const disciplines = disciplineUsesImg(this.params.usage.disciplines ?? [])
-        return `Use ${disciplines}${actions.usageXLog(this.params.usage)} ( ${minionAction.card.name} )`
+        return `Use ${disciplines}${usageXLog(this.params.usage)} ( ${minionAction.card.name} )`
     }
 
     getCancelMutation(): AnyGameMutation {
@@ -1919,7 +1944,7 @@ class DeclareActionModifier extends GameMutation<DeclareActionModifierParams> {
             return `No Action Modifier`
         } else {
             const am = this.params.actionModifier
-            return `Declare ${am.card.name} ${disciplineUsesImg(am.usage.disciplines ?? [])}${actions.usageXLog(am.usage)}`
+            return `Declare ${am.card.name} ${disciplineUsesImg(am.usage.disciplines ?? [])}${usageXLog(am.usage)}`
         }
     }
 
@@ -2095,7 +2120,14 @@ export class ResolveAction extends GameMutation<EmptyParams> {
     }
 
     getValidity(gameState: GameState) {
-        return gameState.action ? VALID : Invalid('Must be applied during an action')
+        if (!gameState.action) {
+            return Invalid('Must be applied during an action')
+        }
+        // Humans resolve their own actions by hand
+        if (!gameState.action.minionAction.actingMinion.controller.isBot) {
+            return Invalid('Only a bot action is resolved automatically')
+        }
+        return VALID
     }
 
     protected updateGameState(gameState: GameState) {
@@ -2157,19 +2189,7 @@ export class ResolveBlock extends GameMutation<EmptyParams> {
             this.previousState.isBlockSuccessful = true
             blockingMinion.lock()
 
-            // start combat
             gameState.combat = createCombatState(action.minionAction.actingMinion, blockingMinion)
-
-            /**
-             * VERY TEMPORARY, handle combat as two hand strike for 1
-             */
-            inflictDamage(gameState.combat.acting, 1)
-            inflictDamage(gameState.combat.defending, 1)
-            gameState.combat = null
-            /**
-             * END OF TEMPORARY
-             */
-
             gameState.action = null
         }
         // Failed block
@@ -2184,8 +2204,137 @@ export class ResolveBlock extends GameMutation<EmptyParams> {
 
     formatForLog() {
         return this.previousState.isBlockSuccessful ?
-                `Block successful. !! TEMPORARY !! : Combat resolved as hand strikes for 1`
+                `Block successful. Combat begins`
             :   `Block failed`
+    }
+}
+
+/**
+ * Combat
+ *
+ * The moves of the combat state machine ( see combatState.ts ). The author must
+ * hold the combat impulse, except to end the combat by hand.
+ */
+
+abstract class CombatMutation<
+    ParamsType extends GameMutationParams,
+> extends GameMutation<ParamsType> {
+    _isUserCancellable = false
+    readonly syncMode = MutationSyncMode.Exclusive
+    declare public previousState: { log: string }
+
+    get allowedPlayer(): Player | typeof ANY_PLAYER | null {
+        return this.gameState.combat?.impulsePlayer ?? null
+    }
+
+    // Applies the move and returns what to tell in the log
+    protected abstract move(gameState: GameState): string[]
+
+    protected updateGameState(gameState: GameState) {
+        this.previousState.log = this.move(gameState).join(' | ')
+    }
+
+    formatForLog() {
+        return this.previousState.log || null
+    }
+}
+
+class CombatPass extends CombatMutation<EmptyParams> {
+    getValidity(gameState: GameState) {
+        return canPass(gameState)
+    }
+
+    protected move(gameState: GameState) {
+        return passCombatImpulse(gameState)
+    }
+}
+
+interface CombatManeuverParams extends GameMutationParams {
+    minion: Minion
+    // A maneuver given by a strike card or a weapon also chooses the strike
+    strike?: CombatStrike
+}
+
+class CombatManeuver extends CombatMutation<CombatManeuverParams> {
+    getValidity(gameState: GameState) {
+        return canManeuver(gameState, this.params.minion, this.params.strike)
+    }
+
+    protected move(gameState: GameState) {
+        return playManeuver(gameState, this.params.minion, this.params.strike)
+    }
+}
+
+interface CombatStrikeParams extends GameMutationParams {
+    minion: Minion
+    strike: CombatStrike
+}
+
+class CombatChooseStrike extends CombatMutation<CombatStrikeParams> {
+    getValidity(gameState: GameState) {
+        return canChooseStrike(gameState, this.params.minion)
+    }
+
+    protected move(gameState: GameState) {
+        return chooseStrike(gameState, this.params.minion, this.params.strike)
+    }
+}
+
+interface CombatMinionParams extends GameMutationParams {
+    minion: Minion
+}
+
+class CombatPress extends CombatMutation<CombatMinionParams> {
+    getValidity(gameState: GameState) {
+        return canPress(gameState, this.params.minion)
+    }
+
+    protected move(gameState: GameState) {
+        return playPress(gameState, this.params.minion)
+    }
+}
+
+interface CombatPreventDamageParams extends GameMutationParams {
+    minion: Minion
+    amount: number
+    aggravated: boolean
+}
+
+class CombatPreventDamage extends CombatMutation<CombatPreventDamageParams> {
+    getValidity(gameState: GameState) {
+        const { minion, amount, aggravated } = this.params
+        return canPreventDamage(gameState, minion, amount, aggravated)
+    }
+
+    protected move(gameState: GameState) {
+        const { minion, amount, aggravated } = this.params
+        return preventDamage(gameState, minion, amount, aggravated)
+    }
+}
+
+// The damage of a human minion is not applied automatically: this applies it on request
+class CombatApplyDamage extends CombatMutation<CombatMinionParams> {
+    getValidity(gameState: GameState) {
+        return canApplyDamage(gameState, this.params.minion)
+    }
+
+    protected move(gameState: GameState) {
+        return applyDamageNow(gameState, this.params.minion)
+    }
+}
+
+// Stops the combat on the spot, for the players who resolve it by hand
+class CombatEnd extends CombatMutation<EmptyParams> {
+    get allowedPlayer() {
+        return ANY_PLAYER
+    }
+
+    getValidity(gameState: GameState) {
+        return gameState.combat ? VALID : Invalid('No combat in progress')
+    }
+
+    protected move(gameState: GameState) {
+        return endCombatNow(gameState)
     }
 }
 
@@ -2918,6 +3067,17 @@ export const gameMutations = {
     ACTION_endAction: defineMutation(EndAction),
     ACTION_resolveAction: defineMutation(ResolveAction),
     ACTION_resolveBlock: defineMutation(ResolveBlock),
+
+    /**
+     * Combat mutations
+     */
+    COMBAT_pass: defineMutation(CombatPass),
+    COMBAT_maneuver: defineMutation(CombatManeuver),
+    COMBAT_chooseStrike: defineMutation(CombatChooseStrike),
+    COMBAT_press: defineMutation(CombatPress),
+    COMBAT_preventDamage: defineMutation(CombatPreventDamage),
+    COMBAT_applyDamage: defineMutation(CombatApplyDamage),
+    COMBAT_end: defineMutation(CombatEnd),
 
     /**
      * Referendum mutations

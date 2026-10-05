@@ -2,29 +2,53 @@ import { LibraryCard, Minion } from '@/shared/model/Card.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { GameState } from '@/shared/state/gameState.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
-import { LibraryCardType, TurnPhase, TurnSequence } from '@/shared/const/model.ts'
+import {
+    LEAVE_TORPOR_COST,
+    LibraryCardType,
+    TurnPhase,
+    TurnSequence,
+} from '@/shared/const/model.ts'
 import { GRID_SIZE } from '@/shared/const/game.ts'
 import {
+    CombatState,
+    CombatStep,
+    MinionAction,
     MinionActionType,
     NO_ACTION_MODIFIER,
     NO_BLOCK,
     NO_REACTION,
     Validity,
 } from '@/shared/types/state.ts'
+import { canDeclare, applyActionModifier } from '@/shared/state/minionActions.ts'
 import {
     createBleedAction,
     createHuntAction,
-    applyActionModifier,
-    resolveCost,
-} from '@/shared/state/minionActions.ts'
+    createLeaveTorporAction,
+    createRescueFromTorporAction,
+} from '@/shared/state/minionActionFactories.ts'
+import { payCardCosts } from '@/shared/state/cardCosts.ts'
 import { getBlockingDecision, getBlockingMinion } from '@/shared/state/actionState.ts'
 import { getAutoPlayPosition, getPlayRegion } from '@/shared/state/cardPlacement.ts'
 import {
+    canChooseStrike,
+    canManeuver,
+    canPress,
+    canPreventDamage,
+    createHandStrike,
+} from '@/shared/state/combatState.ts'
+import {
     getActionCardOptions,
     getActionModifierOptions,
+    getCombatCardOptions,
     hasPlayedModifierThisAction,
 } from '@/shared/bot/cardOptions.ts'
-import { BotOption, DecisionKind, DecisionPoint, InvalidBotMove } from '@/shared/bot/types.ts'
+import {
+    BotOption,
+    CombatCardOption,
+    DecisionKind,
+    DecisionPoint,
+    InvalidBotMove,
+} from '@/shared/bot/types.ts'
 
 /**
  * The referee: a move generator, not a rules enforcer.
@@ -52,13 +76,16 @@ const ONE_SHOT_TYPES = [
  */
 
 // The player who has the decision right now, or null when nobody has one
-// (game over, or a state the referee does not model: combat, referendum).
+// (game over, or a state the referee does not model: referendum).
 export function getDecidingPlayer(gameState: GameState): Player | null {
     if (gameState.competingPlayers.length <= 1) {
         return null
     }
-    if (gameState.combat || gameState.referendum) {
+    if (gameState.referendum) {
         return null
+    }
+    if (gameState.combat) {
+        return gameState.combat.impulsePlayer
     }
     if (gameState.action) {
         const impulsePlayer = gameState.action.impulsePlayer
@@ -74,6 +101,10 @@ export function getDecidingPlayer(gameState: GameState): Player | null {
 export function getDecisionPoint(gameState: GameState, player: Player): DecisionPoint | null {
     if (getDecidingPlayer(gameState) !== player) {
         return null
+    }
+
+    if (gameState.combat) {
+        return combatDecision(gameState, gameState.combat, player)
     }
 
     if (gameState.action) {
@@ -129,23 +160,44 @@ function unlockPhaseOptions(gameState: GameState): BotOption[] {
 }
 
 function minionPhaseOptions(player: Player): BotOption[] {
-    const options: BotOption[] = []
+    const candidates: MinionAction[] = []
     const prey = player.prey
+    const torpid = player.vampiresInTorpor
 
     for (const minion of player.minionsReadyUnlocked) {
         if (minion.isVampire()) {
-            options.push({ type: 'declareAction', action: createHuntAction(minion) })
+            candidates.push(createHuntAction(minion))
         }
         if (prey) {
-            options.push({ type: 'declareAction', action: createBleedAction(minion, prey) })
+            candidates.push(createBleedAction(minion, prey))
         }
         for (const card of player.hand.cards) {
-            for (const action of getActionCardOptions(minion, card)) {
-                options.push({ type: 'declareAction', action })
+            candidates.push(...getActionCardOptions(minion, card))
+        }
+
+        // The LEAVE_TORPOR_COST blood of a rescue is shared between the two, any way they like
+        for (const rescued of torpid) {
+            for (let fromRescuer = 0; fromRescuer <= LEAVE_TORPOR_COST; fromRescuer++) {
+                candidates.push(
+                    createRescueFromTorporAction(
+                        minion,
+                        rescued,
+                        fromRescuer,
+                        LEAVE_TORPOR_COST - fromRescuer,
+                    ),
+                )
             }
         }
     }
 
+    for (const vampire of torpid) {
+        candidates.push(createLeaveTorporAction(vampire))
+    }
+
+    // The engine's own validation decides what can be declared
+    const options: BotOption[] = candidates
+        .filter(action => canDeclare(action).isValid)
+        .map(action => ({ type: 'declareAction', action }))
     options.push({ type: 'endPhase' })
     return options
 }
@@ -237,6 +289,58 @@ function reactionImpulseDecision(gameState: GameState, player: Player): Decision
 }
 
 /**
+ * Combat
+ */
+
+// Does a card option fit the current step? The engine tells.
+function isCombatOptionValid(gameState: GameState, option: CombatCardOption): boolean {
+    switch (option.type) {
+        case 'combatStrike':
+            return canChooseStrike(gameState, option.minion).isValid
+        case 'combatManeuver':
+            return canManeuver(gameState, option.minion, option.strike).isValid
+        case 'combatPress':
+            return canPress(gameState, option.minion).isValid
+        case 'combatPrevent':
+            return canPreventDamage(gameState, option.minion, option.amount, option.aggravated)
+                .isValid
+    }
+}
+
+function combatDecision(gameState: GameState, combat: CombatState, player: Player): DecisionPoint {
+    const combatant = [combat.acting, combat.defending].find(
+        candidate => candidate.minion.controller == player,
+    )
+    if (!combatant) {
+        throw new InvalidBotMove(`${player.name} has the combat impulse but no minion in it`)
+    }
+
+    const options: BotOption[] = []
+
+    // Everyone can strike with their hands. Offered even at long range, where it
+    // is the way to strike at nothing.
+    if (combat.step == CombatStep.Strike) {
+        options.push({
+            type: 'combatStrike',
+            minion: combatant.minion,
+            strike: createHandStrike(combatant),
+        })
+    }
+
+    for (const option of getCombatCardOptions(combatant.minion)) {
+        if (isCombatOptionValid(gameState, option)) {
+            options.push(option)
+        }
+    }
+
+    // The strike step is the only one where something has to be chosen
+    if (combat.step != CombatStep.Strike) {
+        options.push({ type: 'combatPass' })
+    }
+    return decision(DecisionKind.Combat, player, options)
+}
+
+/**
  * Applying an option
  */
 
@@ -268,6 +372,43 @@ function playCardFromHand(player: Player, card: LibraryCard, byMinion?: Minion):
     )
     // This won't handle the "do not replace until..." card text
     drawReplacement(player)
+}
+
+function payCosts(minion: Minion, card: LibraryCard, x?: number): void {
+    check(payCardCosts(minion, card, x), 'card cost')
+}
+
+// The combat card an option comes with is played before its effect is applied
+function playCombatCard(player: Player, minion: Minion, card?: LibraryCard): void {
+    if (card) {
+        playCardFromHand(player, card, minion)
+        payCosts(minion, card)
+    }
+}
+
+// Once the combat is over, bots put away the combat cards played in it, whoever played them.
+// Humans do it themselves.
+function cleanupCombatCards(gameState: GameState, player: Player): void {
+    if (gameState.combat) {
+        return
+    }
+    for (const bot of gameState.orderedPlayers.filter(candidate => candidate.isBot)) {
+        const cards = bot.ready.cards.filter(
+            card => card instanceof LibraryCard && card.type == LibraryCardType.Combat,
+        )
+        for (const card of cards) {
+            check(
+                gameMutations.moveCardToRegion.act(player, {
+                    card,
+                    fromCardRegion: card.region,
+                    toCardRegion: card.owner.ashHeap,
+                    x: 0,
+                    y: 0,
+                }),
+                'combat cleanup',
+            )
+        }
+    }
 }
 
 function goToNextPhase(gameState: GameState, player: Player): void {
@@ -374,24 +515,7 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
                 throw new InvalidBotMove('No action in progress')
             }
             playCardFromHand(player, card, actingMinion)
-
-            const bloodCost = resolveCost(card.bloodCost, usage.x)
-            if (bloodCost > 0) {
-                check(
-                    gameMutations.changeBlood.act(player, {
-                        card: actingMinion,
-                        amount: -bloodCost,
-                    }),
-                    'modifier blood cost',
-                )
-            }
-            const poolCost = resolveCost(card.poolCost, usage.x)
-            if (poolCost > 0) {
-                check(
-                    gameMutations.changePool.act(player, { player, amount: -poolCost }),
-                    'modifier pool cost',
-                )
-            }
+            payCosts(actingMinion, card, usage.x)
 
             // The declaration only records the modifier (log, history); its
             // effect is applied by separate mutations so a replay won't apply
@@ -402,7 +526,7 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
                 }),
                 'declare modifier',
             )
-            applyActionModifier(option.modifier)
+            applyActionModifier(option.modifier, actingMinion)
             break
         }
 
@@ -429,5 +553,52 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
                 'noReaction',
             )
             break
+
+        case 'combatPass':
+            check(gameMutations.COMBAT_pass.act(player, {}), 'combatPass')
+            break
+
+        case 'combatStrike':
+            playCombatCard(player, option.minion, option.card)
+            check(
+                gameMutations.COMBAT_chooseStrike.act(player, {
+                    minion: option.minion,
+                    strike: option.strike,
+                }),
+                'combatStrike',
+            )
+            break
+
+        case 'combatManeuver':
+            playCombatCard(player, option.minion, option.card)
+            check(
+                gameMutations.COMBAT_maneuver.act(player, {
+                    minion: option.minion,
+                    strike: option.strike,
+                }),
+                'combatManeuver',
+            )
+            break
+
+        case 'combatPress':
+            playCombatCard(player, option.minion, option.card)
+            check(gameMutations.COMBAT_press.act(player, { minion: option.minion }), 'combatPress')
+            break
+
+        case 'combatPrevent':
+            playCombatCard(player, option.minion, option.card)
+            check(
+                gameMutations.COMBAT_preventDamage.act(player, {
+                    minion: option.minion,
+                    amount: option.amount,
+                    aggravated: option.aggravated,
+                }),
+                'combatPrevent',
+            )
+            break
+    }
+
+    if (decisionPoint.kind == DecisionKind.Combat) {
+        cleanupCombatCards(gameState, player)
     }
 }

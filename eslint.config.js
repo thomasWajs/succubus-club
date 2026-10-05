@@ -246,7 +246,7 @@ export default [
     },
     // Configuration for Node.js dev/tooling scripts
     {
-        files: ['script/**/*.{js,mjs}'],
+        files: ['script/**/*.{js,mjs,ts}'],
         languageOptions: {
             ecmaVersion: 2023,
             sourceType: 'module',
