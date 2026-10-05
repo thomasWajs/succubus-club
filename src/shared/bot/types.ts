@@ -15,6 +15,8 @@ export enum DecisionKind {
     Influence = 'Influence',
     Discard = 'Discard',
     Cleanup = 'Cleanup',
+    // The hand is above the hand size ( a card giving a bonus left play ): out of turn too
+    DiscardExcess = 'DiscardExcess',
     ActionImpulse = 'ActionImpulse',
     ReactionImpulse = 'ReactionImpulse',
     // A window of a combat step, or the choice of a strike
@@ -45,6 +47,8 @@ export type BotOption =
     // Unlock all cards. Mandatory first step of the unlock phase.
     | { type: 'unlockAll' }
     | { type: 'endPhase' }
+    // Plays a master card from the hand (master phase action + pool cost)
+    | { type: 'playMaster'; card: LibraryCard }
     // Go to the next turn (the hand is never refilled here: replacements are drawn immediately)
     | { type: 'endTurn' }
     // Send the one-shot cards played during the last action to the ash heap
@@ -53,6 +57,8 @@ export type BotOption =
     // Influence a vampire. A vampire reaching its capacity moves to the ready region.
     | { type: 'influence'; vampire: Vampire; amount: number }
     | { type: 'discard'; card: LibraryCard }
+    // Discard down to the hand size: not a discard phase action
+    | { type: 'discardExcess'; card: LibraryCard }
     | { type: 'playModifier'; modifier: ActionModifier }
     // The acting player passes the impulse
     | { type: 'noModifier' }

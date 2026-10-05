@@ -2,6 +2,7 @@ import { BaseModel } from '@/shared/model/BaseModel.ts'
 import { CardRegion } from '@/shared/model/CardRegion.ts'
 import {
     CardRegionVisibility,
+    INITIAL_HAND_SIZE,
     OUST_POOL_GAIN,
     PLAYER_NAME_LEGIBLE_LENGTH,
     RegionName,
@@ -24,6 +25,7 @@ import {
     Point2D,
     Separators,
 } from '@/shared/types/model.ts'
+import { getHandSizeBonus } from '@/shared/cardImpl/index.ts'
 import { describeOustChange, OustChange } from '@/shared/state/oust.ts'
 
 export class Player extends BaseModel {
@@ -49,8 +51,6 @@ export class Player extends BaseModel {
         // Facing rotation of this player's PlayerWidget ( and their cards on the shared
         // table ), toward the table center. In Free Table mode only, see freeTableLayout.ts.
         public widgetRotation = 0,
-        // Not currently in use
-        // public handSize = INITIAL_HAND_SIZE,
     ) {
         super(gameId, oid)
         if (name.length <= PLAYER_NAME_LEGIBLE_LENGTH) {
@@ -112,6 +112,21 @@ export class Player extends BaseModel {
                 CardRegionVisibility.VisibleToAll,
             ),
         }
+    }
+
+    // The hand size is not stored: it comes from the cards in play this player controls right
+    // now ( a location, a ready vampire... ), so it follows them when they are burned, stolen,
+    // or sent to torpor.
+    get handSize(): number {
+        let bonus = 0
+        for (const holder of Object.values(this.gameState.players)) {
+            for (const card of holder.ready.cards) {
+                if (card.controllerOid == this.oid) {
+                    bonus += getHandSizeBonus(card)
+                }
+            }
+        }
+        return INITIAL_HAND_SIZE + bonus
     }
 
     get isBot() {

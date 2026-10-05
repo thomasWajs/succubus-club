@@ -32,11 +32,17 @@ import {
 } from '@/shared/const/model.ts'
 import { CARD_HEIGHT } from '@/shared/const/game.ts'
 import {
+    ABRAHAM_MELLON_ID,
     BEHIND_YOU_ID,
     DEFLECTION_ID,
+    ELDER_LIBRARY_ID,
     FAR_MASTERY_ID,
     GOVERN_ID,
 } from '@/shared/cardImpl/cardIds.ts'
+import { MasterCardImplementation } from '@/shared/cardImpl/base.ts'
+import { MASTER_CARD_IMPLEMENTATIONS } from '@/shared/cardImpl/index.ts'
+import { ElderLibrary } from '@/shared/cardImpl/elderlibrary.ts'
+import { createPlayerView } from '@/shared/bot/playerView.ts'
 import { findOption } from '@/shared/bot/helpers.ts'
 import { createBleedAction, createHuntAction } from '@/shared/state/minionActionFactories.ts'
 import { GovernAgent } from '@/shared/bot/agents/governAgent.ts'
@@ -46,7 +52,7 @@ import { DeckList } from '@/shared/types/gateway.ts'
 import { applyOption, getDecidingPlayer, getDecisionPoint } from '@/shared/bot/referee.ts'
 import { stepBot } from '@/shared/bot/driver.ts'
 import { BaseAgent } from '@/shared/bot/agents/baseAgent.ts'
-import { BotOption, DecisionPoint, optionsOfType } from '@/shared/bot/types.ts'
+import { BotOption, DecisionKind, DecisionPoint, optionsOfType } from '@/shared/bot/types.ts'
 
 /**
  * Hand-built combats checked against the rulebook (combat.md). The harness only
@@ -659,7 +665,7 @@ function playGovernBleed(agent: BaseAgent) {
     if (!govern || !prey) {
         throw new ScenarioFailure('No Govern or no prey')
     }
-    turn.gameState.moveCardToRegion(govern, turn.player.hand)
+    giveCard(turn.gameState, turn.player, GOVERN_ID)
     // Someone able to block
     readyVampire(turn.gameState, prey, 3)
     const { decision, options } = getActionOptions(turn, MinionActionType.ActionCardFromHand)
@@ -813,7 +819,7 @@ function createHeist(level: DisciplineLevel): Heist {
     }
     turn.ready.minionAttrs.disciplines[Discipline.Dominate] = level
     const card = findInLibrary(turn.player, FAR_MASTERY_ID)
-    turn.gameState.moveCardToRegion(card, turn.player.hand)
+    giveCard(turn.gameState, turn.player, FAR_MASTERY_ID)
     const retainer = findInLibrary(victim, CAMARILLA_VITAE_SLAVE_ID)
     const ally = findInLibrary(victim, ABYSSAL_HUNTER_ID)
     turn.gameState.moveCardToRegion(retainer, victim.ready)
@@ -925,12 +931,7 @@ const FAR_MASTERY_SCENARIOS: { name: string; run: () => void }[] = [
 
 function giveBehindYou(fight: Fight, player: Player, minion: Vampire, level: DisciplineLevel) {
     minion.minionAttrs.disciplines[Discipline.Obfuscate] = level
-    const card = player.library.cards.find(candidate => candidate.krcgId == BEHIND_YOU_ID)
-    if (!card) {
-        throw new ScenarioFailure('No Behind You in the library')
-    }
-    fight.gameState.moveCardToRegion(card, player.hand)
-    return card
+    return giveCard(fight.gameState, player, BEHIND_YOU_ID)
 }
 
 function getCombatDecision(fight: Fight, player: Player) {
@@ -952,7 +953,6 @@ const CARD_SCENARIOS: { name: string; run: () => void }[] = [
                 fight.acting,
                 DisciplineLevel.INFERIOR,
             )
-            const handSize = fight.actingPlayer.hand.length
 
             // Not in the first step
             const early = getCombatDecision(fight, fight.actingPlayer)
@@ -967,7 +967,11 @@ const CARD_SCENARIOS: { name: string; run: () => void }[] = [
             applyOption(decision, option)
             expectEqual(getCombat(fight).range, CombatRange.Long, 'range')
             expectEqual(card.isIn.ready, true, 'the card is played')
-            expectEqual(fight.actingPlayer.hand.length, handSize, 'replacement drawn')
+            expectEqual(
+                fight.actingPlayer.hand.length,
+                fight.actingPlayer.handSize,
+                'drawn back to the hand size',
+            )
         },
     },
     {
@@ -1193,12 +1197,34 @@ function emptyHand(gameState: GameState, player: Player): void {
     }
 }
 
+// A bot always draws back up to its hand size: a scenario that wants a controlled hand takes
+// the rest of the library out of reach once the cards it needs are in hand
+function sealLibrary(gameState: GameState, player: Player): void {
+    for (const card of [...player.library.cards]) {
+        gameState.moveCardToRegion(card, player.removed)
+    }
+}
+
+// Cards handed out by a scenario stay in hand
+const givenCards = new WeakSet<LibraryCard>()
+
+// A bot over its hand size has to discard first: the hand stays at its size, so a card given
+// takes the place of one dealt by the setup
 function giveCard(gameState: GameState, player: Player, krcgId: string): LibraryCard {
     const card = player.library.cards.find(candidate => candidate.krcgId == krcgId)
     if (!card) {
         throw new ScenarioFailure(`Card ${krcgId} not in the library`)
     }
+    if (player.hand.length >= player.handSize) {
+        const dealt = player.hand.cards.find(
+            candidate => candidate instanceof LibraryCard && !givenCards.has(candidate),
+        )
+        if (dealt) {
+            gameState.moveCardToRegion(dealt, player.library)
+        }
+    }
     gameState.moveCardToRegion(card, player.hand)
+    givenCards.add(card)
     return card
 }
 
@@ -1232,6 +1258,9 @@ function createBounce(
     }
     reactor.minionAttrs.disciplines[Discipline.Dominate] = level
     const deflection = giveCard(gameState, bled, DEFLECTION_ID)
+    for (const player of players) {
+        sealLibrary(gameState, player)
+    }
 
     const decision = getDecisionPoint(gameState, bleeder)
     const declare =
@@ -1450,7 +1479,7 @@ const BOUNCE_SCENARIOS: { name: string; run: () => void }[] = [
             const bounce = createBounce(DisciplineLevel.SUPERIOR)
             const { gameState, bleeder, bled } = bounce
             bleeder.permId = 'human'
-            gameState.moveCardToRegion(bounce.deflection, bled.library)
+            gameState.moveCardToRegion(bounce.deflection, bled.removed)
             const pool = bled.pool
 
             expectEqual(getDecidingPlayer(gameState), bleeder, 'the human holds the impulse')
@@ -1523,6 +1552,299 @@ const BOUNCE_SCENARIOS: { name: string; run: () => void }[] = [
     },
 ]
 
+/**
+ * Master cards: Elder Library (cost 1 pool, location, +1 hand size), played in the
+ * master phase with the master phase action of the turn.
+ */
+
+type MasterTurn = { gameState: GameState; player: Player; library: LibraryCard }
+
+// The active player is in the master phase with Elder Library and 6 other cards in hand
+function createMasterPhase(): MasterTurn {
+    const { gameState, players } = createHeadlessGame([GovernDeck, GovernDeck])
+    createdGames.push(gameState)
+    const player = gameState.activePlayer
+    if (!player || !players.includes(player)) {
+        throw new ScenarioFailure('No active player')
+    }
+    emptyHand(gameState, player)
+    const library = giveCard(gameState, player, ELDER_LIBRARY_ID)
+    const others = player.library.cards.filter(card => card.krcgId != ELDER_LIBRARY_ID)
+    for (const card of others.slice(0, 6)) {
+        gameState.moveCardToRegion(card, player.hand)
+    }
+    gameState.turnPhaseIndex = TurnSequence.indexOf(TurnPhase.Master)
+    gameState.turnResources.unlocked = true
+    return { gameState, player, library }
+}
+
+function getMasterDecision(turn: MasterTurn): DecisionPoint {
+    const decision = getDecisionPoint(turn.gameState, turn.player)
+    if (!decision) {
+        throw new ScenarioFailure('No decision point')
+    }
+    return decision
+}
+
+const countMasterOptions = (turn: MasterTurn) =>
+    optionsOfType(getMasterDecision(turn).options, 'playMaster').length
+
+// Abraham Mellon is in the crypt or among the uncontrolled vampires, depending on the draw
+function getAbraham(player: Player) {
+    const abraham = [...player.crypt.cards, ...player.uncontrolled.cards].find(
+        card => card.krcgId == ABRAHAM_MELLON_ID,
+    )
+    if (!abraham) {
+        throw new ScenarioFailure('Abraham Mellon is not in the crypt')
+    }
+    return abraham
+}
+
+const MASTER_SCENARIOS: { name: string; run: () => void }[] = [
+    {
+        name: 'Elder Library is offered with a master phase action and more pool than its cost',
+        run() {
+            const turn = createMasterPhase()
+            const { gameState, player } = turn
+            const decision = getMasterDecision(turn)
+            expectEqual(decision.kind, DecisionKind.Master, 'decision kind')
+            expectEqual(countMasterOptions(turn), 1, 'options in the master phase')
+            findOption(decision.options, 'endPhase')
+
+            gameState.turnResources.mpa = 0
+            expectEqual(countMasterOptions(turn), 0, 'options without a master phase action')
+            gameState.turnResources.mpa = 1
+
+            player.pool = 1
+            expectEqual(countMasterOptions(turn), 0, 'options when the pool would be emptied')
+            player.pool = 2
+            expectEqual(countMasterOptions(turn), 1, 'options with 2 pool')
+
+            gameState.turnPhaseIndex = TurnSequence.indexOf(TurnPhase.Minion)
+            const minionPhase = getMasterDecision(turn)
+            expectEqual(
+                optionsOfType(minionPhase.options, 'playMaster').length,
+                0,
+                'master options in the minion phase',
+            )
+
+            gameState.turnPhaseIndex = TurnSequence.indexOf(TurnPhase.Master)
+            emptyHand(gameState, player)
+            expectEqual(countMasterOptions(turn), 0, 'options when not in hand')
+        },
+    },
+    {
+        name: 'playing Elder Library: 1 pool, the action, +1 hand size, draws back to 8, stays in play',
+        run() {
+            const turn = createMasterPhase()
+            const { gameState, player, library } = turn
+            const pool = player.pool
+            const libraryLength = player.library.length
+            expectEqual(player.hand.length, 7, 'hand before')
+            expectEqual(player.handSize, 7, 'hand size before')
+
+            const decision = getMasterDecision(turn)
+            applyOption(decision, findOption(decision.options, 'playMaster'))
+
+            expectEqual(player.pool, pool - 1, 'pool')
+            expectEqual(gameState.turnResources.mpa, 0, 'master phase action')
+            expectEqual(player.handSize, 8, 'hand size')
+            expectEqual(player.hand.length, 8, 'hand after the draw')
+            expectEqual(player.library.length, libraryLength - 2, 'library after two draws')
+            expectEqual(library.isIn.ready, true, 'in play')
+            expectEqual(player.ashHeap.length, 0, 'ash heap')
+
+            const next = getMasterDecision(turn)
+            expectEqual(next.kind, DecisionKind.Master, 'no cleanup for a location')
+            expectEqual(next.options.length, 1, 'only the way out is left')
+        },
+    },
+    {
+        name: 'the Govern agent plays Elder Library as soon as it is in hand, then ends the phase',
+        run() {
+            const turn = createMasterPhase()
+            const { gameState, player } = turn
+            const agent = new GovernAgent()
+            expectEqual(stepBot(player, agent)?.option.type, 'playMaster', 'first step')
+            expectEqual(stepBot(player, agent)?.option.type, 'endPhase', 'second step')
+            expectEqual(gameState.turnPhase, TurnPhase.Minion, 'next phase')
+        },
+    },
+    {
+        name: 'a master card that does not stay in play goes to the ash heap at the cleanup',
+        run() {
+            class Discarded extends MasterCardImplementation {
+                get staysInPlay() {
+                    return false
+                }
+            }
+            MASTER_CARD_IMPLEMENTATIONS[ELDER_LIBRARY_ID] = Discarded
+            try {
+                const turn = createMasterPhase()
+                const { player, library } = turn
+                const decision = getMasterDecision(turn)
+                applyOption(decision, findOption(decision.options, 'playMaster'))
+                expectEqual(library.isIn.ready, true, 'visible after the play')
+
+                const cleanup = getMasterDecision(turn)
+                expectEqual(cleanup.kind, DecisionKind.Cleanup, 'cleanup decision')
+                applyOption(cleanup, findOption(cleanup.options, 'cleanup'))
+                expectEqual(library.isIn.ashHeap, true, 'in the ash heap')
+                expectEqual(player.ready.length, 0, 'nothing left in play')
+            } finally {
+                MASTER_CARD_IMPLEMENTATIONS[ELDER_LIBRARY_ID] = ElderLibrary
+            }
+        },
+    },
+    {
+        name: 'the master phase action refuses to be spent when there is none',
+        run() {
+            const { gameState, player } = createMasterPhase()
+            gameState.turnResources.mpa = 0
+            mustRefuse(gameMutations.spendMasterPhaseAction.act(player, { player }), 'spend (none)')
+        },
+    },
+    {
+        name: 'the hand size follows Elder Library: burned or stolen, the bonus is gone or goes with it',
+        run() {
+            const turn = createMasterPhase()
+            const { gameState, player, library } = turn
+            const other = gameState.orderedPlayers.find(candidate => candidate != player)
+            if (!other) {
+                throw new ScenarioFailure('No other player')
+            }
+            expectEqual(player.handSize, 7, 'before')
+            const decision = getMasterDecision(turn)
+            applyOption(decision, findOption(decision.options, 'playMaster'))
+            expectEqual(player.handSize, 8, 'in play')
+
+            must(
+                gameMutations.takeControl.act(other, { card: library, controller: other }),
+                'steal',
+            )
+            expectEqual(player.handSize, 7, 'stolen: the owner loses it')
+            expectEqual(other.handSize, 8, 'stolen: the thief gets it')
+
+            must(
+                gameMutations.takeControl.act(other, { card: library, controller: undefined }),
+                'back',
+            )
+            expectEqual(player.handSize, 8, 'control reverted')
+            expectEqual(other.handSize, 7, 'control reverted: the thief loses it')
+
+            gameState.moveCardToRegion(library, player.ashHeap)
+            expectEqual(player.handSize, 7, 'burned')
+            // Humans discard by hand: only a bot is made to
+            player.permId = 'human'
+            expectEqual(
+                getDecisionPoint(gameState, player)?.kind,
+                DecisionKind.Master,
+                'a human is not asked',
+            )
+        },
+    },
+    {
+        name: 'Abraham Mellon gives +1 hand size only while he is in the ready region',
+        run() {
+            const { gameState, player } = createMasterPhase()
+            const abraham = getAbraham(player)
+            expectEqual(player.handSize, 7, 'not in play')
+            gameState.moveCardToRegion(abraham, player.ready)
+            expectEqual(player.handSize, 8, 'ready')
+            gameState.moveCardToRegion(abraham, player.torpor)
+            expectEqual(player.handSize, 7, 'torpor')
+            gameState.moveCardToRegion(abraham, player.ready)
+            expectEqual(player.handSize, 8, 'out of torpor')
+            gameState.moveCardToRegion(abraham, player.ashHeap)
+            expectEqual(player.handSize, 7, 'dead')
+        },
+    },
+    {
+        name: 'Elder Library and Abraham Mellon stack, and a bot draws when a vampire gets out of torpor',
+        run() {
+            const turn = createMasterPhase()
+            const { gameState, player } = turn
+            const abraham = getAbraham(player)
+            gameState.moveCardToRegion(abraham, player.torpor)
+            const decision = getMasterDecision(turn)
+            applyOption(decision, findOption(decision.options, 'playMaster'))
+            expectEqual(player.handSize, 8, 'library only')
+            expectEqual(player.hand.length, 8, 'hand after the library')
+
+            gameState.moveCardToRegion(abraham, player.ready)
+            expectEqual(player.handSize, 9, 'both')
+            // The next decision of any bot ends with the draw
+            const next = getMasterDecision(turn)
+            applyOption(next, findOption(next.options, 'endPhase'))
+            expectEqual(player.hand.length, 9, 'drawn after the vampire came back')
+        },
+    },
+    {
+        name: 'a bot over its hand size discards at once, even out of its turn, without using the discard action',
+        run() {
+            const turn = createMasterPhase()
+            const { gameState, player } = turn
+            const abraham = getAbraham(player)
+            gameState.moveCardToRegion(abraham, player.ready)
+            const draw = player.library.cards[0]
+            gameState.moveCardToRegion(draw, player.hand)
+            expectEqual(player.hand.length, 8, 'hand')
+
+            // Abraham goes to torpor during the turn of the OTHER player
+            const other = gameState.orderedPlayers.find(candidate => candidate != player)
+            if (!other) {
+                throw new ScenarioFailure('No other player')
+            }
+            gameState.activePlayerIndex = gameState.competingPlayers.indexOf(other)
+            gameState.moveCardToRegion(abraham, player.torpor)
+            expectEqual(player.handSize, 7, 'hand size')
+            expectEqual(getDecidingPlayer(gameState), player, 'the bot decides first')
+
+            const decision = getMasterDecision({ ...turn, player })
+            expectEqual(decision.kind, DecisionKind.DiscardExcess, 'decision kind')
+            expectEqual(decision.options.length, 8, 'one option per card')
+            const ash = player.ashHeap.length
+            const dpa = gameState.turnResources.dpa
+            applyOption(decision, decision.options[0])
+            expectEqual(player.hand.length, 7, 'hand after')
+            expectEqual(player.ashHeap.length, ash + 1, 'ash heap')
+            expectEqual(gameState.turnResources.dpa, dpa, 'discard phase action untouched')
+            expectEqual(getDecidingPlayer(gameState), other, 'the game goes on')
+        },
+    },
+    {
+        name: 'the Govern agent discards the excess but keeps its Govern cards',
+        run() {
+            const { gameState, player } = createMasterPhase()
+            emptyHand(gameState, player)
+            const govern = giveCard(gameState, player, GOVERN_ID)
+            const others = player.library.cards.filter(card => card.krcgId != GOVERN_ID)
+            for (const card of others.slice(0, 7)) {
+                gameState.moveCardToRegion(card, player.hand)
+            }
+            expectEqual(player.hand.length, 8, 'hand')
+            const step = stepBot(player, new GovernAgent())
+            expectEqual(step?.option.type, 'discardExcess', 'step')
+            expectEqual(govern.isIn.hand, true, 'Govern kept')
+            expectEqual(player.hand.length, 7, 'hand after')
+        },
+    },
+    {
+        name: 'the hand size is part of the player view',
+        run() {
+            const { gameState, player } = createMasterPhase()
+            const abraham = getAbraham(player)
+            gameState.moveCardToRegion(abraham, player.ready)
+            const view = createPlayerView(gameState, player)
+            try {
+                expectEqual(view.player.handSize, 8, 'hand size in the view')
+            } finally {
+                view.dispose()
+            }
+        },
+    },
+]
+
 type ScenarioResult = { name: string; error: string | null }
 
 function runCombatScenarios(): ScenarioResult[] {
@@ -1535,6 +1857,7 @@ function runCombatScenarios(): ScenarioResult[] {
         ...CARD_SCENARIOS,
         ...HUMAN_DAMAGE_SCENARIOS,
         ...BOUNCE_SCENARIOS,
+        ...MASTER_SCENARIOS,
     ].map(({ name, run }) => {
         try {
             run()

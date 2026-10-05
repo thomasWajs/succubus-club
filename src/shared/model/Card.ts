@@ -330,7 +330,7 @@ export class CryptCard extends Card {
         }
 
         const implementation = CRYPT_CARD_IMPLEMENTATIONS[this.krcgId]
-        implementation?.adapt(this)
+        implementation?.adapt?.(this)
     }
 }
 

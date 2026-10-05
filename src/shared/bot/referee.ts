@@ -26,7 +26,7 @@ import {
     createLeaveTorporAction,
     createRescueFromTorporAction,
 } from '@/shared/state/minionActionFactories.ts'
-import { payCardCosts } from '@/shared/state/cardCosts.ts'
+import { payCardCosts, payMasterCardCosts } from '@/shared/state/cardCosts.ts'
 import {
     canChangeTarget,
     getBlockingDecision,
@@ -44,8 +44,10 @@ import {
     getActionCardOptions,
     getActionModifierOptions,
     getCombatCardOptions,
+    getMasterCardOptions,
     getReactionCardOptions,
     hasPlayedModifierThisAction,
+    isMasterDiscardedAfterUse,
 } from '@/shared/bot/cardOptions.ts'
 import {
     BotOption,
@@ -90,6 +92,11 @@ export function getDecidingPlayer(gameState: GameState): Player | null {
     if (gameState.referendum) {
         return null
     }
+    // A bot above its hand size discards first, whatever is going on. Humans do it by hand.
+    const excess = gameState.competingPlayers.find(player => hasExcessCards(player))
+    if (excess) {
+        return excess
+    }
     if (gameState.combat) {
         return gameState.combat.impulsePlayer
     }
@@ -100,6 +107,10 @@ export function getDecidingPlayer(gameState: GameState): Player | null {
     return gameState.activePlayer ?? null
 }
 
+function hasExcessCards(player: Player): boolean {
+    return player.isBot && player.hand.length > player.handSize
+}
+
 /**
  * Decision points
  */
@@ -107,6 +118,14 @@ export function getDecidingPlayer(gameState: GameState): Player | null {
 export function getDecisionPoint(gameState: GameState, player: Player): DecisionPoint | null {
     if (getDecidingPlayer(gameState) !== player) {
         return null
+    }
+
+    if (hasExcessCards(player)) {
+        return decision(
+            DecisionKind.DiscardExcess,
+            player,
+            player.hand.cards.map(card => ({ type: 'discardExcess', card })),
+        )
     }
 
     if (gameState.combat) {
@@ -128,7 +147,7 @@ export function getDecisionPoint(gameState: GameState, player: Player): Decision
         case TurnPhase.Unlock:
             return decision(DecisionKind.Unlock, player, unlockPhaseOptions(gameState))
         case TurnPhase.Master:
-            return decision(DecisionKind.Master, player, [{ type: 'endPhase' }])
+            return decision(DecisionKind.Master, player, masterPhaseOptions(gameState, player))
         case TurnPhase.Minion:
             return decision(DecisionKind.Minion, player, minionPhaseOptions(player))
         case TurnPhase.Influence:
@@ -149,8 +168,17 @@ function decision(kind: DecisionKind, player: Player, options: BotOption[]): Dec
 function getCleanupCards(player: Player): LibraryCard[] {
     return player.ready.cards.filter(
         (card): card is LibraryCard =>
-            card instanceof LibraryCard && !!card.type && ONE_SHOT_TYPES.includes(card.type),
+            card instanceof LibraryCard &&
+            !!card.type &&
+            (ONE_SHOT_TYPES.includes(card.type) || isMasterDiscardedAfterUse(card)),
     )
+}
+
+// A master card needs the master phase action of the turn, on top of its own cost
+function masterPhaseOptions(gameState: GameState, player: Player): BotOption[] {
+    const options: BotOption[] = gameState.turnResources.mpa > 0 ? getMasterCardOptions(player) : []
+    options.push({ type: 'endPhase' })
+    return options
 }
 
 // "Unlock as normal" is mandatory and must come first. It cannot be derived from
@@ -373,8 +401,9 @@ function check(validity: Validity, what: string): void {
     }
 }
 
-function drawReplacement(player: Player): void {
-    if (!player.library.isEmpty) {
+// The hand is always kept full: a player draws back up to their hand size
+function drawToHandSize(player: Player): void {
+    while (player.hand.length < player.handSize && !player.library.isEmpty) {
         check(gameMutations.drawLibrary.act(player, { player }), 'drawLibrary')
     }
 }
@@ -393,8 +422,6 @@ function playCardFromHand(player: Player, card: LibraryCard, byMinion?: Minion):
         }),
         'play card',
     )
-    // This won't handle the "do not replace until..." card text
-    drawReplacement(player)
 }
 
 function payCosts(minion: Minion, card: LibraryCard, x?: number): void {
@@ -533,7 +560,28 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
 
         case 'discard':
             check(gameMutations.discard.act(player, { card: option.card }), 'discard')
-            drawReplacement(player)
+            break
+
+        case 'discardExcess':
+            check(
+                gameMutations.moveCardToRegion.act(player, {
+                    card: option.card,
+                    fromCardRegion: option.card.region,
+                    toCardRegion: player.ashHeap,
+                    x: 0,
+                    y: 0,
+                }),
+                'discard excess',
+            )
+            break
+
+        case 'playMaster':
+            playCardFromHand(player, option.card)
+            check(payMasterCardCosts(player, option.card), 'card cost')
+            check(
+                gameMutations.spendMasterPhaseAction.act(player, { player }),
+                'master phase action',
+            )
             break
 
         case 'playModifier': {
@@ -653,4 +701,7 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
     }
 
     cleanupOutOfTurnCards(gameState, player)
+    // The hand is always kept full. The hand size depends on the cards in play: it may have
+    // grown during the option ( a location played, a vampire out of torpor ).
+    drawToHandSize(player)
 }

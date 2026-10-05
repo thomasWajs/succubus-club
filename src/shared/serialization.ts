@@ -249,7 +249,6 @@ export function deserializeGameState(
             playerData.separators,
             playerData.widgetPosition,
             playerData.widgetRotation,
-            // playerData.handSize,
         )
     }
     gameState.players = players

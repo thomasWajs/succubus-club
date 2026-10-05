@@ -1,4 +1,9 @@
-import { DEFLECTION_ID, GOVERN_ID, LOST_IN_CROWDS_ID } from '@/shared/cardImpl/cardIds.ts'
+import {
+    DEFLECTION_ID,
+    ELDER_LIBRARY_ID,
+    GOVERN_ID,
+    LOST_IN_CROWDS_ID,
+} from '@/shared/cardImpl/cardIds.ts'
 import { DisciplineLevel } from '@/shared/const/model.ts'
 import { Card, Minion } from '@/shared/model/Card.ts'
 import { Player } from '@/shared/model/Player.ts'
@@ -48,6 +53,14 @@ function asGovern(option: BotOptionOf<'declareAction'>) {
 }
 
 export class GovernAgent extends BaseAgent {
+    // Elder Library as soon as it is in hand
+    protected override masterPhase(decision: DecisionPoint): BotOption {
+        const elderLibrary = optionsOfType(decision.options, 'playMaster').find(
+            option => option.card.krcgId == ELDER_LIBRARY_ID,
+        )
+        return elderLibrary ?? super.masterPhase(decision)
+    }
+
     protected override minionPhase(decision: DecisionPoint): BotOption {
         const actions = optionsOfType(decision.options, 'declareAction')
 
@@ -107,6 +120,15 @@ export class GovernAgent extends BaseAgent {
             }
         }
         return super.influencePhase(decision)
+    }
+
+    // Keeps the Govern cards
+    protected override discardExcess(decision: DecisionPoint): BotOption {
+        return (
+            optionsOfType(decision.options, 'discardExcess').find(
+                option => option.card.krcgId != GOVERN_ID,
+            ) ?? super.discardExcess(decision)
+        )
     }
 
     protected override discardPhase(decision: DecisionPoint): BotOption {

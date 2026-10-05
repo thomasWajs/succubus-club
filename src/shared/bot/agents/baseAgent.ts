@@ -17,6 +17,8 @@ export abstract class BaseAgent implements BotAgent {
                 return this.discardPhase(decision)
             case DecisionKind.Cleanup:
                 return this.cleanupPhase(decision)
+            case DecisionKind.DiscardExcess:
+                return this.discardExcess(decision)
             case DecisionKind.ActionImpulse:
                 return this.actionImpulse(decision)
             case DecisionKind.ReactionImpulse:
@@ -26,12 +28,8 @@ export abstract class BaseAgent implements BotAgent {
         }
     }
 
-    // Unlock, Master and Cleanup offer a single mandatory option
+    // Unlock and Cleanup offer a single mandatory option
     protected unlockPhase(decision: DecisionPoint): BotOption {
-        return decision.options[0]
-    }
-
-    protected masterPhase(decision: DecisionPoint): BotOption {
         return decision.options[0]
     }
 
@@ -39,7 +37,16 @@ export abstract class BaseAgent implements BotAgent {
         return decision.options[0]
     }
 
+    // Mandatory: the first card by default
+    protected discardExcess(decision: DecisionPoint): BotOption {
+        return decision.options[0]
+    }
+
     // The other kinds default to doing nothing. Throws if the referee does not offer it.
+    protected masterPhase(decision: DecisionPoint): BotOption {
+        return findOption(decision.options, 'endPhase')
+    }
+
     protected minionPhase(decision: DecisionPoint): BotOption {
         return findOption(decision.options, 'endPhase')
     }

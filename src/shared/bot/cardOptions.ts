@@ -13,6 +13,7 @@ import {
     COMBAT_CARD_IMPLEMENTATIONS,
     REACTION_CARD_IMPLEMENTATIONS,
     getImplementation,
+    getMasterImplementation,
     hasImplementation,
 } from '@/shared/cardImpl/index.ts'
 import { CombatCardEffect } from '@/shared/cardImpl/base.ts'
@@ -22,7 +23,7 @@ import {
     createActionModifier,
 } from '@/shared/state/minionActionFactories.ts'
 import { singleDisciplineUsage } from '@/shared/state/cardUsage.ts'
-import { canPayCosts } from '@/shared/state/cardCosts.ts'
+import { canPayCosts, canPayPoolCost } from '@/shared/state/cardCosts.ts'
 import { BotOptionOf, CombatCardOption } from '@/shared/bot/types.ts'
 
 /**
@@ -208,6 +209,35 @@ export function getReactionCardOptions(minion: Minion): BotOptionOf<'playReactio
         }
     }
     return options
+}
+
+// The master cards in the player's hand that can be played now: implemented, and the pool
+// pays for them. The master phase action is checked by the referee.
+export function getMasterCardOptions(player: Player): BotOptionOf<'playMaster'>[] {
+    const options: BotOptionOf<'playMaster'>[] = []
+
+    for (const card of player.hand.cards) {
+        if (
+            !(card instanceof LibraryCard) ||
+            card.type != LibraryCardType.Master ||
+            !canPayPoolCost(player, card)
+        ) {
+            continue
+        }
+        if (getMasterImplementation(card, player)) {
+            options.push({ type: 'playMaster', card })
+        }
+    }
+    return options
+}
+
+// A played master card goes to the ash heap unless it stays in play. A master card with no
+// implementation is never played by a bot, so it is never found in play.
+export function isMasterDiscardedAfterUse(card: LibraryCard): boolean {
+    return (
+        card.type == LibraryCardType.Master &&
+        getMasterImplementation(card, card.controller)?.staysInPlay === false
+    )
 }
 
 // Same-named modifiers can't be played twice in an action: the ones already

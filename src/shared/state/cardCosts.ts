@@ -1,4 +1,5 @@
 import { LibraryCard, Minion } from '@/shared/model/Card.ts'
+import { Player } from '@/shared/model/Player.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
 import { Invalid, VALID, Validity } from '@/shared/types/state.ts'
 
@@ -26,6 +27,22 @@ export function canPayCosts(minion: Minion, card: LibraryCard): boolean {
     return minion.blood >= card.bloodCost && minion.controller.pool > card.poolCost
 }
 
+// For the cards played by a Methuselah with no minion ( master cards ) : only the pool counts
+export function canPayPoolCost(player: Player, card: LibraryCard): boolean {
+    return card.poolCost != 'X' && player.pool > card.poolCost
+}
+
+function payPoolCost(player: Player, card: LibraryCard, declaredX?: number): Validity {
+    const poolCost = resolveCost(card.poolCost, declaredX)
+    if (poolCost > 0) {
+        const validity = gameMutations.changePool.act(player, { player, amount: -poolCost })
+        if (!validity.isValid) {
+            return Invalid(`card pool cost: ${validity.reason}`)
+        }
+    }
+    return VALID
+}
+
 // The blood is paid by the minion, the pool by its controller. Stops at the first
 // payment the engine refuses and returns why.
 export function payCardCosts(minion: Minion, card: LibraryCard, declaredX?: number): Validity {
@@ -42,13 +59,9 @@ export function payCardCosts(minion: Minion, card: LibraryCard, declaredX?: numb
         }
     }
 
-    const poolCost = resolveCost(card.poolCost, declaredX)
-    if (poolCost > 0) {
-        const validity = gameMutations.changePool.act(player, { player, amount: -poolCost })
-        if (!validity.isValid) {
-            return Invalid(`card pool cost: ${validity.reason}`)
-        }
-    }
+    return payPoolCost(player, card, declaredX)
+}
 
-    return VALID
+export function payMasterCardCosts(player: Player, card: LibraryCard): Validity {
+    return payPoolCost(player, card)
 }

@@ -1720,6 +1720,31 @@ class UnlockAllInverse extends GameMutation<UnlockAllInverseParams> {
 }
 
 /**
+ * Spend the master phase action ( played with a master card )
+ */
+
+class SpendMasterPhaseAction extends PlayerMutation {
+    _isUserCancellable = false
+    readonly syncMode = MutationSyncMode.Exclusive
+
+    get allowedPlayer() {
+        return this.params.player
+    }
+
+    getValidity(gameState: GameState) {
+        return gameState.turnResources.mpa > 0 ? VALID : Invalid('No master phase action left')
+    }
+
+    protected updateGameState(gameState: GameState) {
+        gameState.turnResources.mpa -= 1
+    }
+
+    formatForLog() {
+        return `${this.params.player.name} uses the master phase action`
+    }
+}
+
+/**
  * Action: Change action value
  */
 
@@ -3082,6 +3107,7 @@ export const gameMutations = {
     setFlip: defineMutation(SetFlip),
     setLock: defineMutation(SetLock),
     shuffle: defineMutation(Shuffle),
+    spendMasterPhaseAction: defineMutation(SpendMasterPhaseAction),
     takeControl: defineMutation(TakeControl),
     unlockAll: defineMutation(UnlockAll),
     unlockAllInverse: defineMutation(UnlockAllInverse),

@@ -4,7 +4,10 @@ import { CombatStrike, LibraryCardUsage, Validity } from '@/shared/types/state.t
 import { DisciplineLevel } from '@/shared/const/model.ts'
 
 export type CryptCardImplementation = {
-    adapt: (card: CryptCard) => void
+    // Changes the attributes of the card itself
+    adapt?: (card: CryptCard) => void
+    // Added to the hand size of the controller while the vampire is ready
+    handSizeBonus?: number
 }
 
 // The play context shared by the action, action modifier and combat cards: the
@@ -88,4 +91,17 @@ export abstract class ReactionCardImplementation extends CardImplementation {
 
 export abstract class ActionModifierCardImplementation extends CardImplementation {
     abstract apply(): void
+}
+
+// A master card is played by a Methuselah, not by a minion : no usage, no discipline
+export abstract class MasterCardImplementation {
+    constructor(public player: Player) {}
+
+    // Locations and "Put this card in play" cards stay in play ; the others go to the ash heap
+    abstract get staysInPlay(): boolean
+
+    // Added to the hand size of the controller while the card is in play
+    get handSizeBonus(): number {
+        return 0
+    }
 }

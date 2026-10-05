@@ -74,8 +74,12 @@ export function describeOption(option: BotOption): string {
         }
         case 'influence':
             return `influence ${option.vampire.name} +${option.amount}`
+        case 'discardExcess':
+            return `discardExcess ${option.card.name}`
         case 'discard':
             return `discard ${option.card.name}`
+        case 'playMaster':
+            return `playMaster ${option.card.name}`
         case 'playModifier':
             return `playModifier ${option.modifier.card.name}`
         case 'block':
