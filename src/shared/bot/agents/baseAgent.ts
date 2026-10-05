@@ -51,8 +51,9 @@ export abstract class BaseAgent implements BotAgent {
         return findOption(decision.options, 'endPhase')
     }
 
+    // No endPhase when a vampire must hunt: the options are then only the mandatory hunts
     protected minionPhase(decision: DecisionPoint): BotOption {
-        return findOption(decision.options, 'endPhase')
+        return decision.options.find(option => option.type == 'endPhase') ?? decision.options[0]
     }
 
     protected influencePhase(decision: DecisionPoint): BotOption {

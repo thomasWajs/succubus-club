@@ -590,14 +590,14 @@ const TORPOR_SCENARIOS: { name: string; run: () => void }[] = [
     {
         name: 'a torpid vampire with enough blood can leave torpor, the others cannot',
         run() {
-            const poor = createMinionPhase(0, LEAVE_TORPOR_COST - 1)
+            const poor = createMinionPhase(1, LEAVE_TORPOR_COST - 1)
             expectEqual(
                 getActionOptions(poor, MinionActionType.LeaveTorpor).options.length,
                 0,
                 'options',
             )
 
-            const turn = createMinionPhase(0, 3)
+            const turn = createMinionPhase(1, 3)
             const { decision, options } = getActionOptions(turn, MinionActionType.LeaveTorpor)
             expectEqual(options.length, 1, 'leave torpor offered')
             applyOption(decision, options[0])
@@ -626,6 +626,70 @@ const TORPOR_SCENARIOS: { name: string; run: () => void }[] = [
             expectRegion(turn.torpid, 'ready')
             expectEqual(turn.torpid.blood, 0, 'rescued blood')
             expectEqual(turn.ready.blood, 1, 'rescuer blood')
+        },
+    },
+    {
+        name: 'an empty ready unlocked vampire must hunt: only its hunt is offered, no endPhase',
+        run() {
+            const turn = createMinionPhase(0, 3)
+            const decision = getDecisionPoint(turn.gameState, turn.player)
+            if (!decision) {
+                throw new ScenarioFailure('No decision point')
+            }
+            expectEqual(decision.options.length, 1, 'options')
+            const [option] = decision.options
+            if (
+                option.type != 'declareAction' ||
+                option.action.type != MinionActionType.Hunt ||
+                option.action.actingMinion != turn.ready
+            ) {
+                throw new ScenarioFailure('The only option is not the hunt of the empty vampire')
+            }
+
+            applyOption(decision, option)
+            resolveAction(turn)
+            const next = getDecisionPoint(turn.gameState, turn.player)
+            if (!next) {
+                throw new ScenarioFailure('No decision point after the hunt')
+            }
+            expectEqual(
+                next.options.some(candidate => candidate.type == 'endPhase'),
+                true,
+                'endPhase offered once the vampire has hunted',
+            )
+        },
+    },
+    {
+        name: 'a vampire with blood is free to do anything, the phase can be ended',
+        run() {
+            const turn = createMinionPhase(1, 3)
+            const decision = getDecisionPoint(turn.gameState, turn.player)
+            if (!decision) {
+                throw new ScenarioFailure('No decision point')
+            }
+            expectEqual(
+                decision.options.some(option => option.type == 'endPhase'),
+                true,
+                'endPhase offered',
+            )
+            expectEqual(
+                getActionOptions(turn, MinionActionType.Hunt).options.length > 0,
+                true,
+                'hunt offered',
+            )
+        },
+    },
+    {
+        name: 'a locked empty vampire does not have to hunt',
+        run() {
+            const turn = createMinionPhase(0, 3)
+            turn.ready.lock()
+            const decision = getDecisionPoint(turn.gameState, turn.player)
+            expectEqual(
+                decision?.options.some(option => option.type == 'endPhase'),
+                true,
+                'endPhase offered',
+            )
         },
     },
 ]
@@ -808,10 +872,13 @@ type Heist = {
     ally: LibraryCard
 }
 
-function findInLibrary(player: Player, krcgId: string): LibraryCard {
-    const card = player.library.cards.find(candidate => candidate.krcgId == krcgId)
+// The setup deals a random hand, so a card can be in the library or already in the hand
+function findCard(player: Player, krcgId: string): LibraryCard {
+    const card = [...player.library.cards, ...player.hand.cards].find(
+        candidate => candidate.krcgId == krcgId,
+    )
     if (!(card instanceof LibraryCard)) {
-        throw new ScenarioFailure(`Card ${krcgId} is not in the library`)
+        throw new ScenarioFailure(`Card ${krcgId} is neither in the library nor in the hand`)
     }
     return card
 }
@@ -824,10 +891,10 @@ function createHeist(level: DisciplineLevel): Heist {
         throw new ScenarioFailure('No other player')
     }
     turn.ready.minionAttrs.disciplines[Discipline.Dominate] = level
-    const card = findInLibrary(turn.player, FAR_MASTERY_ID)
+    const card = findCard(turn.player, FAR_MASTERY_ID)
     giveCard(turn.gameState, turn.player, FAR_MASTERY_ID)
-    const retainer = findInLibrary(victim, CAMARILLA_VITAE_SLAVE_ID)
-    const ally = findInLibrary(victim, ABYSSAL_HUNTER_ID)
+    const retainer = findCard(victim, CAMARILLA_VITAE_SLAVE_ID)
+    const ally = findCard(victim, ABYSSAL_HUNTER_ID)
     turn.gameState.moveCardToRegion(retainer, victim.ready)
     turn.gameState.moveCardToRegion(ally, victim.ready)
     return { turn, victim, card, retainer, ally }
@@ -1217,9 +1284,10 @@ const givenCards = new WeakSet<LibraryCard>()
 // A bot over its hand size has to discard first: the hand stays at its size, so a card given
 // takes the place of one dealt by the setup
 function giveCard(gameState: GameState, player: Player, krcgId: string): LibraryCard {
-    const card = player.library.cards.find(candidate => candidate.krcgId == krcgId)
-    if (!card) {
-        throw new ScenarioFailure(`Card ${krcgId} not in the library`)
+    const card = findCard(player, krcgId)
+    if (card.region == player.hand) {
+        givenCards.add(card)
+        return card
     }
     if (player.hand.length >= player.handSize) {
         const dealt = player.hand.cards.find(

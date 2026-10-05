@@ -18,10 +18,10 @@ import { capacityOf } from '@/shared/bot/helpers.ts'
 import { BotOption, BotOptionOf, DecisionPoint, optionsOfType } from '@/shared/bot/types.ts'
 
 /**
- * Port of the GovernBot strategy onto the referee's options: hunt when empty,
- * Govern with the oldest able vampire, influence the highest-capacity
- * uncontrolled vampire. Never blocks. With more than 2 ready minions, the youngest
- * stays unlocked (it hunts only when empty). When bled, it declines to block then
+ * Port of the GovernBot strategy onto the referee's options: hunt when empty
+ * (enforced by the referee), Govern with the oldest able vampire, influence the
+ * highest-capacity uncontrolled vampire. Never blocks. With more than 2 ready minions,
+ * the youngest stays unlocked (unless it is empty and must hunt). When bled, it declines to block then
  * bounces the bleed to its prey with Deflection.
  */
 
@@ -78,16 +78,7 @@ export class GovernAgent extends BaseAgent {
     protected override minionPhase(decision: DecisionPoint): BotOption {
         const actions = optionsOfType(decision.options, 'declareAction')
 
-        // Mandatory actions first: hunt when empty
-        const hunt = actions.find(
-            option =>
-                option.action.type == MinionActionType.Hunt &&
-                option.action.actingMinion.blood == 0,
-        )
-        if (hunt) {
-            return hunt
-        }
-
+        // An empty vampire must hunt: the referee then offers only the hunts, and the base agent takes the first.
         // The reserved minion stays unlocked, ready to react
         const reserved = getReservedMinion(decision.player)
         const governs = actions

@@ -230,10 +230,18 @@ function minionPhaseOptions(player: Player): BotOption[] {
     }
 
     // The engine's own validation decides what can be declared
-    const options: BotOption[] = candidates
-        .filter(action => canDeclare(action).isValid)
-        .map(action => ({ type: 'declareAction', action }))
-    options.push({ type: 'endPhase' })
+    const valid = candidates.filter(action => canDeclare(action).isValid)
+
+    // Rulebook: a ready unlocked vampire without blood MUST hunt, before any other action
+    const mandatoryHunts = valid.filter(
+        action => action.type == MinionActionType.Hunt && action.actingMinion.blood == 0,
+    )
+    const declarable = mandatoryHunts.length > 0 ? mandatoryHunts : valid
+
+    const options: BotOption[] = declarable.map(action => ({ type: 'declareAction', action }))
+    if (mandatoryHunts.length == 0) {
+        options.push({ type: 'endPhase' })
+    }
     return options
 }
 
