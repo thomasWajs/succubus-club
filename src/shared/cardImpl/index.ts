@@ -1,5 +1,6 @@
 import {
     ABRAHAM_MELLON_ID,
+    ASYLUM_HUNTING_GROUND_ID,
     BEHIND_YOU_ID,
     DEFLECTION_ID,
     ELDER_LIBRARY_ID,
@@ -17,6 +18,7 @@ import {
     ReactionCardImplementation,
 } from '@/shared/cardImpl/base.ts'
 import { AbrahamMellonG6 } from '@/shared/cardImpl/abrahammellong6.ts'
+import { AsylumHuntingGround } from '@/shared/cardImpl/asylumhuntingground.ts'
 import { BehindYou } from '@/shared/cardImpl/behindyou.ts'
 import { Deflection } from '@/shared/cardImpl/deflection.ts'
 import { ElderLibrary } from '@/shared/cardImpl/elderlibrary.ts'
@@ -63,9 +65,13 @@ export const REACTION_CARD_IMPLEMENTATIONS: CardImplementationRegistry<ReactionC
         [DEFLECTION_ID]: Deflection,
     }
 
-export type MasterCardImplementationConstructor = new (player: Player) => MasterCardImplementation
+export type MasterCardImplementationConstructor = new (
+    player: Player,
+    card: LibraryCard,
+) => MasterCardImplementation
 
 export const MASTER_CARD_IMPLEMENTATIONS: Record<KrcgId, MasterCardImplementationConstructor> = {
+    [ASYLUM_HUNTING_GROUND_ID]: AsylumHuntingGround,
     [ELDER_LIBRARY_ID]: ElderLibrary,
 }
 
@@ -75,7 +81,7 @@ export function getMasterImplementation(
     player: Player,
 ): MasterCardImplementation | null {
     const Implementation = card.krcgId ? MASTER_CARD_IMPLEMENTATIONS[card.krcgId] : undefined
-    return Implementation ? new Implementation(player) : null
+    return Implementation ? new Implementation(player, card) : null
 }
 
 // What a card in play adds to the hand size of its controller ( the caller checks that it is in play )

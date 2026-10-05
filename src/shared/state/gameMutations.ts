@@ -1745,6 +1745,41 @@ class SpendMasterPhaseAction extends PlayerMutation {
 }
 
 /**
+ * Mark a card as used this turn ( a card effect that works once per turn )
+ */
+
+interface MarkCardUsedParams extends PlayerParams {
+    card: Card
+}
+
+class MarkCardUsed extends GameMutation<MarkCardUsedParams> {
+    _isUserCancellable = false
+    readonly syncMode = MutationSyncMode.Exclusive
+
+    get allowedPlayer() {
+        return this.params.player
+    }
+
+    get card() {
+        return this.params.card
+    }
+
+    getValidity(gameState: GameState) {
+        return gameState.turnResources.usedCards.includes(this.params.card.oid) ?
+                Invalid('Card already used this turn')
+            :   VALID
+    }
+
+    protected updateGameState(gameState: GameState) {
+        gameState.turnResources.usedCards.push(this.params.card.oid)
+    }
+
+    formatForLog() {
+        return `${CARD_LOG_PLACEHOLDER} is used`
+    }
+}
+
+/**
  * Action: Change action value
  */
 
@@ -3097,6 +3132,7 @@ export const gameMutations = {
     influence: defineMutation(Influence),
     moveCard: defineMutation(MoveCard),
     moveCardToRegion: defineMutation(MoveCardToRegion),
+    markCardUsed: defineMutation(MarkCardUsed),
     moveToBottom: defineMutation(MoveToBottom),
     playFaceDown: defineMutation(PlayFaceDown),
     playFaceDownInverse: defineMutation(PlayFaceDownInverse),

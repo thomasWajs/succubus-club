@@ -40,12 +40,14 @@ import {
     canPreventDamage,
     createHandStrike,
 } from '@/shared/state/combatState.ts'
+import { getMasterImplementation } from '@/shared/cardImpl/index.ts'
 import {
     getActionCardOptions,
     getActionModifierOptions,
     getCombatCardOptions,
     getMasterCardOptions,
     getReactionCardOptions,
+    getUnlockEffectOptions,
     hasPlayedModifierThisAction,
     isMasterDiscardedAfterUse,
 } from '@/shared/bot/cardOptions.ts'
@@ -145,7 +147,7 @@ export function getDecisionPoint(gameState: GameState, player: Player): Decision
 
     switch (gameState.turnPhase) {
         case TurnPhase.Unlock:
-            return decision(DecisionKind.Unlock, player, unlockPhaseOptions(gameState))
+            return decision(DecisionKind.Unlock, player, unlockPhaseOptions(gameState, player))
         case TurnPhase.Master:
             return decision(DecisionKind.Master, player, masterPhaseOptions(gameState, player))
         case TurnPhase.Minion:
@@ -184,13 +186,12 @@ function masterPhaseOptions(gameState: GameState, player: Player): BotOption[] {
 // "Unlock as normal" is mandatory and must come first. It cannot be derived from
 // the cards (a locked card may be one that does not unlock as normal, e.g. a
 // stunned minion), so GameState records that it was done this turn.
-function unlockPhaseOptions(gameState: GameState): BotOption[] {
+function unlockPhaseOptions(gameState: GameState, player: Player): BotOption[] {
     if (!gameState.turnResources.unlocked) {
         return [{ type: 'unlockAll' }]
     }
-    // Once unlocked, the player may use unlock-phase effects. None is supported
-    // yet: they will be offered here, before the way out.
-    return [{ type: 'endPhase' }]
+    // Once unlocked, the player may use the unlock-phase effects of the cards in play
+    return [...getUnlockEffectOptions(player), { type: 'endPhase' }]
 }
 
 function minionPhaseOptions(player: Player): BotOption[] {
@@ -485,6 +486,16 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
         case 'unlockAll':
             check(gameMutations.unlockAll.act(player, { player }), 'unlockAll')
             break
+
+        case 'unlockEffect': {
+            const implementation = getMasterImplementation(option.card, player)
+            if (!implementation) {
+                throw new InvalidBotMove(`${option.card.name} has no unlock effect`)
+            }
+            check(gameMutations.markCardUsed.act(player, { player, card: option.card }), 'use card')
+            check(implementation.applyUnlockEffect(option.vampire), 'unlock effect')
+            break
+        }
 
         case 'endPhase':
             if (gameState.turnPhaseIndex >= TurnSequence.length - 1) {

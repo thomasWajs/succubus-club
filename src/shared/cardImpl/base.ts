@@ -1,6 +1,6 @@
-import { CryptCard, Minion } from '@/shared/model/Card.ts'
+import { CryptCard, LibraryCard, Minion, Vampire } from '@/shared/model/Card.ts'
 import { Player } from '@/shared/model/Player.ts'
-import { CombatStrike, LibraryCardUsage, Validity } from '@/shared/types/state.ts'
+import { CombatStrike, Invalid, LibraryCardUsage, Validity } from '@/shared/types/state.ts'
 import { DisciplineLevel } from '@/shared/const/model.ts'
 
 export type CryptCardImplementation = {
@@ -95,7 +95,10 @@ export abstract class ActionModifierCardImplementation extends CardImplementatio
 
 // A master card is played by a Methuselah, not by a minion : no usage, no discipline
 export abstract class MasterCardImplementation {
-    constructor(public player: Player) {}
+    constructor(
+        public player: Player,
+        public card: LibraryCard,
+    ) {}
 
     // Locations and "Put this card in play" cards stay in play ; the others go to the ash heap
     abstract get staysInPlay(): boolean
@@ -103,5 +106,16 @@ export abstract class MasterCardImplementation {
     // Added to the hand size of the controller while the card is in play
     get handSizeBonus(): number {
         return 0
+    }
+
+    // The vampires the card can be used on during its controller's unlock phase, once the
+    // cards are unlocked ( "a ready vampire you control can gain 1 blood" ). Used at most once
+    // per turn: the caller checks it.
+    getUnlockEffectTargets(): Vampire[] {
+        return []
+    }
+
+    applyUnlockEffect(_vampire: Vampire): Validity {
+        return Invalid('The card has no unlock effect')
     }
 }

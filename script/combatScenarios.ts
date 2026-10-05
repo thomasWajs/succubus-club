@@ -33,6 +33,7 @@ import {
 import { CARD_HEIGHT } from '@/shared/const/game.ts'
 import {
     ABRAHAM_MELLON_ID,
+    ASYLUM_HUNTING_GROUND_ID,
     BEHIND_YOU_ID,
     DEFLECTION_ID,
     ELDER_LIBRARY_ID,
@@ -42,6 +43,7 @@ import {
 import { MasterCardImplementation } from '@/shared/cardImpl/base.ts'
 import { MASTER_CARD_IMPLEMENTATIONS } from '@/shared/cardImpl/index.ts'
 import { ElderLibrary } from '@/shared/cardImpl/elderlibrary.ts'
+import { getUnlockEffectOptions } from '@/shared/bot/cardOptions.ts'
 import { createPlayerView } from '@/shared/bot/playerView.ts'
 import { findOption } from '@/shared/bot/helpers.ts'
 import { createBleedAction, createHuntAction } from '@/shared/state/minionActionFactories.ts'
@@ -1600,6 +1602,32 @@ function getAbraham(player: Player) {
     return abraham
 }
 
+type AsylumTurn = MasterTurn & { asylum: LibraryCard }
+
+// The master phase of a player with Asylum Hunting Ground as their only card in hand
+function createAsylumTurn(): AsylumTurn {
+    const { gameState, player } = createMasterPhase()
+    emptyHand(gameState, player)
+    const asylum = giveCard(gameState, player, ASYLUM_HUNTING_GROUND_ID)
+    return { gameState, player, library: asylum, asylum }
+}
+
+// A vampire of the clan still in the crypt or among the uncontrolled ones ( never Abraham
+// Mellon, whose hand size bonus would skew the scenarios )
+function getVampireOfClan(player: Player, clan: string): Vampire {
+    const vampire = [...player.crypt.cards, ...player.uncontrolled.cards].find(
+        card =>
+            card.isVampire() && card.vampireAttrs.clan == clan && card.krcgId != ABRAHAM_MELLON_ID,
+    )
+    if (!vampire?.isVampire()) {
+        throw new ScenarioFailure(`No ${clan} vampire left`)
+    }
+    return vampire
+}
+
+const countUnlockEffects = (turn: MasterTurn) =>
+    optionsOfType(getMasterDecision(turn).options, 'unlockEffect').length
+
 const MASTER_SCENARIOS: { name: string; run: () => void }[] = [
     {
         name: 'Elder Library is offered with a master phase action and more pool than its cost',
@@ -1841,6 +1869,177 @@ const MASTER_SCENARIOS: { name: string; run: () => void }[] = [
             } finally {
                 view.dispose()
             }
+        },
+    },
+    {
+        name: 'Asylum Hunting Ground requires a ready Malkavian vampire',
+        run() {
+            const turn = createAsylumTurn()
+            const { gameState, player } = turn
+            expectEqual(countMasterOptions(turn), 0, 'no ready vampire')
+
+            const nosferatu = getVampireOfClan(player, 'Nosferatu')
+            gameState.moveCardToRegion(nosferatu, player.ready)
+            expectEqual(countMasterOptions(turn), 0, 'a ready Nosferatu')
+
+            const malkavian = getVampireOfClan(player, 'Malkavian')
+            gameState.moveCardToRegion(malkavian, player.torpor)
+            expectEqual(countMasterOptions(turn), 0, 'a Malkavian in torpor')
+
+            gameState.moveCardToRegion(malkavian, player.ready)
+            expectEqual(countMasterOptions(turn), 1, 'a ready Malkavian')
+
+            player.pool = 2
+            expectEqual(countMasterOptions(turn), 0, 'pool of 2 would be emptied')
+        },
+    },
+    {
+        name: 'playing Asylum Hunting Ground: 2 pool, the action, stays in play',
+        run() {
+            const turn = createAsylumTurn()
+            const { gameState, player, asylum } = turn
+            gameState.moveCardToRegion(getVampireOfClan(player, 'Malkavian'), player.ready)
+            const pool = player.pool
+
+            const decision = getMasterDecision(turn)
+            applyOption(decision, findOption(decision.options, 'playMaster'))
+            expectEqual(player.pool, pool - 2, 'pool')
+            expectEqual(gameState.turnResources.mpa, 0, 'master phase action')
+            expectEqual(asylum.isIn.ready, true, 'in play')
+            expectEqual(player.handSize, 7, 'no hand size bonus')
+            expectEqual(getMasterDecision(turn).kind, DecisionKind.Master, 'no cleanup')
+        },
+    },
+    {
+        name: 'Asylum Hunting Ground gives 1 blood once per turn, never above the capacity',
+        run() {
+            const turn = createAsylumTurn()
+            const { gameState, player, asylum } = turn
+            gameState.moveCardToRegion(asylum, player.ready)
+            gameState.turnPhaseIndex = TurnSequence.indexOf(TurnPhase.Unlock)
+
+            const [low, high, full] = [1, 3, 5].map(blood => {
+                const vampire = readyVampire(gameState, player, blood)
+                vampire.minionAttrs.capacity = 5
+                return vampire
+            })
+            gameState.turnResources.unlocked = false
+            expectEqual(countUnlockEffects(turn), 0, 'nothing before the unlock')
+            gameState.turnResources.unlocked = true
+            expectEqual(countUnlockEffects(turn), 2, 'the full vampire is not a target')
+
+            // A vampire in torpor is not ready
+            gameState.moveCardToRegion(getVampireOfClan(player, 'Malkavian'), player.torpor)
+            expectEqual(countUnlockEffects(turn), 2, 'a torpid vampire is not a target')
+
+            const decision = getMasterDecision(turn)
+            const option = optionsOfType(decision.options, 'unlockEffect').find(
+                candidate => candidate.vampire == high,
+            )
+            if (!option) {
+                throw new ScenarioFailure('No unlock effect on the vampire')
+            }
+            applyOption(decision, option)
+            expectEqual(high.blood, 4, 'blood gained')
+            expectEqual(low.blood, 1, 'the other vampire is untouched')
+            expectEqual(full.blood, 5, 'the full vampire is untouched')
+            expectEqual(countUnlockEffects(turn), 0, 'once per turn')
+            mustRefuse(
+                gameMutations.markCardUsed.act(player, { player, card: asylum }),
+                'used twice',
+            )
+
+            gameState.setNewTurnResources()
+            gameState.turnResources.unlocked = true
+            expectEqual(countUnlockEffects(turn), 2, 'available again the next turn')
+        },
+    },
+    {
+        name: 'Asylum Hunting Ground effect is only for the controller, in play and in the unlock phase',
+        run() {
+            const turn = createAsylumTurn()
+            const { gameState, player, asylum } = turn
+            const other = gameState.orderedPlayers.find(candidate => candidate != player)
+            if (!other) {
+                throw new ScenarioFailure('No other player')
+            }
+            readyVampire(gameState, player, 1)
+            readyVampire(gameState, other, 1)
+            gameState.turnPhaseIndex = TurnSequence.indexOf(TurnPhase.Unlock)
+            gameState.turnResources.unlocked = true
+            expectEqual(countUnlockEffects(turn), 0, 'in hand')
+
+            gameState.moveCardToRegion(asylum, player.ready)
+            expectEqual(countUnlockEffects(turn), 1, 'in play')
+            gameState.turnPhaseIndex = TurnSequence.indexOf(TurnPhase.Minion)
+            expectEqual(countUnlockEffects(turn), 0, 'not in the unlock phase')
+
+            // Stolen: the thief unlocks it, on their own vampires
+            gameState.turnPhaseIndex = TurnSequence.indexOf(TurnPhase.Unlock)
+            must(gameMutations.takeControl.act(other, { card: asylum, controller: other }), 'steal')
+            expectEqual(countUnlockEffects(turn), 0, 'stolen: the owner loses it')
+            const targets = getUnlockEffectOptions(other)
+            expectEqual(targets.length, 1, 'stolen: the thief gets it')
+            expectEqual(targets[0].vampire.controller, other, 'on a vampire of the thief')
+        },
+    },
+    {
+        name: 'the Govern agent plays Asylum Hunting Ground once it can, Elder Library first',
+        run() {
+            const turn = createAsylumTurn()
+            const { gameState, player } = turn
+            const agent = new GovernAgent()
+            expectEqual(
+                getMasterDecision(turn).options.length,
+                1,
+                'only the way out without a Malkavian',
+            )
+            gameState.moveCardToRegion(getVampireOfClan(player, 'Malkavian'), player.ready)
+            expectEqual(stepBot(player, agent)?.option.type, 'playMaster', 'plays it')
+            expectEqual(stepBot(player, agent)?.option.type, 'endPhase', 'then ends the phase')
+
+            const both = createAsylumTurn()
+            const malkavian = getVampireOfClan(both.player, 'Malkavian')
+            both.gameState.moveCardToRegion(malkavian, both.player.ready)
+            const library = giveCard(both.gameState, both.player, ELDER_LIBRARY_ID)
+            const step = stepBot(both.player, agent)
+            if (step?.option.type != 'playMaster') {
+                throw new ScenarioFailure('The agent does not play a master card')
+            }
+            expectEqual(step.option.card, library, 'Elder Library first')
+        },
+    },
+    {
+        name: 'the Govern agent unlocks first, then feeds the vampire with the least blood',
+        run() {
+            const turn = createAsylumTurn()
+            const { gameState, player, asylum } = turn
+            gameState.moveCardToRegion(asylum, player.ready)
+            gameState.turnPhaseIndex = TurnSequence.indexOf(TurnPhase.Unlock)
+            gameState.turnResources.unlocked = false
+            const [high, low] = [4, 2].map(blood => {
+                const vampire = readyVampire(gameState, player, blood)
+                vampire.minionAttrs.capacity = 5
+                return vampire
+            })
+            const agent = new GovernAgent()
+
+            expectEqual(stepBot(player, agent)?.option.type, 'unlockAll', 'unlocks first')
+            expectEqual(stepBot(player, agent)?.option.type, 'unlockEffect', 'then the effect')
+            expectEqual(low.blood, 3, 'the emptiest vampire gets the blood')
+            expectEqual(high.blood, 4, 'the other one does not')
+            expectEqual(stepBot(player, agent)?.option.type, 'endPhase', 'then ends the phase')
+
+            // Everybody is full: no vampire is chosen
+            const full = createAsylumTurn()
+            full.gameState.moveCardToRegion(full.asylum, full.player.ready)
+            full.gameState.turnPhaseIndex = TurnSequence.indexOf(TurnPhase.Unlock)
+            full.gameState.turnResources.unlocked = false
+            const vampire = readyVampire(full.gameState, full.player, 5)
+            vampire.minionAttrs.capacity = 5
+            expectEqual(stepBot(full.player, agent)?.option.type, 'unlockAll', 'unlocks first')
+            expectEqual(stepBot(full.player, agent)?.option.type, 'endPhase', 'no vampire to feed')
+            expectEqual(vampire.blood, 5, 'never above the capacity')
         },
     },
 ]

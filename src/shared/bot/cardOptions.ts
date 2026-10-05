@@ -24,6 +24,7 @@ import {
 } from '@/shared/state/minionActionFactories.ts'
 import { singleDisciplineUsage } from '@/shared/state/cardUsage.ts'
 import { canPayCosts, canPayPoolCost } from '@/shared/state/cardCosts.ts'
+import { meetsClanRequirement } from '@/shared/state/cardRequirements.ts'
 import { BotOptionOf, CombatCardOption } from '@/shared/bot/types.ts'
 
 /**
@@ -211,8 +212,9 @@ export function getReactionCardOptions(minion: Minion): BotOptionOf<'playReactio
     return options
 }
 
-// The master cards in the player's hand that can be played now: implemented, and the pool
-// pays for them. The master phase action is checked by the referee.
+// The master cards in the player's hand that can be played now: implemented, the pool
+// pays for them and the player meets their requirements. The master phase action is checked
+// by the referee.
 export function getMasterCardOptions(player: Player): BotOptionOf<'playMaster'>[] {
     const options: BotOptionOf<'playMaster'>[] = []
 
@@ -220,12 +222,35 @@ export function getMasterCardOptions(player: Player): BotOptionOf<'playMaster'>[
         if (
             !(card instanceof LibraryCard) ||
             card.type != LibraryCardType.Master ||
-            !canPayPoolCost(player, card)
+            !canPayPoolCost(player, card) ||
+            !meetsClanRequirement(player, card)
         ) {
             continue
         }
         if (getMasterImplementation(card, player)) {
             options.push({ type: 'playMaster', card })
+        }
+    }
+    return options
+}
+
+// The unlock-phase effects of the master cards in play that the player controls: one option
+// per card and target, for the cards not used yet this turn
+export function getUnlockEffectOptions(player: Player): BotOptionOf<'unlockEffect'>[] {
+    const options: BotOptionOf<'unlockEffect'>[] = []
+    const usedCards = player.gameState.turnResources.usedCards
+
+    for (const card of player.controlledReadyCards) {
+        if (
+            !(card instanceof LibraryCard) ||
+            card.type != LibraryCardType.Master ||
+            usedCards.includes(card.oid)
+        ) {
+            continue
+        }
+        for (const vampire of getMasterImplementation(card, player)?.getUnlockEffectTargets() ??
+            []) {
+            options.push({ type: 'unlockEffect', card, vampire })
         }
     }
     return options

@@ -74,6 +74,8 @@ export function describeOption(option: BotOption): string {
         }
         case 'influence':
             return `influence ${option.vampire.name} +${option.amount}`
+        case 'unlockEffect':
+            return `unlockEffect ${option.card.name} -> ${option.vampire.name}`
         case 'discardExcess':
             return `discardExcess ${option.card.name}`
         case 'discard':

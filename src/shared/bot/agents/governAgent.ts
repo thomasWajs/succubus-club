@@ -1,4 +1,5 @@
 import {
+    ASYLUM_HUNTING_GROUND_ID,
     DEFLECTION_ID,
     ELDER_LIBRARY_ID,
     GOVERN_ID,
@@ -53,12 +54,24 @@ function asGovern(option: BotOptionOf<'declareAction'>) {
 }
 
 export class GovernAgent extends BaseAgent {
-    // Elder Library as soon as it is in hand
+    // The locations as soon as they are in hand ( and playable ), by order of preference
     protected override masterPhase(decision: DecisionPoint): BotOption {
-        const elderLibrary = optionsOfType(decision.options, 'playMaster').find(
-            option => option.card.krcgId == ELDER_LIBRARY_ID,
-        )
-        return elderLibrary ?? super.masterPhase(decision)
+        const plays = optionsOfType(decision.options, 'playMaster')
+        for (const id of [ELDER_LIBRARY_ID, ASYLUM_HUNTING_GROUND_ID]) {
+            const play = plays.find(option => option.card.krcgId == id)
+            if (play) {
+                return play
+            }
+        }
+        return super.masterPhase(decision)
+    }
+
+    // Blood on the vampire with the least ( none when they are all full: not offered )
+    protected override unlockPhase(decision: DecisionPoint): BotOption {
+        const emptiest = optionsOfType(decision.options, 'unlockEffect').toSorted(
+            (a, b) => a.vampire.blood - b.vampire.blood,
+        )[0]
+        return emptiest ?? super.unlockPhase(decision)
     }
 
     protected override minionPhase(decision: DecisionPoint): BotOption {

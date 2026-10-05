@@ -28,11 +28,15 @@ export abstract class BaseAgent implements BotAgent {
         }
     }
 
-    // Unlock and Cleanup offer a single mandatory option
+    // Unlocks first ( mandatory ), then uses no unlock effect
     protected unlockPhase(decision: DecisionPoint): BotOption {
-        return decision.options[0]
+        return (
+            decision.options.find(option => option.type == 'unlockAll') ??
+            findOption(decision.options, 'endPhase')
+        )
     }
 
+    // Cleanup offers a single mandatory option
     protected cleanupPhase(decision: DecisionPoint): BotOption {
         return decision.options[0]
     }

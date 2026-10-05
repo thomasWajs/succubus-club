@@ -1,4 +1,5 @@
 import {
+    ASYLUM_HUNTING_GROUND_ID,
     BEHIND_YOU_ID,
     DEFLECTION_ID,
     ELDER_LIBRARY_ID,
@@ -8,6 +9,7 @@ import {
 import { DeckList } from '@/shared/types/gateway.ts'
 
 export const GovernDeck = <DeckList>{
+    [ASYLUM_HUNTING_GROUND_ID]: 1,
     [BEHIND_YOU_ID]: 8,
     [DEFLECTION_ID]: 8,
     [ELDER_LIBRARY_ID]: 1,

@@ -97,6 +97,7 @@ export class GameState {
         mpa: DEFAULT_MPA, // masterPhaseActions
         transfers: 1,
         dpa: DEFAULT_DPA, // discardPhaseActions
+        usedCards: [] as CardOid[], // cards whose once-per-turn effect was used
     }
 
     /** Action and combat state for the bot **/
@@ -292,6 +293,7 @@ export class GameState {
             mpa: DEFAULT_MPA,
             transfers,
             dpa: DEFAULT_DPA,
+            usedCards: [],
         }
     }
 

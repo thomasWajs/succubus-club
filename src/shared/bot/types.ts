@@ -47,6 +47,8 @@ export type BotOption =
     // Unlock all cards. Mandatory first step of the unlock phase.
     | { type: 'unlockAll' }
     | { type: 'endPhase' }
+    // Uses the unlock-phase effect of a master card in play on a vampire ( once per card and turn )
+    | { type: 'unlockEffect'; card: LibraryCard; vampire: Vampire }
     // Plays a master card from the hand (master phase action + pool cost)
     | { type: 'playMaster'; card: LibraryCard }
     // Go to the next turn (the hand is never refilled here: replacements are drawn immediately)

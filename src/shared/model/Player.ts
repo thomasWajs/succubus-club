@@ -7,7 +7,7 @@ import {
     PLAYER_NAME_LEGIBLE_LENGTH,
     RegionName,
 } from '@/shared/const/model.ts'
-import { CryptCard, LibraryCard, Minion, Vampire } from '@/shared/model/Card.ts'
+import { Card, CryptCard, LibraryCard, Minion, Vampire } from '@/shared/model/Card.ts'
 import { PermanentId } from '@/shared/types/multiplayer.ts'
 import {
     DEFAULT_PLAYER_SCALE,
@@ -118,15 +118,18 @@ export class Player extends BaseModel {
     // now ( a location, a ready vampire... ), so it follows them when they are burned, stolen,
     // or sent to torpor.
     get handSize(): number {
-        let bonus = 0
-        for (const holder of Object.values(this.gameState.players)) {
-            for (const card of holder.ready.cards) {
-                if (card.controllerOid == this.oid) {
-                    bonus += getHandSizeBonus(card)
-                }
-            }
-        }
+        const bonus = this.controlledReadyCards.reduce(
+            (total, card) => total + getHandSizeBonus(card),
+            0,
+        )
         return INITIAL_HAND_SIZE + bonus
+    }
+
+    // The cards in any ready region that this player controls ( their own, or stolen ones )
+    get controlledReadyCards(): Card[] {
+        return Object.values(this.gameState.players).flatMap(holder =>
+            holder.ready.cards.filter(card => card.controllerOid == this.oid),
+        )
     }
 
     get isBot() {
