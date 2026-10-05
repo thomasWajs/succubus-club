@@ -56,6 +56,8 @@ export const useEngineStore = defineStore('engine', {
         terms: [] as string[],
         // The cards played during the action under way, by whom ( the log's line ), until it is over
         played: [] as { decision: number; player: string; text: string; option: EngineOption }[],
+        // A block's combat is under way ( whoever decides now )
+        inCombat: false,
     }),
 })
 

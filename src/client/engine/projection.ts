@@ -81,6 +81,9 @@ type Placement = {
     rank: number // order among its siblings ( slot, attachment rank )
     blood: number
     greenCounter: number
+    // A minion's other public state, as SC's markers : its hostage and nightmare counters, the
+    // counters of a lingering effect on it, whose corruption it bears, a contested title
+    markers?: string[]
     isLocked: boolean
     isFlipped: boolean
     // A minion : the engine's own ( its kind : a vampire, an ally, a created vampire, a token )
@@ -382,6 +385,7 @@ export class Projection {
                         blood: minion.blood,
                         // Its corruption counters, as SC's green counter
                         greenCounter: minion.corruption ?? 0,
+                        markers: minion.markers,
                         isLocked: minion.locked,
                         isFlipped: minion.contested,
                         minion,
@@ -458,6 +462,7 @@ export class Projection {
             created.y = y
             created.blood = placement.blood
             created.greenCounter = placement.greenCounter
+            created.markers = [...(placement.markers ?? [])]
             created.isLocked = placement.isLocked
             created.isFlipped = placement.isFlipped
         }
@@ -605,6 +610,13 @@ export class Projection {
                     card,
                     amount: placement.greenCounter - card.greenCounter,
                 })
+            }
+            const markers = placement.markers ?? []
+            for (const marker of card.markers.filter(marker => !markers.includes(marker))) {
+                gameMutations.changeMarker.act(author, { card, marker, operation: 'Remove' })
+            }
+            for (const marker of markers.filter(marker => !card.hasMarker(marker))) {
+                gameMutations.changeMarker.act(author, { card, marker, operation: 'Add' })
             }
             if (card.isLocked != placement.isLocked) {
                 gameMutations.setLock.act(author, { card, newValue: placement.isLocked })

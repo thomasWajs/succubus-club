@@ -241,6 +241,8 @@ function project(current: Running, out: EngineOut) {
         current.projection.apply(out.view)
         // The cards the log's lines can name
         learnCardNames()
+        // A block's combat under way, whoever decides now
+        useEngineStore().inCombat = !!out.view.combat
         // The cards played during the action, until it is over
         if (!out.view.action) {
             useEngineStore().played = []

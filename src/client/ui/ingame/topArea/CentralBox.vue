@@ -17,8 +17,9 @@
         <EngineChoices v-if="gameState.gameType == GameType.Engine" />
 
         <!-- Action Infos -->
+        <!-- Not in an engine's combat : the cards played then show the more -->
         <ActionInfos
-            v-if="gameState.action && !gameState.referendum"
+            v-if="gameState.action && !gameState.referendum && !engineCombat"
             :action="gameState.action"
         />
 
@@ -77,9 +78,13 @@ import EngineStaging from '@/client/ui/ingame/topArea/central/EngineStaging.vue'
 import EngineChoices from '@/client/ui/ingame/topArea/central/EngineChoices.vue'
 import EnginePlayed from '@/client/ui/ingame/topArea/central/EnginePlayed.vue'
 import { GameType } from '@/shared/types/state.ts'
+import { useEngineStore } from '@/client/store/engine.ts'
 
 const gameState = useGameStateStore()
 const gameBus = useGameBusStore()
+const engine = useEngineStore()
+// A block's combat, in a game with the rules engine
+const engineCombat = computed(() => gameState.gameType == GameType.Engine && engine.inCombat)
 const players = usePlayersStore()
 const multiplayer = useMultiplayerStore()
 const timer = useTimer(gameState.gameId)
