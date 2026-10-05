@@ -1,5 +1,7 @@
-// Hand-built combat scenarios checked against the rulebook. Run from the repo root:
-//   npx tsx script/combatScenarios.ts
+// Hand-built bot scenarios (combat, actions, reactions, master cards, hand size, uniqueness...)
+// checked against the rulebook. Run from the repo root:
+//   npx tsx script/botScenarios.ts [--filter text]
+// --filter keeps only the scenarios whose name contains the text (case-insensitive).
 // Exits with code 1 if any scenario fails.
 import { readFileSync } from 'node:fs'
 import { Card, LibraryCard, Minion, Vampire } from '@/shared/model/Card.ts'
@@ -2286,7 +2288,19 @@ const MASTER_SCENARIOS: { name: string; run: () => void }[] = [
 
 type ScenarioResult = { name: string; error: string | null }
 
-function runCombatScenarios(): ScenarioResult[] {
+function parseFilter(argv: string[]): string {
+    const index = argv.indexOf('--filter')
+    if (index < 0) {
+        return ''
+    }
+    const text = argv[index + 1]
+    if (!text) {
+        throw new Error('--filter needs a text')
+    }
+    return text.toLowerCase()
+}
+
+function runScenarios(filter: string): ScenarioResult[] {
     return [
         ...SCENARIOS,
         ...TORPOR_SCENARIOS,
@@ -2297,16 +2311,18 @@ function runCombatScenarios(): ScenarioResult[] {
         ...HUMAN_DAMAGE_SCENARIOS,
         ...BOUNCE_SCENARIOS,
         ...MASTER_SCENARIOS,
-    ].map(({ name, run }) => {
-        try {
-            run()
-            return { name, error: null }
-        } catch (error) {
-            return { name, error: error instanceof Error ? error.message : String(error) }
-        } finally {
-            createdGames.splice(0).forEach(gameState => deleteGameState(gameState.gameId))
-        }
-    })
+    ]
+        .filter(({ name }) => name.toLowerCase().includes(filter))
+        .map(({ name, run }) => {
+            try {
+                run()
+                return { name, error: null }
+            } catch (error) {
+                return { name, error: error instanceof Error ? error.message : String(error) }
+            } finally {
+                createdGames.splice(0).forEach(gameState => deleteGameState(gameState.gameId))
+            }
+        })
 }
 
 registerLogger({
@@ -2317,7 +2333,11 @@ await initWasmHasher()
 setGameResources('cardbase', JSON.parse(readFileSync('public/assets/cardbase.json', 'utf-8')))
 registerSyncMutationTrigger()
 
-const results = runCombatScenarios()
+const results = runScenarios(parseFilter(process.argv.slice(2)))
+if (results.length == 0) {
+    console.error('No scenario matches the filter')
+    process.exit(1)
+}
 for (const { name, error } of results) {
     console.log(`${error ? 'FAIL' : 'ok  '} ${name}${error ? `\n       ${error}` : ''}`)
 }
