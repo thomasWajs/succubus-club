@@ -43,7 +43,7 @@ export function resetState() {
     core.gameIsStarted = false
     core.phaserIsReady = false
     core.gameStateIsReady = false
-    core.botRunner = null
+    core.botRunners = []
 }
 
 export function setupTrainGame() {
@@ -75,9 +75,7 @@ export function setupTrainGame() {
             ORDERED_PLAYER_COLORS[i + 1],
             `${BOT_PERM_ID}${i + 1}`,
         )
-        if (i == 0) {
-            core.botRunner = new BotRunner(botPlayer.oid, new GovernAgent())
-        }
+        core.botRunners.push(new BotRunner(botPlayer.oid, new GovernAgent()))
         setupPlayArea(gameState, botPlayer, GovernDeck)
     }
 
@@ -220,13 +218,13 @@ export function setupSavedGame(savedGame: DbSavedGame) {
     useTimer(gameState.gameId).resumeTimer(savedGame.date)
 
     if (savedGame.gameType == GameType.TrainBot) {
-        const botPlayer = gameState.orderedPlayers.find(p => p.name == `${BOT_NAME}1`)
+        const botPlayers = gameState.orderedPlayers.filter(p => p.isBot)
 
-        if (!botPlayer) {
+        if (botPlayers.length == 0) {
             throw new Error(`Bot player not found`)
         }
 
-        core.botRunner = new BotRunner(botPlayer.oid, new GovernAgent())
+        core.botRunners = botPlayers.map(p => new BotRunner(p.oid, new GovernAgent()))
     }
 }
 

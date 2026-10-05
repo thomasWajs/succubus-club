@@ -44,6 +44,6 @@ function processNextInBotQueue() {
     // but check for the next decision of the bot
     else {
         processingQueue = false
-        useCoreStore().botRunner?.runDecisionMaking()
+        useCoreStore().wakeBotRunners()
     }
 }

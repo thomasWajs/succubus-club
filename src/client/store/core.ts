@@ -38,7 +38,7 @@ export const useCoreStore = defineStore('core', {
         userProfile,
         selfDeck: lastDeck as DbDeck | null,
 
-        botRunner: null as BotRunner | null,
+        botRunners: [] as BotRunner[],
     }),
     getters: {
         phaserGame(): Phaser.Game {
@@ -53,7 +53,14 @@ export const useCoreStore = defineStore('core', {
             return this.resourcesAreReady && this.phaserIsReady && this.gameStateIsReady
         },
     },
-    actions: {},
+    actions: {
+        // Only the runner whose player has the decision acts, the others return at once
+        wakeBotRunners() {
+            for (const runner of this.botRunners) {
+                runner.runDecisionMaking()
+            }
+        },
+    },
 })
 
 if (import.meta.hot) {
