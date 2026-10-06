@@ -19,6 +19,8 @@ export abstract class BaseAgent implements BotAgent {
                 return this.cleanupPhase(decision)
             case DecisionKind.DiscardExcess:
                 return this.discardExcess(decision)
+            case DecisionKind.Trigger:
+                return this.trigger(decision)
             case DecisionKind.ActionImpulse:
                 return this.actionImpulse(decision)
             case DecisionKind.ReactionImpulse:
@@ -44,6 +46,14 @@ export abstract class BaseAgent implements BotAgent {
     // Mandatory: the first card by default
     protected discardExcess(decision: DecisionPoint): BotOption {
         return decision.options[0]
+    }
+
+    // Uses the optional trigger when it can ( they are almost always an upside ), else skips it
+    protected trigger(decision: DecisionPoint): BotOption {
+        return (
+            decision.options.find(option => option.type == 'useTrigger') ??
+            findOption(decision.options, 'skipTrigger')
+        )
     }
 
     // The other kinds default to doing nothing. Throws if the referee does not offer it.

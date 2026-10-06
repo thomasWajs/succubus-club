@@ -4,6 +4,7 @@ import { Card, LibraryCard, Minion } from '@/shared/model/Card.ts'
 import { Discipline, DisciplineLevel } from '@/shared/const/model.ts'
 import { AnyCardRegion, CardOid, CardRegionOid, PlayerOid, Point2D } from '@/shared/types/model.ts'
 import { KrcgId } from '@/shared/types/gateway.ts'
+import { Trigger, TriggerEffect } from '@/shared/cardImpl/catalog/types.ts'
 
 export enum GameType {
     Unset = 'Unset',
@@ -64,6 +65,21 @@ export type BlockingDecision = {
     block: Minion | typeof NO_BLOCK
 }
 
+// An effect of a trigger that waits for a later event, with the minion it is about
+export type DeferredTriggerEffect = { effect: TriggerEffect; minion: Minion }
+
+// A trigger armed by a played card: it lives with the action. Plain data ( the catalog trigger is
+// copied by value ), so it survives the serialization of the state.
+export type ArmedTrigger = {
+    trigger: Trigger
+    deferred: DeferredTriggerEffect[]
+}
+
+// An optional trigger whose controller has not decided yet ( use it or not ): it is a decision
+// of the controller, before anything else goes on. `index` is the position of the trigger in the
+// triggers of the card.
+export type PendingTrigger = { source: Minion; index: number }
+
 export type ActionState = {
     minionAction: MinionAction
     blockingDecisions: BlockingDecision[]
@@ -73,10 +89,8 @@ export type ActionState = {
     // Minions woken by a card: they ignore the requirement to be unlocked to block and to react,
     // until the end of the action
     awakeMinions: Minion[]
-    // A card said that the minions failing to block this action are locked before it resolves
-    lockFailedBlockers: boolean
-    // The minions whose failed block is to be locked when the action resolves
-    blockersToLock: Minion[]
+    // The triggers armed by the cards played in this action, for the rest of it
+    armedTriggers: ArmedTrigger[]
     stealth: number
     intercept: number
     bleed: number

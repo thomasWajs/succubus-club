@@ -5,6 +5,7 @@ import {
     CombatStrike,
     LibraryCardUsage,
     MinionAction,
+    PendingTrigger,
 } from '@/shared/types/state.ts'
 import { ReactionCardEffect } from '@/shared/cardImpl/base.ts'
 
@@ -17,6 +18,8 @@ export enum DecisionKind {
     Cleanup = 'Cleanup',
     // The hand is above the hand size ( a card giving a bonus left play ): out of turn too
     DiscardExcess = 'DiscardExcess',
+    // An optional trigger of a card in play is pending: use it or not, before anything else goes on
+    Trigger = 'Trigger',
     ActionImpulse = 'ActionImpulse',
     ReactionImpulse = 'ReactionImpulse',
     // A window of a combat step, or the choice of a strike
@@ -29,6 +32,23 @@ interface ReactionOption {
     card: LibraryCard
     usage: LibraryCardUsage
     effect: ReactionCardEffect
+}
+
+interface GrappleOption {
+    type: 'combatGrapple'
+    minion: Minion
+    press: boolean
+    closeNextRound: boolean
+    card?: LibraryCard
+}
+
+interface StrikeOption {
+    type: 'combatStrike'
+    minion: Minion
+    strike: CombatStrike
+    card?: LibraryCard
+    // The strike card also gives an additional strike
+    additional?: { limited: boolean }
 }
 
 interface CombatPreventOption {
@@ -68,6 +88,9 @@ export type BotOption =
     | { type: 'discard'; card: LibraryCard }
     // Discard down to the hand size: not a discard phase action
     | { type: 'discardExcess'; card: LibraryCard }
+    // A pending optional trigger of a card in play: use it ( pay the cost, apply the effects ) or not
+    | { type: 'useTrigger'; pending: PendingTrigger }
+    | { type: 'skipTrigger'; pending: PendingTrigger }
     | { type: 'playModifier'; modifier: ActionModifier }
     // The acting player passes the impulse
     | { type: 'noModifier' }
@@ -85,14 +108,7 @@ export type BotOption =
     // provides them, played as part of applying the option. No card = the default
     // hand strike.
     // The strike of the round
-    | {
-          type: 'combatStrike'
-          minion: Minion
-          strike: CombatStrike
-          card?: LibraryCard
-          // The strike card also gives an additional strike
-          additional?: { limited: boolean }
-      }
+    | StrikeOption
     // Moves the range to long, or back to close. May also choose the strike (strike card).
     | { type: 'combatManeuver'; minion: Minion; strike?: CombatStrike; card?: LibraryCard }
     // A press to continue, or the cancellation of the opposing one
@@ -100,13 +116,7 @@ export type BotOption =
     | { type: 'combatPress'; minion: Minion; card?: LibraryCard; granted?: boolean }
     // Only offered in the window after a pair of strikes
     | { type: 'combatAdditionalStrike'; minion: Minion; limited: boolean; card?: LibraryCard }
-    | {
-          type: 'combatGrapple'
-          minion: Minion
-          press: boolean
-          closeNextRound: boolean
-          card?: LibraryCard
-      }
+    | GrappleOption
     // At the end of the round
     | { type: 'combatGainBlood'; minion: Minion; amount: number; card?: LibraryCard }
     // The strength bonus a card gave for the first round: no card to play

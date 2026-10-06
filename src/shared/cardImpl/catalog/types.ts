@@ -1,5 +1,6 @@
 import { Discipline, DisciplineLevel } from '@/shared/const/model.ts'
 import { KrcgId } from '@/shared/types/gateway.ts'
+import { EventName } from '@/shared/state/events.ts'
 
 /**
  * The declarative description of a card. The cost, the clan requirement and the unique flag
@@ -91,14 +92,42 @@ export type ActionEffect =
     | GainBloodEffect
     | StealPoolEffect
     | EnterCombatEffect
-// The minions that attempt to block the action and fail are locked before it resolves
-export type LockFailedBlockersEffect = { type: 'lockFailedBlockers' }
+// What a trigger does when its event is announced
+export type TriggerEffect =
+    // The minion that failed its block is locked. With `at`, the lock waits for that event
+    // ( the same action ) instead of being applied at once.
+    | { type: 'lock'; who: 'eventBlocker'; at?: EventName }
+    // The card that has the trigger is unlocked
+    | { type: 'unlock'; who: 'self' }
+// What must hold for a trigger to count, about the event and the card that has the trigger
+export type EventCondition =
+    // The minion that acted: another minion than the card ( `other` ), controlled by the same
+    // Methuselah ( `controller: 'self'` ), of this sect
+    { type: 'actorIs'; other?: boolean; controller?: 'self'; sect?: 'Anarch' }
+// Paid when an optional trigger is used
+export type TriggerCost = { type: 'burnBlood'; amount: number }
+// A card in play or a played card that reacts to an event, with the effects it has
+export type Trigger = {
+    on: EventName
+    // 'auto' applies at once, 'optional' is a decision of the controller ( a bot may opt out )
+    mode: 'auto' | 'optional'
+    when?: EventCondition[]
+    cost?: TriggerCost
+    // Tracked in turnResources.usedTriggers
+    limit?: 'oncePerTurn'
+    // Where the card with the trigger must be for it to count ( the ready region by default,
+    // locked or not )
+    sourceIn?: ('ready' | 'torpor')[]
+    effects: TriggerEffect[]
+}
+// The trigger is armed for the rest of the action ( only the events from now on count )
+export type ArmTriggerEffect = { type: 'armTrigger'; trigger: Trigger }
 export type ModifierEffect =
     | StealthEffect
     | BleedEffect
     | VariableBleedEffect
     | InterceptEffect
-    | LockFailedBlockersEffect
+    | ArmTriggerEffect
 // One more strike for the minion ( limited: only one such card or effect per round ). In a play
 // that has a strike, the additional strike comes with it; else the card is played in the
 // window after the pairs of strikes.
@@ -220,6 +249,8 @@ export type CryptStatics = {
     mustBleedWhileMinionLocked?: boolean
     // Hand size of the controller while the vampire is ready
     handSize?: number
+    // What the vampire does when an event is announced ( optional ones are decisions )
+    triggers?: Trigger[]
 }
 
 export type CardDef = {

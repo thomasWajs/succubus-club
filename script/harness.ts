@@ -119,6 +119,10 @@ export function describeOption(option: BotOption): string {
             return `lockEffect ${option.card.name} -> discard ${option.discard.name}`
         case 'discardExcess':
             return `discardExcess ${option.card.name}`
+        case 'useTrigger':
+            return `useTrigger ${option.pending.source.name} #${option.pending.index}`
+        case 'skipTrigger':
+            return `skipTrigger ${option.pending.source.name} #${option.pending.index}`
         case 'discard':
             return `discard ${option.card.name}`
         case 'playMaster':

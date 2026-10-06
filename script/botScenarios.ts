@@ -30,12 +30,15 @@ import {
     Discipline,
     DisciplineLevel,
     LEAVE_TORPOR_COST,
+    Sect,
     TurnPhase,
     TurnSequence,
 } from '@/shared/const/model.ts'
 import { CARD_HEIGHT } from '@/shared/const/game.ts'
 import { Disciplines } from '@/shared/types/resources.ts'
 import { getBlockingMinion } from '@/shared/state/actionState.ts'
+import { addEventObserver, emitEvent } from '@/shared/state/events.ts'
+import { getTriggerKey } from '@/shared/state/triggers.ts'
 import {
     ABRAHAM_MELLON_ID,
     ASYLUM_HUNTING_GROUND_ID,
@@ -49,7 +52,7 @@ import {
 import { MasterCardImplementation } from '@/shared/cardImpl/base.ts'
 import { MASTER_CARD_IMPLEMENTATIONS } from '@/shared/cardImpl/index.ts'
 import { getUnlockEffectOptions } from '@/shared/bot/cardOptions.ts'
-import { createPlayerView } from '@/shared/bot/playerView.ts'
+import { chooseThroughView, createPlayerView } from '@/shared/bot/playerView.ts'
 import { findOption } from '@/shared/bot/helpers.ts'
 import { createBleedAction, createHuntAction } from '@/shared/state/minionActionFactories.ts'
 import { GovernAgent } from '@/shared/bot/agents/governAgent.ts'
@@ -4126,6 +4129,352 @@ const BRUJAH_REACTION_SCENARIOS: { name: string; run: () => void }[] = [
     },
 ]
 
+// The names of the events announced from now on, until stop() is called
+function watchEvents(): { names: string[]; stop: () => void } {
+    const names: string[] = []
+    const stop = addEventObserver((_gameState, event) => {
+        names.push(event.type)
+    })
+    return { names, stop }
+}
+
+// Everybody passes ( a standing block is kept ) until the action is over
+function passUntilActionOver(gameState: GameState): void {
+    for (let i = 0; i < 12 && gameState.action; i++) {
+        const decider = getDecidingPlayer(gameState)
+        const next = decider && getDecisionPoint(gameState, decider)
+        const pass = ['noModifier', 'noReaction', 'noBlock']
+            .map(type => next?.options.find(option => option.type == type))
+            .find(Boolean)
+        if (!next || !pass) {
+            throw new ScenarioFailure('Nobody can pass')
+        }
+        applyOption(next, pass)
+    }
+    expectEqual(gameState.action, null, 'the action is over')
+}
+
+function createEventBleed(blockerIntercept: number) {
+    const game = createCatalogBleed({
+        discipline: Discipline.Obfuscate,
+        level: DisciplineLevel.INFERIOR,
+        cards: [],
+    })
+    if (!game.gameState.action) {
+        throw new ScenarioFailure('The bleed is not declared')
+    }
+    game.gameState.action.stealth = 1
+    game.blocker.minionAttrs.intercept = blockerIntercept
+    return game
+}
+
+function blockWithBlocker(game: ReturnType<typeof createEventBleed>): void {
+    const first = passUntilDecides(game.gameState, game.bled)
+    applyOption(
+        first,
+        optionsOfType(first.options, 'block').find(option => option.minion == game.blocker) ??
+            findOption(first.options, 'block'),
+    )
+}
+
+const EVENT_SCENARIOS: { name: string; run: () => void }[] = [
+    {
+        name: 'Events: an unblocked bleed announces actionResolving then actionResolved',
+        run() {
+            const game = createEventBleed(0)
+            const watch = watchEvents()
+            try {
+                passUntilActionOver(game.gameState)
+            } finally {
+                watch.stop()
+            }
+            expectEqual(watch.names.join(','), 'actionResolving,actionResolved', 'events')
+        },
+    },
+    {
+        name: 'Events: a failed block announces blockFailed, then the action resolves',
+        run() {
+            const game = createEventBleed(0)
+            const watch = watchEvents()
+            try {
+                blockWithBlocker(game)
+                passUntilActionOver(game.gameState)
+            } finally {
+                watch.stop()
+            }
+            expectEqual(
+                watch.names.join(','),
+                'blockFailed,actionResolving,actionResolved',
+                'events',
+            )
+        },
+    },
+    {
+        name: 'Events: a block that succeeds starts a combat and announces nothing',
+        run() {
+            const game = createEventBleed(5)
+            const watch = watchEvents()
+            try {
+                blockWithBlocker(game)
+                passUntilActionOver(game.gameState)
+            } finally {
+                watch.stop()
+            }
+            expectEqual(watch.names.length, 0, 'events')
+            expectEqual(game.gameState.combat != null, true, 'combat')
+        },
+    },
+    {
+        name: 'Faceless Night: a block that failed before the card was played is not locked, the armed trigger leaves with the action',
+        run() {
+            const game = createCatalogBleed({
+                discipline: Discipline.Obfuscate,
+                level: DisciplineLevel.SUPERIOR,
+                cards: [FACELESS_NIGHT_ID],
+            })
+            const { gameState, bleeder, blocker } = game
+            if (!gameState.action) {
+                throw new ScenarioFailure('The bleed is not declared')
+            }
+            gameState.action.stealth = 1
+            blocker.minionAttrs.intercept = 0
+            blockWithBlocker({ ...game, blocker })
+            // Both pass: the block is resolved, and fails
+            for (let i = 0; i < 4 && getBlockingMinion(gameState); i++) {
+                const decider = getDecidingPlayer(gameState)
+                const next = decider && getDecisionPoint(gameState, decider)
+                const pass = ['noModifier', 'noReaction']
+                    .map(type => next?.options.find(option => option.type == type))
+                    .find(Boolean)
+                if (!next || !pass) {
+                    throw new ScenarioFailure('Nobody can pass')
+                }
+                applyOption(next, pass)
+            }
+            expectEqual(getBlockingMinion(gameState), null, 'the failed block is resolved')
+            const decision = getDecisionPoint(gameState, bleeder)
+            const played =
+                decision &&
+                modifierOptionsOf(decision, FACELESS_NIGHT_ID).find(
+                    option => modifierLevel(option) == DisciplineLevel.SUPERIOR,
+                )
+            if (!decision || !played) {
+                throw new ScenarioFailure('Faceless Night is not offered after the failed block')
+            }
+            applyOption(decision, played)
+            expectEqual(gameState.action?.armedTriggers.length, 1, 'armed trigger')
+            passUntilActionOver(gameState)
+            expectEqual(blocker.isLocked, false, 'the earlier block does not count')
+            expectEqual(gameState.action, null, 'the action is over')
+        },
+    },
+    {
+        name: 'Events: an action ended by hand announces actionResolved only',
+        run() {
+            const game = createEventBleed(0)
+            const watch = watchEvents()
+            try {
+                must(gameMutations.ACTION_endAction.act(game.bleeder, {}), 'end the action')
+            } finally {
+                watch.stop()
+            }
+            expectEqual(watch.names.join(','), 'actionResolved', 'events')
+        },
+    },
+]
+
+const ALINE_ID = '201576'
+
+type AlineGame = ReturnType<typeof createEventBleed> & { aline: Vampire }
+
+// The first player bleeds with Atiena ( an Anarch, by default ) while Aline, locked, sits in the
+// ready region of the same player. The prey does not block unless the scenario says so.
+function createAlineGame(
+    setup: { actorSect?: Sect; alineBlood?: number; inTorpor?: boolean } = {},
+): AlineGame {
+    const game = createCatalogBleed({
+        discipline: Discipline.Obfuscate,
+        level: DisciplineLevel.INFERIOR,
+        cards: [],
+        deck: BrujahDeck,
+        bleederId: ATIENA_ID,
+    })
+    game.bleeding.vampireAttrs.sect = setup.actorSect ?? Sect.Anarch
+    const aline = readySpecific(game.gameState, game.bleeder, ALINE_ID, setup.alineBlood ?? 3)
+    aline.vampireAttrs.sect = Sect.Anarch
+    aline.lock()
+    if (setup.inTorpor) {
+        game.gameState.moveCardToRegion(aline, game.bleeder.torpor)
+    }
+    return { ...game, aline }
+}
+
+function getTriggerDecision(game: AlineGame): DecisionPoint {
+    const decider = getDecidingPlayer(game.gameState)
+    const decision = decider && getDecisionPoint(game.gameState, decider)
+    if (!decision || decision.kind != DecisionKind.Trigger) {
+        throw new ScenarioFailure('No trigger decision')
+    }
+    return decision
+}
+
+function expectNoTrigger(gameState: GameState, what: string): void {
+    expectEqual(gameState.pendingTriggers.length, 0, what)
+}
+
+const ALINE_SCENARIOS: { name: string; run: () => void }[] = [
+    {
+        name: 'Aline Gadeke: after another Anarch of hers acts unblocked, she may unlock for 1 blood',
+        run() {
+            const game = createAlineGame()
+            passUntilActionOver(game.gameState)
+            const decision = getTriggerDecision(game)
+            expectEqual(decision.player, game.bleeder, 'the controller decides')
+            expectEqual(
+                decision.options.map(option => option.type).join(','),
+                'useTrigger,skipTrigger',
+                'options',
+            )
+            applyOption(decision, findOption(decision.options, 'useTrigger'))
+            expectEqual(game.aline.isLocked, false, 'unlocked')
+            expectEqual(game.aline.blood, 2, 'blood burned')
+            expectNoTrigger(game.gameState, 'pending')
+            expectEqual(
+                game.gameState.turnResources.usedTriggers.includes(getTriggerKey(game.aline, 0)),
+                true,
+                'used this turn',
+            )
+        },
+    },
+    {
+        name: 'Aline Gadeke: the controller may opt out, nothing changes',
+        run() {
+            const game = createAlineGame()
+            passUntilActionOver(game.gameState)
+            const decision = getTriggerDecision(game)
+            applyOption(decision, findOption(decision.options, 'skipTrigger'))
+            expectEqual(game.aline.isLocked, true, 'still locked')
+            expectEqual(game.aline.blood, 3, 'blood')
+            expectNoTrigger(game.gameState, 'pending')
+            expectEqual(game.gameState.turnResources.usedTriggers.length, 0, 'not used')
+        },
+    },
+    {
+        name: 'Aline Gadeke: a failed block still lets the action resolve, so it counts',
+        run() {
+            const game = createAlineGame()
+            if (!game.gameState.action) {
+                throw new ScenarioFailure('The bleed is not declared')
+            }
+            game.gameState.action.stealth = 1
+            game.blocker.minionAttrs.intercept = 0
+            blockWithBlocker(game)
+            passUntilActionOver(game.gameState)
+            getTriggerDecision(game)
+        },
+    },
+    {
+        name: 'Aline Gadeke: a block that succeeds starts a combat, nothing is pending',
+        run() {
+            const game = createAlineGame()
+            if (!game.gameState.action) {
+                throw new ScenarioFailure('The bleed is not declared')
+            }
+            game.gameState.action.stealth = 1
+            game.blocker.minionAttrs.intercept = 5
+            blockWithBlocker(game)
+            passUntilActionOver(game.gameState)
+            expectEqual(game.gameState.combat != null, true, 'combat')
+            expectNoTrigger(game.gameState, 'pending')
+        },
+    },
+    {
+        name: 'Aline Gadeke: does not trigger on her own action, nor on a minion that is not an Anarch',
+        run() {
+            const own = createCatalogBleed({
+                discipline: Discipline.Obfuscate,
+                level: DisciplineLevel.INFERIOR,
+                cards: [],
+                deck: BrujahDeck,
+                bleederId: ALINE_ID,
+            })
+            own.bleeding.lock()
+            passUntilActionOver(own.gameState)
+            expectNoTrigger(own.gameState, 'her own action')
+
+            const camarilla = createAlineGame({ actorSect: Sect.Camarilla })
+            passUntilActionOver(camarilla.gameState)
+            expectNoTrigger(camarilla.gameState, 'a Camarilla vampire')
+
+            // "Another Anarch YOU control": Aline of the prey does not react to the bleeder
+            const others = createAlineGame()
+            others.gameState.moveCardToRegion(others.aline, others.bled.ready)
+            passUntilActionOver(others.gameState)
+            expectNoTrigger(others.gameState, 'an Anarch of another Methuselah')
+        },
+    },
+    {
+        name: 'Aline Gadeke: not queued without a blood to burn, and only once per turn',
+        run() {
+            const empty = createAlineGame({ alineBlood: 0 })
+            passUntilActionOver(empty.gameState)
+            expectNoTrigger(empty.gameState, 'no blood')
+
+            const game = createAlineGame()
+            passUntilActionOver(game.gameState)
+            const decision = getTriggerDecision(game)
+            applyOption(decision, findOption(decision.options, 'useTrigger'))
+            // Another action resolves the same turn
+            game.aline.lock()
+            emitEvent(game.gameState, {
+                type: 'actionResolved',
+                action: createBleedAction(game.bleeding, game.bled),
+            })
+            expectNoTrigger(game.gameState, 'once per turn')
+        },
+    },
+    {
+        name: 'Aline Gadeke: works from torpor too, the unlock leaves her in torpor',
+        run() {
+            const game = createAlineGame({ inTorpor: true })
+            expectEqual(game.aline.isIn.torpor, true, 'in torpor')
+            passUntilActionOver(game.gameState)
+            const decision = getTriggerDecision(game)
+            applyOption(decision, findOption(decision.options, 'useTrigger'))
+            expectEqual(game.aline.isLocked, false, 'unlocked')
+            expectEqual(game.aline.isIn.torpor, true, 'still in torpor')
+        },
+    },
+    {
+        name: 'Aline Gadeke: two copies ask one after the other, and the decision goes through the player view',
+        run() {
+            const game = createAlineGame()
+            const second = [...game.bleeder.crypt.cards, ...game.bleeder.uncontrolled.cards].find(
+                card => card.krcgId == ALINE_ID && card != game.aline,
+            )
+            if (!second?.isVampire()) {
+                throw new ScenarioFailure('No second Aline')
+            }
+            game.gameState.moveCardToRegion(second, game.bleeder.ready)
+            second.blood = 2
+            second.lock()
+            passUntilActionOver(game.gameState)
+            expectEqual(game.gameState.pendingTriggers.length, 2, 'both pending')
+
+            const first = getTriggerDecision(game)
+            const viaView = chooseThroughView(first, {
+                choose: decision => findOption(decision.options, 'useTrigger'),
+            })
+            expectEqual(viaView.type, 'useTrigger', 'chosen through the view')
+            applyOption(first, viaView)
+            expectEqual(game.gameState.pendingTriggers.length, 1, 'one left')
+            const next = getTriggerDecision(game)
+            applyOption(next, findOption(next.options, 'skipTrigger'))
+            expectNoTrigger(game.gameState, 'all decided')
+        },
+    },
+]
+
 function parseFilter(argv: string[]): string {
     const index = argv.indexOf('--filter')
     if (index < 0) {
@@ -4154,6 +4503,8 @@ function runScenarios(filter: string): ScenarioResult[] {
         ...BRUJAH_COMBAT_SCENARIOS,
         ...BRUJAH_ACTION_SCENARIOS,
         ...BRUJAH_REACTION_SCENARIOS,
+        ...EVENT_SCENARIOS,
+        ...ALINE_SCENARIOS,
     ]
         .filter(({ name }) => name.toLowerCase().includes(filter))
         .map(({ name, run }) => {

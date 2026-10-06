@@ -1,11 +1,12 @@
 import { LOST_IN_CROWDS_ID } from '@/shared/cardImpl/cardIds.ts'
 import {
+    armTrigger,
     bleed,
     bleedX,
     defineCard,
     discipline,
     duringBleed,
-    lockFailedBlockers,
+    lockAt,
     stealth,
     targetPoolAtMost,
 } from '@/shared/cardImpl/catalog/builders.ts'
@@ -48,7 +49,14 @@ export const MODIFIER_CARDS = [
         {
             kind: 'modifier',
             requires: discipline('obf', 'superior'),
-            effects: [stealth(1), lockFailedBlockers],
+            effects: [
+                stealth(1),
+                armTrigger({
+                    on: 'blockFailed',
+                    mode: 'auto',
+                    effects: [lockAt('actionResolving', 'eventBlocker')],
+                }),
+            ],
         },
     ]),
     // Superior: another ready vampire of the acting player plays it ( a locked one can )

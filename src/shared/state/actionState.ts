@@ -13,6 +13,7 @@ import {
 } from '@/shared/types/state.ts'
 import * as actions from '@/shared/state/minionActions.ts'
 import { GameState } from '@/shared/state/gameState.ts'
+import { emitEvent } from '@/shared/state/events.ts'
 
 export function createActionState(minionAction: MinionAction): ActionState {
     const actingMinion = minionAction.actingMinion
@@ -21,8 +22,7 @@ export function createActionState(minionAction: MinionAction): ActionState {
         blockingDecisions: [],
         blockAttempters: [],
         awakeMinions: [],
-        lockFailedBlockers: false,
-        blockersToLock: [],
+        armedTriggers: [],
         stealth: actingMinion.minionAttrs.stealth + actions.getDefaultStealth(minionAction),
         intercept: 0,
         bleed: actingMinion.minionAttrs.bleed,
@@ -36,8 +36,12 @@ export function createActionState(minionAction: MinionAction): ActionState {
  * button, or the closing of the referendum a political action put to the table.
  */
 export function endAction(gameState: GameState): void {
+    const ended = gameState.action?.minionAction
     gameState.action = null
     gameState.targetDeclarations = []
+    if (ended) {
+        emitEvent(gameState, { type: 'actionResolved', action: ended })
+    }
 }
 
 export function isAwake(gameState: GameState, minion: Minion): boolean {

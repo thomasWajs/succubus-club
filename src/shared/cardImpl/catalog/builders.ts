@@ -1,5 +1,6 @@
 import { DisciplineCode, DisciplineLevel } from '@/shared/const/model.ts'
 import { KrcgId } from '@/shared/types/gateway.ts'
+import { EventName } from '@/shared/state/events.ts'
 import {
     AdditionalStrikeEffect,
     BleedActionEffect,
@@ -18,7 +19,11 @@ import {
     GrappleEffect,
     HandSizeEffect,
     InterceptEffect,
-    LockFailedBlockersEffect,
+    ArmTriggerEffect,
+    EventCondition,
+    Trigger,
+    TriggerCost,
+    TriggerEffect,
     ChangeTargetEffect,
     ManeuverEffect,
     Play,
@@ -167,7 +172,28 @@ export function changeTarget(options: { lockReactor: boolean }): ChangeTargetEff
     return { type: 'changeTarget', ...options }
 }
 
-export const lockFailedBlockers: LockFailedBlockersEffect = { type: 'lockFailedBlockers' }
+export function armTrigger(trigger: Trigger): ArmTriggerEffect {
+    return { type: 'armTrigger', trigger }
+}
+
+export function actorIs(options: {
+    other?: boolean
+    controller?: 'self'
+    sect?: 'Anarch'
+}): EventCondition {
+    return { type: 'actorIs', ...options }
+}
+
+export function burnBlood(amount: number): TriggerCost {
+    return { type: 'burnBlood', amount }
+}
+
+export const unlockSelf: TriggerEffect = { type: 'unlock', who: 'self' }
+
+// Locks the minion the event is about, when the later event is announced
+export function lockAt(at: EventName, who: 'eventBlocker'): TriggerEffect {
+    return { type: 'lock', who, at }
+}
 
 export const wake: WakeEffect = { type: 'wake' }
 

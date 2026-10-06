@@ -54,6 +54,9 @@ import {
     passImpulse,
     regainImpulse,
 } from '@/shared/state/actionState.ts'
+import { emitEvent } from '@/shared/state/events.ts'
+import { Trigger } from '@/shared/cardImpl/catalog/types.ts'
+import { getTriggerKey } from '@/shared/state/triggers.ts'
 import {
     applyDamageNow,
     AdditionalStrikeGain,
@@ -1824,6 +1827,57 @@ class MarkCardUsed extends GameMutation<MarkCardUsedParams> {
 }
 
 /**
+ * Resolve a pending trigger: the bot decided, to use it ( the cost and the effects are applied by
+ * their own mutations ) or not. A trigger used is remembered for its once-per-turn limit.
+ */
+
+interface ResolvePendingTriggerParams extends PlayerParams {
+    source: Minion
+    index: number
+    used: boolean
+}
+
+class ResolvePendingTrigger extends GameMutation<ResolvePendingTriggerParams> {
+    _isUserCancellable = false
+    readonly syncMode = MutationSyncMode.Exclusive
+
+    get allowedPlayer() {
+        return this.params.player
+    }
+
+    get card() {
+        return this.params.source
+    }
+
+    getValidity(gameState: GameState) {
+        return this.findPending(gameState) ? VALID : Invalid('No such pending trigger')
+    }
+
+    private findPending(gameState: GameState) {
+        return gameState.pendingTriggers.find(
+            pending => pending.source == this.params.source && pending.index == this.params.index,
+        )
+    }
+
+    protected updateGameState(gameState: GameState) {
+        const pending = this.findPending(gameState)
+        if (!pending) {
+            throw new Error('The trigger is not pending')
+        }
+        gameState.pendingTriggers = gameState.pendingTriggers.filter(other => other != pending)
+        if (this.params.used) {
+            gameState.turnResources.usedTriggers.push(
+                getTriggerKey(this.params.source, this.params.index),
+            )
+        }
+    }
+
+    formatForLog() {
+        return this.params.used ? `${CARD_LOG_PLACEHOLDER} uses its ability` : null
+    }
+}
+
+/**
  * Note that a minion played a card ( a card that a minion can play once between its unlock phases ).
  * Forgotten when the minion is unlocked by the unlock phase.
  */
@@ -1902,11 +1956,14 @@ class WakeMinion extends GameMutation<WakeParams> {
 }
 
 /**
- * Action: The minions failing to block the action are locked before it resolves. Only the blocks
- * that fail from now on count.
+ * Action: Arm a trigger for the rest of the action. Only the events from now on count.
  */
 
-class LockFailedBlockers extends GameMutation<EmptyParams> {
+interface ArmTriggerParams extends GameMutationParams {
+    trigger: Trigger
+}
+
+class ArmTrigger extends GameMutation<ArmTriggerParams> {
     _isUserCancellable = false
     readonly syncMode = MutationSyncMode.Exclusive
 
@@ -1922,11 +1979,11 @@ class LockFailedBlockers extends GameMutation<EmptyParams> {
         if (!gameState.action) {
             throw new Error('gameState.action is null')
         }
-        gameState.action.lockFailedBlockers = true
+        gameState.action.armedTriggers.push({ trigger: this.params.trigger, deferred: [] })
     }
 
     formatForLog() {
-        return 'Minions failing to block will be locked'
+        return `A trigger on ${this.params.trigger.on} is armed for the action`
     }
 }
 
@@ -2380,12 +2437,11 @@ export class ResolveAction extends GameMutation<EmptyParams> {
         }
         // Store for use formatForLog()
         this.previousState.actionName = actions.getName(gameState.action.minionAction)
-        // Faceless Night: the minions that failed to block are locked before the resolution
-        for (const minion of gameState.action.blockersToLock) {
-            minion.lock()
-        }
-        actions.resolve(gameState.action.minionAction)
+        const minionAction = gameState.action.minionAction
+        emitEvent(gameState, { type: 'actionResolving', action: minionAction })
+        actions.resolve(minionAction)
         gameState.action = null
+        emitEvent(gameState, { type: 'actionResolved', action: minionAction })
     }
 
     formatForLog() {
@@ -2446,13 +2502,14 @@ export class ResolveBlock extends GameMutation<EmptyParams> {
         // Failed block
         else {
             this.previousState.isBlockSuccessful = false
-            if (action.lockFailedBlockers && !action.blockersToLock.includes(blockingMinion)) {
-                action.blockersToLock.push(blockingMinion)
-            }
-
             action.blockingDecisions = []
             action.impulsePlayer = gameState.activePlayer
             action.intercept = 0
+            emitEvent(gameState, {
+                type: 'blockFailed',
+                action: action.minionAction,
+                blocker: blockingMinion,
+            })
         }
     }
 
@@ -3397,6 +3454,7 @@ export const gameMutations = {
     moveCard: defineMutation(MoveCard),
     moveCardToRegion: defineMutation(MoveCardToRegion),
     markCardUsed: defineMutation(MarkCardUsed),
+    resolvePendingTrigger: defineMutation(ResolvePendingTrigger),
     spendTransfers: defineMutation(SpendTransfers),
     markPlayedSinceUnlock: defineMutation(MarkPlayedSinceUnlock),
     moveToBottom: defineMutation(MoveToBottom),
@@ -3423,7 +3481,7 @@ export const gameMutations = {
     ACTION_declareActionInverse: defineMutation(DeclareActionInverse),
     ACTION_updateUsage: defineMutation(UpdateActionUsage),
     ACTION_wake: defineMutation(WakeMinion),
-    ACTION_lockFailedBlockers: defineMutation(LockFailedBlockers),
+    ACTION_armTrigger: defineMutation(ArmTrigger),
     ACTION_declareActionModifier: defineMutation(DeclareActionModifier),
     ACTION_declareBlock: defineMutation(DeclareBlock),
     ACTION_declareReaction: defineMutation(DeclareReaction),

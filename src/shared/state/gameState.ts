@@ -18,6 +18,7 @@ import {
     GameType,
     KnownCards,
     LocationIndex,
+    PendingTrigger,
     ReferendumState,
     TargetDeclaration,
 } from '@/shared/types/state.ts'
@@ -98,7 +99,11 @@ export class GameState {
         transfers: 1,
         dpa: DEFAULT_DPA, // discardPhaseActions
         usedCards: [] as CardOid[], // cards whose once-per-turn effect was used
+        usedTriggers: [] as string[], // `${card oid}:${trigger index}` of the triggers used
     }
+
+    // The optional triggers waiting for a decision of a bot ( the first one is decided first )
+    pendingTriggers: PendingTrigger[] = []
 
     // The cards ( krcgId ) that a minion played since its last unlock phase, keyed by minion oid
     playedSinceUnlock: Record<CardOid, string[]> = {}
@@ -297,6 +302,7 @@ export class GameState {
             transfers,
             dpa: DEFAULT_DPA,
             usedCards: [],
+            usedTriggers: [],
         }
     }
 

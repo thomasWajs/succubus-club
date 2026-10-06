@@ -288,8 +288,8 @@ class InterpretedModifier extends ActionModifierCardImplementation {
 
     apply() {
         for (const effect of this.play?.effects ?? []) {
-            if (effect.type == 'lockFailedBlockers') {
-                gameMutations.ACTION_lockFailedBlockers.act(this.player, {})
+            if (effect.type == 'armTrigger') {
+                gameMutations.ACTION_armTrigger.act(this.player, { trigger: effect.trigger })
                 continue
             }
             const propertyName = {

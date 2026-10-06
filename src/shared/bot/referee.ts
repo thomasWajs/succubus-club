@@ -37,6 +37,7 @@ import {
     isAwake,
 } from '@/shared/state/actionState.ts'
 import { getAutoPlayPosition, getPlayRegion } from '@/shared/state/cardPlacement.ts'
+import { canUseTrigger, getCardTriggers } from '@/shared/state/triggers.ts'
 import {
     canChooseStrike,
     canManeuver,
@@ -115,6 +116,11 @@ export function getDecidingPlayer(gameState: GameState): Player | null {
     if (excess) {
         return excess
     }
+    // An optional trigger waits for its controller, before the action or the combat goes on
+    const pending = gameState.pendingTriggers.find(trigger => !trigger.source.controller.isOusted)
+    if (pending) {
+        return pending.source.controller
+    }
     if (gameState.combat) {
         return gameState.combat.impulsePlayer
     }
@@ -144,6 +150,16 @@ export function getDecisionPoint(gameState: GameState, player: Player): Decision
             player,
             player.hand.cards.map(card => ({ type: 'discardExcess', card })),
         )
+    }
+
+    const pending = gameState.pendingTriggers.find(trigger => trigger.source.controller == player)
+    if (pending) {
+        return decision(DecisionKind.Trigger, player, [
+            ...(canUseTrigger(gameState, pending.source, pending.index) ?
+                [{ type: 'useTrigger' as const, pending }]
+            :   []),
+            { type: 'skipTrigger', pending },
+        ])
     }
 
     if (gameState.combat) {
@@ -674,6 +690,54 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
                     y: 0,
                 }),
                 'discard excess',
+            )
+            break
+
+        case 'useTrigger': {
+            const { source, index } = option.pending
+            const trigger = getCardTriggers(source)[index]
+            if (!trigger) {
+                throw new InvalidBotMove(`${source.name} has no trigger #${index}`)
+            }
+            if (trigger.cost) {
+                check(
+                    gameMutations.changeBlood.act(player, {
+                        card: source,
+                        amount: -trigger.cost.amount,
+                    }),
+                    'trigger cost',
+                )
+            }
+            for (const effect of trigger.effects) {
+                if (effect.type != 'unlock') {
+                    throw new InvalidBotMove(`The ${effect.type} effect is not for a card in play`)
+                }
+                check(
+                    gameMutations.setLock.act(player, { card: source, newValue: false }),
+                    'unlock',
+                )
+            }
+            check(
+                gameMutations.resolvePendingTrigger.act(player, {
+                    player,
+                    source,
+                    index,
+                    used: true,
+                }),
+                'resolve trigger',
+            )
+            break
+        }
+
+        case 'skipTrigger':
+            check(
+                gameMutations.resolvePendingTrigger.act(player, {
+                    player,
+                    source: option.pending.source,
+                    index: option.pending.index,
+                    used: false,
+                }),
+                'skip trigger',
             )
             break
 
