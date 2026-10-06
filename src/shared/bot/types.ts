@@ -1,5 +1,5 @@
 import { Player } from '@/shared/model/Player.ts'
-import { LibraryCard, Minion, Vampire } from '@/shared/model/Card.ts'
+import { CryptCard, LibraryCard, Minion, Vampire } from '@/shared/model/Card.ts'
 import {
     ActionModifier,
     CombatStrike,
@@ -49,8 +49,15 @@ export type BotOption =
     | { type: 'endPhase' }
     // Uses the unlock-phase effect of a master card in play on a vampire ( once per card and turn )
     | { type: 'unlockEffect'; card: LibraryCard; vampire: Vampire }
-    // Plays a master card from the hand (master phase action + pool cost)
-    | { type: 'playMaster'; card: LibraryCard }
+    // Uses the "lock this card to discard a card" ability of a master card in play ( the hand is
+    // drawn back up )
+    | { type: 'lockEffect'; card: LibraryCard; discard: LibraryCard }
+    // Uses an ability of a master card in play that is paid with transfers ( the ability is an
+    // index of the card's abilities ). Some remove a card of the uncontrolled region.
+    | { type: 'transferEffect'; card: LibraryCard; ability: number; removed?: CryptCard }
+    // Plays a master card from the hand (master phase action + pool cost). The vampire is the
+    // target of the effect of the card on play, for the cards that have one.
+    | { type: 'playMaster'; card: LibraryCard; target?: Vampire }
     // Go to the next turn (the hand is never refilled here: replacements are drawn immediately)
     | { type: 'endTurn' }
     // Send the one-shot cards played during the last action to the ash heap
@@ -74,15 +81,38 @@ export type BotOption =
     | { type: 'noReaction' }
     // Nothing more to play in this window of the combat step
     | { type: 'combatPass' }
-    // The four combat options below come with the combat card (from the hand) that
+    // The combat options below come with the combat card (from the hand) that
     // provides them, played as part of applying the option. No card = the default
     // hand strike.
     // The strike of the round
-    | { type: 'combatStrike'; minion: Minion; strike: CombatStrike; card?: LibraryCard }
+    | {
+          type: 'combatStrike'
+          minion: Minion
+          strike: CombatStrike
+          card?: LibraryCard
+          // The strike card also gives an additional strike
+          additional?: { limited: boolean }
+      }
     // Moves the range to long, or back to close. May also choose the strike (strike card).
     | { type: 'combatManeuver'; minion: Minion; strike?: CombatStrike; card?: LibraryCard }
     // A press to continue, or the cancellation of the opposing one
-    | { type: 'combatPress'; minion: Minion; card?: LibraryCard }
+    // A granted press is the one a card played earlier gave: no card to play
+    | { type: 'combatPress'; minion: Minion; card?: LibraryCard; granted?: boolean }
+    // Only offered in the window after a pair of strikes
+    | { type: 'combatAdditionalStrike'; minion: Minion; limited: boolean; card?: LibraryCard }
+    | {
+          type: 'combatGrapple'
+          minion: Minion
+          press: boolean
+          closeNextRound: boolean
+          card?: LibraryCard
+      }
+    // At the end of the round
+    | { type: 'combatGainBlood'; minion: Minion; amount: number; card?: LibraryCard }
+    // The strength bonus a card gave for the first round: no card to play
+    | { type: 'combatStrengthBonus'; minion: Minion }
+    // The strength of the minion for the rest of the combat ( window before the range )
+    | { type: 'combatStrength'; minion: Minion; amount: number; card?: LibraryCard }
     | CombatPreventOption
 
 export type BotOptionType = BotOption['type']
@@ -90,7 +120,15 @@ export type BotOptionOf<T extends BotOptionType> = Extract<BotOption, { type: T 
 
 // What a card can add to a combat step. The referee keeps the ones that fit the step.
 export type CombatCardOption = BotOptionOf<
-    'combatStrike' | 'combatManeuver' | 'combatPress' | 'combatPrevent'
+    | 'combatStrike'
+    | 'combatManeuver'
+    | 'combatPress'
+    | 'combatPrevent'
+    | 'combatStrength'
+    | 'combatAdditionalStrike'
+    | 'combatGrapple'
+    | 'combatGainBlood'
+    | 'combatStrengthBonus'
 >
 
 export function optionsOfType<T extends BotOptionType>(

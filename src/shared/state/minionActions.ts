@@ -10,6 +10,7 @@ import {
     BecomeAnarchAction,
     BleedAction,
     DeclarationType,
+    EnterCombatAction,
     HuntAction,
     Invalid,
     LeaveTorporAction,
@@ -25,8 +26,10 @@ import {
 import {
     ACTION_CARD_IMPLEMENTATIONS,
     ACTION_MODIFIER_CARD_IMPLEMENTATIONS,
+    getCryptImplementation,
     getImplementation,
 } from '@/shared/cardImpl/index.ts'
+import { startCombat } from '@/shared/state/combatState.ts'
 
 // Returns the hand-written implementation for an action card, or null when the
 // card has none. A human can play any of the ~4000 cards, most of which fall here.
@@ -49,12 +52,12 @@ function getImplementationACA(action: ActionCardFromHandAction) {
     return implementation
 }
 
-// The modifier is played by the minion of the action in progress.
+// The modifier is played by the minion of the action in progress, unless it says otherwise.
 export function applyActionModifier(actionModifier: ActionModifier, actingMinion: Minion): void {
     const implementation = getImplementation(
         ACTION_MODIFIER_CARD_IMPLEMENTATIONS,
         actionModifier.card,
-        actingMinion,
+        actionModifier.by ?? actingMinion,
         actionModifier.usage,
     )
     if (!implementation) {
@@ -108,7 +111,23 @@ export function isDirected(action: MinionAction): boolean {
     return !isUndirected(action)
 }
 
+// A vampire can have a stealth of its own for the actions that are not directed
 export function getDefaultStealth(action: MinionAction): number {
+    const own =
+        isUndirected(action) ?
+            (getCryptImplementation(action.actingMinion)?.undirectedStealth ?? 0)
+        :   0
+    return baseStealth(action) + own
+}
+
+// The strength the acting minion can gain in the first round if the action is blocked
+export function getBlockedStrengthBonus(action: MinionAction): number {
+    return action.type == MinionActionType.ActionCardFromHand ?
+            (tryGetImplementationACA(action)?.blockedStrengthBonus ?? 0)
+        :   0
+}
+
+function baseStealth(action: MinionAction): number {
     if (action.type == MinionActionType.ActionCardFromHand) {
         const implementation = tryGetImplementationACA(action)
         if (implementation) {
@@ -211,6 +230,24 @@ const behaviors: Behaviors = {
             return canAct(action.actingMinion)
         },
         resolve: resolveHunt,
+    },
+
+    [MinionActionType.EnterCombat]: {
+        ...NO_BEHAVIOUR,
+        canDeclare(action: EnterCombatAction) {
+            const minion = action.actingMinion
+            if (!getCryptImplementation(minion)?.canEnterCombat) {
+                return Invalid('This minion cannot enter combat as an action')
+            }
+            const acting = canAct(minion)
+            if (!acting.isValid) {
+                return acting
+            }
+            return canEnterCombatWith(minion, action.target)
+        },
+        resolve(action: EnterCombatAction) {
+            startCombat(action.actingMinion.gameState, action.actingMinion, action.target)
+        },
     },
 
     [MinionActionType.BecomeAnarch]: {
@@ -358,6 +395,17 @@ const behaviors: Behaviors = {
             getImplementationACA(action).resolve()
         },
     },
+}
+
+// A minion can enter combat with a ready minion of another Methuselah
+export function canEnterCombatWith(minion: Minion, target: Minion): Validity {
+    if (!target.isIn.ready) {
+        return Invalid('The target must be ready')
+    }
+    if (target.controller == minion.controller) {
+        return Invalid('The target must be controlled by another Methuselah')
+    }
+    return VALID
 }
 
 function getBehaviour(action: MinionAction) {

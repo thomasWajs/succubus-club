@@ -365,6 +365,11 @@ export class LibraryCard extends Card {
         return this.resource?.type
     }
 
+    // A few cards have two types ( "Action Modifier/Combat" ): the card is both
+    hasType(type: LibraryCardType): boolean {
+        return !!this.type && (this.type as string).split('/').includes(type)
+    }
+
     // The card's raw cost, keeping the variable "X" as-is ( e.g. "burn X blood" ).
     // Callers that need to spend it must resolve X to a declared value : see
     // resolveCost() in cardCosts.ts.

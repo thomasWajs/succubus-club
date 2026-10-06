@@ -211,17 +211,22 @@ export class GovernAgent extends BaseAgent {
         // (superior does not lock; else the oldest)
         const prey = player.prey
         const bounce = optionsOfType(decision.options, 'playReaction')
-            .filter(
-                option =>
-                    option.card.krcgId == DEFLECTION_ID && option.effect.target.oid == prey?.oid,
+            .flatMap(option =>
+                (
+                    option.card.krcgId == DEFLECTION_ID &&
+                    option.effect.type == 'changeTarget' &&
+                    option.effect.target.oid == prey?.oid
+                ) ?
+                    [{ option, locks: option.effect.lockMinion }]
+                :   [],
             )
             .toSorted(
                 (a, b) =>
-                    Number(a.effect.lockMinion) - Number(b.effect.lockMinion) ||
-                    b.minion.minionAttrs.capacity - a.minion.minionAttrs.capacity,
+                    Number(a.locks) - Number(b.locks) ||
+                    b.option.minion.minionAttrs.capacity - a.option.minion.minionAttrs.capacity,
             )[0]
         if (bounce) {
-            return bounce
+            return bounce.option
         }
 
         // Deflection is only usable once blocks are declined

@@ -18,13 +18,16 @@ export function resolveCost(cost: number | 'X', declaredX?: number): number {
     return cost == 'X' ? (declaredX ?? 0) : cost
 }
 
-// Whether the minion and its controller can afford the card. Variable "X" costs are
-// not supported yet. The pool is never emptied by a card.
-export function canPayCosts(minion: Minion, card: LibraryCard): boolean {
-    if (card.bloodCost == 'X' || card.poolCost == 'X') {
+// Whether the minion and its controller can afford the card. A variable "X" cost can only be
+// afforded for a declared X. The pool is never emptied by a card.
+export function canPayCosts(minion: Minion, card: LibraryCard, declaredX?: number): boolean {
+    if ((card.bloodCost == 'X' || card.poolCost == 'X') && declaredX === undefined) {
         return false
     }
-    return minion.blood >= card.bloodCost && minion.controller.pool > card.poolCost
+    return (
+        minion.blood >= resolveCost(card.bloodCost, declaredX) &&
+        minion.controller.pool > resolveCost(card.poolCost, declaredX)
+    )
 }
 
 // For the cards played by a Methuselah with no minion ( master cards ) : only the pool counts

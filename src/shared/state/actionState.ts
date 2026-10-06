@@ -20,6 +20,9 @@ export function createActionState(minionAction: MinionAction): ActionState {
         minionAction,
         blockingDecisions: [],
         blockAttempters: [],
+        awakeMinions: [],
+        lockFailedBlockers: false,
+        blockersToLock: [],
         stealth: actingMinion.minionAttrs.stealth + actions.getDefaultStealth(minionAction),
         intercept: 0,
         bleed: actingMinion.minionAttrs.bleed,
@@ -35,6 +38,15 @@ export function createActionState(minionAction: MinionAction): ActionState {
 export function endAction(gameState: GameState): void {
     gameState.action = null
     gameState.targetDeclarations = []
+}
+
+export function isAwake(gameState: GameState, minion: Minion): boolean {
+    return !!gameState.action?.awakeMinions.includes(minion)
+}
+
+// A ready minion may attempt a block or play a reaction card if it is unlocked, or woken
+export function isAvailableToReact(gameState: GameState, minion: Minion): boolean {
+    return !minion.isLocked || isAwake(gameState, minion)
 }
 
 export function getBlockingDecision(gameState: GameState, player: Player): BlockingDecision | null {

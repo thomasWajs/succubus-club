@@ -10,6 +10,7 @@ import {
 } from '@/shared/const/model.ts'
 import { GRID_SIZE } from '@/shared/const/game.ts'
 import {
+    ActionProperty,
     CombatState,
     CombatStep,
     MinionAction,
@@ -22,6 +23,7 @@ import {
 import { canDeclare, applyActionModifier } from '@/shared/state/minionActions.ts'
 import {
     createBleedAction,
+    createEnterCombatAction,
     createHuntAction,
     createLeaveTorporAction,
     createRescueFromTorporAction,
@@ -31,22 +33,36 @@ import {
     canChangeTarget,
     getBlockingDecision,
     getBlockingMinion,
+    isAvailableToReact,
+    isAwake,
 } from '@/shared/state/actionState.ts'
 import { getAutoPlayPosition, getPlayRegion } from '@/shared/state/cardPlacement.ts'
 import {
     canChooseStrike,
     canManeuver,
     canPress,
+    canAddStrikes,
+    canGainBlood,
+    canGrapple,
     canPreventDamage,
+    canSetStrength,
+    canTakeStrengthBonus,
     createHandStrike,
 } from '@/shared/state/combatState.ts'
-import { getMasterImplementation } from '@/shared/cardImpl/index.ts'
+import {
+    getCryptImplementation,
+    getImplementation,
+    getMasterImplementation,
+    REACTION_CARD_IMPLEMENTATIONS,
+} from '@/shared/cardImpl/index.ts'
 import {
     getActionCardOptions,
     getActionModifierOptions,
     getCombatCardOptions,
+    getLockEffectOptions,
     getMasterCardOptions,
     getReactionCardOptions,
+    getTransferEffectOptions,
     getUnlockEffectOptions,
     hasPlayedModifierThisAction,
     isMasterDiscardedAfterUse,
@@ -171,15 +187,14 @@ function getCleanupCards(player: Player): LibraryCard[] {
     return player.ready.cards.filter(
         (card): card is LibraryCard =>
             card instanceof LibraryCard &&
-            !!card.type &&
-            (ONE_SHOT_TYPES.includes(card.type) || isMasterDiscardedAfterUse(card)),
+            (ONE_SHOT_TYPES.some(type => card.hasType(type)) || isMasterDiscardedAfterUse(card)),
     )
 }
 
 // A master card needs the master phase action of the turn, on top of its own cost
 function masterPhaseOptions(gameState: GameState, player: Player): BotOption[] {
     const options: BotOption[] = gameState.turnResources.mpa > 0 ? getMasterCardOptions(player) : []
-    options.push({ type: 'endPhase' })
+    options.push(...getLockEffectOptions(player), { type: 'endPhase' })
     return options
 }
 
@@ -209,6 +224,13 @@ function minionPhaseOptions(player: Player): BotOption[] {
         for (const card of player.hand.cards) {
             candidates.push(...getActionCardOptions(minion, card))
         }
+        if (getCryptImplementation(minion)?.canEnterCombat) {
+            for (const other of player.gameState.competingPlayers) {
+                for (const target of other == player ? [] : other.minionsReady) {
+                    candidates.push(createEnterCombatAction(minion, target))
+                }
+            }
+        }
 
         // The LEAVE_TORPOR_COST blood of a rescue is shared between the two, any way they like
         for (const rescued of torpid) {
@@ -236,10 +258,23 @@ function minionPhaseOptions(player: Player): BotOption[] {
     const mandatoryHunts = valid.filter(
         action => action.type == MinionActionType.Hunt && action.actingMinion.blood == 0,
     )
-    const declarable = mandatoryHunts.length > 0 ? mandatoryHunts : valid
+    // A vampire that must bleed while its Methuselah controls a locked minion ( Elen Kamjian ):
+    // it has no other action, as long as a bleed is possible
+    const mustBleed = (action: MinionAction) =>
+        getCryptImplementation(action.actingMinion)?.mustBleedWhileMinionLocked &&
+        player.minionsReady.some(minion => minion.isLocked)
+    const mandatoryBleeds = valid.filter(
+        action => action.type == MinionActionType.Bleed && mustBleed(action),
+    )
+    const mandatoryBleeders = new Set(mandatoryBleeds.map(action => action.actingMinion))
+    const free = valid.filter(
+        action =>
+            !mandatoryBleeders.has(action.actingMinion) || action.type == MinionActionType.Bleed,
+    )
+    const declarable = mandatoryHunts.length > 0 ? mandatoryHunts : free
 
     const options: BotOption[] = declarable.map(action => ({ type: 'declareAction', action }))
-    if (mandatoryHunts.length == 0) {
+    if (mandatoryHunts.length == 0 && mandatoryBleeds.length == 0) {
         options.push({ type: 'endPhase' })
     }
     return options
@@ -259,7 +294,7 @@ function influencePhaseOptions(gameState: GameState, player: Player): BotOption[
         }
     }
 
-    options.push({ type: 'endPhase' })
+    options.push(...getTransferEffectOptions(player), { type: 'endPhase' })
     return options
 }
 
@@ -272,7 +307,7 @@ function discardPhaseOptions(gameState: GameState, player: Player): BotOption[] 
         }
     }
 
-    options.push({ type: 'endTurn' })
+    options.push(...getLockEffectOptions(player), { type: 'endTurn' })
     return options
 }
 
@@ -313,8 +348,8 @@ function reactionImpulseDecision(gameState: GameState, player: Player): Decision
         // A minion tries to block at most once per action (the rules allow
         // retrying, but it is pointless and would let a bot loop forever)
         const attempted = gameState.action?.blockAttempters ?? []
-        for (const minion of player.minionsReadyUnlocked) {
-            if (!attempted.includes(minion)) {
+        for (const minion of player.minionsReady) {
+            if (!attempted.includes(minion) && isAvailableToReact(gameState, minion)) {
                 options.push({ type: 'block', minion })
             }
         }
@@ -328,8 +363,9 @@ function reactionImpulseDecision(gameState: GameState, player: Player): Decision
     }
 
     // Reaction cards: each card checks its own conditions (a bounce needs the block to be
-    // declined first), the engine checks the effect
-    for (const minion of player.minionsReadyUnlocked) {
+    // declined first), the engine checks the effect. A locked minion is left to the cards that
+    // work for it ( cardOptions.ts ).
+    for (const minion of player.minionsReady) {
         for (const option of getReactionCardOptions(minion)) {
             if (isReactionOptionValid(gameState, option)) {
                 options.push(option)
@@ -345,6 +381,12 @@ function isReactionOptionValid(gameState: GameState, option: BotOptionOf<'playRe
     switch (option.effect.type) {
         case 'changeTarget':
             return canChangeTarget(gameState, option.effect.target).isValid
+        case 'intercept':
+            return true
+        case 'wake':
+            return !isAwake(gameState, option.minion)
+        case 'unlockBlock':
+            return option.effect.target.isLocked
     }
 }
 
@@ -356,11 +398,22 @@ function isReactionOptionValid(gameState: GameState, option: BotOptionOf<'playRe
 function isCombatOptionValid(gameState: GameState, option: CombatCardOption): boolean {
     switch (option.type) {
         case 'combatStrike':
-            return canChooseStrike(gameState, option.minion).isValid
+            return canChooseStrike(gameState, option.minion, option.strike, option.additional)
+                .isValid
+        case 'combatAdditionalStrike':
+            return canAddStrikes(gameState, option.minion, { limited: option.limited }).isValid
+        case 'combatGrapple':
+            return canGrapple(gameState, option.minion).isValid
+        case 'combatGainBlood':
+            return canGainBlood(gameState, option.minion).isValid
+        case 'combatStrengthBonus':
+            return canTakeStrengthBonus(gameState, option.minion).isValid
         case 'combatManeuver':
             return canManeuver(gameState, option.minion, option.strike).isValid
         case 'combatPress':
-            return canPress(gameState, option.minion).isValid
+            return canPress(gameState, option.minion, option.granted).isValid
+        case 'combatStrength':
+            return canSetStrength(gameState, option.minion).isValid
         case 'combatPrevent':
             return canPreventDamage(gameState, option.minion, option.amount, option.aggravated)
                 .isValid
@@ -387,7 +440,12 @@ function combatDecision(gameState: GameState, combat: CombatState, player: Playe
         })
     }
 
-    for (const option of getCombatCardOptions(combatant.minion)) {
+    // What earlier plays of the round gave: a press, a strength bonus
+    const given: CombatCardOption[] = [
+        { type: 'combatPress', minion: combatant.minion, granted: true },
+        { type: 'combatStrengthBonus', minion: combatant.minion },
+    ]
+    for (const option of [...given, ...getCombatCardOptions(combatant.minion)]) {
         if (isCombatOptionValid(gameState, option)) {
             options.push(option)
         }
@@ -445,6 +503,7 @@ function playCombatCard(player: Player, minion: Minion, card?: LibraryCard): voi
     if (card) {
         playCardFromHand(player, card, minion)
         payCosts(minion, card)
+        check(gameMutations.COMBAT_markPlayed.act(player, { minion, card }), 'remember the play')
     }
 }
 
@@ -461,7 +520,7 @@ function cleanupOutOfTurnCards(gameState: GameState, player: Player): void {
     for (const bot of gameState.orderedPlayers.filter(candidate => candidate.isBot)) {
         const cards = bot.ready.cards.filter(
             card =>
-                card instanceof LibraryCard && !!card.type && OUT_OF_TURN_TYPES.includes(card.type),
+                card instanceof LibraryCard && OUT_OF_TURN_TYPES.some(type => card.hasType(type)),
         )
         for (const card of cards) {
             check(
@@ -505,6 +564,27 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
             }
             check(gameMutations.markCardUsed.act(player, { player, card: option.card }), 'use card')
             check(implementation.applyUnlockEffect(option.vampire), 'unlock effect')
+            break
+        }
+
+        case 'transferEffect': {
+            const implementation = getMasterImplementation(option.card, player)
+            if (!implementation) {
+                throw new InvalidBotMove(`${option.card.name} has no ability paid with transfers`)
+            }
+            check(
+                implementation.applyTransferEffect(option.ability, option.removed),
+                'transfer effect',
+            )
+            break
+        }
+
+        case 'lockEffect': {
+            const implementation = getMasterImplementation(option.card, player)
+            if (!implementation) {
+                throw new InvalidBotMove(`${option.card.name} has no lock ability`)
+            }
+            check(implementation.applyLockEffect(option.discard), 'lock effect')
             break
         }
 
@@ -604,6 +684,13 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
                 gameMutations.spendMasterPhaseAction.act(player, { player }),
                 'master phase action',
             )
+            if (option.target) {
+                const implementation = getMasterImplementation(option.card, player)
+                if (!implementation) {
+                    throw new InvalidBotMove(`${option.card.name} has no implementation`)
+                }
+                check(implementation.applyPlayEffect(option.target), 'effect on play')
+            }
             break
 
         case 'playModifier': {
@@ -612,8 +699,9 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
             if (!actingMinion) {
                 throw new InvalidBotMove('No action in progress')
             }
-            playCardFromHand(player, card, actingMinion)
-            payCosts(actingMinion, card, usage.x)
+            const playingMinion = option.modifier.by ?? actingMinion
+            playCardFromHand(player, card, playingMinion)
+            payCosts(playingMinion, card, usage.x)
 
             // The declaration only records the modifier (log, history); its
             // effect is applied by separate mutations so a replay won't apply
@@ -667,6 +755,47 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
                         'change target',
                     )
                     break
+                case 'intercept':
+                    check(
+                        gameMutations.ACTION_changeProperty.act(player, {
+                            propertyName: ActionProperty.Intercept,
+                            amount: effect.amount,
+                        }),
+                        'intercept',
+                    )
+                    break
+                case 'wake':
+                    check(gameMutations.ACTION_wake.act(player, { minion }), 'wake')
+                    break
+                case 'unlockBlock':
+                    check(
+                        gameMutations.setLock.act(player, {
+                            card: effect.target,
+                            newValue: false,
+                        }),
+                        'unlock the blocker',
+                    )
+                    check(
+                        gameMutations.ACTION_declareBlock.act(player, { block: effect.target }),
+                        'block attempt',
+                    )
+                    check(
+                        gameMutations.ACTION_changeProperty.act(player, {
+                            propertyName: ActionProperty.Intercept,
+                            amount: effect.intercept,
+                        }),
+                        'intercept',
+                    )
+                    break
+            }
+            if (
+                getImplementation(REACTION_CARD_IMPLEMENTATIONS, card, minion, option.usage)
+                    ?.oncePerUnlock
+            ) {
+                check(
+                    gameMutations.markPlayedSinceUnlock.act(player, { minion, card }),
+                    'remember the play',
+                )
             }
             break
         }
@@ -688,6 +817,7 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
                 gameMutations.COMBAT_chooseStrike.act(player, {
                     minion: option.minion,
                     strike: option.strike,
+                    additional: option.additional,
                 }),
                 'combatStrike',
             )
@@ -706,7 +836,65 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
 
         case 'combatPress':
             playCombatCard(player, option.minion, option.card)
-            check(gameMutations.COMBAT_press.act(player, { minion: option.minion }), 'combatPress')
+            check(
+                gameMutations.COMBAT_press.act(player, {
+                    minion: option.minion,
+                    granted: option.granted,
+                }),
+                'combatPress',
+            )
+            break
+
+        case 'combatAdditionalStrike':
+            playCombatCard(player, option.minion, option.card)
+            check(
+                gameMutations.COMBAT_addStrikes.act(player, {
+                    minion: option.minion,
+                    gain: { limited: option.limited },
+                }),
+                'combatAdditionalStrike',
+            )
+            break
+
+        case 'combatGrapple':
+            playCombatCard(player, option.minion, option.card)
+            check(
+                gameMutations.COMBAT_grapple.act(player, {
+                    minion: option.minion,
+                    press: option.press,
+                    closeNextRound: option.closeNextRound,
+                }),
+                'combatGrapple',
+            )
+            break
+
+        case 'combatGainBlood':
+            playCombatCard(player, option.minion, option.card)
+            check(
+                gameMutations.COMBAT_gainBlood.act(player, {
+                    minion: option.minion,
+                    amount: option.amount,
+                }),
+                'combatGainBlood',
+            )
+            break
+
+        case 'combatStrengthBonus':
+            check(
+                gameMutations.COMBAT_takeStrengthBonus.act(player, { minion: option.minion }),
+                'combatStrengthBonus',
+            )
+            break
+
+        case 'combatStrength':
+            playCombatCard(player, option.minion, option.card)
+            check(
+                gameMutations.COMBAT_setStrength.act(player, {
+                    minion: option.minion,
+                    strength: option.amount,
+                }),
+                'combatStrength',
+            )
             break
 
         case 'combatPrevent':

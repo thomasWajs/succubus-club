@@ -38,6 +38,8 @@
         "bot:harness": "tsx script/botHarness.mjs --games 100 --players 4 --agents govern",
         "bot:scenarios": "tsx script/botScenarios.ts",
         "bot:check": "node script/botCheck.mjs",
+        "card": "tsx script/cardLookup.ts",
+        "catalog:check": "tsx script/catalogCheck.ts",
         "type:check": "vue-tsc --noEmit",
         "lint:check": "eslint .",
         "lint:fix": "eslint . --fix",

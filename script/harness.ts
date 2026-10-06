@@ -14,6 +14,7 @@ import { shuffleArray } from '@/shared/utils.ts'
 import { getDecidingPlayer } from '@/shared/bot/referee.ts'
 import { BotStep, stepBot } from '@/shared/bot/driver.ts'
 import { BotAgent, BotOption } from '@/shared/bot/types.ts'
+import { ReactionCardEffect } from '@/shared/cardImpl/base.ts'
 
 /**
  * Headless bot-vs-bot games, synchronous and without any UI or store.
@@ -86,6 +87,19 @@ export function createHeadlessGame(decks: DeckList[]) {
 
 const withCard = (card?: LibraryCard) => (card ? ` [${card.name}]` : '')
 
+function describeReactionEffect(effect: ReactionCardEffect): string {
+    switch (effect.type) {
+        case 'changeTarget':
+            return `changeTarget -> ${effect.target.name}`
+        case 'intercept':
+            return `intercept +${effect.amount}`
+        case 'wake':
+            return 'wake'
+        case 'unlockBlock':
+            return `unlockBlock ${effect.target.name} +${effect.intercept}`
+    }
+}
+
 export function describeOption(option: BotOption): string {
     switch (option.type) {
         case 'declareAction': {
@@ -99,26 +113,40 @@ export function describeOption(option: BotOption): string {
             return `influence ${option.vampire.name} +${option.amount}`
         case 'unlockEffect':
             return `unlockEffect ${option.card.name} -> ${option.vampire.name}`
+        case 'transferEffect':
+            return `transferEffect ${option.card.name} #${option.ability}${option.removed ? ` removing ${option.removed.name}` : ''}`
+        case 'lockEffect':
+            return `lockEffect ${option.card.name} -> discard ${option.discard.name}`
         case 'discardExcess':
             return `discardExcess ${option.card.name}`
         case 'discard':
             return `discard ${option.card.name}`
         case 'playMaster':
-            return `playMaster ${option.card.name}`
+            return `playMaster ${option.card.name}${option.target ? ` on ${option.target.name}` : ''}`
         case 'playModifier':
-            return `playModifier ${option.modifier.card.name}`
+            return `playModifier ${option.modifier.card.name}${option.modifier.usage.x !== undefined ? ` X=${option.modifier.usage.x}` : ''}${option.modifier.by ? ` by ${option.modifier.by.name}` : ''}`
         case 'block':
             return `block with ${option.minion.name}`
         case 'playReaction':
-            return `playReaction ${option.card.name} (${option.minion.name}) ${option.effect.type} -> ${option.effect.target.name}`
+            return `playReaction ${option.card.name} (${option.minion.name}) ${describeReactionEffect(option.effect)}`
         case 'cleanup':
             return `cleanup ${option.cards.map(card => card.name).join(', ')}`
         case 'combatStrike':
-            return `combatStrike ${option.minion.name}: ${option.strike.name}${withCard(option.card)}`
+            return `combatStrike ${option.minion.name}: ${option.strike.name}${option.additional ? ' + additional strike' : ''}${withCard(option.card)}`
         case 'combatManeuver':
             return `combatManeuver ${option.minion.name}${option.strike ? ` (${option.strike.name})` : ''}${withCard(option.card)}`
         case 'combatPress':
-            return `combatPress ${option.minion.name}${withCard(option.card)}`
+            return `combatPress ${option.minion.name}${option.granted ? ' (granted)' : ''}${withCard(option.card)}`
+        case 'combatAdditionalStrike':
+            return `combatAdditionalStrike ${option.minion.name}${option.limited ? ' (limited)' : ''}${withCard(option.card)}`
+        case 'combatGrapple':
+            return `combatGrapple ${option.minion.name}${withCard(option.card)}`
+        case 'combatGainBlood':
+            return `combatGainBlood ${option.minion.name} +${option.amount}${withCard(option.card)}`
+        case 'combatStrengthBonus':
+            return `combatStrengthBonus ${option.minion.name}`
+        case 'combatStrength':
+            return `combatStrength ${option.minion.name} = ${option.amount}${withCard(option.card)}`
         case 'combatPrevent':
             return `combatPrevent ${option.minion.name} ${option.amount}${option.aggravated ? ' aggravated' : ''}${withCard(option.card)}`
         default:

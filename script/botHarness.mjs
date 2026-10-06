@@ -1,5 +1,5 @@
 // Headless bot-vs-bot games, 2 to 5 players. Run from the repo root:
-//   npx tsx script/botHarness.mjs [--games N] [--agents govern,random] [--players N] [--max-turns N] [--trace]
+//   npx tsx script/botHarness.mjs [--games N] [--agents govern,random] [--players N] [--max-turns N] [--deck govern|malkav|brujah] [--trace]
 // --agents lists one agent per seat; with --players N the list is cycled (or cut) to N players,
 // e.g. `--players 4 --agents govern` is 4 govern bots.
 // Exits with code 1 if any game hits a hard failure (invalid move, stall, exception, broken invariant).
@@ -14,9 +14,11 @@ import {
 } from './harness.ts'
 import { GovernAgent } from '@/shared/bot/agents/governAgent.ts'
 import { RandomAgent } from '@/shared/bot/agents/randomAgent.ts'
-import { GovernDeck } from '@/shared/bot/decks.ts'
+import { BrujahDeck, GovernDeck, MalkavDeck } from '@/shared/bot/decks.ts'
 import { BOT_NAME } from '@/shared/const/bot.ts'
 import { MAX_PLAYERS } from '@/shared/const/model.ts'
+
+const DECKS = { govern: GovernDeck, malkav: MalkavDeck, brujah: BrujahDeck }
 
 const AGENTS = {
     govern: () => new GovernAgent(),
@@ -29,6 +31,7 @@ function parseArgs(argv) {
         agents: ['govern', 'govern'],
         players: null,
         maxTurns: 200,
+        deck: 'govern',
         trace: false,
     }
     for (let i = 0; i < argv.length; i++) {
@@ -36,6 +39,7 @@ function parseArgs(argv) {
         else if (argv[i] == '--agents') args.agents = argv[++i].split(',')
         else if (argv[i] == '--players') args.players = Number(argv[++i])
         else if (argv[i] == '--max-turns') args.maxTurns = Number(argv[++i])
+        else if (argv[i] == '--deck') args.deck = argv[++i]
         else if (argv[i] == '--trace') args.trace = true
         else throw new Error(`Unknown argument ${argv[i]}`)
     }
@@ -45,6 +49,7 @@ function parseArgs(argv) {
             (_, i) => args.agents[i % args.agents.length],
         )
     }
+    if (!DECKS[args.deck]) throw new Error(`Unknown deck '${args.deck}' (${Object.keys(DECKS)})`)
     for (const name of args.agents) {
         if (!AGENTS[name]) throw new Error(`Unknown agent '${name}' (${Object.keys(AGENTS)})`)
     }
@@ -77,7 +82,7 @@ const agentOfName = name => `${args.agents[Number(name.slice(BOT_NAME.length)) -
 const increment = (record, key) => (record[key] = (record[key] ?? 0) + 1)
 
 for (let game = 1; game <= args.games; game++) {
-    const { gameState, players } = createHeadlessGame(args.agents.map(() => GovernDeck))
+    const { gameState, players } = createHeadlessGame(args.agents.map(() => DECKS[args.deck]))
     const agents = new Map(players.map((player, i) => [player.oid, AGENTS[args.agents[i]]()]))
 
     try {

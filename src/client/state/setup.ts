@@ -1,7 +1,7 @@
 import { ORDERED_PLAYER_COLORS } from '@/shared/const/game.ts'
 import { BotRunner } from '@/client/bot/botRunner.ts'
 import { GovernAgent } from '@/shared/bot/agents/governAgent.ts'
-import { GovernDeck } from '@/shared/bot/decks.ts'
+import { BrujahDeck, GovernDeck, MalkavDeck } from '@/shared/bot/decks.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { useCoreStore } from '@/client/store/core.ts'
 import { EMPTY_SEATING, GameRoom } from '@/shared/types/multiplayer.ts'
@@ -25,6 +25,7 @@ import { Puppet } from '@/client/types.ts'
 import { CardRegionVisibility, RegionName } from '@/shared/const/model.ts'
 import { CardRegion } from '@/shared/model/CardRegion.ts'
 import { computePerimeterLayout, PLAY_AREA_CENTER } from '@/shared/state/freeTableLayout.ts'
+import { RandomAgent } from '@/shared/bot/agents/randomAgent.ts'
 
 export function resetState() {
     const core = useCoreStore()
@@ -69,14 +70,20 @@ export function setupTrainGame() {
     gameState.usersToPlayer[core.userProfile.permanentId] = selfPlayer.oid
     setupPlayArea(gameState, selfPlayer, core.selfDeck.cards)
 
+    const bots = [
+        { Agent: RandomAgent, deck: MalkavDeck },
+        { Agent: RandomAgent, deck: BrujahDeck },
+        { Agent: GovernAgent, deck: GovernDeck },
+    ]
     for (let i = 0; i < NB_BOTS; i++) {
         const botPlayer = gameState.createPlayer(
             `${BOT_NAME}${i + 1}`,
             ORDERED_PLAYER_COLORS[i + 1],
             `${BOT_PERM_ID}${i + 1}`,
         )
-        core.botRunners.push(new BotRunner(botPlayer.oid, new GovernAgent()))
-        setupPlayArea(gameState, botPlayer, GovernDeck)
+        const bot = bots[i]
+        core.botRunners.push(new BotRunner(botPlayer.oid, new bot.Agent()))
+        setupPlayArea(gameState, botPlayer, bot.deck)
     }
 
     // Random starting order

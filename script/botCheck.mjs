@@ -11,8 +11,8 @@ const filterIndex = args.indexOf('--filter')
 const filter = filterIndex >= 0 ? args[filterIndex + 1] : null
 
 const games = full ? 100 : 15
-const harness = (players, agents) => ({
-    name: `harness ${players}p ${agents}`,
+const harness = (players, agents, deck = 'govern') => ({
+    name: `harness ${players}p ${agents}${deck == 'govern' ? '' : ` ${deck}`}`,
     args: [
         'script/botHarness.mjs',
         '--games',
@@ -21,6 +21,8 @@ const harness = (players, agents) => ({
         String(players),
         '--agents',
         agents,
+        '--deck',
+        deck,
     ],
 })
 
@@ -29,10 +31,13 @@ const jobs =
         [{ name: 'scenarios', args: ['script/botScenarios.ts', '--filter', filter] }]
     :   [
             { name: 'scenarios', args: ['script/botScenarios.ts'] },
+            { name: 'catalog', args: ['script/catalogCheck.ts'] },
             harness(2, 'govern,random'),
             harness(3, 'govern,random'),
             harness(4, 'govern,random'),
             harness(5, 'govern'),
+            harness(3, 'random', 'malkav'),
+            harness(3, 'random', 'brujah'),
             ...(full ? [harness(4, 'random')] : []),
         ]
 
@@ -54,7 +59,9 @@ let failed = false
 for (const { job, code, output } of results) {
     const lines = output.trim().split('\n')
     if (code == 0) {
-        console.log(`ok   ${job.name}: ${lines.findLast(line => /scenarios|games of/.test(line))}`)
+        console.log(
+            `ok   ${job.name}: ${lines.findLast(line => /scenarios|games of|cards checked/.test(line))}`,
+        )
     } else {
         failed = true
         const problems = lines.filter(line => !line.startsWith('ok ') && !line.startsWith('game '))

@@ -7,6 +7,7 @@ import {
     ActionModifierType,
     BecomeAnarchAction,
     BleedAction,
+    EnterCombatAction,
     HuntAction,
     LeaveTorporAction,
     LibraryCardUsage,
@@ -58,12 +59,20 @@ export function createBecomeAnarchAction(actingMinion: Minion): BecomeAnarchActi
     }
 }
 
+export function createEnterCombatAction(actingMinion: Minion, target: Minion): EnterCombatAction {
+    return {
+        type: MinionActionType.EnterCombat,
+        actingMinion,
+        target,
+    }
+}
+
 export function createActionCardAction(
     actingMinion: Minion,
     actionCard: LibraryCard,
     usage: LibraryCardUsage,
 ): ActionCardFromHandAction {
-    if (!actionCard.type || !ACTION_TYPES.includes(actionCard.type)) {
+    if (!ACTION_TYPES.some(type => actionCard.hasType(type))) {
         throw new Error('ActionCardAction needs a LibraryCard with an action type')
     }
 
@@ -79,8 +88,9 @@ export function createActionCardAction(
 export function createActionModifier(
     actionModifierCard: LibraryCard,
     usage: LibraryCardUsage,
+    by?: Minion,
 ): ActionModifier {
-    if (actionModifierCard.type != LibraryCardType.ActionModifier) {
+    if (!actionModifierCard.hasType(LibraryCardType.ActionModifier)) {
         throw new Error("ActionModifier needs a LibraryCard with type 'ActionModifier'")
     }
 
@@ -88,5 +98,6 @@ export function createActionModifier(
         type: ActionModifierType,
         card: actionModifierCard,
         usage,
+        ...(by && { by }),
     }
 }

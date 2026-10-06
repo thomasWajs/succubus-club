@@ -17,14 +17,21 @@ import {
     hasImplementation,
 } from '@/shared/cardImpl/index.ts'
 import { CombatCardEffect } from '@/shared/cardImpl/base.ts'
+import { getCardDef } from '@/shared/cardImpl/catalog/index.ts'
+import { findPlay, getUsageOptions, playsOfKind } from '@/shared/cardImpl/catalog/requirements.ts'
+import { CardKind } from '@/shared/cardImpl/catalog/types.ts'
+import { isAvailableToReact } from '@/shared/state/actionState.ts'
 import { canDeclare } from '@/shared/state/minionActions.ts'
 import {
     createActionCardAction,
     createActionModifier,
 } from '@/shared/state/minionActionFactories.ts'
-import { singleDisciplineUsage } from '@/shared/state/cardUsage.ts'
 import { canPayCosts, canPayPoolCost } from '@/shared/state/cardCosts.ts'
-import { hasUniqueCopyInPlay, meetsClanRequirement } from '@/shared/state/cardRequirements.ts'
+import {
+    hasUniqueCopyInPlay,
+    meetsRequirements,
+    minionMeetsRequirements,
+} from '@/shared/state/cardRequirements.ts'
 import { BotOptionOf, CombatCardOption } from '@/shared/bot/types.ts'
 
 /**
@@ -60,6 +67,17 @@ function disciplineChoices(minion: Minion, card: LibraryCard): DisciplineUse[][]
     return choices
 }
 
+// Each entry is one way for the minion to play the card as the kind. A card described in the
+// catalog says it with the requirements of its plays of that kind ( the same card can be a modifier
+// at one level and a combat card at another ). The hand-written cards use the card's disciplines.
+function usageChoices(minion: Minion, card: LibraryCard, kind: CardKind): DisciplineUse[][] {
+    const def = getCardDef(card)
+    if (def?.plays.some(play => play.kind == kind)) {
+        return getUsageOptions(minion, def, kind)
+    }
+    return disciplineChoices(minion, card)
+}
+
 export function getActionCardOptions(
     minion: Minion,
     card: LibraryCard,
@@ -68,16 +86,16 @@ export function getActionCardOptions(
     if (!hasImplementation(ACTION_CARD_IMPLEMENTATIONS, card)) {
         return []
     }
-    if (!card.type || !ACTION_TYPES.includes(card.type)) {
+    if (!ACTION_TYPES.some(type => card.hasType(type))) {
         return []
     }
-    if (!canPayCosts(minion, card)) {
+    if (!canPayCosts(minion, card) || !minionMeetsRequirements(minion, card)) {
         return []
     }
 
     const options: ActionCardFromHandAction[] = []
 
-    for (const disciplines of disciplineChoices(minion, card)) {
+    for (const disciplines of usageChoices(minion, card, 'action')) {
         const usage: LibraryCardUsage = {
             disciplines: disciplines.length > 0 ? disciplines : undefined,
         }
@@ -94,20 +112,70 @@ export function getActionCardOptions(
     return options
 }
 
+// The values a variable "X" cost can take for the play: the catalog says which ones make sense
+// ( "X must be 1, 2 or 3" ). One undefined value for a card with no variable cost.
+function xChoices(card: LibraryCard, usage: LibraryCardUsage): (number | undefined)[] {
+    if (card.bloodCost != 'X' && card.poolCost != 'X') {
+        return [undefined]
+    }
+    const def = getCardDef(card)
+    const range = def && findPlay(def, 'modifier', usage)?.x
+    if (!range) {
+        return []
+    }
+    return Array.from({ length: range.max - range.min + 1 }, (_, index) => range.min + index)
+}
+
+// The vampires that may play the card: the acting minion, and the other ready vampires of its
+// controller when the card has a play that says so ( the other plays refuse them anyway ).
+function modifierPlayers(actingMinion: Minion, card: LibraryCard): Minion[] {
+    const def = getCardDef(card)
+    const othersAllowed = !!def && playsOfKind(def, 'modifier').some(play => play.by)
+    return othersAllowed ?
+            [
+                actingMinion,
+                ...actingMinion.controller.vampiresReady.filter(vampire => vampire != actingMinion),
+            ]
+        :   [actingMinion]
+}
+
 // Every level the minion can use is offered separately: the effects often differ
 // a lot between inferior and superior.
-export function getActionModifierOptions(minion: Minion, card: LibraryCard): ActionModifier[] {
+export function getActionModifierOptions(
+    actingMinion: Minion,
+    card: LibraryCard,
+): ActionModifier[] {
     if (
         !hasImplementation(ACTION_MODIFIER_CARD_IMPLEMENTATIONS, card) ||
-        card.type != LibraryCardType.ActionModifier ||
-        !canPayCosts(minion, card)
+        !card.hasType(LibraryCardType.ActionModifier)
     ) {
         return []
     }
 
-    return disciplineChoices(minion, card).map(([use]) =>
-        createActionModifier(card, use ? singleDisciplineUsage(use.discipline, use.level) : {}),
-    )
+    return modifierPlayers(actingMinion, card)
+        .filter(minion => minionMeetsRequirements(minion, card))
+        .flatMap(minion =>
+            usageChoices(minion, card, 'modifier')
+                .flatMap(disciplines => {
+                    const usage: LibraryCardUsage = {
+                        disciplines: disciplines.length > 0 ? disciplines : undefined,
+                    }
+                    return xChoices(card, usage).map(x => ({ ...usage, x }))
+                })
+                .filter(
+                    usage =>
+                        canPayCosts(minion, card, usage.x) &&
+                        getImplementation(
+                            ACTION_MODIFIER_CARD_IMPLEMENTATIONS,
+                            card,
+                            minion,
+                            usage,
+                        )?.canPlay().isValid,
+                )
+                .map(usage =>
+                    createActionModifier(card, usage, minion == actingMinion ? undefined : minion),
+                ),
+        )
 }
 
 function toCombatOption(
@@ -122,7 +190,20 @@ function toCombatOption(
                 minion,
                 strike: { ...effect.strike, source: card },
                 card,
+                additional: effect.additional,
             }
+        case 'additionalStrike':
+            return { type: 'combatAdditionalStrike', minion, limited: effect.limited, card }
+        case 'grapple':
+            return {
+                type: 'combatGrapple',
+                minion,
+                press: effect.press,
+                closeNextRound: effect.closeNextRound,
+                card,
+            }
+        case 'gainBlood':
+            return { type: 'combatGainBlood', minion, amount: effect.amount, card }
         case 'maneuver':
             return {
                 type: 'combatManeuver',
@@ -132,6 +213,8 @@ function toCombatOption(
             }
         case 'press':
             return { type: 'combatPress', minion, card }
+        case 'setStrength':
+            return { type: 'combatStrength', minion, amount: effect.amount, card }
         case 'prevent':
             return {
                 type: 'combatPrevent',
@@ -154,13 +237,14 @@ export function getCombatCardOptions(minion: Minion): CombatCardOption[] {
         if (
             !(card instanceof LibraryCard) ||
             !hasImplementation(COMBAT_CARD_IMPLEMENTATIONS, card) ||
-            card.type != LibraryCardType.Combat ||
-            !canPayCosts(minion, card)
+            !card.hasType(LibraryCardType.Combat) ||
+            !canPayCosts(minion, card) ||
+            !minionMeetsRequirements(minion, card)
         ) {
             continue
         }
 
-        for (const disciplines of disciplineChoices(minion, card)) {
+        for (const disciplines of usageChoices(minion, card, 'combat')) {
             const usage: LibraryCardUsage = {
                 disciplines: disciplines.length > 0 ? disciplines : undefined,
             }
@@ -188,13 +272,14 @@ export function getReactionCardOptions(minion: Minion): BotOptionOf<'playReactio
         if (
             !(card instanceof LibraryCard) ||
             !hasImplementation(REACTION_CARD_IMPLEMENTATIONS, card) ||
-            card.type != LibraryCardType.Reaction ||
-            !canPayCosts(minion, card)
+            !card.hasType(LibraryCardType.Reaction) ||
+            !canPayCosts(minion, card) ||
+            !minionMeetsRequirements(minion, card)
         ) {
             continue
         }
 
-        for (const disciplines of disciplineChoices(minion, card)) {
+        for (const disciplines of usageChoices(minion, card, 'reaction')) {
             const usage: LibraryCardUsage = {
                 disciplines: disciplines.length > 0 ? disciplines : undefined,
             }
@@ -204,7 +289,14 @@ export function getReactionCardOptions(minion: Minion): BotOptionOf<'playReactio
                 minion,
                 usage,
             )
-            for (const effect of implementation?.getEffects() ?? []) {
+            // A locked minion reacts only with a card made for it, unless a card woke it
+            if (
+                !implementation ||
+                (!isAvailableToReact(minion.gameState, minion) && !implementation.usableWhileLocked)
+            ) {
+                continue
+            }
+            for (const effect of implementation.getEffects()) {
                 options.push({ type: 'playReaction', minion, card, usage, effect })
             }
         }
@@ -223,12 +315,20 @@ export function getMasterCardOptions(player: Player): BotOptionOf<'playMaster'>[
             !(card instanceof LibraryCard) ||
             card.type != LibraryCardType.Master ||
             !canPayPoolCost(player, card) ||
-            !meetsClanRequirement(player, card) ||
+            !meetsRequirements(player, card) ||
             hasUniqueCopyInPlay(player, card)
         ) {
             continue
         }
-        if (getMasterImplementation(card, player)) {
+        const implementation = getMasterImplementation(card, player)
+        if (!implementation) {
+            continue
+        }
+        // One option per target for a card with a targeted effect ( none: not worth playing )
+        const targets = implementation.getPlayTargets()
+        if (targets) {
+            options.push(...targets.map(target => ({ type: 'playMaster' as const, card, target })))
+        } else {
             options.push({ type: 'playMaster', card })
         }
     }
@@ -255,6 +355,40 @@ export function getUnlockEffectOptions(player: Player): BotOptionOf<'unlockEffec
         }
     }
     return options
+}
+
+// The lock abilities of the master cards in play that the player controls: one option per card
+// and card of the hand to discard
+export function getLockEffectOptions(player: Player): BotOptionOf<'lockEffect'>[] {
+    const options: BotOptionOf<'lockEffect'>[] = []
+    for (const card of player.controlledReadyCards) {
+        if (
+            !(card instanceof LibraryCard) ||
+            card.type != LibraryCardType.Master ||
+            !getMasterImplementation(card, player)?.hasLockAbility()
+        ) {
+            continue
+        }
+        for (const discard of player.hand.cards) {
+            if (discard instanceof LibraryCard) {
+                options.push({ type: 'lockEffect', card, discard })
+            }
+        }
+    }
+    return options
+}
+
+// The abilities paid with transfers of the master cards in play that the player controls
+export function getTransferEffectOptions(player: Player): BotOptionOf<'transferEffect'>[] {
+    return player.controlledReadyCards.flatMap(card =>
+        card instanceof LibraryCard && card.type == LibraryCardType.Master ?
+            (getMasterImplementation(card, player)?.getTransferOptions() ?? []).map(option => ({
+                type: 'transferEffect' as const,
+                card,
+                ...option,
+            }))
+        :   [],
+    )
 }
 
 // A played master card goes to the ash heap unless it stays in play. A master card with no

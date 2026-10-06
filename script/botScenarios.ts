@@ -22,6 +22,7 @@ import {
     CombatState,
     CombatStep,
     CombatStrike,
+    LibraryCardUsage,
     MinionActionType,
     Validity,
 } from '@/shared/types/state.ts'
@@ -33,6 +34,8 @@ import {
     TurnSequence,
 } from '@/shared/const/model.ts'
 import { CARD_HEIGHT } from '@/shared/const/game.ts'
+import { Disciplines } from '@/shared/types/resources.ts'
+import { getBlockingMinion } from '@/shared/state/actionState.ts'
 import {
     ABRAHAM_MELLON_ID,
     ASYLUM_HUNTING_GROUND_ID,
@@ -41,10 +44,10 @@ import {
     ELDER_LIBRARY_ID,
     FAR_MASTERY_ID,
     GOVERN_ID,
+    LOST_IN_CROWDS_ID,
 } from '@/shared/cardImpl/cardIds.ts'
 import { MasterCardImplementation } from '@/shared/cardImpl/base.ts'
 import { MASTER_CARD_IMPLEMENTATIONS } from '@/shared/cardImpl/index.ts'
-import { ElderLibrary } from '@/shared/cardImpl/elderlibrary.ts'
 import { getUnlockEffectOptions } from '@/shared/bot/cardOptions.ts'
 import { createPlayerView } from '@/shared/bot/playerView.ts'
 import { findOption } from '@/shared/bot/helpers.ts'
@@ -55,12 +58,18 @@ import {
     registerQueuedMutationTrigger,
     registerSyncMutationTrigger,
 } from './harness.ts'
-import { GovernDeck } from '@/shared/bot/decks.ts'
+import { BrujahDeck, GovernDeck, MalkavDeck } from '@/shared/bot/decks.ts'
 import { DeckList } from '@/shared/types/gateway.ts'
 import { applyOption, getDecidingPlayer, getDecisionPoint } from '@/shared/bot/referee.ts'
 import { stepBot } from '@/shared/bot/driver.ts'
 import { BaseAgent } from '@/shared/bot/agents/baseAgent.ts'
-import { BotOption, DecisionKind, DecisionPoint, optionsOfType } from '@/shared/bot/types.ts'
+import {
+    BotOption,
+    CombatCardOption,
+    DecisionKind,
+    DecisionPoint,
+    optionsOfType,
+} from '@/shared/bot/types.ts'
 
 /**
  * Hand-built combats checked against the rulebook (combat.md). The harness only
@@ -88,8 +97,32 @@ function readyVampire(gameState: GameState, player: Player, blood: number): Vamp
     return vampire
 }
 
-function createFight(actingBlood: number, defendingBlood: number): Fight {
-    const { gameState, players } = createHeadlessGame([GovernDeck, GovernDeck])
+// A given crypt card, still in the crypt or among the uncontrolled vampires, made ready
+function readySpecific(
+    gameState: GameState,
+    player: Player,
+    krcgId: string,
+    blood: number,
+): Vampire {
+    // The random draw may already have put it in play
+    const vampire = [
+        ...player.crypt.cards,
+        ...player.uncontrolled.cards,
+        ...player.ready.cards,
+        ...player.torpor.cards,
+    ].find(card => card.krcgId == krcgId)
+    if (!vampire?.isVampire()) {
+        throw new ScenarioFailure(`The vampire ${krcgId} is not in the crypt`)
+    }
+    if (!vampire.isIn.ready) {
+        gameState.moveCardToRegion(vampire, player.ready)
+    }
+    vampire.blood = blood
+    return vampire
+}
+
+function createFight(actingBlood: number, defendingBlood: number, deck = GovernDeck): Fight {
+    const { gameState, players } = createHeadlessGame([deck, deck])
     createdGames.push(gameState)
     const [actingPlayer, defendingPlayer] = players
     const acting = readyVampire(gameState, actingPlayer, actingBlood)
@@ -1213,7 +1246,7 @@ const HUMAN_DAMAGE_SCENARIOS: { name: string; run: () => void }[] = [
             expectEqual(fight.defending.blood, 1, 'defending blood')
             expectRegion(fight.defending, 'ready')
             expectEqual(getCombat(fight).defending.pendingDamage.regular, 0, 'pending damage')
-            expectEqual(getCombat(fight).step, CombatStep.Press, 'step')
+            expectEqual(getCombat(fight).step, CombatStep.AdditionalStrikes, 'step')
         },
     },
     {
@@ -1405,7 +1438,11 @@ const BOUNCE_SCENARIOS: { name: string; run: () => void }[] = [
             // Superior and inferior, one new target each: never the bleeder, never the bled player
             expectEqual(options.length, 2, 'Deflection options')
             for (const option of options) {
-                expectEqual(option.effect.target, bounce.third, 'new target')
+                expectEqual(
+                    option.effect.type == 'changeTarget' ? option.effect.target : null,
+                    bounce.third,
+                    'new target',
+                )
             }
             expectEqual(optionsOfType(decision.options, 'noBlock').length, 0, 'noBlock again')
         },
@@ -1807,6 +1844,7 @@ const MASTER_SCENARIOS: { name: string; run: () => void }[] = [
                     return false
                 }
             }
+            const original = MASTER_CARD_IMPLEMENTATIONS[ELDER_LIBRARY_ID]
             MASTER_CARD_IMPLEMENTATIONS[ELDER_LIBRARY_ID] = Discarded
             try {
                 const turn = createMasterPhase()
@@ -1821,7 +1859,7 @@ const MASTER_SCENARIOS: { name: string; run: () => void }[] = [
                 expectEqual(library.isIn.ashHeap, true, 'in the ash heap')
                 expectEqual(player.ready.length, 0, 'nothing left in play')
             } finally {
-                MASTER_CARD_IMPLEMENTATIONS[ELDER_LIBRARY_ID] = ElderLibrary
+                MASTER_CARD_IMPLEMENTATIONS[ELDER_LIBRARY_ID] = original
             }
         },
     },
@@ -2288,6 +2326,1806 @@ const MASTER_SCENARIOS: { name: string; run: () => void }[] = [
 
 type ScenarioResult = { name: string; error: string | null }
 
+/**
+ * Cards described in the catalog ( the Malkavian precon ): conditions, the limited rule, plays of
+ * several kinds, per level plays.
+ */
+
+const CONDITIONING_ID = '100401'
+const BONDING_ID = '100236'
+const FORESHADOWING_ID = '100765'
+const SWALLOWED_ID = '101913'
+const TELEPATHIC_ID = '101949'
+const CLOAK_ID = '100362'
+const QUI_VIVE_ID = '101321'
+const BARRENS_ID = '100135'
+const WIDER_VIEW_ID = '102180'
+const FACELESS_NIGHT_ID = '100687'
+const EYES_OF_ARGUS_ID = '100680'
+const LIFE_IN_THE_CITY_ID = '101104'
+
+// The influence phase of a player with Wider View in play and the transfers
+function createWiderViewTurn(transfers: number) {
+    const { gameState } = createHeadlessGame([MalkavDeck, MalkavDeck])
+    createdGames.push(gameState)
+    const player = gameState.activePlayer
+    if (!player) {
+        throw new ScenarioFailure('No active player')
+    }
+    const card = giveCard(gameState, player, WIDER_VIEW_ID)
+    gameState.moveCardToRegion(card, player.ready)
+    gameState.turnPhaseIndex = TurnSequence.indexOf(TurnPhase.Influence)
+    gameState.turnResources.unlocked = true
+    gameState.turnResources.transfers = transfers
+    const decision = getDecisionPoint(gameState, player)
+    if (!decision) {
+        throw new ScenarioFailure('No decision point')
+    }
+    return { gameState, player, card, decision }
+}
+
+// The master phase of a player holding Life in the City, with two ready vampires
+function createLifeInTheCityTurn(bloods: [number, number]) {
+    const { gameState } = createHeadlessGame([MalkavDeck, MalkavDeck])
+    createdGames.push(gameState)
+    const player = gameState.activePlayer
+    if (!player) {
+        throw new ScenarioFailure('No active player')
+    }
+    emptyHand(gameState, player)
+    const card = giveCard(gameState, player, LIFE_IN_THE_CITY_ID)
+    const vampires = bloods.map(blood => readyVampire(gameState, player, blood))
+    gameState.turnPhaseIndex = TurnSequence.indexOf(TurnPhase.Master)
+    gameState.turnResources.unlocked = true
+    const decision = getDecisionPoint(gameState, player)
+    if (!decision) {
+        throw new ScenarioFailure('No decision point')
+    }
+    return { gameState, player, card, vampires, decision }
+}
+
+type CatalogBleedSetup = {
+    discipline: Discipline
+    level: DisciplineLevel
+    // The hand of the acting player
+    cards: string[]
+    actionType?: MinionActionType
+    // The hand of the prey and the discipline of its vampire
+    preyCards?: string[]
+    preyDiscipline?: [Discipline, DisciplineLevel]
+    // Malkavian by default
+    deck?: DeckList
+    // The crypt cards to use instead of the first uncontrolled vampires
+    bleederId?: string
+    preyVampireId?: string
+}
+
+type CatalogBleed = {
+    gameState: GameState
+    bleeder: Player
+    bled: Player
+    third: Player
+    bleeding: Vampire
+    blocker: Vampire
+}
+
+// The first player declares an action ( a bleed ) against its prey, with a vampire that has the
+// discipline at the level. The prey has one ready vampire. Three players.
+function createCatalogBleed(setup: CatalogBleedSetup): CatalogBleed {
+    const deck = setup.deck ?? MalkavDeck
+    const { gameState, players } = createHeadlessGame([deck, deck, deck])
+    createdGames.push(gameState)
+    const bleeder = gameState.activePlayer
+    const bled = bleeder?.prey
+    const third = bled?.prey
+    if (!bleeder || !bled || !third) {
+        throw new ScenarioFailure('No active player or no prey')
+    }
+    for (const player of players) {
+        emptyHand(gameState, player)
+    }
+    gameState.turnPhaseIndex = TurnSequence.indexOf(TurnPhase.Minion)
+    gameState.turnResources.unlocked = true
+
+    const bleeding =
+        setup.bleederId ?
+            readySpecific(gameState, bleeder, setup.bleederId, 5)
+        :   readyVampire(gameState, bleeder, 5)
+    bleeding.minionAttrs.disciplines[setup.discipline] = setup.level
+    bleeding.minionAttrs.disciplines[Discipline.Obfuscate] ??= DisciplineLevel.INFERIOR
+    const blocker =
+        setup.preyVampireId ?
+            readySpecific(gameState, bled, setup.preyVampireId, 3)
+        :   readyVampire(gameState, bled, 3)
+    if (setup.preyDiscipline) {
+        blocker.minionAttrs.disciplines[setup.preyDiscipline[0]] = setup.preyDiscipline[1]
+    }
+    for (const id of setup.cards) {
+        giveCard(gameState, bleeder, id)
+    }
+    for (const id of setup.preyCards ?? []) {
+        giveCard(gameState, bled, id)
+    }
+    for (const player of players) {
+        sealLibrary(gameState, player)
+    }
+
+    const actionType = setup.actionType ?? MinionActionType.Bleed
+    const decision = getDecisionPoint(gameState, bleeder)
+    const declare = decision?.options.find(
+        option =>
+            option.type == 'declareAction' &&
+            option.action.type == actionType &&
+            option.action.actingMinion == bleeding,
+    )
+    if (!decision || !declare) {
+        throw new ScenarioFailure(`The ${actionType} is not offered`)
+    }
+    applyOption(decision, declare)
+    return { gameState, bleeder, bled, third, bleeding, blocker }
+}
+
+// The players pass ( no block, no reaction ) until the player has a decision to make
+function passUntilDecides(gameState: GameState, who: Player): DecisionPoint {
+    for (let i = 0; i < 8; i++) {
+        const decider = getDecidingPlayer(gameState)
+        const decision = decider && getDecisionPoint(gameState, decider)
+        if (!decider || !decision) {
+            throw new ScenarioFailure('Nobody has a decision')
+        }
+        if (decider == who) {
+            return decision
+        }
+        const pass = decision.options.find(option =>
+            ['noBlock', 'noReaction', 'noModifier'].includes(option.type),
+        )
+        if (!pass) {
+            throw new ScenarioFailure(`${decider.name} cannot pass`)
+        }
+        applyOption(decision, pass)
+    }
+    throw new ScenarioFailure(`${who.name} never has a decision`)
+}
+
+const modifierOptionsOf = (decision: DecisionPoint, krcgId: string) =>
+    optionsOfType(decision.options, 'playModifier').filter(
+        option => option.modifier.card.krcgId == krcgId,
+    )
+
+const modifierLevel = (option: ReturnType<typeof modifierOptionsOf>[number]) =>
+    option.modifier.usage.disciplines?.[0]?.level
+
+const CATALOG_SCENARIOS: { name: string; run: () => void }[] = [
+    {
+        name: 'Conditioning is offered at both levels during a bleed, the superior one adds 3 bleed and costs a blood',
+        run() {
+            const game = createCatalogBleed({
+                discipline: Discipline.Dominate,
+                level: DisciplineLevel.SUPERIOR,
+                cards: [CONDITIONING_ID],
+            })
+            const decision = passUntilDecides(game.gameState, game.bleeder)
+            const options = modifierOptionsOf(decision, CONDITIONING_ID)
+            expectEqual(options.length, 2, 'both levels')
+            const superior = options.find(
+                option => modifierLevel(option) == DisciplineLevel.SUPERIOR,
+            )
+            if (!superior) {
+                throw new ScenarioFailure('The superior level is not offered')
+            }
+            const before = game.gameState.action?.bleed ?? 0
+            applyOption(decision, superior)
+            expectEqual(game.gameState.action?.bleed, before + 3, 'bleed')
+            expectEqual(game.bleeding.blood, 4, 'blood paid')
+        },
+    },
+    {
+        name: 'a minion with the inferior level only is offered the inferior Conditioning, +2 bleed',
+        run() {
+            const game = createCatalogBleed({
+                discipline: Discipline.Dominate,
+                level: DisciplineLevel.INFERIOR,
+                cards: [CONDITIONING_ID],
+            })
+            const decision = passUntilDecides(game.gameState, game.bleeder)
+            const options = modifierOptionsOf(decision, CONDITIONING_ID)
+            expectEqual(options.length, 1, 'one level')
+            const before = game.gameState.action?.bleed ?? 0
+            applyOption(decision, options[0])
+            expectEqual(game.gameState.action?.bleed, before + 2, 'bleed')
+        },
+    },
+    {
+        name: 'Conditioning is not offered when the action is not a bleed, other modifiers still are',
+        run() {
+            const game = createCatalogBleed({
+                discipline: Discipline.Dominate,
+                level: DisciplineLevel.SUPERIOR,
+                cards: [CONDITIONING_ID, LOST_IN_CROWDS_ID],
+                actionType: MinionActionType.Hunt,
+            })
+            const decision = passUntilDecides(game.gameState, game.bleeder)
+            expectEqual(modifierOptionsOf(decision, CONDITIONING_ID).length, 0, 'Conditioning')
+            expectEqual(
+                modifierOptionsOf(decision, LOST_IN_CROWDS_ID).length > 0,
+                true,
+                'Lost in Crowds is the proof that modifiers were offered',
+            )
+        },
+    },
+    {
+        name: 'only one limited bleed bonus per action: a second one is refused, other modifiers are not',
+        run() {
+            const game = createCatalogBleed({
+                discipline: Discipline.Dominate,
+                level: DisciplineLevel.SUPERIOR,
+                cards: [CONDITIONING_ID, BONDING_ID, LOST_IN_CROWDS_ID],
+            })
+            const decision = passUntilDecides(game.gameState, game.bleeder)
+            expectEqual(modifierOptionsOf(decision, BONDING_ID).length, 2, 'Bonding before')
+            applyOption(decision, modifierOptionsOf(decision, CONDITIONING_ID)[0])
+
+            const next = getDecisionPoint(game.gameState, game.bleeder)
+            if (!next) {
+                throw new ScenarioFailure('The acting player lost the impulse')
+            }
+            expectEqual(modifierOptionsOf(next, BONDING_ID).length, 0, 'Bonding after')
+            expectEqual(
+                modifierOptionsOf(next, LOST_IN_CROWDS_ID).length > 0,
+                true,
+                'Lost in Crowds',
+            )
+        },
+    },
+    {
+        name: 'Foreshadowing Destruction superior is only offered against a Methuselah with 9 pool or less',
+        run() {
+            for (const [pool, superiorOffered] of [
+                [10, false],
+                [9, true],
+            ] as const) {
+                const game = createCatalogBleed({
+                    discipline: Discipline.Dominate,
+                    level: DisciplineLevel.SUPERIOR,
+                    cards: [FORESHADOWING_ID],
+                })
+                game.bled.pool = pool
+                const decision = passUntilDecides(game.gameState, game.bleeder)
+                const levels = modifierOptionsOf(decision, FORESHADOWING_ID).map(modifierLevel)
+                expectEqual(levels.includes(DisciplineLevel.INFERIOR), true, `inferior at ${pool}`)
+                expectEqual(
+                    levels.includes(DisciplineLevel.SUPERIOR),
+                    superiorOffered,
+                    `superior at ${pool}`,
+                )
+            }
+        },
+    },
+    {
+        name: 'Swallowed by the Night is a stealth modifier at inferior only: no superior modifier',
+        run() {
+            const game = createCatalogBleed({
+                discipline: Discipline.Obfuscate,
+                level: DisciplineLevel.SUPERIOR,
+                cards: [SWALLOWED_ID],
+            })
+            const decision = passUntilDecides(game.gameState, game.bleeder)
+            const options = modifierOptionsOf(decision, SWALLOWED_ID)
+            expectEqual(options.length, 1, 'modifier options')
+            expectEqual(modifierLevel(options[0]), DisciplineLevel.INFERIOR, 'level')
+            const before = game.gameState.action?.stealth ?? 0
+            applyOption(decision, options[0])
+            expectEqual(game.gameState.action?.stealth, before + 1, 'stealth')
+        },
+    },
+    {
+        name: 'Life in the City is offered once per ready vampire below capacity, and gives the chosen one 1 blood',
+        run() {
+            const turn = createLifeInTheCityTurn([1, 1])
+            const [first, second] = turn.vampires
+            expectEqual(optionsOfType(turn.decision.options, 'playMaster').length, 2, 'options')
+            second.blood = second.minionAttrs.capacity
+            const decision = getDecisionPoint(turn.gameState, turn.player)
+            if (!decision) {
+                throw new ScenarioFailure('No decision point')
+            }
+            const options = optionsOfType(decision.options, 'playMaster')
+            expectEqual(options.length, 1, 'options: the full vampire is not a target')
+            expectEqual(options[0].target, first, 'target')
+            applyOption(decision, options[0])
+            expectEqual(first.blood, 2, 'blood of the target')
+            expectEqual(second.blood, second.minionAttrs.capacity, 'blood of the other')
+            expectEqual(turn.gameState.turnResources.mpa, 0, 'master phase action')
+        },
+    },
+    {
+        name: 'Life in the City is not offered when no ready vampire can gain blood',
+        run() {
+            const turn = createLifeInTheCityTurn([1, 1])
+            for (const vampire of turn.vampires) {
+                vampire.blood = vampire.minionAttrs.capacity
+            }
+            const decision = getDecisionPoint(turn.gameState, turn.player)
+            if (!decision) {
+                throw new ScenarioFailure('No decision point')
+            }
+            expectEqual(optionsOfType(decision.options, 'playMaster').length, 0, 'options')
+        },
+    },
+    {
+        name: 'The Barrens: lock it to discard a card of the hand, which is drawn back up; not offered while locked',
+        run() {
+            const { gameState } = createHeadlessGame([MalkavDeck, MalkavDeck])
+            createdGames.push(gameState)
+            const player = gameState.activePlayer
+            if (!player) {
+                throw new ScenarioFailure('No active player')
+            }
+            const barrens = giveCard(gameState, player, BARRENS_ID)
+            gameState.moveCardToRegion(barrens, player.ready)
+            gameState.turnPhaseIndex = TurnSequence.indexOf(TurnPhase.Master)
+            gameState.turnResources.unlocked = true
+
+            const decision = getDecisionPoint(gameState, player)
+            if (!decision) {
+                throw new ScenarioFailure('No decision point')
+            }
+            const options = optionsOfType(decision.options, 'lockEffect')
+            expectEqual(options.length, player.hand.length, 'one option per card of the hand')
+            const ashHeap = player.ashHeap.length
+            applyOption(decision, options[0])
+            expectEqual(barrens.isLocked, true, 'locked')
+            expectEqual(player.ashHeap.length, ashHeap + 1, 'ash heap')
+            expectEqual(player.hand.length, player.handSize, 'hand drawn back up')
+
+            const next = getDecisionPoint(gameState, player)
+            expectEqual(
+                next ? optionsOfType(next.options, 'lockEffect').length : -1,
+                0,
+                'not offered while locked',
+            )
+        },
+    },
+    {
+        name: 'Faceless Night superior locks the minion whose block fails, inferior does not',
+        run() {
+            for (const [level, locked] of [
+                [DisciplineLevel.SUPERIOR, true],
+                [DisciplineLevel.INFERIOR, false],
+            ] as const) {
+                const game = createCatalogBleed({
+                    discipline: Discipline.Obfuscate,
+                    level,
+                    cards: [FACELESS_NIGHT_ID],
+                })
+                const { gameState, bleeder, bled, blocker } = game
+                blocker.minionAttrs.intercept = 0
+                const first = passUntilDecides(gameState, bled)
+                applyOption(
+                    first,
+                    optionsOfType(first.options, 'block').find(
+                        option => option.minion == blocker,
+                    ) ?? findOption(first.options, 'block'),
+                )
+                const decision = getDecisionPoint(gameState, bleeder)
+                const played =
+                    decision ?
+                        modifierOptionsOf(decision, FACELESS_NIGHT_ID).find(
+                            option => modifierLevel(option) == level,
+                        )
+                    :   undefined
+                if (!decision || !played) {
+                    throw new ScenarioFailure('Faceless Night is not offered')
+                }
+                applyOption(decision, played)
+                expectEqual(blocker.isLocked, false, 'not locked yet, the block is not resolved')
+
+                // Everybody passes until the action is over
+                for (let i = 0; i < 12 && gameState.action; i++) {
+                    const decider = getDecidingPlayer(gameState)
+                    const next = decider && getDecisionPoint(gameState, decider)
+                    // A standing block is kept: "no reaction" comes before "no block"
+                    const pass = ['noModifier', 'noReaction', 'noBlock']
+                        .map(type => next?.options.find(option => option.type == type))
+                        .find(Boolean)
+                    if (!next || !pass) {
+                        throw new ScenarioFailure('Nobody can pass')
+                    }
+                    applyOption(next, pass)
+                }
+                expectEqual(gameState.action, null, 'the action is over')
+                expectEqual(blocker.isLocked, locked, `blocker locked at ${level}`)
+            }
+        },
+    },
+    {
+        name: 'Wider View: 1 transfer draws a crypt card and removes an uncontrolled one from the game',
+        run() {
+            const turn = createWiderViewTurn(2)
+            const { gameState, player, decision } = turn
+            const options = optionsOfType(decision.options, 'transferEffect').filter(
+                option => option.ability == 0,
+            )
+            expectEqual(
+                options.length,
+                player.uncontrolled.length,
+                'one removal option per uncontrolled card',
+            )
+            expectEqual(
+                optionsOfType(decision.options, 'transferEffect').length,
+                options.length,
+                'the burn needs 4 transfers',
+            )
+            const removed = options[0].removed
+            const crypt = player.crypt.length
+            const uncontrolled = player.uncontrolled.length
+            applyOption(decision, options[0])
+            expectEqual(gameState.turnResources.transfers, 1, 'transfers')
+            expectEqual(player.crypt.length, crypt - 1, 'crypt')
+            expectEqual(player.uncontrolled.length, uncontrolled, 'uncontrolled: one in, one out')
+            expectEqual(removed?.isIn.removed, true, 'removed from the game')
+        },
+    },
+    {
+        name: 'Wider View with no uncontrolled card removes the card drawn, 4 transfers burn it for 2 pool',
+        run() {
+            const turn = createWiderViewTurn(4)
+            const { gameState, player, card } = turn
+            for (const vampire of [...player.uncontrolled.cards]) {
+                gameState.moveCardToRegion(vampire, player.crypt)
+            }
+            const decision = getDecisionPoint(gameState, player)
+            if (!decision) {
+                throw new ScenarioFailure('No decision point')
+            }
+            const draws = optionsOfType(decision.options, 'transferEffect').filter(
+                option => option.ability == 0,
+            )
+            expectEqual(draws.length, 1, 'the card drawn is removed')
+            expectEqual(draws[0].removed, undefined, 'no removal choice')
+            const crypt = player.crypt.length
+            applyOption(decision, draws[0])
+            expectEqual(player.crypt.length, crypt - 1, 'crypt')
+            expectEqual(player.removed.length, 1, 'removed from the game')
+            expectEqual(player.uncontrolled.length, 0, 'nothing uncontrolled')
+
+            const next = getDecisionPoint(gameState, player)
+            const burn = next?.options.filter(
+                option => option.type == 'transferEffect' && option.ability == 1,
+            )
+            expectEqual(burn?.length, 0, 'burn: 3 transfers left, 4 needed')
+            gameState.turnResources.transfers = 4
+            const again = getDecisionPoint(gameState, player)
+            const burns = again ? optionsOfType(again.options, 'transferEffect') : []
+            const burning = burns.find(option => option.ability == 1)
+            if (!again || !burning) {
+                throw new ScenarioFailure('The burn is not offered with 4 transfers')
+            }
+            const pool = player.pool
+            applyOption(again, burning)
+            expectEqual(gameState.turnResources.transfers, 0, 'transfers')
+            expectEqual(player.pool, pool + 2, 'pool')
+            expectEqual(card.isIn.ashHeap, true, 'burned')
+        },
+    },
+    {
+        name: 'Cloak the Gathering superior is played by another ready vampire, which gives the action +1 stealth',
+        run() {
+            const game = createCatalogBleed({
+                discipline: Discipline.Dominate,
+                level: DisciplineLevel.INFERIOR,
+                cards: [CLOAK_ID],
+            })
+            const other = readyVampire(game.gameState, game.bleeder, 4)
+            other.minionAttrs.disciplines[Discipline.Obfuscate] = DisciplineLevel.SUPERIOR
+            other.lock()
+            const decision = passUntilDecides(game.gameState, game.bleeder)
+            const options = modifierOptionsOf(decision, CLOAK_ID)
+            const byOther = options.filter(option => option.modifier.by == other)
+            expectEqual(byOther.length, 1, 'options by the other vampire')
+            expectEqual(
+                options.some(option => option.modifier.by == undefined),
+                true,
+                'the acting minion plays the inferior level',
+            )
+            const before = game.gameState.action?.stealth ?? 0
+            applyOption(decision, byOther[0])
+            expectEqual(game.gameState.action?.stealth, before + 1, 'stealth')
+            expectEqual(other.isLocked, true, 'the locked vampire stays locked')
+        },
+    },
+    {
+        name: 'Cloak the Gathering superior is not offered to the acting minion, nor to a vampire with the inferior level only',
+        run() {
+            const game = createCatalogBleed({
+                discipline: Discipline.Obfuscate,
+                level: DisciplineLevel.SUPERIOR,
+                cards: [CLOAK_ID],
+            })
+            const other = readyVampire(game.gameState, game.bleeder, 4)
+            other.minionAttrs.disciplines[Discipline.Obfuscate] = DisciplineLevel.INFERIOR
+            const decision = passUntilDecides(game.gameState, game.bleeder)
+            const options = modifierOptionsOf(decision, CLOAK_ID)
+            expectEqual(options.length, 1, 'options')
+            expectEqual(options[0].modifier.by, undefined, 'played by the acting minion')
+            expectEqual(modifierLevel(options[0]), DisciplineLevel.INFERIOR, 'level')
+        },
+    },
+    {
+        name: 'Swallowed by the Night is a maneuver in combat at superior, and nothing at inferior',
+        run() {
+            for (const [level, offered] of [
+                [DisciplineLevel.SUPERIOR, true],
+                [DisciplineLevel.INFERIOR, false],
+            ] as const) {
+                const fight = createFight(3, 3, MalkavDeck)
+                fight.acting.minionAttrs.disciplines[Discipline.Obfuscate] = level
+                const card = giveCard(fight.gameState, fight.actingPlayer, SWALLOWED_ID)
+                passUntil(fight, CombatStep.DetermineRange)
+                const decision = getCombatDecision(fight, fight.actingPlayer)
+                const maneuvers = optionsOfType(decision.options, 'combatManeuver').filter(
+                    option => option.card == card,
+                )
+                expectEqual(maneuvers.length, offered ? 1 : 0, `maneuver at ${level}`)
+            }
+        },
+    },
+    {
+        name: 'Telepathic Misdirection inferior adds intercept, only while the own block attempt stands',
+        run() {
+            const game = createCatalogBleed({
+                discipline: Discipline.Dominate,
+                level: DisciplineLevel.INFERIOR,
+                cards: [],
+                preyCards: [TELEPATHIC_ID],
+                preyDiscipline: [Discipline.Auspex, DisciplineLevel.INFERIOR],
+            })
+            const { gameState, bleeder, bled, blocker } = game
+            const first = passUntilDecides(gameState, bled)
+            expectEqual(optionsOfType(first.options, 'playReaction').length, 0, 'before the block')
+
+            applyOption(
+                first,
+                optionsOfType(first.options, 'block').find(option => option.minion == blocker) ??
+                    findOption(first.options, 'block'),
+            )
+            decideWith(gameState, bleeder, 'noModifier')
+            const decision = getDecisionPoint(gameState, bled)
+            const reactions = decision ? optionsOfType(decision.options, 'playReaction') : []
+            expectEqual(reactions.length, 1, 'reaction options')
+            const before = gameState.action?.intercept ?? 0
+            if (decision) {
+                applyOption(decision, reactions[0])
+            }
+            expectEqual(gameState.action?.intercept, before + 1, 'intercept')
+            expectEqual(blocker.blood, 2, 'blood paid')
+        },
+    },
+    {
+        name: 'Telepathic Misdirection superior bounces the bleed like Deflection and locks the vampire',
+        run() {
+            const game = createCatalogBleed({
+                discipline: Discipline.Dominate,
+                level: DisciplineLevel.INFERIOR,
+                cards: [],
+                preyCards: [TELEPATHIC_ID],
+                preyDiscipline: [Discipline.Auspex, DisciplineLevel.SUPERIOR],
+            })
+            const { gameState, bled, third, blocker } = game
+            // The prey declines to block, then the bounce is possible
+            const first = passUntilDecides(gameState, bled)
+            applyOption(first, findOption(first.options, 'noBlock'))
+            const decision = passUntilDecides(gameState, bled)
+            const options = optionsOfType(decision.options, 'playReaction')
+            const bounce = options.find(
+                option => option.effect.type == 'changeTarget' && option.effect.target == third,
+            )
+            if (!bounce) {
+                throw new ScenarioFailure('The bounce is not offered')
+            }
+            applyOption(decision, bounce)
+            expectEqual(gameState.action?.minionAction.target, third, 'new target')
+            expectEqual(blocker.isLocked, true, 'locked')
+        },
+    },
+    {
+        name: 'On the Qui Vive wakes a locked minion, which can then attempt to block',
+        run() {
+            const game = createCatalogBleed({
+                discipline: Discipline.Dominate,
+                level: DisciplineLevel.INFERIOR,
+                cards: [],
+                preyCards: [QUI_VIVE_ID],
+            })
+            const { gameState, bled, blocker } = game
+            blocker.lock()
+            const decision = passUntilDecides(gameState, bled)
+            expectEqual(
+                optionsOfType(decision.options, 'block').length,
+                0,
+                'a locked minion cannot block',
+            )
+            const wakes = optionsOfType(decision.options, 'playReaction').filter(
+                option => option.effect.type == 'wake' && option.minion == blocker,
+            )
+            expectEqual(wakes.length, 1, 'wake options')
+            applyOption(decision, wakes[0])
+            expectEqual(blocker.isLocked, true, 'still locked')
+            expectEqual(
+                gameState.playedSinceUnlock[blocker.oid]?.includes(QUI_VIVE_ID),
+                true,
+                'the play is remembered',
+            )
+
+            const next = passUntilDecides(gameState, bled)
+            expectEqual(
+                optionsOfType(next.options, 'block').filter(option => option.minion == blocker)
+                    .length,
+                1,
+                'the woken minion can block',
+            )
+            expectEqual(
+                optionsOfType(next.options, 'playReaction').length,
+                0,
+                'no second wake for the same minion',
+            )
+        },
+    },
+    {
+        name: 'On the Qui Vive is for locked minions only, once between unlock phases',
+        run() {
+            const game = createCatalogBleed({
+                discipline: Discipline.Dominate,
+                level: DisciplineLevel.INFERIOR,
+                cards: [],
+                preyCards: [QUI_VIVE_ID],
+            })
+            const { gameState, bled, blocker } = game
+            const wakeOptions = (decision: DecisionPoint) =>
+                optionsOfType(decision.options, 'playReaction').filter(
+                    option => option.effect.type == 'wake',
+                )
+            expectEqual(
+                wakeOptions(passUntilDecides(gameState, bled)).length,
+                0,
+                'an unlocked minion',
+            )
+
+            blocker.lock()
+            gameState.playedSinceUnlock[blocker.oid] = [QUI_VIVE_ID]
+            expectEqual(
+                wakeOptions(passUntilDecides(gameState, bled)).length,
+                0,
+                'already played since the unlock phase',
+            )
+
+            gameMutations.unlockAll.act(bled, { player: bled })
+            expectEqual(gameState.playedSinceUnlock[blocker.oid], undefined, 'forgotten at unlock')
+        },
+    },
+    {
+        name: 'Eyes of Argus superior wakes a locked vampire, inferior adds 2 intercept to an unlocked blocker',
+        run() {
+            const woken = createCatalogBleed({
+                discipline: Discipline.Dominate,
+                level: DisciplineLevel.INFERIOR,
+                cards: [],
+                preyCards: [EYES_OF_ARGUS_ID],
+                preyDiscipline: [Discipline.Auspex, DisciplineLevel.SUPERIOR],
+            })
+            woken.blocker.lock()
+            const decision = passUntilDecides(woken.gameState, woken.bled)
+            const reactions = optionsOfType(decision.options, 'playReaction')
+            expectEqual(reactions.length, 1, 'options for a locked vampire')
+            expectEqual(reactions[0].effect.type, 'wake', 'the only thing it can do is wake')
+
+            const inferior = createCatalogBleed({
+                discipline: Discipline.Dominate,
+                level: DisciplineLevel.INFERIOR,
+                cards: [],
+                preyCards: [EYES_OF_ARGUS_ID],
+                preyDiscipline: [Discipline.Auspex, DisciplineLevel.INFERIOR],
+            })
+            const { gameState, bleeder, bled, blocker } = inferior
+            const first = passUntilDecides(gameState, bled)
+            expectEqual(optionsOfType(first.options, 'playReaction').length, 0, 'before the block')
+            applyOption(
+                first,
+                optionsOfType(first.options, 'block').find(option => option.minion == blocker) ??
+                    findOption(first.options, 'block'),
+            )
+            decideWith(gameState, bleeder, 'noModifier')
+            const standing = getDecisionPoint(gameState, bled)
+            const intercepts = standing ? optionsOfType(standing.options, 'playReaction') : []
+            expectEqual(intercepts.length, 1, 'options during the block')
+            const before = gameState.action?.intercept ?? 0
+            if (standing) {
+                applyOption(standing, intercepts[0])
+            }
+            expectEqual(gameState.action?.intercept, before + 2, 'intercept')
+        },
+    },
+]
+
+/**
+ * Cards described in the catalog ( the Brujah precon ): requirements of the cardbase, variable
+ * costs, combat cards.
+ */
+
+const ENCHANT_KINDRED_ID = '100640'
+const MONKEY_WRENCH_ID = '101239'
+const BAIT_AND_SWITCH_ID = '102218'
+const WARZONE_ID = '102150'
+const ROUNDHOUSE_ID = '102215'
+const SLAM_ID = '101798'
+const TORN_SIGNPOST_ID = '101993'
+const OCTANE_ID = '201609'
+const ATIENA_ID = '201579'
+const RAYNE_ID = '201610'
+const VALERIYA_ID = '201614'
+
+// A fight between two Brujah in the first round, the acting one holding the card
+function createBrujahFight(
+    cardId: string,
+    level: DisciplineLevel | null,
+    actingBlood = 3,
+    discipline = Discipline.Potence,
+): Fight & { card: LibraryCard } {
+    const fight = createFight(actingBlood, 3, BrujahDeck)
+    // The vampire drawn may have a strength bonus (Valeriya, Theo Bell)
+    fight.acting.minionAttrs.strength = 1
+    getCombat(fight).acting.strength = 1
+    fight.acting.minionAttrs.capacity = 10
+    fight.acting.minionAttrs.disciplines = {} as Disciplines
+    fight.defending.minionAttrs.strength = 1
+    getCombat(fight).defending.strength = 1
+    if (level) {
+        fight.acting.minionAttrs.disciplines[discipline] = level
+    }
+    // A controlled hand: the card only, and nothing to draw
+    emptyHand(fight.gameState, fight.actingPlayer)
+    emptyHand(fight.gameState, fight.defendingPlayer)
+    const card = giveCard(fight.gameState, fight.actingPlayer, cardId)
+    sealLibrary(fight.gameState, fight.actingPlayer)
+    sealLibrary(fight.gameState, fight.defendingPlayer)
+    return { ...fight, card }
+}
+
+// The options of the acting player that come with the card
+function cardOptionsOf<T extends CombatCardOption['type']>(
+    fight: Fight,
+    type: T,
+    card: LibraryCard,
+): Extract<CombatCardOption, { type: T }>[] {
+    return getCombatDecision(fight, fight.actingPlayer).options.filter(
+        (option): option is Extract<CombatCardOption, { type: T }> =>
+            option.type == type && 'card' in option && option.card == card,
+    )
+}
+
+// Plays the card with the first of its options of the type that the test accepts
+function playCardOption<T extends CombatCardOption['type']>(
+    fight: Fight,
+    type: T,
+    card: LibraryCard,
+    accept: (option: Extract<CombatCardOption, { type: T }>) => boolean = () => true,
+): void {
+    const decision = getCombatDecision(fight, fight.actingPlayer)
+    const option = decision.options.find(
+        (candidate): candidate is Extract<CombatCardOption, { type: T }> =>
+            candidate.type == type &&
+            'card' in candidate &&
+            candidate.card == card &&
+            accept(candidate as Extract<CombatCardOption, { type: T }>),
+    )
+    if (!option) {
+        throw new ScenarioFailure(`${type} of ${card.name} is not offered`)
+    }
+    applyOption(decision, option)
+}
+
+// The master phase of a player holding Warzone Hunting Ground as their only card
+function createWarzoneTurn(cardId = WARZONE_ID): MasterTurn & { warzone: LibraryCard } {
+    const { gameState } = createHeadlessGame([BrujahDeck, BrujahDeck])
+    createdGames.push(gameState)
+    const player = gameState.activePlayer
+    if (!player) {
+        throw new ScenarioFailure('No active player')
+    }
+    emptyHand(gameState, player)
+    const warzone = giveCard(gameState, player, cardId)
+    gameState.turnPhaseIndex = TurnSequence.indexOf(TurnPhase.Master)
+    gameState.turnResources.unlocked = true
+    return { gameState, player, library: warzone, warzone }
+}
+
+const BRUJAH_SCENARIOS: { name: string; run: () => void }[] = [
+    {
+        name: 'Monkey Wrench is offered for X = 1, 2 and 3 to an Anarch, as many as its blood allows',
+        run() {
+            const game = createCatalogBleed({
+                deck: BrujahDeck,
+                bleederId: OCTANE_ID,
+                discipline: Discipline.Presence,
+                level: DisciplineLevel.SUPERIOR,
+                cards: [MONKEY_WRENCH_ID],
+            })
+            passUntilDecides(game.gameState, game.bleeder)
+            const xsAt = (blood: number) => {
+                game.bleeding.blood = blood
+                const decision = getDecisionPoint(game.gameState, game.bleeder)
+                if (!decision) {
+                    throw new ScenarioFailure('No decision point')
+                }
+                return modifierOptionsOf(decision, MONKEY_WRENCH_ID)
+                    .map(option => option.modifier.usage.x)
+                    .join()
+            }
+            expectEqual(xsAt(5), '1,2,3', 'X')
+            expectEqual(xsAt(2), '1,2', 'X with 2 blood')
+            expectEqual(xsAt(0), '', 'X with no blood')
+        },
+    },
+    {
+        name: 'Monkey Wrench pays X blood and adds X bleed, and needs an Anarch',
+        run() {
+            const game = createCatalogBleed({
+                deck: BrujahDeck,
+                bleederId: OCTANE_ID,
+                discipline: Discipline.Presence,
+                level: DisciplineLevel.SUPERIOR,
+                cards: [MONKEY_WRENCH_ID],
+            })
+            const decision = passUntilDecides(game.gameState, game.bleeder)
+            const three = modifierOptionsOf(decision, MONKEY_WRENCH_ID).find(
+                option => option.modifier.usage.x == 3,
+            )
+            if (!three) {
+                throw new ScenarioFailure('X = 3 is not offered')
+            }
+            const before = game.gameState.action?.bleed ?? 0
+            applyOption(decision, three)
+            expectEqual(game.gameState.action?.bleed, before + 3, 'bleed')
+            expectEqual(game.bleeding.blood, 2, 'blood paid')
+
+            const outsider = createCatalogBleed({
+                deck: BrujahDeck,
+                bleederId: OCTANE_ID,
+                discipline: Discipline.Presence,
+                level: DisciplineLevel.SUPERIOR,
+                cards: [MONKEY_WRENCH_ID],
+            })
+            outsider.bleeding.vampireAttrs.sect = 'Camarilla'
+            expectEqual(
+                modifierOptionsOf(
+                    passUntilDecides(outsider.gameState, outsider.bleeder),
+                    MONKEY_WRENCH_ID,
+                ).length,
+                0,
+                'a Camarilla vampire',
+            )
+        },
+    },
+    {
+        name: 'Bait and Switch needs a baron: the bounce locks the baron, no offer for a plain Anarch',
+        run() {
+            const baron = createCatalogBleed({
+                deck: BrujahDeck,
+                discipline: Discipline.Presence,
+                level: DisciplineLevel.SUPERIOR,
+                cards: [],
+                preyCards: [BAIT_AND_SWITCH_ID],
+                preyVampireId: ATIENA_ID,
+            })
+            const { gameState, bled, third, blocker } = baron
+            const first = passUntilDecides(gameState, bled)
+            applyOption(first, findOption(first.options, 'noBlock'))
+            const decision = passUntilDecides(gameState, bled)
+            const bounce = optionsOfType(decision.options, 'playReaction').find(
+                option => option.effect.type == 'changeTarget' && option.effect.target == third,
+            )
+            if (!bounce) {
+                throw new ScenarioFailure('The bounce is not offered to a baron')
+            }
+            applyOption(decision, bounce)
+            expectEqual(gameState.action?.minionAction.target, third, 'new target')
+            expectEqual(blocker.isLocked, true, 'locked')
+
+            const anarch = createCatalogBleed({
+                deck: BrujahDeck,
+                discipline: Discipline.Presence,
+                level: DisciplineLevel.SUPERIOR,
+                cards: [],
+                preyCards: [BAIT_AND_SWITCH_ID],
+                preyVampireId: RAYNE_ID,
+            })
+            const firstAnarch = passUntilDecides(anarch.gameState, anarch.bled)
+            applyOption(firstAnarch, findOption(firstAnarch.options, 'noBlock'))
+            const next = passUntilDecides(anarch.gameState, anarch.bled)
+            expectEqual(
+                optionsOfType(next.options, 'playReaction').length,
+                0,
+                'reactions for an Anarch that is not a baron',
+            )
+        },
+    },
+    {
+        name: 'Enchant Kindred: a bleed at inferior, blood for a younger uncontrolled vampire at superior',
+        run() {
+            const turn = createMinionPhase(5, 0, BrujahDeck)
+            turn.ready.minionAttrs.disciplines[Discipline.Presence] = DisciplineLevel.SUPERIOR
+            turn.ready.minionAttrs.capacity = 6
+            const young = turn.player.vampiresInUncontrolled[0]
+            young.minionAttrs.capacity = 4
+            young.blood = 1
+            const card = giveCard(turn.gameState, turn.player, ENCHANT_KINDRED_ID)
+
+            const { decision, options } = getActionOptions(
+                turn,
+                MinionActionType.ActionCardFromHand,
+            )
+            const mine = options.flatMap(option =>
+                (
+                    option.action.type == MinionActionType.ActionCardFromHand &&
+                    option.action.card == card
+                ) ?
+                    [{ option, usage: option.action.usage }]
+                :   [],
+            )
+            const level = (usage: LibraryCardUsage) => usage.disciplines?.[0]?.level
+            const bleeds = mine.filter(({ usage }) => usage.target instanceof Player)
+            expectEqual(bleeds.length, 1, 'bleed options')
+            expectEqual(level(bleeds[0].usage), DisciplineLevel.INFERIOR, 'bleed level')
+            const feed = mine.find(({ usage }) => usage.target == young)
+            if (!feed) {
+                throw new ScenarioFailure('The younger vampire is not a target')
+            }
+            expectEqual(level(feed.usage), DisciplineLevel.SUPERIOR, 'feed level')
+
+            applyOption(decision, feed.option)
+            resolveAction(turn)
+            expectEqual(young.blood, 3, 'blood of the younger vampire')
+        },
+    },
+    {
+        name: 'Warzone Hunting Ground requires a ready Brujah and gives 1 blood in the unlock phase',
+        run() {
+            const turn = createWarzoneTurn()
+            const { gameState, player, warzone } = turn
+            expectEqual(countMasterOptions(turn), 0, 'no ready vampire')
+
+            const octane = readySpecific(gameState, player, OCTANE_ID, 2)
+            expectEqual(countMasterOptions(turn), 1, 'a ready Brujah')
+            octane.vampireAttrs.clan = 'Malkavian'
+            expectEqual(countMasterOptions(turn), 0, 'a ready Malkavian')
+            octane.vampireAttrs.clan = 'Brujah'
+
+            gameState.moveCardToRegion(warzone, player.ready)
+            gameState.turnPhaseIndex = TurnSequence.indexOf(TurnPhase.Unlock)
+            expectEqual(countUnlockEffects(turn), 1, 'unlock effects')
+            const decision = getMasterDecision(turn)
+            applyOption(decision, findOption(decision.options, 'unlockEffect'))
+            expectEqual(octane.blood, 3, 'blood gained')
+        },
+    },
+    {
+        name: 'Valeriya Zinovieva has +1 strength, which her hand strike deals',
+        run() {
+            const { gameState, players } = createHeadlessGame([BrujahDeck, BrujahDeck])
+            createdGames.push(gameState)
+            const valeriya = readySpecific(gameState, players[0], VALERIYA_ID, 5)
+            const opponent = readySpecific(gameState, players[1], RAYNE_ID, 2)
+            expectEqual(valeriya.minionAttrs.strength, 2, 'strength')
+            expectEqual(opponent.minionAttrs.strength, 1, 'strength of a plain Anarch')
+            gameState.combat = createCombatState(valeriya, opponent)
+            expectEqual(
+                createHandStrike(createCombatState(valeriya, opponent).acting).damage,
+                2,
+                'damage',
+            )
+        },
+    },
+    {
+        name: 'Torn Signpost sets the strength before the range only, and only when it raises it',
+        run() {
+            const fight = createBrujahFight(TORN_SIGNPOST_ID, DisciplineLevel.SUPERIOR)
+            const options = cardOptionsOf(fight, 'combatStrength', fight.card)
+            expectEqual(options.map(option => option.amount).join(), '2,3', 'both levels')
+
+            getCombat(fight).acting.strength = 2
+            expectEqual(
+                cardOptionsOf(fight, 'combatStrength', fight.card)
+                    .map(option => option.amount)
+                    .join(),
+                '3',
+                'a strength of 2 already',
+            )
+
+            getCombat(fight).acting.strength = 1
+            playCardOption(fight, 'combatStrength', fight.card, option => option.amount == 3)
+            expectEqual(getCombat(fight).acting.strength, 3, 'strength')
+            expectEqual(getCombat(fight).step, CombatStep.BeforeRange, 'still before the range')
+            expectEqual(getCombat(fight).impulsePlayer, fight.actingPlayer, 'impulse')
+            expectEqual(fight.card.isIn.ready, true, 'the card is played')
+
+            passUntil(fight, CombatStep.DetermineRange)
+            expectEqual(
+                cardOptionsOf(fight, 'combatStrength', fight.card).length,
+                0,
+                'in the range step',
+            )
+        },
+    },
+    {
+        name: 'Torn Signpost strength lasts the combat: the hand strike deals it',
+        run() {
+            const fight = createBrujahFight(TORN_SIGNPOST_ID, DisciplineLevel.INFERIOR, 3)
+            playCardOption(fight, 'combatStrength', fight.card)
+            passUntil(fight, CombatStep.Strike)
+            const decision = getCombatDecision(fight, fight.actingPlayer)
+            const hand = optionsOfType(decision.options, 'combatStrike').find(
+                option => !option.card,
+            )
+            expectEqual(hand?.strike.damage, 2, 'hand strike damage')
+        },
+    },
+    {
+        name: 'Roundhouse is a hand strike with 2 damage more at inferior, 3 at superior',
+        run() {
+            const inferior = createBrujahFight(ROUNDHOUSE_ID, DisciplineLevel.INFERIOR)
+            passUntil(inferior, CombatStep.Strike)
+            const options = cardOptionsOf(inferior, 'combatStrike', inferior.card)
+            expectEqual(options.length, 1, 'inferior options')
+            expectEqual(options[0].strike.damage, 3, 'inferior damage')
+            expectEqual(options[0].strike.aggravated, false, 'aggravated')
+
+            const superior = createBrujahFight(ROUNDHOUSE_ID, DisciplineLevel.SUPERIOR)
+            passUntil(superior, CombatStep.Strike)
+            const damages = cardOptionsOf(superior, 'combatStrike', superior.card)
+                .map(option => option.strike.damage)
+                .sort()
+            expectEqual(damages.join(), '3,4', 'superior damages')
+        },
+    },
+    {
+        name: 'a Roundhouse strike deals its damage: more than the blood sends the vampire to torpor',
+        run() {
+            const fight = createBrujahFight(ROUNDHOUSE_ID, DisciplineLevel.SUPERIOR)
+            passUntil(fight, CombatStep.Strike)
+            playCardOption(fight, 'combatStrike', fight.card, option => option.strike.damage == 4)
+            const decision = getCombatDecision(fight, fight.defendingPlayer)
+            applyOption(decision, findOption(decision.options, 'combatStrike'))
+            while (fight.gameState.combat) {
+                const player = getDecidingPlayer(fight.gameState)
+                const next = player && getDecisionPoint(fight.gameState, player)
+                if (!next) {
+                    throw new ScenarioFailure('The combat is stuck')
+                }
+                applyOption(next, findOption(next.options, 'combatPass'))
+            }
+            expectRegion(fight.defending, 'torpor')
+        },
+    },
+    {
+        name: 'Slam costs 1 blood; at superior its maneuver is only offered at long range, and brings the strike',
+        run() {
+            const inferior = createBrujahFight(SLAM_ID, DisciplineLevel.INFERIOR)
+            getCombat(inferior).range = CombatRange.Long
+            passUntil(inferior, CombatStep.DetermineRange)
+            expectEqual(
+                cardOptionsOf(inferior, 'combatManeuver', inferior.card).length,
+                0,
+                'maneuver at inferior',
+            )
+            passUntil(inferior, CombatStep.Strike)
+            expectEqual(
+                cardOptionsOf(inferior, 'combatStrike', inferior.card)[0]?.strike.damage,
+                3,
+                'inferior damage',
+            )
+
+            const close = createBrujahFight(SLAM_ID, DisciplineLevel.SUPERIOR)
+            passUntil(close, CombatStep.DetermineRange)
+            expectEqual(
+                cardOptionsOf(close, 'combatManeuver', close.card).length,
+                0,
+                'maneuver at close range',
+            )
+
+            const far = createBrujahFight(SLAM_ID, DisciplineLevel.SUPERIOR)
+            passUntil(far, CombatStep.DetermineRange)
+            getCombat(far).range = CombatRange.Long
+            const maneuvers = cardOptionsOf(far, 'combatManeuver', far.card)
+            expectEqual(maneuvers.length, 1, 'maneuvers: the superior level only')
+            playCardOption(far, 'combatManeuver', far.card)
+            expectEqual(getCombat(far).range, CombatRange.Close, 'range')
+            expectEqual(getCombat(far).acting.strike?.damage, 3, 'the maneuver chose the strike')
+            expectEqual(far.acting.blood, 2, 'blood paid')
+            expectEqual(far.card.isIn.ready, true, 'the card is played')
+        },
+    },
+]
+
+// The player with the impulse chooses the option of the type that the test accepts
+function decideCombat<T extends CombatCardOption['type']>(
+    fight: Fight,
+    type: T,
+    accept: (option: Extract<CombatCardOption, { type: T }>) => boolean = () => true,
+): void {
+    const player = getCombat(fight).impulsePlayer
+    const decision = getCombatDecision(fight, player)
+    const option = decision.options.find(
+        (candidate): candidate is Extract<CombatCardOption, { type: T }> =>
+            candidate.type == type && accept(candidate as Extract<CombatCardOption, { type: T }>),
+    )
+    if (!option) {
+        throw new ScenarioFailure(`${type} is not offered at ${getCombat(fight).step}`)
+    }
+    applyOption(decision, option)
+}
+
+const countOptions = (fight: Fight, type: CombatCardOption['type']) =>
+    getCombatDecision(fight, getCombat(fight).impulsePlayer).options.filter(
+        option => option.type == type,
+    ).length
+
+const QUICKNESS_ID = '101532'
+const PURSUIT_ID = '101523'
+const DUST_UP_ID = '100597'
+const GRAPPLE_ID = '100959'
+const TASTE_OF_VITAE_ID = '101945'
+
+const BRUJAH_COMBAT_SCENARIOS: { name: string; run: () => void }[] = [
+    {
+        name: 'Quickness is played after the pair of strikes: the minion strikes again alone, the opponent has no strike',
+        run() {
+            const fight = createBrujahFight(
+                QUICKNESS_ID,
+                DisciplineLevel.SUPERIOR,
+                3,
+                Discipline.Celerity,
+            )
+            expectEqual(countOptions(fight, 'combatAdditionalStrike'), 0, 'before the range')
+            passUntil(fight, CombatStep.Strike)
+            strikes(fight)
+            passUntil(fight, CombatStep.AdditionalStrikes)
+            expectEqual(fight.defending.blood, 2, 'blood of the defender after the first pair')
+            expectEqual(
+                countOptions(fight, 'combatAdditionalStrike'),
+                2,
+                'both levels: limited and not',
+            )
+
+            decideCombat(fight, 'combatAdditionalStrike', option => option.limited)
+            const combat = getCombat(fight)
+            expectEqual(combat.acting.additionalStrikes, 1, 'additional strikes')
+            expectEqual(combat.acting.limitedAdditionalGained, true, 'limited gained')
+            expectEqual(
+                combat.playedThisRound[fight.acting.oid]?.includes(QUICKNESS_ID),
+                true,
+                'the play is remembered',
+            )
+            expectEqual(combat.impulsePlayer, fight.actingPlayer, 'impulse')
+
+            passUntil(fight, CombatStep.Strike)
+            expectEqual(combat.strikePair, 1, 'second pair')
+            expectEqual(combat.defending.strikesInPair, false, 'the defender sits it out')
+            expectEqual(combat.impulsePlayer, fight.actingPlayer, 'the acting minion chooses')
+            decideCombat(fight, 'combatStrike')
+            passUntil(fight, CombatStep.AdditionalStrikes)
+            expectEqual(
+                fight.defending.blood,
+                1,
+                'blood of the defender after the additional strike',
+            )
+            expectEqual(
+                fight.acting.blood,
+                2,
+                'the acting minion took no damage in the second pair',
+            )
+            passUntil(fight, CombatStep.Press)
+        },
+    },
+    {
+        name: 'a limited additional strike is gained once per round, the unlimited level of Quickness is still offered',
+        run() {
+            const fight = createBrujahFight(
+                QUICKNESS_ID,
+                DisciplineLevel.SUPERIOR,
+                3,
+                Discipline.Celerity,
+            )
+            passUntil(fight, CombatStep.Strike)
+            strikes(fight)
+            passUntil(fight, CombatStep.AdditionalStrikes)
+            getCombat(fight).acting.limitedAdditionalGained = true
+            const options = optionsOfType(
+                getCombatDecision(fight, fight.actingPlayer).options,
+                'combatAdditionalStrike',
+            )
+            expectEqual(options.length, 1, 'options')
+            expectEqual(options[0].limited, false, 'only the unlimited one')
+        },
+    },
+    {
+        name: 'Pursuit is a maneuver at inferior and a limited additional strike at superior',
+        run() {
+            const fight = createBrujahFight(
+                PURSUIT_ID,
+                DisciplineLevel.SUPERIOR,
+                3,
+                Discipline.Celerity,
+            )
+            passUntil(fight, CombatStep.DetermineRange)
+            expectEqual(countOptions(fight, 'combatManeuver'), 1, 'maneuver')
+            expectEqual(
+                countOptions(fight, 'combatAdditionalStrike'),
+                0,
+                'no additional strike yet',
+            )
+            passUntil(fight, CombatStep.Strike)
+            strikes(fight)
+            passUntil(fight, CombatStep.AdditionalStrikes)
+            const options = optionsOfType(
+                getCombatDecision(fight, fight.actingPlayer).options,
+                'combatAdditionalStrike',
+            )
+            expectEqual(options.length, 1, 'additional strike')
+            expectEqual(options[0].limited, true, 'limited')
+            expectEqual(countOptions(fight, 'combatManeuver'), 0, 'no maneuver in this window')
+        },
+    },
+    {
+        name: 'Dust Up with Animalism is an undodgeable hand strike +1: the dodge does not protect',
+        run() {
+            const fight = createBrujahFight(
+                DUST_UP_ID,
+                DisciplineLevel.INFERIOR,
+                3,
+                Discipline.Animalism,
+            )
+            passUntil(fight, CombatStep.Strike)
+            const options = cardOptionsOf(fight, 'combatStrike', fight.card)
+            expectEqual(options.length, 1, 'options')
+            expectEqual(options[0].strike.damage, 2, 'damage')
+            expectEqual(options[0].strike.undodgeable, true, 'undodgeable')
+            playCardOption(fight, 'combatStrike', fight.card)
+            must(
+                gameMutations.COMBAT_chooseStrike.act(fight.defendingPlayer, {
+                    minion: fight.defending,
+                    strike: createDodgeStrike(),
+                }),
+                'the defender dodges',
+            )
+            passUntil(fight, CombatStep.AdditionalStrikes)
+            expectEqual(fight.defending.blood, 1, 'the dodge did not protect: 2 damage')
+        },
+    },
+    {
+        name: 'Dust Up with Celerity is a dodge with one additional strike, if none was gained from a limited card',
+        run() {
+            const fight = createBrujahFight(
+                DUST_UP_ID,
+                DisciplineLevel.INFERIOR,
+                3,
+                Discipline.Celerity,
+            )
+            passUntil(fight, CombatStep.Strike)
+            const [option] = cardOptionsOf(fight, 'combatStrike', fight.card)
+            expectEqual(option.strike.dodge, true, 'dodge')
+            expectEqual(option.additional?.limited, true, 'additional strike')
+
+            getCombat(fight).acting.limitedAdditionalGained = true
+            const [again] = cardOptionsOf(fight, 'combatStrike', fight.card)
+            expectEqual(again.additional, undefined, 'no additional strike once the limit is used')
+            getCombat(fight).acting.limitedAdditionalGained = false
+
+            playCardOption(fight, 'combatStrike', fight.card)
+            expectEqual(getCombat(fight).acting.additionalStrikes, 1, 'additional strikes')
+            strikes(fight)
+            passUntil(fight, CombatStep.AdditionalStrikes)
+            expectEqual(fight.acting.blood, 3, 'the dodge protected the acting minion')
+        },
+    },
+    {
+        name: 'Immortal Grapple: before the strikes at close range only, then hand strikes only for the round',
+        run() {
+            const fight = createBrujahFight(GRAPPLE_ID, DisciplineLevel.SUPERIOR)
+            expectEqual(countOptions(fight, 'combatGrapple'), 0, 'before the range')
+            passUntil(fight, CombatStep.DetermineRange)
+            expectEqual(countOptions(fight, 'combatGrapple'), 0, 'range step')
+            passUntil(fight, CombatStep.BeforeStrikes)
+            getCombat(fight).range = CombatRange.Long
+            expectEqual(countOptions(fight, 'combatGrapple'), 0, 'long range')
+            getCombat(fight).range = CombatRange.Close
+            expectEqual(countOptions(fight, 'combatGrapple'), 2, 'both levels at close range')
+
+            decideCombat(fight, 'combatGrapple', option => option.press)
+            expectEqual(getCombat(fight).handStrikesOnly, true, 'hand strikes only')
+            passUntil(fight, CombatStep.Strike)
+            mustRefuse(
+                gameMutations.COMBAT_chooseStrike.act(fight.actingPlayer, {
+                    minion: fight.acting,
+                    strike: createDodgeStrike(),
+                }),
+                'a dodge in a grappled round',
+            )
+            strikes(fight)
+            passUntil(fight, CombatStep.Press)
+        },
+    },
+    {
+        name: 'a superior Immortal Grapple gives a press, and the next round is at close range with no range step',
+        run() {
+            const fight = createBrujahFight(GRAPPLE_ID, DisciplineLevel.SUPERIOR)
+            passUntil(fight, CombatStep.BeforeStrikes)
+            decideCombat(fight, 'combatGrapple', option => option.press)
+            expectEqual(getCombat(fight).acting.pressesGranted, 1, 'press granted')
+            passUntil(fight, CombatStep.Strike)
+            strikes(fight)
+            passUntil(fight, CombatStep.Press)
+
+            expectEqual(countOptions(fight, 'combatPress'), 1, 'the granted press')
+            decideCombat(fight, 'combatPress', option => !!option.granted)
+            expectEqual(getCombat(fight).pressed, true, 'press to continue')
+            expectEqual(getCombat(fight).acting.pressesGranted, 0, 'the press is used up')
+
+            passUntil(fight, CombatStep.BeforeRange)
+            const combat = getCombat(fight)
+            expectEqual(combat.round, 2, 'round')
+            expectEqual(combat.handStrikesOnly, false, 'the restriction ended with the round')
+            passUntil(fight, CombatStep.BeforeStrikes)
+            expectEqual(combat.round, 2, 'still round 2')
+            expectEqual(combat.range, CombatRange.Close, 'close range')
+            expectEqual(combat.closeNextRound, false, 'consumed')
+        },
+    },
+    {
+        name: 'Taste of Vitae gives back the blood the opponent lost to damage this round, at the end of the round',
+        run() {
+            const fight = createBrujahFight(TASTE_OF_VITAE_ID, null)
+            getCombat(fight).acting.strength = 2
+            passUntil(fight, CombatStep.Strike)
+            expectEqual(
+                countOptions(fight, 'combatGainBlood'),
+                0,
+                'not before the end of the round',
+            )
+            strikes(fight)
+            passUntil(fight, CombatStep.EndOfRound)
+            expectEqual(fight.defending.blood, 1, 'the defender mended 2')
+            expectEqual(fight.acting.blood, 2, 'the acting minion mended 1')
+            const options = optionsOfType(
+                getCombatDecision(fight, fight.actingPlayer).options,
+                'combatGainBlood',
+            )
+            expectEqual(options.length, 1, 'options')
+            expectEqual(options[0].amount, 2, 'amount')
+            decideCombat(fight, 'combatGainBlood')
+            expectEqual(fight.acting.blood, 4, 'blood gained')
+            expectEqual(countOptions(fight, 'combatGainBlood'), 0, 'once per round')
+        },
+    },
+    {
+        name: 'Taste of Vitae is not offered when the opponent lost no blood',
+        run() {
+            const fight = createBrujahFight(TASTE_OF_VITAE_ID, null)
+            passUntil(fight, CombatStep.Strike)
+            decideCombat(fight, 'combatStrike')
+            must(
+                gameMutations.COMBAT_chooseStrike.act(fight.defendingPlayer, {
+                    minion: fight.defending,
+                    strike: createDodgeStrike(),
+                }),
+                'the defender dodges',
+            )
+            passUntil(fight, CombatStep.EndOfRound)
+            expectEqual(fight.defending.blood, 3, 'no damage dealt')
+            expectEqual(countOptions(fight, 'combatGainBlood'), 0, 'options')
+        },
+    },
+]
+
+const LINE_BRAWL_ID = '102229'
+const THEO_BELL_ID = '201613'
+
+// The minion phase of a player holding Line Brawl, with an Anarch vampire that has the disciplines
+// and a minion of the prey in play
+function createLineBrawlTurn() {
+    const turn = createMinionPhase(5, 0, BrujahDeck)
+    const { gameState, player } = turn
+    const victim = player.prey
+    if (!victim) {
+        throw new ScenarioFailure('No prey')
+    }
+    turn.ready.vampireAttrs.sect = 'Anarch'
+    turn.ready.minionAttrs.disciplines = {} as Disciplines
+    for (const discipline of [Discipline.Celerity, Discipline.Potence, Discipline.Presence]) {
+        turn.ready.minionAttrs.disciplines[discipline] = DisciplineLevel.INFERIOR
+    }
+    emptyHand(gameState, player)
+    const card = giveCard(gameState, player, LINE_BRAWL_ID)
+    const target = readyVampire(gameState, victim, 4)
+    return { ...turn, victim, card, target }
+}
+
+const lineBrawlOptions = (turn: ReturnType<typeof createLineBrawlTurn>) => {
+    const { decision, options } = getActionOptions(turn, MinionActionType.ActionCardFromHand)
+    return {
+        decision,
+        mine: options.flatMap(option =>
+            (
+                option.action.type == MinionActionType.ActionCardFromHand &&
+                option.action.card == turn.card
+            ) ?
+                [{ option, usage: option.action.usage }]
+            :   [],
+        ),
+    }
+}
+
+const BRUJAH_ACTION_SCENARIOS: { name: string; run: () => void }[] = [
+    {
+        name: 'Line Brawl: a bleed at +1, stealing pool and entering combat, each with its own discipline, needing an Anarch',
+        run() {
+            const turn = createLineBrawlTurn()
+            const { mine } = lineBrawlOptions(turn)
+            const kinds = (usage: LibraryCardUsage) =>
+                usage.target instanceof Player ? 'player' : 'minion'
+            const disciplines = mine.map(({ usage }) => usage.disciplines?.[0]?.discipline).sort()
+            expectEqual(
+                disciplines.filter(name => name == Discipline.Presence).length,
+                1,
+                'bleed options',
+            )
+            expectEqual(
+                disciplines.filter(name => name == Discipline.Potence).length,
+                1,
+                'combat options (the only minion of the other Methuselah)',
+            )
+            expectEqual(
+                mine.filter(({ usage }) => kinds(usage) == 'player').length >= 2,
+                true,
+                'bleed and steal pool aim at players',
+            )
+
+            turn.ready.vampireAttrs.sect = 'Camarilla'
+            expectEqual(lineBrawlOptions(turn).mine.length, 0, 'a Camarilla vampire')
+        },
+    },
+    {
+        name: 'Line Brawl with Celerity steals 1 pool from another Methuselah',
+        run() {
+            const turn = createLineBrawlTurn()
+            const { decision, mine } = lineBrawlOptions(turn)
+            const steal = mine.find(
+                ({ usage }) => usage.disciplines?.[0]?.discipline == Discipline.Celerity,
+            )
+            if (!steal) {
+                throw new ScenarioFailure('The steal is not offered')
+            }
+            const victim = steal.usage.target
+            if (!(victim instanceof Player)) {
+                throw new ScenarioFailure('The steal does not aim at a Methuselah')
+            }
+            victim.pool = 5
+            const own = turn.player.pool
+            applyOption(decision, steal.option)
+            resolveAction(turn)
+            expectEqual(victim.pool, 4, 'pool of the victim')
+            expectEqual(turn.player.pool, own + 1, 'pool of the thief')
+        },
+    },
+    {
+        name: 'Line Brawl with Potence enters combat with the minion: the combat starts, the card is paid',
+        run() {
+            const turn = createLineBrawlTurn()
+            const { decision, mine } = lineBrawlOptions(turn)
+            const brawl = mine.find(({ usage }) => usage.target == turn.target)
+            if (!brawl) {
+                throw new ScenarioFailure('The combat is not offered')
+            }
+            applyOption(decision, brawl.option)
+            resolveAction(turn)
+            const combat = turn.gameState.combat
+            expectEqual(combat === null, false, 'combat in progress')
+            expectEqual(combat?.acting.minion, turn.ready, 'acting minion')
+            expectEqual(combat?.defending.minion, turn.target, 'defending minion')
+        },
+    },
+    {
+        name: 'Theo Bell can enter combat with a minion of another Methuselah as an action, others cannot',
+        run() {
+            const turn = createMinionPhase(5, 0, BrujahDeck)
+            const victim = turn.player.prey
+            if (!victim) {
+                throw new ScenarioFailure('No prey')
+            }
+            const target = readyVampire(turn.gameState, victim, 4)
+            // The ready vampire drawn at random may be Theo Bell himself
+            const others = () =>
+                getActionOptions(turn, MinionActionType.EnterCombat).options.filter(
+                    option => option.action.actingMinion.krcgId != THEO_BELL_ID,
+                )
+            expectEqual(others().length, 0, 'an ordinary vampire')
+
+            const theo =
+                turn.ready.krcgId == THEO_BELL_ID ?
+                    turn.ready
+                :   readySpecific(turn.gameState, turn.player, THEO_BELL_ID, 5)
+            expectEqual(theo.minionAttrs.strength, 2, 'strength')
+            const { decision, options } = getActionOptions(turn, MinionActionType.EnterCombat)
+            expectEqual(options.length, 1, 'options')
+            expectEqual(options[0].action.actingMinion, theo, 'acting minion')
+            expectEqual(options[0].action.target, target, 'target')
+
+            applyOption(decision, options[0])
+            resolveAction(turn)
+            expectEqual(turn.gameState.combat?.defending.minion, target, 'combat started')
+        },
+    },
+]
+
+const ORGANIZED_RESISTANCE_ID = '102230'
+const SHOW_OF_FORCE_ID = '101772'
+const CARFAX_ID = '100297'
+const ARIANE_ID = '200132'
+const ELEN_ID = '201585'
+
+// A bleed against a prey that holds Organized Resistance, a baron ( Atiena ) and a locked Anarch
+function createResistance(baronLocked: boolean) {
+    const game = createCatalogBleed({
+        deck: BrujahDeck,
+        discipline: Discipline.Presence,
+        level: DisciplineLevel.SUPERIOR,
+        cards: [],
+        preyCards: [ORGANIZED_RESISTANCE_ID],
+        preyVampireId: ATIENA_ID,
+    })
+    const anarch = readySpecific(game.gameState, game.bled, RAYNE_ID, 3)
+    anarch.lock()
+    if (baronLocked) {
+        game.blocker.lock()
+    }
+    return { ...game, anarch }
+}
+
+const reactionsOf = (decision: DecisionPoint, type: string) =>
+    optionsOfType(decision.options, 'playReaction').filter(option => option.effect.type == type)
+
+const BRUJAH_REACTION_SCENARIOS: { name: string; run: () => void }[] = [
+    {
+        name: 'Organized Resistance unlocks a locked Anarch which attempts to block with +1 intercept',
+        run() {
+            const game = createResistance(false)
+            const decision = passUntilDecides(game.gameState, game.bled)
+            const unlocks = reactionsOf(decision, 'unlockBlock')
+            expectEqual(unlocks.length, 1, 'unlock options')
+            expectEqual(
+                unlocks[0].effect.type == 'unlockBlock' && unlocks[0].effect.target == game.anarch,
+                true,
+                'target',
+            )
+            applyOption(decision, unlocks[0])
+            expectEqual(game.anarch.isLocked, false, 'unlocked')
+            expectEqual(game.gameState.action?.intercept, 1, 'intercept')
+            const standing = getBlockingMinion(game.gameState)
+            expectEqual(standing, game.anarch, 'the block attempt stands')
+            expectEqual(game.blocker.isLocked, false, 'the baron is not locked by the card')
+        },
+    },
+    {
+        name: 'Organized Resistance is usable by a locked baron, and needs a baron',
+        run() {
+            const locked = createResistance(true)
+            const decision = passUntilDecides(locked.gameState, locked.bled)
+            // Rayne, and the baron herself: she is a locked Anarch too
+            expectEqual(reactionsOf(decision, 'unlockBlock').length, 2, 'a locked baron')
+
+            const plain = createCatalogBleed({
+                deck: BrujahDeck,
+                discipline: Discipline.Presence,
+                level: DisciplineLevel.SUPERIOR,
+                cards: [],
+                preyCards: [ORGANIZED_RESISTANCE_ID],
+                preyVampireId: RAYNE_ID,
+            })
+            readySpecific(plain.gameState, plain.bled, OCTANE_ID, 3).lock()
+            const next = passUntilDecides(plain.gameState, plain.bled)
+            expectEqual(optionsOfType(next.options, 'playReaction').length, 0, 'a plain Anarch')
+        },
+    },
+    {
+        name: 'Organized Resistance adds 1 intercept to the standing block of an Anarch, not once a block stands for the unlock',
+        run() {
+            const game = createResistance(false)
+            const first = passUntilDecides(game.gameState, game.bled)
+            expectEqual(reactionsOf(first, 'intercept').length, 0, 'before any block')
+            applyOption(
+                first,
+                optionsOfType(first.options, 'block').find(
+                    option => option.minion == game.blocker,
+                ) ?? findOption(first.options, 'block'),
+            )
+            decideWith(game.gameState, game.bleeder, 'noModifier')
+            const decision = getDecisionPoint(game.gameState, game.bled)
+            if (!decision) {
+                throw new ScenarioFailure('No decision after the block attempt')
+            }
+            expectEqual(
+                reactionsOf(decision, 'unlockBlock').length,
+                0,
+                'no unlock while a block stands',
+            )
+            const intercepts = reactionsOf(decision, 'intercept')
+            expectEqual(intercepts.length >= 1, true, 'intercept options')
+            const before = game.gameState.action?.intercept ?? 0
+            applyOption(decision, intercepts[0])
+            expectEqual(game.gameState.action?.intercept, before + 1, 'intercept')
+        },
+    },
+    {
+        name: 'Show of Force: a bleed that gives its strength bonus to the first round of the combat if blocked',
+        run() {
+            const turn = createMinionPhase(5, 0, BrujahDeck)
+            const { gameState, player } = turn
+            const victim = player.prey
+            if (!victim) {
+                throw new ScenarioFailure('No prey')
+            }
+            turn.ready.vampireAttrs.sect = 'Anarch'
+            turn.ready.minionAttrs.strength = 1
+            turn.ready.minionAttrs.disciplines = {} as Disciplines
+            turn.ready.minionAttrs.disciplines[Discipline.Potence] = DisciplineLevel.SUPERIOR
+            turn.ready.minionAttrs.disciplines[Discipline.Presence] = DisciplineLevel.SUPERIOR
+            emptyHand(gameState, player)
+            const card = giveCard(gameState, player, SHOW_OF_FORCE_ID)
+            const blocker = readyVampire(gameState, victim, 3)
+
+            const { decision, options } = getActionOptions(
+                turn,
+                MinionActionType.ActionCardFromHand,
+            )
+            const mine = options.flatMap(option =>
+                (
+                    option.action.type == MinionActionType.ActionCardFromHand &&
+                    option.action.card == card
+                ) ?
+                    [option]
+                :   [],
+            )
+            expectEqual(mine.length, 2, 'both levels')
+            const superior = mine.find(
+                option =>
+                    option.action.type == MinionActionType.ActionCardFromHand &&
+                    option.action.usage.disciplines?.every(
+                        use => use.level == DisciplineLevel.SUPERIOR,
+                    ),
+            )
+            if (!superior) {
+                throw new ScenarioFailure('The superior level is not offered')
+            }
+            applyOption(decision, superior)
+            expectEqual(gameState.action?.bleed, 3, 'bleed: 1 + 2')
+
+            const first = passUntilDecides(gameState, victim)
+            applyOption(first, findOption(first.options, 'block'))
+            // Everybody passes until the block is resolved
+            for (let i = 0; i < 6 && !gameState.combat; i++) {
+                const decider = getDecidingPlayer(gameState)
+                const next = decider && getDecisionPoint(gameState, decider)
+                const pass = next?.options.find(option =>
+                    ['noModifier', 'noReaction'].includes(option.type),
+                )
+                if (!next || !pass) {
+                    break
+                }
+                applyOption(next, pass)
+            }
+            const combat = gameState.combat
+            if (!combat) {
+                throw new ScenarioFailure('No combat after the block')
+            }
+            expectEqual(combat.acting.minion, turn.ready, 'acting minion')
+            expectEqual(combat.defending.minion, blocker, 'blocked by')
+            expectEqual(combat.acting.strengthBonus, 2, 'bonus')
+
+            const combatDecision = getDecisionPoint(gameState, player)
+            const bonus = combatDecision?.options.find(
+                option => option.type == 'combatStrengthBonus',
+            )
+            if (!combatDecision || !bonus) {
+                throw new ScenarioFailure('The bonus is not offered')
+            }
+            applyOption(combatDecision, bonus)
+            expectEqual(combat.acting.strength, 3, 'strength')
+            expectEqual(combat.acting.strengthBonus, 0, 'bonus used')
+        },
+    },
+    {
+        name: 'Carfax Abbey needs a ready Anarch and feeds an Anarch in the unlock phase, not another sect',
+        run() {
+            const turn = createWarzoneTurn(CARFAX_ID)
+            const { gameState, player, warzone } = turn
+            expectEqual(countMasterOptions(turn), 0, 'no ready vampire')
+            const octane = readySpecific(gameState, player, OCTANE_ID, 2)
+            expectEqual(countMasterOptions(turn), 1, 'a ready Anarch')
+            octane.vampireAttrs.sect = 'Camarilla'
+            expectEqual(countMasterOptions(turn), 0, 'a ready Camarilla vampire')
+            octane.vampireAttrs.sect = 'Anarch'
+
+            gameState.moveCardToRegion(warzone, player.ready)
+            gameState.turnPhaseIndex = TurnSequence.indexOf(TurnPhase.Unlock)
+            const rayne = readySpecific(gameState, player, RAYNE_ID, 1)
+            rayne.vampireAttrs.sect = 'Camarilla'
+            expectEqual(countUnlockEffects(turn), 1, 'only the Anarch is a target')
+            const decision = getMasterDecision(turn)
+            applyOption(decision, findOption(decision.options, 'unlockEffect'))
+            expectEqual(octane.blood, 3, 'blood gained')
+            expectEqual(rayne.blood, 1, 'the other vampire gained nothing')
+        },
+    },
+    {
+        name: 'Ariane has 1 stealth less on undirected actions',
+        run() {
+            const turn = createMinionPhase(5, 0, BrujahDeck)
+            const ariane = readySpecific(turn.gameState, turn.player, ARIANE_ID, 4)
+            const { decision, options } = getActionOptions(turn, MinionActionType.Hunt)
+            const hunt = options.find(option => option.action.actingMinion == ariane)
+            if (!hunt) {
+                throw new ScenarioFailure('Ariane cannot hunt')
+            }
+            applyOption(decision, hunt)
+            expectEqual(turn.gameState.action?.stealth, 0, 'stealth of the hunt')
+        },
+    },
+    {
+        name: 'Elen Kamjian must bleed while her Methuselah controls a locked minion: nothing else, no end of phase',
+        run() {
+            const turn = createMinionPhase(5, 0, BrujahDeck)
+            const elen = readySpecific(turn.gameState, turn.player, ELEN_ID, 4)
+            const elenOptions = () => {
+                const decision = getDecisionPoint(turn.gameState, turn.player)
+                if (!decision) {
+                    throw new ScenarioFailure('No decision point')
+                }
+                return {
+                    decision,
+                    actions: optionsOfType(decision.options, 'declareAction').filter(
+                        option => option.action.actingMinion == elen,
+                    ),
+                }
+            }
+            const free = elenOptions()
+            expectEqual(
+                free.actions.some(option => option.action.type == MinionActionType.Hunt),
+                true,
+                'free to hunt',
+            )
+            expectEqual(
+                free.decision.options.some(option => option.type == 'endPhase'),
+                true,
+                'free to end the phase',
+            )
+
+            // Another vampire is locked ( Elen herself may be the one drawn as ready )
+            readyVampire(turn.gameState, turn.player, 3).lock()
+            const forced = elenOptions()
+            expectEqual(
+                forced.actions.every(option => option.action.type == MinionActionType.Bleed),
+                true,
+                'bleed only',
+            )
+            expectEqual(forced.actions.length > 0, true, 'a bleed is offered')
+            expectEqual(
+                forced.decision.options.some(option => option.type == 'endPhase'),
+                false,
+                'no end of phase',
+            )
+        },
+    },
+]
+
 function parseFilter(argv: string[]): string {
     const index = argv.indexOf('--filter')
     if (index < 0) {
@@ -2311,6 +4149,11 @@ function runScenarios(filter: string): ScenarioResult[] {
         ...HUMAN_DAMAGE_SCENARIOS,
         ...BOUNCE_SCENARIOS,
         ...MASTER_SCENARIOS,
+        ...CATALOG_SCENARIOS,
+        ...BRUJAH_SCENARIOS,
+        ...BRUJAH_COMBAT_SCENARIOS,
+        ...BRUJAH_ACTION_SCENARIOS,
+        ...BRUJAH_REACTION_SCENARIOS,
     ]
         .filter(({ name }) => name.toLowerCase().includes(filter))
         .map(({ name, run }) => {

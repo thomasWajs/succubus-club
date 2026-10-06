@@ -23,7 +23,7 @@ import {
  * mutations ( every client applies the same mutation, so the result is the same
  * everywhere ). Each returns the log lines describing what happened.
  *
- * Not modelled yet: additional strikes, retainers, immunity to damage, destroy /
+ * Not modelled yet: retainers, immunity to damage, destroy /
  * steal equipment, targeting a retainer, equipment and retainers of a burned
  * minion ( they stay where they are ), diablerie.
  */
@@ -43,6 +43,12 @@ export function createCombatantMinion(minion: Minion): CombatantMinion {
         strength: minion.minionAttrs.strength,
         strike: null,
         pendingDamage: { regular: 0, aggravated: 0 },
+        bloodLost: 0,
+        additionalStrikes: 0,
+        limitedAdditionalGained: false,
+        strikesInPair: true,
+        pressesGranted: 0,
+        strengthBonus: 0,
     }
 }
 
@@ -57,8 +63,17 @@ export function createCombatState(acting: Minion, defending: Minion): CombatStat
         lastPlayedBy: null,
         pressed: false,
         resolvedStrikeTier: -1,
+        strikePair: 0,
+        handStrikesOnly: false,
+        closeNextRound: false,
+        playedThisRound: {},
         isOver: false,
     }
+}
+
+// A minion enters combat with another one ( an action, not a block ): the combat starts at once
+export function startCombat(gameState: GameState, acting: Minion, defending: Minion): void {
+    gameState.combat = createCombatState(acting, defending)
 }
 
 export function createStrike(name: string, overrides: Partial<CombatStrike> = {}): CombatStrike {
@@ -69,6 +84,8 @@ export function createStrike(name: string, overrides: Partial<CombatStrike> = {}
         aggravated: false,
         ranged: false,
         dodge: false,
+        isHand: false,
+        undodgeable: false,
         combatEnds: false,
         firstStrike: false,
         stealBlood: 0,
@@ -78,7 +95,7 @@ export function createStrike(name: string, overrides: Partial<CombatStrike> = {}
 
 // The default strike: damage equal to the strength, at close range only
 export function createHandStrike(combatant: CombatantMinion): CombatStrike {
-    return createStrike('Hand strike', { damage: combatant.strength })
+    return createStrike('Hand strike', { damage: combatant.strength, isHand: true })
 }
 
 export function createDodgeStrike(source: Card | null = null): CombatStrike {
@@ -180,22 +197,82 @@ export function canManeuver(gameState: GameState, minion: Minion, strike?: Comba
     if (strike && combatant?.strike) {
         return Invalid('The strike is already chosen')
     }
+    if (strike && combat.handStrikesOnly && !strike.isHand) {
+        return Invalid('Only hand strikes can be used this round')
+    }
     return VALID
 }
 
-export function canChooseStrike(gameState: GameState, minion: Minion): Validity {
+// An additional strike can come with the strike chosen ( a strike card that gives one )
+export type AdditionalStrikeGain = { limited: boolean }
+
+function canGainAdditionalStrike(
+    combatant: CombatantMinion | null,
+    gain: AdditionalStrikeGain,
+): Validity {
+    return gain.limited && combatant?.limitedAdditionalGained ?
+            Invalid('Only one limited additional strike per round')
+        :   VALID
+}
+
+export function canChooseStrike(
+    gameState: GameState,
+    minion: Minion,
+    strike?: CombatStrike,
+    additional?: AdditionalStrikeGain,
+): Validity {
     const validity = getMoveValidity(gameState, CombatStep.Strike, minion)
     const combat = gameState.combat
     if (!validity.isValid || !combat) {
         return validity
     }
-    if (getCombatant(combat, minion)?.strike) {
+    const combatant = getCombatant(combat, minion)
+    if (combatant?.strike) {
         return Invalid('The strike is already chosen')
     }
-    return VALID
+    if (!combatant?.strikesInPair) {
+        return Invalid('No strike to choose in this pair')
+    }
+    if (strike && combat.handStrikesOnly && !strike.isHand) {
+        return Invalid('Only hand strikes can be used this round')
+    }
+    return additional ? canGainAdditionalStrike(combatant, additional) : VALID
 }
 
-export function canPress(gameState: GameState, minion: Minion): Validity {
+// Cards played in the window after a pair of strikes
+export function canAddStrikes(
+    gameState: GameState,
+    minion: Minion,
+    gain: AdditionalStrikeGain,
+): Validity {
+    const combat = gameState.combat
+    if (!combat) {
+        return Invalid('No combat in progress')
+    }
+    const validity = getMoveValidity(gameState, CombatStep.AdditionalStrikes, minion)
+    return validity.isValid ? canGainAdditionalStrike(getCombatant(combat, minion), gain) : validity
+}
+
+// A window of the steps before the strikes: the card says which one it is played in
+export function canSetStrength(gameState: GameState, minion: Minion): Validity {
+    const combat = gameState.combat
+    if (!combat) {
+        return Invalid('No combat in progress')
+    }
+    if (combat.step != CombatStep.BeforeRange && combat.step != CombatStep.BeforeStrikes) {
+        return Invalid(`The strength cannot be changed during the ${combat.step} step`)
+    }
+    const combatant = getCombatant(combat, minion)
+    if (!combatant) {
+        return Invalid(`${minion.name} is not in this combat`)
+    }
+    return getPlayer(combatant) == combat.impulsePlayer ?
+            VALID
+        :   Invalid(`${minion.name} does not have the impulse`)
+}
+
+// A press: the one a card gives ( granted ) is not played from the hand
+export function canPress(gameState: GameState, minion: Minion, granted = false): Validity {
     const validity = getMoveValidity(gameState, CombatStep.Press, minion)
     const combat = gameState.combat
     if (!validity.isValid || !combat) {
@@ -204,7 +281,50 @@ export function canPress(gameState: GameState, minion: Minion): Validity {
     if (combat.lastPlayedBy == minion.controller) {
         return Invalid('A minion cannot play two presses in a row')
     }
+    if (granted && !getCombatant(combat, minion)?.pressesGranted) {
+        return Invalid('No press to use')
+    }
     return VALID
+}
+
+// The grapple: before the strikes are chosen, at close range
+export function canGrapple(gameState: GameState, minion: Minion): Validity {
+    const validity = getMoveValidity(gameState, CombatStep.BeforeStrikes, minion)
+    const combat = gameState.combat
+    if (!validity.isValid || !combat) {
+        return validity
+    }
+    if (combat.range != CombatRange.Close) {
+        return Invalid('A grapple needs close range')
+    }
+    return VALID
+}
+
+// Blood gained at the end of the round ( Taste of Vitae )
+export function canGainBlood(gameState: GameState, minion: Minion): Validity {
+    const validity = getMoveValidity(gameState, CombatStep.EndOfRound, minion)
+    const combat = gameState.combat
+    if (!validity.isValid || !combat) {
+        return validity
+    }
+    const combatant = getCombatant(combat, minion)
+    if (!combatant || !isCombatReady(combatant) || !minion.isVampire()) {
+        return Invalid('Only a ready vampire gains blood')
+    }
+    return VALID
+}
+
+// The strength bonus a card gave for the first round ( Show of Force ), taken before the range
+export function canTakeStrengthBonus(gameState: GameState, minion: Minion): Validity {
+    const combat = gameState.combat
+    if (!combat || combat.round != 1) {
+        return Invalid('The bonus is for the first round')
+    }
+    const validity = getMoveValidity(gameState, CombatStep.BeforeRange, minion)
+    if (!validity.isValid) {
+        return validity
+    }
+    return getCombatant(combat, minion)?.strengthBonus ? VALID : Invalid('No bonus to take')
 }
 
 export function canPreventDamage(
@@ -249,7 +369,9 @@ function enterStep(combat: CombatState, step: CombatStep): void {
 // Minions that still have to choose their strike, acting minion first. A strike
 // can already be set: a maneuver from a strike card or a weapon chooses it too.
 function advanceStrikeChoices(gameState: GameState, combat: CombatState, log: string[]): void {
-    const next = [combat.acting, combat.defending].find(combatant => !combatant.strike)
+    const next = [combat.acting, combat.defending].find(
+        combatant => !combatant.strike && combatant.strikesInPair,
+    )
     if (next) {
         combat.impulsePlayer = getPlayer(next)
     } else {
@@ -260,7 +382,13 @@ function advanceStrikeChoices(gameState: GameState, combat: CombatState, log: st
 function closeWindow(gameState: GameState, combat: CombatState, log: string[]): void {
     switch (combat.step) {
         case CombatStep.BeforeRange:
-            enterStep(combat, CombatStep.DetermineRange)
+            // A grapple of the last round: this round is at close range, nobody can maneuver
+            if (combat.closeNextRound) {
+                combat.closeNextRound = false
+                enterStep(combat, CombatStep.BeforeStrikes)
+            } else {
+                enterStep(combat, CombatStep.DetermineRange)
+            }
             break
         case CombatStep.DetermineRange:
             enterStep(combat, CombatStep.BeforeStrikes)
@@ -271,6 +399,13 @@ function closeWindow(gameState: GameState, combat: CombatState, log: string[]): 
             break
         case CombatStep.DamageResolution:
             finishDamageResolution(gameState, combat, log)
+            break
+        case CombatStep.AdditionalStrikes:
+            if (combat.acting.additionalStrikes > 0 || combat.defending.additionalStrikes > 0) {
+                startAdditionalPair(gameState, combat, log)
+            } else {
+                enterStep(combat, CombatStep.Press)
+            }
             break
         case CombatStep.Press:
             enterStep(combat, CombatStep.EndOfRound)
@@ -294,19 +429,46 @@ function finishRound(gameState: GameState, combat: CombatState, log: string[]): 
     combat.range = CombatRange.Close
     combat.pressed = false
     combat.resolvedStrikeTier = -1
-    combat.acting.strike = null
-    combat.defending.strike = null
+    combat.strikePair = 0
+    combat.handStrikesOnly = false
+    combat.playedThisRound = {}
+    for (const combatant of [combat.acting, combat.defending]) {
+        combatant.strike = null
+        combatant.strikesInPair = true
+        combatant.additionalStrikes = 0
+        combatant.limitedAdditionalGained = false
+        combatant.pressesGranted = 0
+        combatant.strengthBonus = 0
+        combatant.bloodLost = 0
+    }
     enterStep(combat, CombatStep.BeforeRange)
     log.push(`Round ${combat.round}`)
 }
 
-// After the strikes ( or when the combat ends early ): press, or end of round
+// After a pair of strikes ( or when the combat ends early ): the window to gain additional
+// strikes, or the end of round
 function leaveStrikes(combat: CombatState): void {
     if (!combat.isOver && bothReady(combat)) {
-        enterStep(combat, CombatStep.Press)
+        enterStep(combat, CombatStep.AdditionalStrikes)
     } else {
         enterStep(combat, CombatStep.EndOfRound)
     }
+}
+
+// The minions with an additional strike choose a strike in a new pair, the others sit it out
+function startAdditionalPair(gameState: GameState, combat: CombatState, log: string[]): void {
+    combat.strikePair++
+    combat.resolvedStrikeTier = -1
+    for (const combatant of [combat.acting, combat.defending]) {
+        combatant.strike = null
+        combatant.strikesInPair = combatant.additionalStrikes > 0
+        if (combatant.strikesInPair) {
+            combatant.additionalStrikes--
+        }
+    }
+    log.push('Additional strikes')
+    enterStep(combat, CombatStep.Strike)
+    advanceStrikeChoices(gameState, combat, log)
 }
 
 /**
@@ -365,7 +527,7 @@ function resolveStrike(
         return
     }
     // A dodge protects against every effect of the opposing strike, first strike included
-    if (target.strike?.dodge) {
+    if (target.strike?.dodge && !strike.undodgeable) {
         log.push(`${who} is dodged by ${target.minion.name}`)
         return
     }
@@ -434,6 +596,7 @@ function applyPendingDamage(combatant: CombatantMinion, log: string[]): DamageOu
 
     const mended = Math.min(regular, minion.blood)
     minion.blood -= mended
+    combatant.bloodLost += mended
     outcome.wounded = regular > mended
     if (regular > 0) {
         log.push(`${minion.name} mends ${mended} of ${regular} damage`)
@@ -446,6 +609,7 @@ function applyPendingDamage(combatant: CombatantMinion, log: string[]): DamageOu
         } else if (minion.blood > 0) {
             // Each further point burns a blood to avoid destruction
             minion.blood--
+            combatant.bloodLost++
         } else {
             outcome.burned = true
             break
@@ -536,6 +700,7 @@ export function passCombatImpulse(gameState: GameState): string[] {
         // acting minion the impulse back, so only a pass reaches here.
         case CombatStep.BeforeRange:
         case CombatStep.BeforeStrikes:
+        case CombatStep.AdditionalStrikes:
         case CombatStep.EndOfRound:
             if (combat.impulsePlayer == actingPlayer) {
                 combat.impulsePlayer = defendingPlayer
@@ -594,7 +759,25 @@ export function playManeuver(
     return [`${minion.name} maneuvers: ${combat.range} range`]
 }
 
-export function chooseStrike(gameState: GameState, minion: Minion, strike: CombatStrike): string[] {
+// Playing something in a window gives the acting minion the impulse back
+export function setStrength(gameState: GameState, minion: Minion, strength: number): string[] {
+    const combat = getActiveCombat(gameState)
+    const combatant = getCombatant(combat, minion)
+    if (!combatant) {
+        throw new Error(`${minion.name} is not in this combat`)
+    }
+
+    combatant.strength = strength
+    combat.impulsePlayer = getPlayer(combat.acting)
+    return [`${minion.name} has a strength of ${strength}`]
+}
+
+export function chooseStrike(
+    gameState: GameState,
+    minion: Minion,
+    strike: CombatStrike,
+    additional?: AdditionalStrikeGain,
+): string[] {
     const combat = getActiveCombat(gameState)
     const combatant = getCombatant(combat, minion)
     if (!combatant) {
@@ -603,13 +786,94 @@ export function chooseStrike(gameState: GameState, minion: Minion, strike: Comba
 
     const log = [`${minion.name} strikes: ${strike.name}`]
     combatant.strike = strike
+    if (additional) {
+        combatant.additionalStrikes++
+        combatant.limitedAdditionalGained ||= additional.limited
+        log.push(`${minion.name} gains an additional strike`)
+    }
     advanceStrikeChoices(gameState, combat, log)
     return log
 }
 
-// A press to continue, or the cancellation of the opposing one
-export function playPress(gameState: GameState, minion: Minion): string[] {
+// Playing something in a window gives the acting minion the impulse back
+export function addStrikes(
+    gameState: GameState,
+    minion: Minion,
+    gain: AdditionalStrikeGain,
+): string[] {
     const combat = getActiveCombat(gameState)
+    const combatant = getCombatant(combat, minion)
+    if (!combatant) {
+        throw new Error(`${minion.name} is not in this combat`)
+    }
+
+    combatant.additionalStrikes++
+    combatant.limitedAdditionalGained ||= gain.limited
+    combat.impulsePlayer = getPlayer(combat.acting)
+    return [`${minion.name} gains an additional strike`]
+}
+
+// Only hand strikes for the round, and what the grapple gives besides
+export function grapple(
+    gameState: GameState,
+    minion: Minion,
+    press: boolean,
+    closeNextRound: boolean,
+): string[] {
+    const combat = getActiveCombat(gameState)
+    const combatant = getCombatant(combat, minion)
+    if (!combatant) {
+        throw new Error(`${minion.name} is not in this combat`)
+    }
+
+    combat.handStrikesOnly = true
+    if (press) {
+        combatant.pressesGranted++
+    }
+    if (closeNextRound) {
+        combat.closeNextRound = true
+    }
+    combat.impulsePlayer = getPlayer(combat.acting)
+    return [`${minion.name} grapples: only hand strikes this round`]
+}
+
+export function gainBlood(gameState: GameState, minion: Minion, amount: number): string[] {
+    const combat = getActiveCombat(gameState)
+    if (!minion.isVampire()) {
+        throw new Error(`${minion.name} is not a vampire`)
+    }
+    const gained = Math.max(0, Math.min(amount, minion.minionAttrs.capacity - minion.blood))
+    minion.blood += gained
+    combat.impulsePlayer = getPlayer(combat.acting)
+    return [`${minion.name} gains ${gained} blood`]
+}
+
+export function takeStrengthBonus(gameState: GameState, minion: Minion): string[] {
+    const combat = getActiveCombat(gameState)
+    const combatant = getCombatant(combat, minion)
+    if (!combatant) {
+        throw new Error(`${minion.name} is not in this combat`)
+    }
+    combatant.strength += combatant.strengthBonus
+    const log = [`${minion.name} gains ${combatant.strengthBonus} strength`]
+    combatant.strengthBonus = 0
+    combat.impulsePlayer = getPlayer(combat.acting)
+    return log
+}
+
+export function markCombatCardPlayed(gameState: GameState, minion: Minion, krcgId: string): void {
+    const combat = getActiveCombat(gameState)
+    const played = combat.playedThisRound[minion.oid] ?? []
+    combat.playedThisRound[minion.oid] = [...played, krcgId]
+}
+
+// A press to continue, or the cancellation of the opposing one. A granted press is used up.
+export function playPress(gameState: GameState, minion: Minion, granted = false): string[] {
+    const combat = getActiveCombat(gameState)
+    const combatant = getCombatant(combat, minion)
+    if (granted && combatant) {
+        combatant.pressesGranted--
+    }
 
     combat.pressed = !combat.pressed
     combat.lastPlayedBy = minion.controller

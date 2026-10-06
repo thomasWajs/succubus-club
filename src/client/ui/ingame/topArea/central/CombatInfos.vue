@@ -109,6 +109,7 @@ const STEP_LABELS: Record<CombatStep, string> = {
     [CombatStep.BeforeStrikes]: 'Before strikes',
     [CombatStep.Strike]: 'Strike',
     [CombatStep.DamageResolution]: 'Damage resolution',
+    [CombatStep.AdditionalStrikes]: 'Additional strikes',
     [CombatStep.Press]: 'Press',
     [CombatStep.EndOfRound]: 'End of round',
 }

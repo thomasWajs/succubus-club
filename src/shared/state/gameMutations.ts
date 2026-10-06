@@ -56,12 +56,23 @@ import {
 } from '@/shared/state/actionState.ts'
 import {
     applyDamageNow,
+    AdditionalStrikeGain,
+    addStrikes,
+    canAddStrikes,
     canApplyDamage,
     canChooseStrike,
+    canGainBlood,
+    canGrapple,
+    canTakeStrengthBonus,
+    gainBlood,
+    grapple,
+    markCombatCardPlayed,
+    takeStrengthBonus,
     canManeuver,
     canPass,
     canPress,
     canPreventDamage,
+    canSetStrength,
     chooseStrike,
     createCombatState,
     endCombatNow,
@@ -69,6 +80,7 @@ import {
     playManeuver,
     playPress,
     preventDamage,
+    setStrength,
 } from '@/shared/state/combatState.ts'
 import {
     createReferendumState,
@@ -1672,6 +1684,7 @@ class UnlockAll extends PlayerMutation {
                     this.previousState.cards.push(card)
                 }
                 card.unlock()
+                delete gameState.playedSinceUnlock[card.oid]
             }
         }
         gameState.turnResources.unlocked = true
@@ -1745,6 +1758,37 @@ class SpendMasterPhaseAction extends PlayerMutation {
 }
 
 /**
+ * Spend transfers ( a card effect that is paid with them, like the influence phase does )
+ */
+
+interface SpendTransfersParams extends PlayerParams {
+    amount: number
+}
+
+class SpendTransfers extends GameMutation<SpendTransfersParams> {
+    _isUserCancellable = false
+    readonly syncMode = MutationSyncMode.Exclusive
+
+    get allowedPlayer() {
+        return this.params.player
+    }
+
+    getValidity(gameState: GameState) {
+        return gameState.turnResources.transfers >= this.params.amount ?
+                VALID
+            :   Invalid('Not enough transfers left')
+    }
+
+    protected updateGameState(gameState: GameState) {
+        gameState.turnResources.transfers -= this.params.amount
+    }
+
+    formatForLog() {
+        return `${this.params.player.name} spends ${this.params.amount} transfer(s)`
+    }
+}
+
+/**
  * Mark a card as used this turn ( a card effect that works once per turn )
  */
 
@@ -1776,6 +1820,113 @@ class MarkCardUsed extends GameMutation<MarkCardUsedParams> {
 
     formatForLog() {
         return `${CARD_LOG_PLACEHOLDER} is used`
+    }
+}
+
+/**
+ * Note that a minion played a card ( a card that a minion can play once between its unlock phases ).
+ * Forgotten when the minion is unlocked by the unlock phase.
+ */
+
+interface MarkPlayedSinceUnlockParams extends GameMutationParams {
+    minion: Minion
+    card: Card
+}
+
+class MarkPlayedSinceUnlock extends GameMutation<MarkPlayedSinceUnlockParams> {
+    _isUserCancellable = false
+    readonly syncMode = MutationSyncMode.Exclusive
+
+    get allowedPlayer() {
+        // The reacting player is not the active one
+        return ANY_PLAYER
+    }
+
+    get card() {
+        return this.params.minion
+    }
+
+    protected updateGameState(gameState: GameState) {
+        const { minion, card } = this.params
+        if (card.krcgId) {
+            gameState.playedSinceUnlock[minion.oid] = [
+                ...(gameState.playedSinceUnlock[minion.oid] ?? []),
+                card.krcgId,
+            ]
+        }
+    }
+
+    formatForLog() {
+        return `${CARD_LOG_PLACEHOLDER} played ${this.params.card.name}`
+    }
+}
+
+/**
+ * Action: Wake a minion ( it ignores the requirement to be unlocked for playing reaction cards and
+ * attempting to block until the end of the action )
+ */
+
+interface WakeParams extends GameMutationParams {
+    minion: Minion
+}
+
+class WakeMinion extends GameMutation<WakeParams> {
+    _isUserCancellable = false
+    readonly syncMode = MutationSyncMode.Exclusive
+
+    get allowedPlayer() {
+        // The reacting player is not the active one
+        return ANY_PLAYER
+    }
+
+    get card() {
+        return this.params.minion
+    }
+
+    getValidity(gameState: GameState) {
+        return gameState.action ? VALID : Invalid('Must be applied during an action')
+    }
+
+    protected updateGameState(gameState: GameState) {
+        if (!gameState.action) {
+            throw new Error('gameState.action is null')
+        }
+        if (!gameState.action.awakeMinions.includes(this.params.minion)) {
+            gameState.action.awakeMinions.push(this.params.minion)
+        }
+    }
+
+    formatForLog() {
+        return `${CARD_LOG_PLACEHOLDER} wakes`
+    }
+}
+
+/**
+ * Action: The minions failing to block the action are locked before it resolves. Only the blocks
+ * that fail from now on count.
+ */
+
+class LockFailedBlockers extends GameMutation<EmptyParams> {
+    _isUserCancellable = false
+    readonly syncMode = MutationSyncMode.Exclusive
+
+    get allowedPlayer() {
+        return ANY_PLAYER
+    }
+
+    getValidity(gameState: GameState) {
+        return gameState.action ? VALID : Invalid('Must be applied during an action')
+    }
+
+    protected updateGameState(gameState: GameState) {
+        if (!gameState.action) {
+            throw new Error('gameState.action is null')
+        }
+        gameState.action.lockFailedBlockers = true
+    }
+
+    formatForLog() {
+        return 'Minions failing to block will be locked'
     }
 }
 
@@ -2006,7 +2157,8 @@ class DeclareActionModifier extends GameMutation<DeclareActionModifierParams> {
             return `No Action Modifier`
         } else {
             const am = this.params.actionModifier
-            return `Declare ${am.card.name} ${disciplineUsesImg(am.usage.disciplines ?? [])}${usageXLog(am.usage)}`
+            const by = am.by ? ` by ${am.by.name}` : ''
+            return `Declare ${am.card.name} ${disciplineUsesImg(am.usage.disciplines ?? [])}${usageXLog(am.usage)}${by}`
         }
     }
 
@@ -2228,6 +2380,10 @@ export class ResolveAction extends GameMutation<EmptyParams> {
         }
         // Store for use formatForLog()
         this.previousState.actionName = actions.getName(gameState.action.minionAction)
+        // Faceless Night: the minions that failed to block are locked before the resolution
+        for (const minion of gameState.action.blockersToLock) {
+            minion.lock()
+        }
         actions.resolve(gameState.action.minionAction)
         gameState.action = null
     }
@@ -2282,11 +2438,17 @@ export class ResolveBlock extends GameMutation<EmptyParams> {
             blockingMinion.lock()
 
             gameState.combat = createCombatState(action.minionAction.actingMinion, blockingMinion)
+            gameState.combat.acting.strengthBonus = actions.getBlockedStrengthBonus(
+                action.minionAction,
+            )
             gameState.action = null
         }
         // Failed block
         else {
             this.previousState.isBlockSuccessful = false
+            if (action.lockFailedBlockers && !action.blockersToLock.includes(blockingMinion)) {
+                action.blockersToLock.push(blockingMinion)
+            }
 
             action.blockingDecisions = []
             action.impulsePlayer = gameState.activePlayer
@@ -2357,18 +2519,84 @@ class CombatManeuver extends CombatMutation<CombatManeuverParams> {
     }
 }
 
+interface CombatSetStrengthParams extends GameMutationParams {
+    minion: Minion
+    strength: number
+}
+
+class CombatSetStrength extends CombatMutation<CombatSetStrengthParams> {
+    getValidity(gameState: GameState) {
+        return canSetStrength(gameState, this.params.minion)
+    }
+
+    protected move(gameState: GameState) {
+        return setStrength(gameState, this.params.minion, this.params.strength)
+    }
+}
+
 interface CombatStrikeParams extends GameMutationParams {
     minion: Minion
     strike: CombatStrike
+    // The strike card also gives an additional strike
+    additional?: AdditionalStrikeGain
 }
 
 class CombatChooseStrike extends CombatMutation<CombatStrikeParams> {
     getValidity(gameState: GameState) {
-        return canChooseStrike(gameState, this.params.minion)
+        const { minion, strike, additional } = this.params
+        return canChooseStrike(gameState, minion, strike, additional)
     }
 
     protected move(gameState: GameState) {
-        return chooseStrike(gameState, this.params.minion, this.params.strike)
+        const { minion, strike, additional } = this.params
+        return chooseStrike(gameState, minion, strike, additional)
+    }
+}
+
+interface CombatAddStrikesParams extends GameMutationParams {
+    minion: Minion
+    gain: AdditionalStrikeGain
+}
+
+class CombatAddStrikes extends CombatMutation<CombatAddStrikesParams> {
+    getValidity(gameState: GameState) {
+        return canAddStrikes(gameState, this.params.minion, this.params.gain)
+    }
+
+    protected move(gameState: GameState) {
+        return addStrikes(gameState, this.params.minion, this.params.gain)
+    }
+}
+
+interface CombatGrappleParams extends GameMutationParams {
+    minion: Minion
+    press: boolean
+    closeNextRound: boolean
+}
+
+class CombatGrapple extends CombatMutation<CombatGrappleParams> {
+    getValidity(gameState: GameState) {
+        return canGrapple(gameState, this.params.minion)
+    }
+
+    protected move(gameState: GameState) {
+        const { minion, press, closeNextRound } = this.params
+        return grapple(gameState, minion, press, closeNextRound)
+    }
+}
+
+interface CombatGainBloodParams extends GameMutationParams {
+    minion: Minion
+    amount: number
+}
+
+class CombatGainBlood extends CombatMutation<CombatGainBloodParams> {
+    getValidity(gameState: GameState) {
+        return canGainBlood(gameState, this.params.minion)
+    }
+
+    protected move(gameState: GameState) {
+        return gainBlood(gameState, this.params.minion, this.params.amount)
     }
 }
 
@@ -2376,13 +2604,49 @@ interface CombatMinionParams extends GameMutationParams {
     minion: Minion
 }
 
-class CombatPress extends CombatMutation<CombatMinionParams> {
+class CombatTakeStrengthBonus extends CombatMutation<CombatMinionParams> {
     getValidity(gameState: GameState) {
-        return canPress(gameState, this.params.minion)
+        return canTakeStrengthBonus(gameState, this.params.minion)
     }
 
     protected move(gameState: GameState) {
-        return playPress(gameState, this.params.minion)
+        return takeStrengthBonus(gameState, this.params.minion)
+    }
+}
+
+interface CombatMarkPlayedParams extends GameMutationParams {
+    minion: Minion
+    card: Card
+}
+
+// Remembers the combat card a minion played this round ( "only one per round" cards )
+class CombatMarkPlayed extends CombatMutation<CombatMarkPlayedParams> {
+    getValidity(gameState: GameState) {
+        return gameState.combat ? VALID : Invalid('No combat in progress')
+    }
+
+    protected move(gameState: GameState) {
+        const { minion, card } = this.params
+        if (card.krcgId) {
+            markCombatCardPlayed(gameState, minion, card.krcgId)
+        }
+        return []
+    }
+}
+
+interface CombatPressParams extends GameMutationParams {
+    minion: Minion
+    // The press is the one a card played earlier gave, not a card from the hand
+    granted?: boolean
+}
+
+class CombatPress extends CombatMutation<CombatPressParams> {
+    getValidity(gameState: GameState) {
+        return canPress(gameState, this.params.minion, this.params.granted)
+    }
+
+    protected move(gameState: GameState) {
+        return playPress(gameState, this.params.minion, this.params.granted)
     }
 }
 
@@ -3133,6 +3397,8 @@ export const gameMutations = {
     moveCard: defineMutation(MoveCard),
     moveCardToRegion: defineMutation(MoveCardToRegion),
     markCardUsed: defineMutation(MarkCardUsed),
+    spendTransfers: defineMutation(SpendTransfers),
+    markPlayedSinceUnlock: defineMutation(MarkPlayedSinceUnlock),
     moveToBottom: defineMutation(MoveToBottom),
     playFaceDown: defineMutation(PlayFaceDown),
     playFaceDownInverse: defineMutation(PlayFaceDownInverse),
@@ -3156,6 +3422,8 @@ export const gameMutations = {
     ACTION_declareAction: defineMutation(DeclareAction),
     ACTION_declareActionInverse: defineMutation(DeclareActionInverse),
     ACTION_updateUsage: defineMutation(UpdateActionUsage),
+    ACTION_wake: defineMutation(WakeMinion),
+    ACTION_lockFailedBlockers: defineMutation(LockFailedBlockers),
     ACTION_declareActionModifier: defineMutation(DeclareActionModifier),
     ACTION_declareBlock: defineMutation(DeclareBlock),
     ACTION_declareReaction: defineMutation(DeclareReaction),
@@ -3169,6 +3437,12 @@ export const gameMutations = {
     COMBAT_pass: defineMutation(CombatPass),
     COMBAT_maneuver: defineMutation(CombatManeuver),
     COMBAT_chooseStrike: defineMutation(CombatChooseStrike),
+    COMBAT_setStrength: defineMutation(CombatSetStrength),
+    COMBAT_addStrikes: defineMutation(CombatAddStrikes),
+    COMBAT_grapple: defineMutation(CombatGrapple),
+    COMBAT_gainBlood: defineMutation(CombatGainBlood),
+    COMBAT_takeStrengthBonus: defineMutation(CombatTakeStrengthBonus),
+    COMBAT_markPlayed: defineMutation(CombatMarkPlayed),
     COMBAT_press: defineMutation(CombatPress),
     COMBAT_preventDamage: defineMutation(CombatPreventDamage),
     COMBAT_applyDamage: defineMutation(CombatApplyDamage),

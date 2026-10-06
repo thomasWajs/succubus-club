@@ -100,6 +100,9 @@ export class GameState {
         usedCards: [] as CardOid[], // cards whose once-per-turn effect was used
     }
 
+    // The cards ( krcgId ) that a minion played since its last unlock phase, keyed by minion oid
+    playedSinceUnlock: Record<CardOid, string[]> = {}
+
     /** Action and combat state for the bot **/
     action: ActionState | null = null
     combat: CombatState | null = null

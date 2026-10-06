@@ -70,6 +70,13 @@ export type ActionState = {
     // Minions that attempted a block during this action. Unlike blockingDecisions
     // it survives a failed block, so the referee can avoid offering a retry.
     blockAttempters: Minion[]
+    // Minions woken by a card: they ignore the requirement to be unlocked to block and to react,
+    // until the end of the action
+    awakeMinions: Minion[]
+    // A card said that the minions failing to block this action are locked before it resolves
+    lockFailedBlockers: boolean
+    // The minions whose failed block is to be locked when the action resolves
+    blockersToLock: Minion[]
     stealth: number
     intercept: number
     bleed: number
@@ -127,13 +134,15 @@ export type ReferendumState = {
 
 /** Combat state **/
 
-// The seven steps of a combat round, in order
+// The steps of a combat round, in order. The strike and damage resolution steps are repeated for
+// each pair of strikes: after the pairs, a window to gain additional strikes
 export enum CombatStep {
     BeforeRange = 'BeforeRange',
     DetermineRange = 'DetermineRange',
     BeforeStrikes = 'BeforeStrikes',
     Strike = 'Strike',
     DamageResolution = 'DamageResolution',
+    AdditionalStrikes = 'AdditionalStrikes',
     Press = 'Press',
     EndOfRound = 'EndOfRound',
 }
@@ -154,6 +163,10 @@ export type CombatStrike = {
     // Usable at long range ( "R" damage or a ranged strike )
     ranged: boolean
     dodge: boolean
+    // A strike that is a hand strike, whatever its damage ( the grapple only allows these )
+    isHand: boolean
+    // The opposing dodge does not protect from it
+    undodgeable: boolean
     combatEnds: boolean
     firstStrike: boolean
     // Blood ( or life ) moved from the opposing minion to the striking one
@@ -171,6 +184,17 @@ export type CombatantMinion = {
     strike: CombatStrike | null
     // Damage inflicted by the strikes just resolved, not yet mended
     pendingDamage: PendingDamage
+    // Blood burned to damage this round ( the amount that Taste of Vitae gives back )
+    bloodLost: number
+    // Additional strikes gained and not used yet, and whether a limited card gave one this round
+    additionalStrikes: number
+    limitedAdditionalGained: boolean
+    // Chooses a strike in the current pair ( always in the first one )
+    strikesInPair: boolean
+    // Presses given by a card played this round and not used yet
+    pressesGranted: number
+    // A strength bonus the combatant can take before the range of the first round ( Show of Force )
+    strengthBonus: number
 }
 
 export type CombatState = {
@@ -188,6 +212,14 @@ export type CombatState = {
     pressed: boolean
     // Strikes of tiers up to this one are resolved ( see combatState.ts )
     resolvedStrikeTier: number
+    // 0 for the normal pair of strikes, then 1 for each pair of additional strikes
+    strikePair: number
+    // Only hand strikes can be used this round ( grapple )
+    handStrikesOnly: boolean
+    // The next round is at close range and skips the determine range step
+    closeNextRound: boolean
+    // The krcgIds of the combat cards each minion ( by oid ) played this round
+    playedThisRound: Record<string, string[]>
     // The combat ends after the end of round step
     isOver: boolean
 }
@@ -201,6 +233,7 @@ export enum MinionActionType {
     RescueFromTorpor = 'RescueFromTorpor',
     Diablerize = 'Diablerize',
     BecomeAnarch = 'BecomeAnarch',
+    EnterCombat = 'EnterCombat',
     ActionCardFromHand = 'ActionCardFromHand',
     ActionInPlay = 'ActionInPlay',
 }
@@ -215,6 +248,7 @@ export const MinionActionNames = {
     RescueFromTorpor: 'Rescue from torpor',
     Diablerize: 'Diablerize',
     BecomeAnarch: 'Become anarch',
+    EnterCombat: 'Enter combat',
     ActionCardFromHand: 'Action Card From Hand',
     ActionInPlay: 'Action In Play',
 }
@@ -261,6 +295,12 @@ export type BecomeAnarchAction = BaseMinionAction & {
     type: MinionActionType.BecomeAnarch
 }
 
+// A minion that can enter combat with a minion of another Methuselah ( Theo Bell )
+export type EnterCombatAction = BaseMinionAction & {
+    type: MinionActionType.EnterCombat
+    target: Minion
+}
+
 export type LeaveTorporAction = BaseMinionAction & {
     type: MinionActionType.LeaveTorpor
 }
@@ -295,6 +335,7 @@ export type MinionAction =
     | RescueFromTorporAction
     | DiablerizeAction
     | BecomeAnarchAction
+    | EnterCombatAction
     | ActionCardFromHandAction
     | ActionInPlayAction
 
@@ -302,6 +343,8 @@ export type ActionModifier = Declaration & {
     type: typeof ActionModifierType
     card: LibraryCard
     usage: LibraryCardUsage
+    // The minion playing the card, when it is not the acting minion ( a few cards allow it )
+    by?: Minion
 }
 
 export type Reaction = Declaration & {
