@@ -23,6 +23,8 @@ import {
     CombatState,
     CombatStep,
     CombatStrike,
+    DisciplineUse,
+    GameType,
     LibraryCardUsage,
     MinionAction,
     MinionActionType,
@@ -36,15 +38,17 @@ import {
     TurnPhase,
     TurnSequence,
 } from '@/shared/const/model.ts'
-import { CARD_HEIGHT } from '@/shared/const/game.ts'
+import { CARD_HEIGHT, TORPOR_ZONE_Y } from '@/shared/const/game.ts'
 import { Disciplines } from '@/shared/types/resources.ts'
 import { getBlockingMinion } from '@/shared/state/actionState.ts'
+import { getAttachedCards, getHost, isAttached } from '@/shared/state/attachments.ts'
 import { addEventObserver, emitEvent } from '@/shared/state/events.ts'
 import { getTriggerKey } from '@/shared/state/triggers.ts'
 import {
     ABRAHAM_MELLON_ID,
     ASYLUM_HUNTING_GROUND_ID,
     BEHIND_YOU_ID,
+    BLOOD_DOLL_ID,
     DEFLECTION_ID,
     ELDER_LIBRARY_ID,
     FAR_MASTERY_ID,
@@ -53,7 +57,28 @@ import {
 } from '@/shared/cardImpl/cardIds.ts'
 import { MasterCardImplementation } from '@/shared/cardImpl/base.ts'
 import { MASTER_CARD_IMPLEMENTATIONS } from '@/shared/cardImpl/index.ts'
-import { getUnlockEffectOptions } from '@/shared/bot/cardOptions.ts'
+import {
+    getAttachedCombatOptions,
+    getCombatCardOptions,
+    getUnlockEffectOptions,
+} from '@/shared/bot/cardOptions.ts'
+import {
+    getAttachCandidates,
+    getMinionIntercept,
+    getMinionStrength,
+    matchesMinionFilter,
+} from '@/shared/cardImpl/catalog/attached.ts'
+import { actionImplementation } from '@/shared/cardImpl/catalog/interpreter.ts'
+import {
+    aMinion,
+    attachToMinion,
+    aVampire,
+    defineCard,
+    strength as strengthEffect,
+} from '@/shared/cardImpl/catalog/builders.ts'
+import { MinionFilter } from '@/shared/cardImpl/catalog/types.ts'
+import { canDeclare } from '@/shared/state/minionActions.ts'
+import { hasUniqueCopyInPlay } from '@/shared/state/cardRequirements.ts'
 import { chooseThroughView, createPlayerView } from '@/shared/bot/playerView.ts'
 import { findOption } from '@/shared/bot/helpers.ts'
 import {
@@ -69,6 +94,7 @@ import {
     registerQueuedMutationTrigger,
     registerSyncMutationTrigger,
 } from './harness.ts'
+import { AttachDeck } from './attachDeck.ts'
 import { BrujahDeck, GovernDeck, MalkavDeck } from '@/shared/bot/decks.ts'
 import { DeckList } from '@/shared/types/gateway.ts'
 import { applyOption, getDecidingPlayer, getDecisionPoint } from '@/shared/bot/referee.ts'
@@ -76,6 +102,7 @@ import { stepBot } from '@/shared/bot/driver.ts'
 import { BaseAgent } from '@/shared/bot/agents/baseAgent.ts'
 import {
     BotOption,
+    BotOptionOf,
     CombatCardOption,
     DecisionKind,
     DecisionPoint,
@@ -1016,7 +1043,8 @@ const FAR_MASTERY_SCENARIOS: { name: string; run: () => void }[] = [
             expectEqual(retainer.controller, turn.player, 'controller after')
             expectEqual(retainer.region, turn.player.ready, 'retainer region')
             expectEqual(turn.ready.blood, 4, 'blood after the 1 blood cost')
-            // No attachment in the model: the retainer lands close to the acting minion
+            // The retainer is attached to the acting minion, close to it
+            expectEqual(getHost(retainer), turn.ready, 'the retainer is attached')
             const distance = Math.hypot(retainer.x - turn.ready.x, retainer.y - turn.ready.y)
             expectEqual(distance < 2 * CARD_HEIGHT, true, `retainer distance ${distance}`)
         },
@@ -4535,10 +4563,12 @@ type HumanTable = {
     card: LibraryCard | null
 }
 
-function createHumanTable(nbPlayers: number, humanCard?: string): HumanTable {
-    const { gameState, players } = createHeadlessGame(
-        Array.from({ length: nbPlayers }, () => GovernDeck),
-    )
+function createHumanTable(
+    nbPlayers: number,
+    humanCard?: string,
+    deck: DeckList = GovernDeck,
+): HumanTable {
+    const { gameState, players } = createHeadlessGame(Array.from({ length: nbPlayers }, () => deck))
     createdGames.push(gameState)
     const human = gameState.activePlayer
     const prey = human?.prey
@@ -4645,6 +4675,43 @@ const HUMAN_ACTION_SCENARIOS: { name: string; run: () => void }[] = [
             }
             humanDeclares(table, createActionCardAction(table.acting, table.card, {}))
             expectEqual(getDecidingPlayer(table.gameState), table.human, 'the human decides')
+            expectEqual(table.gameState.action?.declared, false, 'not declared yet')
+        },
+    },
+    {
+        name: 'the Declare button of a human action card hands the impulse to the bot, which then blocks',
+        run() {
+            const table = createHumanTable(2, GOVERN_ID)
+            const [prey] = table.others
+            if (!table.card) {
+                throw new ScenarioFailure('No card given')
+            }
+            humanDeclares(table, createActionCardAction(table.acting, table.card, {}))
+            must(gameMutations.ACTION_completeDeclaration.act(table.human, {}), 'declare')
+            expectEqual(table.gameState.action?.declared, true, 'declared')
+            expectEqual(getDecidingPlayer(table.gameState), prey, 'the bot decides')
+            expectEqual(stepBot(prey, new GovernAgent())?.option.type, 'block', 'the bot blocks')
+            mustRefuse(
+                gameMutations.ACTION_completeDeclaration.act(table.human, {}),
+                'declared twice',
+            )
+        },
+    },
+    {
+        name: 'a usage change after the bots passed gives them a new reason to react',
+        run() {
+            const table = createHumanTable(2, GOVERN_ID)
+            const [prey] = table.others
+            if (!table.card) {
+                throw new ScenarioFailure('No card given')
+            }
+            table.acting.minionAttrs.strength = table.blockers[0].minionAttrs.strength + 1
+            humanDeclares(table, createActionCardAction(table.acting, table.card, {}))
+            must(gameMutations.ACTION_completeDeclaration.act(table.human, {}), 'declare')
+            stepBot(prey, new GovernAgent())
+            expectEqual(table.gameState.action?.reactionsPassed, true, 'all passed')
+            must(gameMutations.ACTION_updateUsage.act(table.human, { usage: { x: 1 } }), 'usage')
+            expectEqual(table.gameState.action?.reactionsPassed, false, 'new reason to react')
         },
     },
     {
@@ -4748,6 +4815,44 @@ const HUMAN_ACTION_SCENARIOS: { name: string; run: () => void }[] = [
         },
     },
     {
+        name: 'a human resolves a bleed with the Resolve action button: the bled bot loses the bleed amount',
+        run() {
+            const table = createHumanTable(2)
+            const [prey] = table.others
+            table.acting.minionAttrs.strength = table.blockers[0].minionAttrs.strength + 1
+            humanDeclares(table, createBleedAction(table.acting, prey))
+            stepBot(prey, new GovernAgent())
+            const pool = prey.pool
+            must(gameMutations.ACTION_resolveAction.act(table.human, {}), 'resolve')
+            expectEqual(table.gameState.action, null, 'the action is over')
+            expectEqual(prey.pool, pool - table.acting.minionAttrs.bleed, 'the bleed went through')
+        },
+    },
+    {
+        name: 'a human cannot resolve an action the engine does not know, nor over a standing block, nor outside bot games',
+        run() {
+            const table = createHumanTable(2)
+            const [prey] = table.others
+            humanDeclares(table, createBleedAction(table.acting, prey))
+            stepBot(prey, new GovernAgent())
+            mustRefuse(gameMutations.ACTION_resolveAction.act(table.human, {}), 'a standing block')
+
+            table.gameState.action = null
+            table.gameState.gameType = GameType.Unset
+            humanDeclares(table, createBleedAction(table.acting, prey))
+            mustRefuse(gameMutations.ACTION_resolveAction.act(table.human, {}), 'outside bot games')
+
+            table.gameState.action = null
+            table.gameState.gameType = GameType.TrainBot
+            humanDeclares(table, {
+                type: MinionActionType.Diablerize,
+                actingMinion: table.acting,
+                target: table.blockers[0],
+            })
+            mustRefuse(gameMutations.ACTION_resolveAction.act(table.human, {}), 'a diablerie')
+        },
+    },
+    {
         name: 'once the bots have passed, nothing is left to pass until the human changes the action',
         run() {
             const table = createHumanTable(2)
@@ -4767,6 +4872,1113 @@ const HUMAN_ACTION_SCENARIOS: { name: string; run: () => void }[] = [
                 'raise the bleed',
             )
             expectEqual(table.gameState.action?.reactionsPassed, false, 'new reason to react')
+        },
+    },
+]
+
+/**
+ * Attachment: an equipment or a retainer a bot plays stays in play attached to the minion that
+ * took the action, once the action succeeded. What it does once attached: a weapon gives its
+ * bearer a strike ( .44 Magnum ), a retainer gives life counters and intercept ( Raven Spy ).
+ */
+
+const MAGNUM_ID = '100001'
+const RAVEN_SPY_ID = '101550'
+// A unique equipment, which the catalog does not describe
+const IVORY_BOW_ID = '101014'
+
+const SPY_INFERIOR: DisciplineUse[] = [
+    { discipline: Discipline.Animalism, level: DisciplineLevel.INFERIOR },
+]
+
+// The minion phase of a player holding only the card, with its ready vampire at a known place.
+// The Animalism of the vampire is set when given ( null: it has none ).
+function createEquipTurn(
+    cardId: string,
+    deck: DeckList = AttachDeck,
+    animalism?: DisciplineLevel | null,
+) {
+    const turn = createMinionPhase(5, 0, deck)
+    const { gameState, player } = turn
+    emptyHand(gameState, player)
+    const card = giveCard(gameState, player, cardId)
+    turn.ready.x = 100
+    turn.ready.y = 100
+    if (animalism) {
+        turn.ready.minionAttrs.disciplines[Discipline.Animalism] = animalism
+    } else if (animalism === null) {
+        turn.ready.minionAttrs.disciplines = Object.fromEntries(
+            Object.entries(turn.ready.minionAttrs.disciplines).filter(
+                ([name]) => name != Discipline.Animalism,
+            ),
+        ) as Disciplines
+    }
+    return { ...turn, card }
+}
+
+const equipOptions = (turn: ReturnType<typeof createEquipTurn>) => {
+    const { decision, options } = getActionOptions(turn, MinionActionType.ActionCardFromHand)
+    return {
+        decision,
+        mine: options.filter(
+            option =>
+                option.action.type == MinionActionType.ActionCardFromHand &&
+                option.action.card == turn.card,
+        ),
+    }
+}
+
+const levelOf = (option: BotOptionOf<'declareAction'>) =>
+    option.action.type == MinionActionType.ActionCardFromHand ?
+        option.action.usage.disciplines?.[0]?.level
+    :   undefined
+
+// Puts the card in play attached to the minion, as an equip action would have
+function attachInPlay(
+    card: LibraryCard,
+    minion: Minion,
+    options: { life?: number; disciplines?: DisciplineUse[] } = {},
+): void {
+    const player = minion.controller
+    player.gameState.moveCardToRegion(card, player.ready)
+    must(
+        gameMutations.attachCard.act(player, { card, minion, disciplines: options.disciplines }),
+        'attach',
+    )
+    if (options.life) {
+        card.blood = options.life
+    }
+}
+
+// The cards of the other players are sealed away in the scenarios with a human table
+function findAnyCard(player: Player, krcgId: string): LibraryCard {
+    const card = [...player.library.cards, ...player.hand.cards, ...player.removed.cards].find(
+        candidate => candidate.krcgId == krcgId,
+    )
+    if (!(card instanceof LibraryCard)) {
+        throw new ScenarioFailure(`Card ${krcgId} not found`)
+    }
+    return card
+}
+
+const weaponManeuvers = (decision: DecisionPoint) =>
+    optionsOfType(decision.options, 'combatManeuver').filter(option => option.weapon)
+
+const ATTACHMENT_SCENARIOS: { name: string; run: () => void }[] = [
+    {
+        name: 'an equipment is offered as an undirected action of each ready minion, with no target',
+        run() {
+            const turn = createEquipTurn(MAGNUM_ID)
+            const { mine } = equipOptions(turn)
+            expectEqual(mine.length, 1, 'options')
+            expectEqual(mine[0].action.actingMinion, turn.ready, 'acting minion')
+            expectEqual(mine[0].action.target, undefined, 'target')
+        },
+    },
+    {
+        name: 'a resolved equip action attaches the card under its minion, shifted to the top-right, and pays the pool',
+        run() {
+            const turn = createEquipTurn(MAGNUM_ID)
+            const { decision, mine } = equipOptions(turn)
+            const pool = turn.player.pool
+            applyOption(decision, mine[0])
+            expectEqual(isAttached(turn.card), false, 'attached before the action succeeds')
+            resolveAction(turn)
+
+            expectEqual(getHost(turn.card), turn.ready, 'host')
+            expectEqual(getAttachedCards(turn.ready).length, 1, 'attached cards')
+            expectEqual(turn.card.region, turn.player.ready, 'region')
+            expectEqual(turn.card.position < turn.ready.position, true, 'drawn under the minion')
+            expectEqual(turn.card.x > turn.ready.x, true, 'shifted to the right')
+            expectEqual(turn.card.y < turn.ready.y, true, 'shifted to the top')
+            expectEqual(turn.player.pool, pool - 2, 'pool')
+
+            // The card is kept: nothing to clean up
+            const next = getDecisionPoint(turn.gameState, turn.player)
+            expectEqual(next?.kind == DecisionKind.Cleanup, false, 'cleanup')
+            expectEqual(turn.card.isIn.ready, true, 'still in play')
+        },
+    },
+    {
+        name: 'two cards on the same minion stick out one after the other, both under it',
+        run() {
+            const turn = createEquipTurn(MAGNUM_ID)
+            const second = giveCard(turn.gameState, turn.player, RAVEN_SPY_ID)
+            for (const card of [turn.card, second]) {
+                turn.gameState.moveCardToRegion(card, turn.player.ready)
+                must(
+                    gameMutations.attachCard.act(turn.player, { card, minion: turn.ready }),
+                    'attach',
+                )
+            }
+            expectEqual(getAttachedCards(turn.ready).length, 2, 'attached cards')
+            expectEqual(second.x > turn.card.x, true, 'the second sticks out further')
+            expectEqual(second.y < turn.card.y, true, 'the second is higher')
+            expectEqual(
+                Math.max(turn.card.position, second.position) < turn.ready.position,
+                true,
+                'both under the minion',
+            )
+        },
+    },
+    {
+        name: 'a retainer needs the discipline: no Animalism, no Raven Spy',
+        run() {
+            const turn = createEquipTurn(RAVEN_SPY_ID, AttachDeck, null)
+            expectEqual(equipOptions(turn).mine.length, 0, 'options')
+        },
+    },
+    {
+        name: 'an inferior Raven Spy is paid with blood and comes in play with 1 life',
+        run() {
+            const turn = createEquipTurn(RAVEN_SPY_ID, AttachDeck, DisciplineLevel.INFERIOR)
+            const { decision, mine } = equipOptions(turn)
+            expectEqual(mine.length, 1, 'options')
+            expectEqual(levelOf(mine[0]), DisciplineLevel.INFERIOR, 'level')
+            applyOption(decision, mine[0])
+            resolveAction(turn)
+            expectEqual(getHost(turn.card), turn.ready, 'host')
+            expectEqual(turn.ready.blood, 4, 'blood after the 1 blood cost')
+            expectEqual(turn.card.blood, 1, 'life of the retainer')
+            expectEqual(
+                turn.gameState.attachmentUsages[turn.card.oid]?.[0]?.level,
+                DisciplineLevel.INFERIOR,
+                'the version is remembered',
+            )
+        },
+    },
+    {
+        name: 'a superior minion can play Raven Spy at both levels, the superior one has 2 life',
+        run() {
+            const turn = createEquipTurn(RAVEN_SPY_ID, AttachDeck, DisciplineLevel.SUPERIOR)
+            const { decision, mine } = equipOptions(turn)
+            expectEqual(mine.length, 2, 'options')
+            const superior = mine.find(option => levelOf(option) == DisciplineLevel.SUPERIOR)
+            if (!superior) {
+                throw new ScenarioFailure('No superior option')
+            }
+            applyOption(decision, superior)
+            resolveAction(turn)
+            expectEqual(turn.card.blood, 2, 'life of the retainer')
+            expectEqual(
+                turn.gameState.attachmentUsages[turn.card.oid]?.[0]?.level,
+                DisciplineLevel.SUPERIOR,
+                'the version is remembered',
+            )
+        },
+    },
+    {
+        name: 'an equip action that fails leaves nothing paid and the card goes to the ash heap',
+        run() {
+            const turn = createEquipTurn(MAGNUM_ID)
+            const { decision, mine } = equipOptions(turn)
+            const pool = turn.player.pool
+            applyOption(decision, mine[0])
+            must(gameMutations.ACTION_endAction.act(turn.player, {}), 'end the action')
+
+            const cleanup = getDecisionPoint(turn.gameState, turn.player)
+            if (cleanup?.kind != DecisionKind.Cleanup) {
+                throw new ScenarioFailure(`Expected a cleanup, got ${cleanup?.kind}`)
+            }
+            applyOption(cleanup, cleanup.options[0])
+            expectEqual(turn.card.isIn.ashHeap, true, 'the card is discarded')
+            expectEqual(isAttached(turn.card), false, 'attached')
+            expectEqual(turn.player.pool, pool, 'pool')
+        },
+    },
+    {
+        name: 'a unique equipment is seen as in play while another copy is, whoever has it',
+        run() {
+            const deck = { ...AttachDeck, [IVORY_BOW_ID]: 2 }
+            const turn = createEquipTurn(IVORY_BOW_ID, deck)
+            expectEqual(hasUniqueCopyInPlay(turn.player, turn.card), false, 'no copy in play')
+
+            const other = turn.gameState.competingPlayers.find(player => player != turn.player)
+            if (!other) {
+                throw new ScenarioFailure('No other player')
+            }
+            const copy = findCard(other, IVORY_BOW_ID)
+            attachInPlay(copy, readyVampire(turn.gameState, other, 3))
+            expectEqual(hasUniqueCopyInPlay(turn.player, turn.card), true, 'a copy is attached')
+        },
+    },
+    {
+        name: 'the attached cards follow their minion to torpor and burn with it',
+        run() {
+            const turn = createEquipTurn(MAGNUM_ID)
+            const { gameState, player, card, ready } = turn
+            attachInPlay(card, ready, { disciplines: SPY_INFERIOR })
+
+            must(
+                gameMutations.moveCardToRegion.act(player, {
+                    card: ready,
+                    fromCardRegion: player.ready,
+                    toCardRegion: player.torpor,
+                    x: 0,
+                    y: TORPOR_ZONE_Y,
+                }),
+                'to torpor',
+            )
+            expectEqual(card.isIn.torpor, true, 'the card follows to torpor')
+            expectEqual(getHost(card), ready, 'still attached')
+            expectEqual(card.position < ready.position, true, 'under the minion')
+
+            must(
+                gameMutations.moveCardToRegion.act(player, {
+                    card: ready,
+                    fromCardRegion: player.torpor,
+                    toCardRegion: player.ashHeap,
+                    x: 0,
+                    y: 0,
+                }),
+                'burn the minion',
+            )
+            expectEqual(card.isIn.ashHeap, true, 'the card burns with the minion')
+            expectEqual(isAttached(card), false, 'attached')
+            expectEqual(Object.keys(gameState.attachments).length, 0, 'no attachment left')
+            expectEqual(Object.keys(gameState.attachmentUsages).length, 0, 'no usage left')
+        },
+    },
+    {
+        name: 'a minion that goes to torpor in combat takes its attached cards with it',
+        run() {
+            const fight = createFight(3, 1, AttachDeck)
+            const { defendingPlayer, defending } = fight
+            const card = findCard(defendingPlayer, MAGNUM_ID)
+            attachInPlay(card, defending)
+            strikeRoundToEnd(fight, createStrike('Quick', { damage: 2, firstStrike: true }))
+            expectRegion(defending, 'torpor')
+            expectEqual(card.isIn.torpor, true, 'the card follows to torpor')
+            expectEqual(getHost(card), defending, 'still attached')
+        },
+    },
+    {
+        name: 'an attached card that leaves play is detached, its minion stays',
+        run() {
+            const turn = createEquipTurn(MAGNUM_ID)
+            const { gameState, player, card, ready } = turn
+            attachInPlay(card, ready)
+            gameState.moveCardToRegion(card, player.ashHeap)
+            expectEqual(isAttached(card), false, 'attached')
+            expectEqual(ready.isIn.ready, true, 'the minion stays')
+        },
+    },
+    {
+        name: 'a minion cannot be attached, nor a card to itself',
+        run() {
+            const turn = createEquipTurn(MAGNUM_ID)
+            const { player, ready, torpid } = turn
+            mustRefuse(
+                gameMutations.attachCard.act(player, { card: torpid, minion: ready }),
+                'a minion',
+            )
+            mustRefuse(
+                gameMutations.attachCard.act(player, { card: ready, minion: ready }),
+                'itself',
+            )
+        },
+    },
+    {
+        name: 'with queued mutations ( the browser ) a retainer still ends attached, with its life',
+        run() {
+            const turn = createEquipTurn(RAVEN_SPY_ID, AttachDeck, DisciplineLevel.INFERIOR)
+            const queue = registerQueuedMutationTrigger()
+            const flush = () => {
+                while (queue.queued() > 0) {
+                    queue.flush()
+                }
+            }
+            try {
+                const { decision, mine } = equipOptions(turn)
+                applyOption(decision, mine[0])
+                flush()
+                const agent = new PassiveAgent()
+                for (let i = 0; i < 20 && turn.gameState.action; i++) {
+                    const player = getDecidingPlayer(turn.gameState)
+                    if (!player) {
+                        throw new ScenarioFailure('Nobody has the impulse during the action')
+                    }
+                    stepBot(player, agent)
+                    flush()
+                }
+                expectEqual(turn.gameState.action, null, 'action in progress')
+                expectEqual(getHost(turn.card), turn.ready, 'host')
+                expectEqual(turn.card.position < turn.ready.position, true, 'under the minion')
+                expectEqual(turn.card.blood, 1, 'life of the retainer')
+                expectEqual(
+                    turn.gameState.attachmentUsages[turn.card.oid]?.[0]?.level,
+                    DisciplineLevel.INFERIOR,
+                    'the version is remembered',
+                )
+            } finally {
+                registerSyncMutationTrigger()
+            }
+        },
+    },
+    {
+        name: 'the equipment a human plays is not attached by the engine',
+        run() {
+            const table = createHumanTable(2, MAGNUM_ID, AttachDeck)
+            const card = table.card
+            if (!card) {
+                throw new ScenarioFailure('The human has no card')
+            }
+            humanDeclares(table, createActionCardAction(table.acting, card, {}))
+            // The human puts the card on the table by hand
+            table.gameState.moveCardToRegion(card, table.human.ready)
+            const pool = table.human.pool
+            must(gameMutations.ACTION_resolveAction.act(table.human, {}), 'resolve')
+            expectEqual(table.human.pool, pool - 2, 'the cost is paid')
+            expectEqual(isAttached(card), false, 'attached')
+            expectEqual(card.isIn.ready, true, 'the human keeps the card where it is')
+        },
+    },
+    {
+        name: '.44 Magnum: its bearer gets a free ranged strike of 2 and a maneuver that chooses it, not the opposing minion',
+        run() {
+            const fight = createFight(3, 3, AttachDeck)
+            const magnum = findCard(fight.actingPlayer, MAGNUM_ID)
+            attachInPlay(magnum, fight.acting)
+
+            passUntil(fight, CombatStep.DetermineRange)
+            const maneuvers = weaponManeuvers(getCombatDecision(fight, fight.actingPlayer))
+            expectEqual(maneuvers.length, 1, 'weapon maneuvers')
+            expectEqual(maneuvers[0].weapon, magnum, 'weapon')
+            expectEqual(maneuvers[0].card, undefined, 'no card to play')
+            expectEqual(maneuvers[0].strike?.damage, 2, 'damage')
+            expectEqual(maneuvers[0].strike?.ranged, true, 'ranged')
+            expectEqual(maneuvers[0].strike?.source, magnum, 'source')
+
+            passUntil(fight, CombatStep.Strike)
+            const strikes = optionsOfType(
+                getCombatDecision(fight, fight.actingPlayer).options,
+                'combatStrike',
+            )
+            const weapon = strikes.filter(option => option.strike.source == magnum)
+            expectEqual(weapon.length, 1, 'weapon strikes')
+            expectEqual(weapon[0].card, undefined, 'no card to play')
+            expectEqual(
+                strikes.some(option => option.strike.isHand),
+                true,
+                'the hand strike',
+            )
+            expectEqual(getAttachedCombatOptions(fight.defending).length, 0, 'the opponent')
+        },
+    },
+    {
+        name: '.44 Magnum: the maneuver goes to long range and chooses the strike, which hits where hands cannot',
+        run() {
+            const fight = createFight(3, 3, AttachDeck)
+            const magnum = findCard(fight.actingPlayer, MAGNUM_ID)
+            attachInPlay(magnum, fight.acting)
+
+            passUntil(fight, CombatStep.DetermineRange)
+            const decision = getCombatDecision(fight, fight.actingPlayer)
+            applyOption(decision, weaponManeuvers(decision)[0])
+            expectEqual(getCombat(fight).range, CombatRange.Long, 'range')
+            expectEqual(getCombat(fight).acting.strike?.source, magnum, 'the strike is chosen')
+            expectEqual(getCombat(fight).weaponManeuvers.includes(magnum.oid), true, 'recorded')
+
+            strikeRoundToEnd(fight)
+            passUntil(fight, null)
+            expectEqual(fight.defending.blood, 1, 'defending blood (the 2R strike)')
+            expectEqual(fight.acting.blood, 3, 'acting blood (the hand strike is out of range)')
+        },
+    },
+    {
+        name: '.44 Magnum: the maneuver is given once per combat, the strike stays available',
+        run() {
+            const fight = createFight(3, 3, AttachDeck)
+            const magnum = findCard(fight.actingPlayer, MAGNUM_ID)
+            attachInPlay(magnum, fight.acting)
+
+            passUntil(fight, CombatStep.DetermineRange)
+            const decision = getCombatDecision(fight, fight.actingPlayer)
+            const maneuver = weaponManeuvers(decision)[0]
+            applyOption(decision, maneuver)
+
+            // Back to a fresh window of the range step: the weapon has already given its maneuver
+            const combat = getCombat(fight)
+            combat.acting.strike = null
+            combat.lastPlayedBy = null
+            combat.impulsePlayer = fight.actingPlayer
+            mustRefuse(
+                gameMutations.COMBAT_maneuver.act(fight.actingPlayer, {
+                    minion: fight.acting,
+                    strike: maneuver.strike,
+                    weapon: magnum,
+                }),
+                'a second maneuver of the weapon',
+            )
+            expectEqual(
+                weaponManeuvers(getCombatDecision(fight, fight.actingPlayer)).length,
+                0,
+                'offered again',
+            )
+
+            passUntil(fight, CombatStep.Strike)
+            const strikes = optionsOfType(
+                getCombatDecision(fight, fight.actingPlayer).options,
+                'combatStrike',
+            )
+            expectEqual(
+                strikes.some(option => option.strike.source == magnum),
+                true,
+                'the strike',
+            )
+        },
+    },
+    {
+        name: '.44 Magnum: only hand strikes under a grapple',
+        run() {
+            const fight = createFight(3, 3, AttachDeck)
+            const magnum = findCard(fight.actingPlayer, MAGNUM_ID)
+            attachInPlay(magnum, fight.acting)
+            passUntil(fight, CombatStep.Strike)
+            getCombat(fight).handStrikesOnly = true
+            const strikes = optionsOfType(
+                getCombatDecision(fight, fight.actingPlayer).options,
+                'combatStrike',
+            )
+            expectEqual(
+                strikes.some(option => option.strike.source == magnum),
+                false,
+                'weapon',
+            )
+            expectEqual(
+                strikes.some(option => option.strike.isHand),
+                true,
+                'hand strike',
+            )
+        },
+    },
+    {
+        name: '.44 Magnum: the Govern agent strikes with it when it hits harder than its hands',
+        run() {
+            const fight = createFight(3, 3, AttachDeck)
+            const magnum = findCard(fight.actingPlayer, MAGNUM_ID)
+            attachInPlay(magnum, fight.acting)
+            passUntil(fight, CombatStep.Strike)
+            const step = stepBot(fight.actingPlayer, new GovernAgent())
+            expectEqual(step?.option.type, 'combatStrike', 'option')
+            expectEqual(
+                step?.option.type == 'combatStrike' ? step.option.strike.source : null,
+                magnum,
+                'the weapon strikes',
+            )
+        },
+    },
+    {
+        name: '.44 Magnum: the Govern agent that is weaker uses the maneuver of the weapon to shoot from afar',
+        run() {
+            const fight = createFight(3, 3, AttachDeck)
+            const magnum = findCard(fight.actingPlayer, MAGNUM_ID)
+            attachInPlay(magnum, fight.acting)
+            getCombat(fight).acting.strength = 1
+            getCombat(fight).defending.strength = 2
+            passUntil(fight, CombatStep.DetermineRange)
+            const step = stepBot(fight.actingPlayer, new GovernAgent())
+            expectEqual(step?.option.type, 'combatManeuver', 'option')
+            expectEqual(
+                step?.option.type == 'combatManeuver' ? step.option.weapon : null,
+                magnum,
+                'the weapon maneuvers',
+            )
+            expectEqual(getCombat(fight).range, CombatRange.Long, 'range')
+        },
+    },
+    {
+        name: 'Raven Spy: its employer gets +1 intercept, whatever the version, as long as it is attached',
+        run() {
+            const turn = createEquipTurn(RAVEN_SPY_ID, AttachDeck, DisciplineLevel.INFERIOR)
+            const { ready, card } = turn
+            const base = ready.minionAttrs.intercept
+            expectEqual(getMinionIntercept(ready), base, 'unattached')
+
+            attachInPlay(card, ready, { life: 1, disciplines: SPY_INFERIOR })
+            expectEqual(getMinionIntercept(ready), base + 1, 'inferior')
+
+            turn.gameState.attachmentUsages[card.oid] = [
+                { discipline: Discipline.Animalism, level: DisciplineLevel.SUPERIOR },
+            ]
+            expectEqual(getMinionIntercept(ready), base + 1, 'superior')
+
+            // A retainer with no record ( stolen from a human ) counts as its first version
+            delete turn.gameState.attachmentUsages[card.oid]
+            expectEqual(getMinionIntercept(ready), base + 1, 'no record')
+
+            turn.gameState.moveCardToRegion(card, turn.player.ashHeap)
+            expectEqual(getMinionIntercept(ready), base, 'once gone')
+        },
+    },
+    {
+        name: 'Raven Spy: the intercept counts when its employer blocks',
+        run() {
+            const table = createHumanTable(2, undefined, AttachDeck)
+            const [prey] = table.others
+            const blocker = table.blockers[0]
+            attachInPlay(findAnyCard(prey, RAVEN_SPY_ID), blocker, {
+                life: 1,
+                disciplines: SPY_INFERIOR,
+            })
+            humanDeclares(table, createBleedAction(table.acting, prey))
+            if (!table.gameState.action) {
+                throw new ScenarioFailure('No action')
+            }
+            // Alone, the intercept of the blocker would not be enough
+            table.gameState.action.stealth = 2
+            const step = stepBot(prey, new GovernAgent())
+            expectEqual(step?.option.type, 'block', 'the bot blocks')
+            expectEqual(table.gameState.action?.intercept, 2, 'intercept of the block attempt')
+        },
+    },
+    {
+        name: 'Raven Spy: a strike aimed at it burns its life, not the blood of its employer',
+        run() {
+            const fight = createFight(3, 3, AttachDeck)
+            const spy = findCard(fight.defendingPlayer, RAVEN_SPY_ID)
+            attachInPlay(spy, fight.defending, { life: 2, disciplines: SPY_INFERIOR })
+
+            const aimed = getAttachedCombatOptions(fight.acting).find(
+                option => option.type == 'combatStrike' && option.strike.retainer == spy,
+            )
+            if (aimed?.type != 'combatStrike') {
+                throw new ScenarioFailure('The strike at the retainer is not offered')
+            }
+            strikeRoundToEnd(fight, aimed.strike)
+            expectEqual(spy.blood, 1, 'life of the retainer')
+            expectEqual(getHost(spy), fight.defending, 'still attached')
+            expectEqual(fight.defending.blood, 3, 'the employer is not hurt')
+            expectEqual(fight.acting.blood, 2, 'the hand strike of the employer')
+        },
+    },
+    {
+        name: 'Raven Spy: a retainer with no life left is burned, its employer loses the intercept',
+        run() {
+            const fight = createFight(3, 3, AttachDeck)
+            const spy = findCard(fight.defendingPlayer, RAVEN_SPY_ID)
+            attachInPlay(spy, fight.defending, { life: 1, disciplines: SPY_INFERIOR })
+            const base = fight.defending.minionAttrs.intercept
+            expectEqual(getMinionIntercept(fight.defending), base + 1, 'before')
+
+            const aimed = getAttachedCombatOptions(fight.acting).find(
+                option => option.type == 'combatStrike' && option.strike.retainer == spy,
+            )
+            if (aimed?.type != 'combatStrike') {
+                throw new ScenarioFailure('The strike at the retainer is not offered')
+            }
+            strikeRoundToEnd(fight, aimed.strike)
+            expectEqual(spy.isIn.ashHeap, true, 'burned')
+            expectEqual(isAttached(spy), false, 'attached')
+            expectEqual(Object.keys(fight.gameState.attachmentUsages).length, 0, 'usage left')
+            expectEqual(getMinionIntercept(fight.defending), base, 'after')
+            expectEqual(fight.defending.blood, 3, 'the employer is not hurt')
+        },
+    },
+    {
+        name: 'Raven Spy: a dodge protects it from the strike aimed at it',
+        run() {
+            const fight = createFight(3, 3, AttachDeck)
+            const spy = findCard(fight.defendingPlayer, RAVEN_SPY_ID)
+            attachInPlay(spy, fight.defending, { life: 1, disciplines: SPY_INFERIOR })
+            const aimed = getAttachedCombatOptions(fight.acting).find(
+                option => option.type == 'combatStrike' && option.strike.retainer == spy,
+            )
+            if (aimed?.type != 'combatStrike') {
+                throw new ScenarioFailure('The strike at the retainer is not offered')
+            }
+            strikeRoundToEnd(fight, aimed.strike, createDodgeStrike())
+            expectEqual(spy.blood, 1, 'life of the retainer')
+            expectEqual(getHost(spy), fight.defending, 'still attached')
+        },
+    },
+    {
+        name: 'a strike can only be aimed at a retainer of the opposing minion',
+        run() {
+            const fight = createFight(3, 3, AttachDeck)
+            const ownSpy = findCard(fight.actingPlayer, RAVEN_SPY_ID)
+            const spy = findCard(fight.defendingPlayer, RAVEN_SPY_ID)
+            const magnum = findCard(fight.defendingPlayer, MAGNUM_ID)
+            attachInPlay(ownSpy, fight.acting, { life: 1, disciplines: SPY_INFERIOR })
+            attachInPlay(spy, fight.defending, { life: 1, disciplines: SPY_INFERIOR })
+            attachInPlay(magnum, fight.defending)
+
+            const aimed = getAttachedCombatOptions(fight.acting).flatMap(option =>
+                option.type == 'combatStrike' && option.strike.retainer ?
+                    [option.strike.retainer]
+                :   [],
+            )
+            expectEqual(aimed.length, 1, 'the strikes aimed at a retainer')
+            expectEqual(aimed[0], spy, 'the retainer of the opposing minion')
+
+            passUntil(fight, CombatStep.Strike)
+            mustRefuse(
+                gameMutations.COMBAT_chooseStrike.act(fight.actingPlayer, {
+                    minion: fight.acting,
+                    strike: { ...createHandStrike(getCombat(fight).acting), retainer: ownSpy },
+                }),
+                'a strike at an own retainer',
+            )
+        },
+    },
+]
+
+/**
+ * Cards put on a minion that are neither equipment nor retainers: a master card that goes on one of
+ * the player's vampires ( Blood Doll ), an action card that goes on the acting vampire
+ * ( Preternatural Strength ).
+ */
+
+const PRETERNATURAL_ID = '101483'
+
+// The master phase of a player holding a Blood Doll as their only card, with ready vampires of the
+// given blood and one vampire in torpor
+function createDollTurn(bloods: number[]) {
+    const { gameState } = createHeadlessGame([AttachDeck, AttachDeck])
+    createdGames.push(gameState)
+    const player = gameState.activePlayer
+    if (!player) {
+        throw new ScenarioFailure('No active player')
+    }
+    emptyHand(gameState, player)
+    const doll = giveCard(gameState, player, BLOOD_DOLL_ID)
+    const vampires = bloods.map(blood => readyVampire(gameState, player, blood))
+    const torpid = player.vampiresInUncontrolled[0]
+    gameState.moveCardToRegion(torpid, player.torpor)
+    torpid.blood = 1
+    gameState.turnPhaseIndex = TurnSequence.indexOf(TurnPhase.Master)
+    gameState.turnResources.unlocked = true
+    return { gameState, player, library: doll, doll, vampires, torpid }
+}
+
+// Plays the doll on the vampire through the master phase decision
+function playDoll(turn: ReturnType<typeof createDollTurn>, target: Vampire): void {
+    const decision = getMasterDecision(turn)
+    const play = optionsOfType(decision.options, 'playMaster').find(
+        option => option.card == turn.doll && option.target == target,
+    )
+    if (!play) {
+        throw new ScenarioFailure(`The doll cannot be put on ${target.name}`)
+    }
+    applyOption(decision, play)
+}
+
+const moveBloodOptions = (turn: ReturnType<typeof createDollTurn>) =>
+    optionsOfType(getMasterDecision(turn).options, 'moveBlood')
+
+// Moves blood to the pool or to the vampire with the first doll that can
+function applyMoveBlood(turn: ReturnType<typeof createDollTurn>, toPool: boolean): void {
+    const decision = getMasterDecision(turn)
+    const move = optionsOfType(decision.options, 'moveBlood').find(
+        option => option.toPool == toPool,
+    )
+    if (!move) {
+        throw new ScenarioFailure(`No move ${toPool ? 'to the pool' : 'to the vampire'}`)
+    }
+    applyOption(decision, move)
+}
+
+function setPotence(vampire: Vampire, level: DisciplineLevel | null): void {
+    vampire.minionAttrs.disciplines = Object.fromEntries(
+        Object.entries(vampire.minionAttrs.disciplines).filter(
+            ([name]) => name != Discipline.Potence,
+        ),
+    ) as Disciplines
+    if (level) {
+        vampire.minionAttrs.disciplines[Discipline.Potence] = level
+    }
+}
+
+const createStrengthTurn = (level: DisciplineLevel | null) => {
+    const turn = createEquipTurn(PRETERNATURAL_ID)
+    setPotence(turn.ready, level)
+    return turn
+}
+
+const POTENCE_SUPERIOR: DisciplineUse[] = [
+    { discipline: Discipline.Potence, level: DisciplineLevel.SUPERIOR },
+]
+
+const PUT_ON_SCENARIOS: { name: string; run: () => void }[] = [
+    {
+        name: 'Blood Doll can be put on each vampire of the player, ready or in torpor, and on no other',
+        run() {
+            const turn = createDollTurn([2, 3])
+            const targets = optionsOfType(getMasterDecision(turn).options, 'playMaster').map(
+                option => option.target,
+            )
+            expectEqual(targets.length, 3, 'options')
+            expectEqual(
+                [...turn.vampires, turn.torpid].every(vampire => targets.includes(vampire)),
+                true,
+                'targets',
+            )
+        },
+    },
+    {
+        name: 'Blood Doll is put under its vampire for the master phase action ( it costs nothing ), and stays in play',
+        run() {
+            const turn = createDollTurn([2, 3])
+            const { gameState, player, doll } = turn
+            const pool = player.pool
+            const mpa = gameState.turnResources.mpa
+            playDoll(turn, turn.vampires[0])
+
+            expectEqual(getHost(doll), turn.vampires[0], 'host')
+            expectEqual(doll.region, player.ready, 'region')
+            expectEqual(doll.position < turn.vampires[0].position, true, 'drawn under the vampire')
+            expectEqual(player.pool, pool, 'pool')
+            expectEqual(gameState.turnResources.mpa, mpa - 1, 'master phase action')
+            expectEqual(
+                getDecisionPoint(gameState, player)?.kind == DecisionKind.Cleanup,
+                false,
+                'cleanup',
+            )
+        },
+    },
+    {
+        name: 'Blood Doll on a vampire in torpor follows it there, and still works',
+        run() {
+            const turn = createDollTurn([2])
+            playDoll(turn, turn.torpid)
+            expectEqual(turn.doll.isIn.torpor, true, 'in torpor with the vampire')
+            expectEqual(getHost(turn.doll), turn.torpid, 'host')
+            expectEqual(
+                moveBloodOptions(turn).every(option => option.vampire == turn.torpid),
+                true,
+                'the options are for the vampire in torpor',
+            )
+            expectEqual(moveBloodOptions(turn).length > 0, true, 'usable in torpor')
+        },
+    },
+    {
+        name: 'Blood Doll moves 1 blood to the pool or to the vampire, once per turn, and again the next turn',
+        run() {
+            const turn = createDollTurn([2])
+            const [vampire] = turn.vampires
+            const { gameState, player } = turn
+            playDoll(turn, vampire)
+            const pool = player.pool
+
+            expectEqual(moveBloodOptions(turn).length, 2, 'both directions')
+            applyMoveBlood(turn, true)
+            expectEqual(vampire.blood, 1, 'blood of the vampire')
+            expectEqual(player.pool, pool + 1, 'pool')
+            expectEqual(moveBloodOptions(turn).length, 0, 'used this turn')
+
+            gameState.setNewTurnResources()
+            gameState.turnResources.unlocked = true
+            applyMoveBlood(turn, false)
+            expectEqual(vampire.blood, 2, 'blood of the vampire')
+            expectEqual(player.pool, pool, 'pool')
+        },
+    },
+    {
+        name: 'Blood Doll never takes blood from an empty vampire, overfills one, nor takes the last pool',
+        run() {
+            const turn = createDollTurn([0, 4])
+            const [empty, full] = turn.vampires
+            full.minionAttrs.capacity = 4
+            for (const vampire of turn.vampires) {
+                attachInPlay(findCard(turn.player, BLOOD_DOLL_ID), vampire)
+            }
+            const options = moveBloodOptions(turn)
+            const of = (vampire: Vampire) => options.filter(option => option.vampire == vampire)
+            expectEqual(
+                of(empty)
+                    .map(option => option.toPool)
+                    .join(),
+                'false',
+                'empty vampire',
+            )
+            expectEqual(
+                of(full)
+                    .map(option => option.toPool)
+                    .join(),
+                'true',
+                'full vampire',
+            )
+
+            turn.player.pool = 1
+            expectEqual(
+                moveBloodOptions(turn).filter(option => !option.toPool).length,
+                0,
+                'the last pool is kept',
+            )
+        },
+    },
+    {
+        name: 'Blood Doll is used without a master phase action, which only playing it needs',
+        run() {
+            const turn = createDollTurn([2])
+            turn.gameState.turnResources.mpa = 0
+            expectEqual(
+                optionsOfType(getMasterDecision(turn).options, 'playMaster').length,
+                0,
+                'cannot be played',
+            )
+            attachInPlay(turn.doll, turn.vampires[0])
+            expectEqual(moveBloodOptions(turn).length, 2, 'can be used')
+        },
+    },
+    {
+        name: 'Blood Doll burns with its vampire',
+        run() {
+            const turn = createDollTurn([2])
+            playDoll(turn, turn.vampires[0])
+            turn.gameState.moveCardToRegion(turn.vampires[0], turn.player.ashHeap)
+            expectEqual(turn.doll.isIn.ashHeap, true, 'burned')
+            expectEqual(isAttached(turn.doll), false, 'attached')
+        },
+    },
+    {
+        name: 'with queued mutations ( the browser ) Blood Doll is still put on its vampire, and moves blood',
+        run() {
+            const turn = createDollTurn([2])
+            const [vampire] = turn.vampires
+            const pool = turn.player.pool
+            const queue = registerQueuedMutationTrigger()
+            const flush = () => {
+                while (queue.queued() > 0) {
+                    queue.flush()
+                }
+            }
+            try {
+                playDoll(turn, vampire)
+                flush()
+                expectEqual(getHost(turn.doll), vampire, 'host')
+                expectEqual(turn.doll.region, turn.player.ready, 'region')
+
+                applyMoveBlood(turn, true)
+                flush()
+                expectEqual(vampire.blood, 1, 'blood of the vampire')
+                expectEqual(turn.player.pool, pool + 1, 'pool')
+            } finally {
+                registerSyncMutationTrigger()
+            }
+        },
+    },
+    {
+        name: 'the Govern agent puts a Blood Doll on its biggest vampire, then banks the blood past half its capacity',
+        run() {
+            const turn = createDollTurn([2, 6])
+            const [small, big] = turn.vampires
+            small.minionAttrs.capacity = 6
+            big.minionAttrs.capacity = 9
+            turn.torpid.minionAttrs.capacity = 3
+            const agent = new GovernAgent()
+
+            const first = stepBot(turn.player, agent)
+            expectEqual(first?.option.type, 'playMaster', 'first option')
+            expectEqual(getHost(turn.doll), big, 'the doll goes on the biggest vampire')
+
+            const second = stepBot(turn.player, agent)
+            expectEqual(second?.option.type, 'moveBlood', 'second option')
+            expectEqual(big.blood, 5, 'blood moved to the pool')
+
+            expectEqual(stepBot(turn.player, agent)?.option.type, 'endPhase', 'then nothing to do')
+        },
+    },
+    {
+        name: 'a card is put on the minions that fit its filter: vampire or minion, clan, sect, capacity, not in torpor',
+        run() {
+            const turn = createDollTurn([2, 3])
+            const [ventrue, toreador] = turn.vampires
+            ventrue.vampireAttrs.clan = 'Ventrue'
+            ventrue.vampireAttrs.sect = 'Camarilla'
+            ventrue.minionAttrs.capacity = 8
+            toreador.vampireAttrs.clan = 'Toreador'
+            toreador.vampireAttrs.sect = 'Anarch'
+            toreador.minionAttrs.capacity = 5
+
+            const matches = (vampire: Vampire, filter: MinionFilter) =>
+                matchesMinionFilter(vampire, filter)
+            expectEqual(matches(ventrue, aVampire({ clan: 'Ventrue', minCapacity: 8 })), true, 'a')
+            expectEqual(matches(ventrue, aVampire({ clan: 'ventrue' })), true, 'case')
+            expectEqual(matches(ventrue, aVampire({ clan: 'Ventrue', minCapacity: 9 })), false, 'b')
+            expectEqual(matches(toreador, aVampire({ clan: 'Ventrue' })), false, 'clan')
+            expectEqual(matches(toreador, aMinion({ maxCapacity: 5 })), true, 'max capacity')
+            expectEqual(matches(toreador, aMinion({ maxCapacity: 4 })), false, 'too big')
+            expectEqual(matches(toreador, aVampire({ sect: 'Anarch' })), true, 'sect')
+            expectEqual(matches(ventrue, aVampire({ sect: 'Anarch' })), false, 'other sect')
+
+            const fitting = (filter: MinionFilter) => getAttachCandidates(turn.player, filter)
+            expectEqual(fitting(aVampire()).length, 3, 'any vampire, torpor included')
+            expectEqual(fitting(aVampire({ ready: true })).includes(turn.torpid), false, 'ready')
+            expectEqual(
+                fitting(aVampire({ clan: 'Ventrue', minCapacity: 8 }))
+                    .map(minion => minion.name)
+                    .join(),
+                ventrue.name,
+                'clan and capacity',
+            )
+        },
+    },
+    {
+        name: 'an action card put on a chosen minion has the minions that fit as targets, and goes on its target',
+        run() {
+            const turn = createDollTurn([3, 3])
+            const [ventrue, toreador] = turn.vampires
+            ventrue.vampireAttrs.clan = 'Ventrue'
+            toreador.vampireAttrs.clan = 'Toreador'
+            const def = defineCard('999999', 'Test card', [
+                attachToMinion([strengthEffect(1)], undefined, {
+                    to: aVampire({ clan: 'Ventrue' }),
+                    onePerMinion: true,
+                }),
+            ])
+            const Implementation = actionImplementation(def)
+
+            const targets = new Implementation(toreador, {}).getTargets()
+            expectEqual(targets.length == 1 && targets[0] == ventrue, true, 'targets')
+            const onVentrue = new Implementation(toreador, { target: ventrue })
+            must(onVentrue.canDeclare(), 'on the Ventrue')
+            expectEqual(onVentrue.attachHost, ventrue, 'the card goes on its target')
+            mustRefuse(new Implementation(toreador, { target: toreador }).canDeclare(), 'clan')
+            mustRefuse(new Implementation(toreador, {}).canDeclare(), 'no target')
+        },
+    },
+    {
+        name: 'Preternatural Strength is offered to a vampire with Potence, at each level it has',
+        run() {
+            expectEqual(equipOptions(createStrengthTurn(null)).mine.length, 0, 'no Potence')
+            expectEqual(
+                equipOptions(createStrengthTurn(DisciplineLevel.INFERIOR)).mine.length,
+                1,
+                'inferior',
+            )
+            expectEqual(
+                equipOptions(createStrengthTurn(DisciplineLevel.SUPERIOR)).mine.length,
+                2,
+                'superior',
+            )
+        },
+    },
+    {
+        name: 'Preternatural Strength at superior: +2 stealth, costs 1 blood, and puts +2 strength on the acting vampire',
+        run() {
+            const turn = createStrengthTurn(DisciplineLevel.SUPERIOR)
+            const { decision, mine } = equipOptions(turn)
+            const superior = mine.find(option => levelOf(option) == DisciplineLevel.SUPERIOR)
+            if (!superior) {
+                throw new ScenarioFailure('No superior option')
+            }
+            const strengthBefore = getMinionStrength(turn.ready)
+            applyOption(decision, superior)
+            expectEqual(turn.gameState.action?.stealth, 2, 'stealth of the action')
+            resolveAction(turn)
+
+            expectEqual(getHost(turn.card), turn.ready, 'host')
+            expectEqual(turn.ready.blood, 4, 'blood after the 1 blood cost')
+            expectEqual(
+                getDecisionPoint(turn.gameState, turn.player)?.kind == DecisionKind.Cleanup,
+                false,
+                'the card is kept, nothing to clean up',
+            )
+            expectEqual(getMinionStrength(turn.ready), strengthBefore + 2, 'strength')
+            const combat = createCombatState(turn.ready, turn.torpid)
+            expectEqual(combat.acting.strength, strengthBefore + 2, 'strength in combat')
+            expectEqual(
+                createHandStrike(combat.acting).damage,
+                strengthBefore + 2,
+                'damage of the hand strike',
+            )
+            expectEqual(turn.ready.minionAttrs.strength, strengthBefore, 'the printed strength')
+        },
+    },
+    {
+        name: 'Preternatural Strength at inferior gives +1 strength, and none once it is gone',
+        run() {
+            const turn = createStrengthTurn(DisciplineLevel.INFERIOR)
+            const strengthBefore = getMinionStrength(turn.ready)
+            const { decision, mine } = equipOptions(turn)
+            applyOption(decision, mine[0])
+            resolveAction(turn)
+            expectEqual(getMinionStrength(turn.ready), strengthBefore + 1, 'strength')
+
+            turn.gameState.moveCardToRegion(turn.card, turn.player.ashHeap)
+            expectEqual(getMinionStrength(turn.ready), strengthBefore, 'once gone')
+        },
+    },
+    {
+        name: 'Preternatural Strength is discarded when its action fails, and nothing is put on the vampire',
+        run() {
+            const turn = createStrengthTurn(DisciplineLevel.INFERIOR)
+            const strengthBefore = getMinionStrength(turn.ready)
+            const { decision, mine } = equipOptions(turn)
+            applyOption(decision, mine[0])
+            must(gameMutations.ACTION_endAction.act(turn.player, {}), 'end the action')
+
+            const cleanup = getDecisionPoint(turn.gameState, turn.player)
+            if (cleanup?.kind != DecisionKind.Cleanup) {
+                throw new ScenarioFailure(`Expected a cleanup, got ${cleanup?.kind}`)
+            }
+            applyOption(cleanup, cleanup.options[0])
+            expectEqual(turn.card.isIn.ashHeap, true, 'the card is discarded')
+            expectEqual(getMinionStrength(turn.ready), strengthBefore, 'strength')
+        },
+    },
+    {
+        name: 'a vampire can have only one Preternatural Strength, another vampire can have its own',
+        run() {
+            const turn = createStrengthTurn(DisciplineLevel.INFERIOR)
+            const { gameState, player, ready } = turn
+            const other = readyVampire(gameState, player, 5)
+            setPotence(other, DisciplineLevel.INFERIOR)
+            attachInPlay(turn.card, ready, {
+                disciplines: [{ discipline: Discipline.Potence, level: DisciplineLevel.INFERIOR }],
+            })
+
+            const second = giveCard(gameState, player, PRETERNATURAL_ID)
+            const decision = getDecisionPoint(gameState, player)
+            const actors = optionsOfType(decision?.options ?? [], 'declareAction').flatMap(
+                option =>
+                    (
+                        option.action.type == MinionActionType.ActionCardFromHand &&
+                        option.action.card == second
+                    ) ?
+                        [option.action.actingMinion]
+                    :   [],
+            )
+            expectEqual(actors.includes(ready), false, 'the vampire that has one')
+            expectEqual(actors.includes(other), true, 'the other vampire')
+            mustRefuse(
+                canDeclare(
+                    createActionCardAction(ready, second, {
+                        disciplines: [
+                            { discipline: Discipline.Potence, level: DisciplineLevel.INFERIOR },
+                        ],
+                    }),
+                ),
+                'a second copy',
+            )
+        },
+    },
+    {
+        name: 'a vampire with Preternatural Strength cannot play Torn Signpost',
+        run() {
+            const deck = { ...BrujahDeck, [PRETERNATURAL_ID]: 2 }
+            const fight = createFight(3, 3, deck)
+            const { gameState, acting, actingPlayer } = fight
+            acting.minionAttrs.strength = 1
+            getCombat(fight).acting.strength = 1
+            acting.minionAttrs.disciplines = {} as Disciplines
+            acting.minionAttrs.disciplines[Discipline.Potence] = DisciplineLevel.SUPERIOR
+            emptyHand(gameState, actingPlayer)
+            const signpost = giveCard(gameState, actingPlayer, TORN_SIGNPOST_ID)
+            sealLibrary(gameState, fight.defendingPlayer)
+            const strengthOptions = () =>
+                getCombatCardOptions(acting).filter(
+                    option => option.type == 'combatStrength' && option.card == signpost,
+                )
+            expectEqual(strengthOptions().length, 2, 'before')
+
+            const preternatural = findCard(actingPlayer, PRETERNATURAL_ID)
+            attachInPlay(preternatural, acting, { disciplines: POTENCE_SUPERIOR })
+            expectEqual(strengthOptions().length, 0, 'with Preternatural Strength')
+
+            gameState.moveCardToRegion(preternatural, actingPlayer.ashHeap)
+            expectEqual(strengthOptions().length, 2, 'once it is gone')
         },
     },
 ]
@@ -4802,6 +6014,8 @@ function runScenarios(filter: string): ScenarioResult[] {
         ...BRUJAH_REACTION_SCENARIOS,
         ...EVENT_SCENARIOS,
         ...ALINE_SCENARIOS,
+        ...ATTACHMENT_SCENARIOS,
+        ...PUT_ON_SCENARIOS,
     ]
         .filter(({ name }) => name.toLowerCase().includes(filter))
         .map(({ name, run }) => {

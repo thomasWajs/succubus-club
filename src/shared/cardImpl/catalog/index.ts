@@ -8,6 +8,8 @@ import { MODIFIER_CARDS } from '@/shared/cardImpl/catalog/cards/modifiers.ts'
 import { MULTI_KIND_CARDS } from '@/shared/cardImpl/catalog/cards/multi.ts'
 import { REACTION_CARDS } from '@/shared/cardImpl/catalog/cards/reactions.ts'
 import { CardDef, CardKind } from '@/shared/cardImpl/catalog/types.ts'
+import { EQUIPMENTS_CARDS } from '@/shared/cardImpl/catalog/cards/equipments.ts'
+import { RETAINERS_CARDS } from '@/shared/cardImpl/catalog/cards/retainers.ts'
 
 /**
  * The catalog of the cards described as data. One entry per card, whatever the kinds of its
@@ -16,6 +18,8 @@ import { CardDef, CardKind } from '@/shared/cardImpl/catalog/types.ts'
 
 export const CARD_DEFS: CardDef[] = [
     ...ACTION_CARDS,
+    ...EQUIPMENTS_CARDS,
+    ...RETAINERS_CARDS,
     ...MODIFIER_CARDS,
     ...COMBAT_CARDS,
     ...REACTION_CARDS,

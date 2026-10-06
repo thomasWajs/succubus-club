@@ -15,6 +15,7 @@ import { getDecidingPlayer } from '@/shared/bot/referee.ts'
 import { BotStep, stepBot } from '@/shared/bot/driver.ts'
 import { BotAgent, BotOption } from '@/shared/bot/types.ts'
 import { ReactionCardEffect } from '@/shared/cardImpl/base.ts'
+import { isRetainer } from '@/shared/cardImpl/catalog/attached.ts'
 
 /**
  * Headless bot-vs-bot games, synchronous and without any UI or store.
@@ -115,6 +116,8 @@ export function describeOption(option: BotOption): string {
             return `unlockEffect ${option.card.name} -> ${option.vampire.name}`
         case 'transferEffect':
             return `transferEffect ${option.card.name} #${option.ability}${option.removed ? ` removing ${option.removed.name}` : ''}`
+        case 'moveBlood':
+            return `moveBlood ${option.card.name} ${option.amount} ${option.toPool ? 'from' : 'to'} ${option.vampire.name}`
         case 'lockEffect':
             return `lockEffect ${option.card.name} -> discard ${option.discard.name}`
         case 'discardExcess':
@@ -138,7 +141,7 @@ export function describeOption(option: BotOption): string {
         case 'combatStrike':
             return `combatStrike ${option.minion.name}: ${option.strike.name}${option.additional ? ' + additional strike' : ''}${withCard(option.card)}`
         case 'combatManeuver':
-            return `combatManeuver ${option.minion.name}${option.strike ? ` (${option.strike.name})` : ''}${withCard(option.card)}`
+            return `combatManeuver ${option.minion.name}${option.strike ? ` (${option.strike.name})` : ''}${withCard(option.card)}${option.weapon ? ` [${option.weapon.name}]` : ''}`
         case 'combatPress':
             return `combatPress ${option.minion.name}${option.granted ? ' (granted)' : ''}${withCard(option.card)}`
         case 'combatAdditionalStrike':
@@ -246,7 +249,7 @@ function checkCombat(gameState: GameState): void {
 function checkUniqueCards(gameState: GameState): void {
     const seen = new Set<string>()
     for (const player of gameState.orderedPlayers) {
-        for (const card of player.ready.cards) {
+        for (const card of [...player.ready.cards, ...player.torpor.cards]) {
             if (card instanceof LibraryCard && card.isUnique && card.krcgId) {
                 if (seen.has(card.krcgId)) {
                     throw new HarnessFailure(`Two copies of the unique card ${card.name} in play`)
@@ -257,8 +260,40 @@ function checkUniqueCards(gameState: GameState): void {
     }
 }
 
+// An attached card is in the region of its minion, under it, and a minion is never attached
+function checkAttachments(gameState: GameState): void {
+    for (const [attachedOid, hostOid] of Object.entries(gameState.attachments)) {
+        const attached = gameState.cards[attachedOid]
+        const host = gameState.cards[hostOid]
+        if (!attached || !host?.isMinion()) {
+            throw new HarnessFailure(`Attachment ${attachedOid} -> ${hostOid} has a missing card`)
+        }
+        if (attached.isMinion()) {
+            throw new HarnessFailure(`The minion ${attached.name} is attached to ${host.name}`)
+        }
+        if (!host.isIn.controlled || attached.region.oid != host.region.oid) {
+            throw new HarnessFailure(
+                `${attached.name} is in ${attached.region.name}, ${host.name} in ${host.region.name}`,
+            )
+        }
+        if (attached.position > host.position) {
+            throw new HarnessFailure(`${attached.name} is drawn over ${host.name}`)
+        }
+        // A retainer with no life left is burned
+        if (isRetainer(attached) && attached.blood <= 0) {
+            throw new HarnessFailure(`The retainer ${attached.name} has no life but is in play`)
+        }
+    }
+    for (const attachedOid of Object.keys(gameState.attachmentUsages)) {
+        if (!gameState.attachments[attachedOid]) {
+            throw new HarnessFailure(`Attachment usage of ${attachedOid}, which is not attached`)
+        }
+    }
+}
+
 function checkInvariants(gameState: GameState, tracker: TurnTracker): void {
     checkUniqueCards(gameState)
+    checkAttachments(gameState)
     const players = gameState.orderedPlayers
     const nbOusted = players.filter(player => player.isOusted).length
 

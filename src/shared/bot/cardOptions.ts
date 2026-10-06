@@ -20,6 +20,18 @@ import { CombatCardEffect } from '@/shared/cardImpl/base.ts'
 import { getCardDef } from '@/shared/cardImpl/catalog/index.ts'
 import { findPlay, getUsageOptions, playsOfKind } from '@/shared/cardImpl/catalog/requirements.ts'
 import { CardKind } from '@/shared/cardImpl/catalog/types.ts'
+import {
+    getAttachedEffects,
+    getRetainers,
+    isPlayForbiddenToMinion,
+} from '@/shared/cardImpl/catalog/attached.ts'
+import { getAttachedCards } from '@/shared/state/attachments.ts'
+import {
+    createHandStrike,
+    createStrike,
+    getCombatant,
+    getOpposingCombatant,
+} from '@/shared/state/combatState.ts'
 import { hasPlayedThisAction, isAvailableToReact } from '@/shared/state/actionState.ts'
 import { canDeclare } from '@/shared/state/minionActions.ts'
 import {
@@ -41,6 +53,11 @@ import { BotOptionOf, CombatCardOption } from '@/shared/bot/types.ts'
  * implemented cards are ever offered. Phase 2b replaces the body of these
  * functions with the effect-data interpreter; the signatures stay.
  */
+
+// The minion fits the clan, sect... the card requires, and no card attached to it forbids the card
+function canMinionPlay(minion: Minion, card: LibraryCard): boolean {
+    return minionMeetsRequirements(minion, card) && !isPlayForbiddenToMinion(minion, card)
+}
 
 function isDiscipline(name: string): name is Discipline {
     return (Object.values(Discipline) as string[]).includes(name)
@@ -89,7 +106,11 @@ export function getActionCardOptions(
     if (!ACTION_TYPES.some(type => card.hasType(type))) {
         return []
     }
-    if (!canPayCosts(minion, card) || !minionMeetsRequirements(minion, card)) {
+    if (!canPayCosts(minion, card) || !canMinionPlay(minion, card)) {
+        return []
+    }
+    // A unique card ( equipment, retainer... ) already in play cannot be played again
+    if (hasUniqueCopyInPlay(minion.controller, card)) {
         return []
     }
 
@@ -155,8 +176,7 @@ export function getActionModifierOptions(
     return modifierPlayers(actingMinion, card)
         .filter(
             minion =>
-                minionMeetsRequirements(minion, card) &&
-                !hasPlayedThisAction(minion.gameState, minion, card),
+                canMinionPlay(minion, card) && !hasPlayedThisAction(minion.gameState, minion, card),
         )
         .flatMap(minion =>
             usageChoices(minion, card, 'modifier')
@@ -243,7 +263,7 @@ export function getCombatCardOptions(minion: Minion): CombatCardOption[] {
             !hasImplementation(COMBAT_CARD_IMPLEMENTATIONS, card) ||
             !card.hasType(LibraryCardType.Combat) ||
             !canPayCosts(minion, card) ||
-            !minionMeetsRequirements(minion, card)
+            !canMinionPlay(minion, card)
         ) {
             continue
         }
@@ -266,6 +286,56 @@ export function getCombatCardOptions(minion: Minion): CombatCardOption[] {
     return options
 }
 
+// What the cards in play add to a combat, with no card to play and nothing to pay: the strikes of
+// the weapons attached to the minion ( and their maneuver ), and the strikes aimed at the retainers
+// attached to the opposing minion. The referee keeps what fits the current step.
+export function getAttachedCombatOptions(minion: Minion): CombatCardOption[] {
+    const combat = minion.gameState.combat
+    const combatant = combat && getCombatant(combat, minion)
+    if (!combat || !combatant) {
+        return []
+    }
+    const retainers = getRetainers(getOpposingCombatant(combat, combatant).minion)
+    const options: CombatCardOption[] = []
+
+    for (const weapon of getAttachedCards(minion)) {
+        for (const effect of getAttachedEffects(weapon)) {
+            if (effect.type != 'weaponStrike') {
+                continue
+            }
+            const strike = createStrike(weapon.name, {
+                source: weapon,
+                damage: effect.damage,
+                ranged: !!effect.ranged,
+                aggravated: !!effect.aggravated,
+            })
+            options.push({ type: 'combatStrike', minion, strike })
+            if (effect.maneuver) {
+                options.push({ type: 'combatManeuver', minion, strike, weapon })
+            }
+            for (const retainer of retainers) {
+                options.push({
+                    type: 'combatStrike',
+                    minion,
+                    strike: { ...strike, name: `${strike.name} at ${retainer.name}`, retainer },
+                })
+            }
+        }
+    }
+    for (const retainer of retainers) {
+        options.push({
+            type: 'combatStrike',
+            minion,
+            strike: {
+                ...createHandStrike(combatant),
+                name: `Hand strike at ${retainer.name}`,
+                retainer,
+            },
+        })
+    }
+    return options
+}
+
 // What the reaction cards in the minion's player's hand can do to the action in progress.
 // Each discipline level the minion can use is a separate way to play the card. The card
 // only checks its own conditions: the referee asks the engine whether the effect is allowed.
@@ -279,7 +349,7 @@ export function getReactionCardOptions(minion: Minion): BotOptionOf<'playReactio
             !card.hasType(LibraryCardType.Reaction) ||
             hasPlayedThisAction(minion.gameState, minion, card) ||
             !canPayCosts(minion, card) ||
-            !minionMeetsRequirements(minion, card)
+            !canMinionPlay(minion, card)
         ) {
             continue
         }
@@ -335,6 +405,38 @@ export function getMasterCardOptions(player: Player): BotOptionOf<'playMaster'>[
             options.push(...targets.map(target => ({ type: 'playMaster' as const, card, target })))
         } else {
             options.push({ type: 'playMaster', card })
+        }
+    }
+    return options
+}
+
+// The cards put on the player's vampires that move blood in the master phase ( a Blood Doll ), for
+// the cards not used yet this turn: one option per card and direction. The pool never goes down to
+// 0 ( the player would be ousted ), and a vampire never holds more than its capacity.
+export function getMoveBloodOptions(player: Player): BotOptionOf<'moveBlood'>[] {
+    const usedCards = player.gameState.turnResources.usedCards
+    const options: BotOptionOf<'moveBlood'>[] = []
+
+    for (const vampire of [...player.vampiresReady, ...player.vampiresInTorpor]) {
+        for (const card of getAttachedCards(vampire)) {
+            if (usedCards.includes(card.oid)) {
+                continue
+            }
+            for (const effect of getAttachedEffects(card)) {
+                if (effect.type != 'moveBlood') {
+                    continue
+                }
+                const { amount } = effect
+                if (vampire.blood >= amount) {
+                    options.push({ type: 'moveBlood', card, vampire, amount, toPool: true })
+                }
+                if (
+                    player.pool > amount &&
+                    vampire.blood + amount <= vampire.minionAttrs.capacity
+                ) {
+                    options.push({ type: 'moveBlood', card, vampire, amount, toPool: false })
+                }
+            }
         }
     }
     return options

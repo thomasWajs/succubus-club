@@ -1,6 +1,8 @@
 import { Card, Minion } from '@/shared/model/Card.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { GameState } from '@/shared/state/gameState.ts'
+import { getHost, syncAttachedCards } from '@/shared/state/attachments.ts'
+import { getMinionStrength } from '@/shared/cardImpl/catalog/attached.ts'
 import { GRID_SIZE, TORPOR_ZONE_Y } from '@/shared/const/game.ts'
 import {
     CombatantMinion,
@@ -23,9 +25,12 @@ import {
  * mutations ( every client applies the same mutation, so the result is the same
  * everywhere ). Each returns the log lines describing what happened.
  *
- * Not modelled yet: retainers, immunity to damage, destroy /
- * steal equipment, targeting a retainer, equipment and retainers of a burned
- * minion ( they stay where they are ), diablerie.
+ * Equipment and retainers are attached to their minion ( attachments.ts ), which they follow to
+ * torpor and burn with. A weapon gives its bearer a strike ( and maybe a maneuver once per
+ * combat ), a strike can be aimed at a retainer of the opposing minion.
+ *
+ * Not modelled yet: immunity to damage, destroy / steal equipment, damage prevention for
+ * retainers, diablerie.
  */
 
 // Strikes resolve by tiers : "combat ends" first, then first strikes, then the rest.
@@ -40,7 +45,7 @@ const TIER_NORMAL = 2
 export function createCombatantMinion(minion: Minion): CombatantMinion {
     return {
         minion,
-        strength: minion.minionAttrs.strength,
+        strength: getMinionStrength(minion),
         strike: null,
         pendingDamage: { regular: 0, aggravated: 0 },
         bloodLost: 0,
@@ -67,6 +72,7 @@ export function createCombatState(acting: Minion, defending: Minion): CombatStat
         handStrikesOnly: false,
         closeNextRound: false,
         playedThisRound: {},
+        weaponManeuvers: [],
         isOver: false,
     }
 }
@@ -184,7 +190,28 @@ export function canPass(gameState: GameState): Validity {
     return VALID
 }
 
-export function canManeuver(gameState: GameState, minion: Minion, strike?: CombatStrike): Validity {
+// A strike aimed at a retainer needs a retainer attached to the opposing minion
+function checkStrikeTarget(
+    combat: CombatState,
+    combatant: CombatantMinion | null,
+    strike: CombatStrike,
+): Validity {
+    if (!strike.retainer) {
+        return VALID
+    }
+    const opposing = combatant && getOpposingCombatant(combat, combatant)
+    return opposing && getHost(strike.retainer) == opposing.minion ?
+            VALID
+        :   Invalid(`${strike.retainer.name} is not a retainer of the opposing minion`)
+}
+
+// The maneuver of a weapon ( `weapon` ) comes with its strike, and is given once per combat
+export function canManeuver(
+    gameState: GameState,
+    minion: Minion,
+    strike?: CombatStrike,
+    weapon?: Card,
+): Validity {
     const validity = getMoveValidity(gameState, CombatStep.DetermineRange, minion)
     const combat = gameState.combat
     if (!validity.isValid || !combat) {
@@ -200,7 +227,10 @@ export function canManeuver(gameState: GameState, minion: Minion, strike?: Comba
     if (strike && combat.handStrikesOnly && !strike.isHand) {
         return Invalid('Only hand strikes can be used this round')
     }
-    return VALID
+    if (weapon && combat.weaponManeuvers.includes(weapon.oid)) {
+        return Invalid(`${weapon.name} already gave its maneuver in this combat`)
+    }
+    return strike ? checkStrikeTarget(combat, combatant, strike) : VALID
 }
 
 // An additional strike can come with the strike chosen ( a strike card that gives one )
@@ -235,6 +265,10 @@ export function canChooseStrike(
     }
     if (strike && combat.handStrikesOnly && !strike.isHand) {
         return Invalid('Only hand strikes can be used this round')
+    }
+    const target = strike ? checkStrikeTarget(combat, combatant, strike) : VALID
+    if (!target.isValid) {
+        return target
     }
     return additional ? canGainAdditionalStrike(combatant, additional) : VALID
 }
@@ -504,12 +538,36 @@ function resolveStrikeTier(gameState: GameState, combat: CombatState, log: strin
 
     const resolving = strikers.filter(combatant => getStrikeTier(combatant.strike) == tier)
     for (const striker of resolving) {
-        resolveStrike(combat, striker, striker.strike, log)
+        resolveStrike(gameState, combat, striker, striker.strike, log)
     }
     enterDamageResolution(gameState, combat, log)
 }
 
+// The damage of a strike aimed at a retainer burns its life counters at once ( no damage
+// prevention for retainers yet ), and the retainer is burned when none is left
+function hitRetainer(
+    gameState: GameState,
+    target: CombatantMinion,
+    retainer: Card,
+    damage: number,
+    who: string,
+    log: string[],
+): void {
+    if (getHost(retainer) != target.minion) {
+        log.push(`${who} has no target: ${retainer.name} is gone`)
+        return
+    }
+    const lost = Math.min(damage, retainer.blood)
+    retainer.blood -= lost
+    log.push(`${who} deals ${lost} damage to ${retainer.name}`)
+    if (retainer.blood <= 0) {
+        gameState.moveCardToRegion(retainer, retainer.owner.ashHeap)
+        log.push(`${retainer.name} is burned`)
+    }
+}
+
 function resolveStrike(
+    gameState: GameState,
     combat: CombatState,
     striker: CombatantMinion,
     strike: CombatStrike,
@@ -529,6 +587,10 @@ function resolveStrike(
     // A dodge protects against every effect of the opposing strike, first strike included
     if (target.strike?.dodge && !strike.undodgeable) {
         log.push(`${who} is dodged by ${target.minion.name}`)
+        return
+    }
+    if (strike.retainer) {
+        hitRetainer(gameState, target, strike.retainer, strike.damage, who, log)
         return
     }
 
@@ -670,6 +732,7 @@ function sendToTorpor(gameState: GameState, minion: Minion): void {
     const x = 8 * GRID_SIZE * torpor.length
     gameState.moveCardToRegion(minion, torpor)
     minion.setCoordinates(x, TORPOR_ZONE_Y)
+    syncAttachedCards(gameState, minion)
 }
 
 function burnMinion(gameState: GameState, minion: Minion): void {
@@ -743,11 +806,15 @@ export function playManeuver(
     gameState: GameState,
     minion: Minion,
     strike?: CombatStrike,
+    weapon?: Card,
 ): string[] {
     const combat = getActiveCombat(gameState)
     const combatant = getCombatant(combat, minion)
     if (!combatant) {
         throw new Error(`${minion.name} is not in this combat`)
+    }
+    if (weapon) {
+        combat.weaponManeuvers.push(weapon.oid)
     }
 
     combat.range = combat.range == CombatRange.Close ? CombatRange.Long : CombatRange.Close

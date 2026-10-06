@@ -153,8 +153,62 @@ export type ReactionEffect =
     | UnlockAndBlockEffect
 export type MasterEffect = HandSizeEffect
 
-// What an action card aims at
-export type ActionTarget = 'player' | 'youngerUncontrolledVampire' | 'minionOfOtherMethuselah'
+// What an action card aims at ( 'none': an undirected action, such as equipping a card )
+export type ActionTarget =
+    | 'none'
+    | 'player'
+    | 'youngerUncontrolledVampire'
+    | 'minionOfOtherMethuselah'
+
+// What a card attached to a minion does while it is attached ( equipment, retainer )
+// A strike of a fixed damage the bearer can choose in the strike step ( 'R': usable at long
+// range ). With `maneuver`, the bearer can also play it as a maneuver that chooses this strike, once
+// per combat.
+export type WeaponStrikeEffect = {
+    type: 'weaponStrike'
+    damage: number
+    ranged?: boolean
+    aggravated?: boolean
+    maneuver?: boolean
+}
+// The life counters a retainer comes with
+export type LifeEffect = { type: 'life'; amount: number }
+// More strength for the bearer ( the strength it fights with )
+export type StrengthEffect = { type: 'strength'; amount: number }
+// The controller of the bearer can use the card once per turn in their master phase, to move this
+// much blood from the bearer to their pool, or from their pool to the bearer
+export type MoveBloodEffect = { type: 'moveBlood'; amount: number }
+// The bearer cannot play the cards with these names
+export type CannotPlayEffect = { type: 'cannotPlay'; names: string[] }
+// An intercept bonus for the bearer is an InterceptEffect
+export type AttachedEffect =
+    | WeaponStrikeEffect
+    | LifeEffect
+    | InterceptEffect
+    | StrengthEffect
+    | MoveBloodEffect
+    | CannotPlayEffect
+
+// The minions of the player a card can be put on ( "a Ventrue with capacity 8 or more" ). A
+// minion that is not a vampire has no clan, sect nor capacity condition to meet: it never fits one.
+export type MinionFilter = {
+    of: 'vampire' | 'minion'
+    clan?: string
+    sect?: string
+    // Inclusive bounds ( "capacity above 6" is 7 or more )
+    minCapacity?: number
+    maxCapacity?: number
+    // Not in torpor
+    ready?: boolean
+}
+
+// What a card that stays on a minion says about how it is put there
+type AttachFields = {
+    // What the card does while it is attached ( the play that was used says which version it is )
+    attached?: AttachedEffect[]
+    // "A vampire can have only one Preternatural Strength"
+    onePerMinion?: boolean
+}
 
 export type StaysInPlay = 'discard' | 'onMinion' | 'standalone'
 
@@ -204,11 +258,18 @@ type PlayBase = {
     when?: Condition[]
 }
 
-export type ActionPlay = PlayBase & {
-    kind: 'action'
-    target: ActionTarget
-    effects: ActionEffect[]
-}
+export type ActionPlay = PlayBase &
+    AttachFields & {
+        kind: 'action'
+        target: ActionTarget
+        // 'onMinion': once the action succeeds the card stays in play, attached to a minion
+        // ( equipment, retainer, "put this card on this vampire" ). Discarded by default.
+        staysInPlay?: 'onMinion'
+        // The minion it is put on: the acting one ( 'this' ), or one the player chooses ( the
+        // target of the action, which then has target 'none' )
+        attachTo?: 'this' | MinionFilter
+        effects: ActionEffect[]
+    }
 export type ModifierPlay = PlayBase & {
     kind: 'modifier'
     // Who plays it: the acting minion by default. The vampire still pays the cost and has the
@@ -222,14 +283,18 @@ export type CombatPlay = PlayBase & { kind: 'combat'; effects: CombatEffect[] }
 // An effect can have conditions of its own, on top of those of the play
 export type ConditionalReactionEffect = ReactionEffect & { when?: Condition[] }
 export type ReactionPlay = PlayBase & { kind: 'reaction'; effects: ConditionalReactionEffect[] }
-export type MasterPlay = PlayBase & {
-    kind: 'master'
-    // 'discard' by default
-    staysInPlay?: StaysInPlay
-    effects?: MasterEffect[]
-    onPlay?: MasterOnPlay
-    abilities?: MasterAbility[]
-}
+export type MasterPlay = PlayBase &
+    AttachFields & {
+        kind: 'master'
+        // 'discard' by default
+        staysInPlay?: StaysInPlay
+        // "Put this card on a vampire you control": with staysInPlay 'onMinion', the minion
+        // is chosen among the player's that fit
+        attachTo?: MinionFilter
+        effects?: MasterEffect[]
+        onPlay?: MasterOnPlay
+        abilities?: MasterAbility[]
+    }
 
 export type Play = ActionPlay | ModifierPlay | CombatPlay | ReactionPlay | MasterPlay
 

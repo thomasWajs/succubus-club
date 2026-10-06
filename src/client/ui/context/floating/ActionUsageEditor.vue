@@ -89,9 +89,28 @@
             </div>
         </template>
 
-        <template v-if="editor.editable">
+        <!-- A bot may react once the human says the card is fully declared. -->
+        <template v-if="editor.editable && editor.declarable">
             <div
                 v-if="editor.chips.length > 0 || editor.hasXCost || editor.directable"
+                class="usage-divider"
+            />
+            <div
+                class="usage-declare-button"
+                @click="gameMutations.ACTION_completeDeclaration.actSelf({})"
+            >
+                Declare
+            </div>
+        </template>
+
+        <template v-if="editor.editable">
+            <div
+                v-if="
+                    editor.declarable ||
+                    editor.chips.length > 0 ||
+                    editor.hasXCost ||
+                    editor.directable
+                "
                 class="usage-divider"
             />
             <div
@@ -120,6 +139,7 @@ import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
 import DisciplineIcon from '@/client/ui/components/DisciplineIcon.vue'
 import * as actions from '@/shared/state/minionActions.ts'
 import { sameDisciplineUses } from '@/shared/state/cardUsage.ts'
+import { humanActsOnBot } from '@/shared/state/actionState.ts'
 
 const gameBus = useGameBusStore()
 const gameState = useGameStateStore()
@@ -174,7 +194,11 @@ function onDragStart(event: PointerEvent) {
     // The whole box is a drag surface, except the interactive controls : a
     // pointerdown starting on a chip or the target button must stay a click.
     const source = event.target as HTMLElement
-    if (source.closest('.discipline-chip, .usage-target-button, .usage-end-button, .usage-x')) {
+    if (
+        source.closest(
+            '.discipline-chip, .usage-target-button, .usage-declare-button, .usage-end-button, .usage-x',
+        )
+    ) {
         return
     }
     const element = event.currentTarget as HTMLElement
@@ -277,9 +301,13 @@ const editor = computed(() => {
     // X. The select is offered only when the card actually has such a cost.
     const hasXCost = card.bloodCost == 'X' || card.poolCost == 'X'
 
+    // Only worth a click while a bot could react to the action
+    const declarable = !action.declared && humanActsOnBot(minionAction)
+
     return {
         editable,
         directable,
+        declarable,
         chips,
         hasXCost,
         xValue: usage.x,
@@ -441,6 +469,21 @@ function updateX(event: Event) {
         &:hover {
             background: $shadow-teal;
             color: $ghost-white;
+        }
+    }
+
+    .usage-declare-button {
+        padding: 4px 8px;
+        font-size: 12px;
+        text-align: center;
+        cursor: pointer;
+
+        background: $dark-teal;
+        color: $ghost-white;
+        border: 1px solid rgba($ghost-white, 0.35);
+
+        &:hover {
+            background: $shadow-teal;
         }
     }
 

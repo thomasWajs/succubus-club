@@ -1,5 +1,6 @@
 import { ASYLUM_HUNTING_GROUND_ID, ELDER_LIBRARY_ID } from '@/shared/cardImpl/cardIds.ts'
 import {
+    aVampire,
     burnSelf,
     defineCard,
     discardFromHand,
@@ -7,6 +8,8 @@ import {
     gainPool,
     gainBlood,
     handSize,
+    moveBlood,
+    putOnMinion,
 } from '@/shared/cardImpl/catalog/builders.ts'
 
 export const MASTER_CARDS = [
@@ -66,6 +69,8 @@ export const MASTER_CARDS = [
             ],
         },
     ]),
+    // Put on a vampire, in torpor too. The master phase ability is used once per turn
+    defineCard('100199', 'Blood Doll', [putOnMinion(aVampire(), [moveBlood(1)])]),
     defineCard('102150', 'Warzone Hunting Ground', [
         {
             kind: 'master',

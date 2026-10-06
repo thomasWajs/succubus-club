@@ -15,6 +15,7 @@ import {
     CardRevelation,
     CardRevelationTargetOid,
     CombatState,
+    DisciplineUse,
     GameType,
     KnownCards,
     LocationIndex,
@@ -82,6 +83,19 @@ export class GameState {
      * ( see Card.controllerOid ). Keyed by card oid.
      */
     takeovers: Record<CardOid, PlayerOid> = {}
+
+    /**
+     * Cards attached to a minion ( equipment, retainers ): attached card oid -> minion oid.
+     * An attached card stays in play in the region of its minion ( see attachments.ts ).
+     */
+    attachments: Record<CardOid, CardOid> = {}
+    // The disciplines the attached card was played with: they tell which version of the card it is
+    attachmentUsages: Record<CardOid, DisciplineUse[]> = {}
+
+    detachCard(cardOid: CardOid): void {
+        delete this.attachments[cardOid]
+        delete this.attachmentUsages[cardOid]
+    }
 
     /** Target Declaration **/
     targetDeclarations: TargetDeclaration[] = []
@@ -286,6 +300,17 @@ export class GameState {
                 orangeCounter: 0,
                 markers: [],
             })
+            // The card is no longer attached, and what was attached to it burns with it
+            this.detachCard(card.oid)
+            for (const [attachedOid, hostOid] of Object.entries(this.attachments)) {
+                if (hostOid == card.oid) {
+                    this.detachCard(attachedOid)
+                    const attached = this.cards[attachedOid]
+                    if (attached?.isIn.play) {
+                        this.moveCardToRegion(attached, attached.owner.ashHeap)
+                    }
+                }
+            }
         }
 
         return { leftPlay }

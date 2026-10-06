@@ -1,10 +1,12 @@
 import {
     ASYLUM_HUNTING_GROUND_ID,
+    BLOOD_DOLL_ID,
     DEFLECTION_ID,
     ELDER_LIBRARY_ID,
     GOVERN_ID,
     LOST_IN_CROWDS_ID,
 } from '@/shared/cardImpl/cardIds.ts'
+import { getMinionIntercept, getMinionStrength } from '@/shared/cardImpl/catalog/attached.ts'
 import { DisciplineLevel } from '@/shared/const/model.ts'
 import { Card, Minion } from '@/shared/model/Card.ts'
 import { Player } from '@/shared/model/Player.ts'
@@ -55,7 +57,9 @@ function asGovern(option: BotOptionOf<'declareAction'>) {
 }
 
 export class GovernAgent extends BaseAgent {
-    // The locations as soon as they are in hand ( and playable ), by order of preference
+    // The locations as soon as they are in hand ( and playable ), by order of preference. Then a
+    // Blood Doll on the biggest vampire, which turns the blood a vampire holds past half its
+    // capacity into pool.
     protected override masterPhase(decision: DecisionPoint): BotOption {
         const plays = optionsOfType(decision.options, 'playMaster')
         for (const id of [ELDER_LIBRARY_ID, ASYLUM_HUNTING_GROUND_ID]) {
@@ -64,7 +68,18 @@ export class GovernAgent extends BaseAgent {
                 return play
             }
         }
-        return super.masterPhase(decision)
+        const doll = plays
+            .filter(option => option.card.krcgId == BLOOD_DOLL_ID)
+            .toSorted((a, b) => capacityOf(b.target) - capacityOf(a.target))[0]
+        if (doll) {
+            return doll
+        }
+        const surplus = optionsOfType(decision.options, 'moveBlood')
+            .filter(
+                option => option.toPool && option.vampire.blood * 2 > capacityOf(option.vampire),
+            )
+            .toSorted((a, b) => b.vampire.blood - a.vampire.blood)[0]
+        return surplus ?? super.masterPhase(decision)
     }
 
     // Blood on the vampire with the least ( none when they are all full: not offered )
@@ -174,10 +189,14 @@ export class GovernAgent extends BaseAgent {
                 me.strength > opponent.strength ? CombatRange.Close
                 : me.strength < opponent.strength ? CombatRange.Long
                 : combat.range
-            // A maneuver that also chooses a strike (strike card) is not worth it here
-            const maneuver = optionsOfType(decision.options, 'combatManeuver').find(
-                option => !option.strike,
-            )
+            // A maneuver that also chooses a strike is not worth a card (strike card), but a
+            // weapon gives its maneuver for free when its strike works at the range it brings
+            const maneuvers = optionsOfType(decision.options, 'combatManeuver')
+            const maneuver =
+                maneuvers.find(
+                    option =>
+                        option.weapon && option.strike && isStrikeEffective(option.strike, wanted),
+                ) ?? maneuvers.find(option => !option.strike)
             if (maneuver && wanted != combat.range) {
                 return maneuver
             }
@@ -196,6 +215,21 @@ export class GovernAgent extends BaseAgent {
             ) {
                 return dodge
             }
+
+            // The hardest weapon strike ( free, aimed at the minion ) that works at this range
+            const weapon = optionsOfType(decision.options, 'combatStrike')
+                .filter(
+                    option =>
+                        !option.card &&
+                        option.strike.source &&
+                        !option.strike.retainer &&
+                        option.strike.damage > me.strength &&
+                        isStrikeEffective(option.strike, combat.range),
+                )
+                .toSorted((a, b) => b.strike.damage - a.strike.damage)[0]
+            if (weapon) {
+                return weapon
+            }
         }
 
         return super.combat(decision)
@@ -209,17 +243,17 @@ export class GovernAgent extends BaseAgent {
         if (!action) {
             return null
         }
-        const actorStrength = action.minionAction.actingMinion.minionAttrs.strength
+        const actorStrength = getMinionStrength(action.minionAction.actingMinion)
         return (
             optionsOfType(decision.options, 'block')
                 .filter(
                     option =>
-                        option.minion.minionAttrs.intercept >= action.stealth &&
-                        option.minion.minionAttrs.strength >= actorStrength,
+                        getMinionIntercept(option.minion) >= action.stealth &&
+                        getMinionStrength(option.minion) >= actorStrength,
                 )
                 .toSorted(
                     (a, b) =>
-                        b.minion.minionAttrs.strength - a.minion.minionAttrs.strength ||
+                        getMinionStrength(b.minion) - getMinionStrength(a.minion) ||
                         b.minion.blood - a.minion.blood,
                 )[0] ?? null
         )

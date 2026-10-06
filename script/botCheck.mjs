@@ -38,6 +38,7 @@ const jobs =
             harness(5, 'govern'),
             harness(3, 'random', 'malkav'),
             harness(3, 'random', 'brujah'),
+            harness(3, 'random', 'attach'),
             ...(full ? [harness(4, 'random')] : []),
         ]
 

@@ -188,6 +188,24 @@ export function isDeclarationComplete(action: MinionAction): boolean {
     )
 }
 
+// Does the engine know how to resolve this action ? The built-in actions it resolves, and the action
+// cards that have an implementation. Everything else (an action in play, a diablerie, any card a human
+// plays) is resolved by hand.
+export function isResolvable(action: MinionAction): boolean {
+    switch (action.type) {
+        case MinionActionType.Bleed:
+        case MinionActionType.Hunt:
+        case MinionActionType.LeaveTorpor:
+        case MinionActionType.RescueFromTorpor:
+        case MinionActionType.EnterCombat:
+            return true
+        case MinionActionType.ActionCardFromHand:
+            return tryGetImplementationACA(action) !== null
+        default:
+            return false
+    }
+}
+
 /**
  * Behaviours
  */
@@ -402,7 +420,27 @@ const behaviors: Behaviors = {
             if (isHunt(action)) {
                 resolveHunt(action)
             }
-            getImplementationACA(action).resolve()
+            const implementation = getImplementationACA(action)
+            implementation.resolve()
+            // Only a bot's card is attached for now: a human puts it where they want
+            if (implementation.attachesToMinion && action.actingMinion.controller.isBot) {
+                const player = action.actingMinion.controller
+                const attached = gameMutations.attachCard.act(player, {
+                    card: action.card,
+                    minion: implementation.attachHost,
+                    disciplines: action.usage.disciplines,
+                })
+                if (!attached.isValid) {
+                    throw new Error(`Cannot attach ${action.card.name}: ${attached.reason}`)
+                }
+                // A retainer comes in play with its life counters
+                if (implementation.attachedLife > 0) {
+                    gameMutations.changeBlood.act(player, {
+                        card: action.card,
+                        amount: implementation.attachedLife,
+                    })
+                }
+            }
         },
     },
 }

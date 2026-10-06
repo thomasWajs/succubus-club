@@ -54,6 +54,22 @@ export abstract class ActionCardImplementation extends CardImplementation {
 
     abstract getStealth(): number
 
+    // The card stays in play attached to the acting minion once the action succeeds
+    // ( equipment, retainer ). Only a bot's card is attached for now.
+    get attachesToMinion(): boolean {
+        return false
+    }
+
+    // The minion the card is attached to: the acting minion, or the one the card is put on
+    get attachHost(): Minion {
+        return this.minion
+    }
+
+    // The life counters the attached card comes with ( retainers )
+    get attachedLife(): number {
+        return 0
+    }
+
     // The strength the acting minion can gain in the first round if the action is blocked
     get blockedStrengthBonus(): number {
         return 0
@@ -147,14 +163,14 @@ export abstract class MasterCardImplementation {
         return 0
     }
 
-    // The vampires the effect of the card on play can be aimed at ( "add 1 blood to a ready
-    // vampire" ), or null when the card has no targeted effect on play. With no vampire to aim
-    // at, the card is not worth playing.
-    getPlayTargets(): Vampire[] | null {
+    // The minions the effect of the card on play can be aimed at ( "add 1 blood to a ready
+    // vampire", "put this card on a vampire you control" ), or null when the card has no targeted
+    // effect on play. With no minion to aim at, the card is not worth playing.
+    getPlayTargets(): Minion[] | null {
         return null
     }
 
-    applyPlayEffect(_vampire: Vampire): Validity {
+    applyPlayEffect(_minion: Minion): Validity {
         return Invalid('The card has no effect on play')
     }
 

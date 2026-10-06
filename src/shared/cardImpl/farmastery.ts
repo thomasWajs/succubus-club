@@ -49,20 +49,27 @@ export class FarMastery extends ActionCardImplementation {
         }
         gameMutations.takeControl.act(this.player, { card: target, controller: this.player })
 
-        // An ally is a minion of its own, on some free space. A retainer is not attached
-        // to a vampire in the model yet, so it comes next to the acting minion.
+        // An ally is a minion of its own, on some free space. A retainer is attached to the
+        // acting minion, next to which it is first moved.
+        const isRetainer = this.level != DisciplineLevel.SUPERIOR
         const toCardRegion = getPlayRegion(this.player)
-        if (target.region == toCardRegion) {
-            return
+        if (target.region != toCardRegion) {
+            const { x, y } = getAutoPlayPosition(
+                this.player,
+                target,
+                toCardRegion,
+                isRetainer ? this.minion : undefined,
+            )
+            gameMutations.moveCardToRegion.act(this.player, {
+                card: target,
+                fromCardRegion: target.region,
+                toCardRegion,
+                x,
+                y,
+            })
         }
-        const byMinion = this.level == DisciplineLevel.SUPERIOR ? undefined : this.minion
-        const { x, y } = getAutoPlayPosition(this.player, target, toCardRegion, byMinion)
-        gameMutations.moveCardToRegion.act(this.player, {
-            card: target,
-            fromCardRegion: target.region,
-            toCardRegion,
-            x,
-            y,
-        })
+        if (isRetainer && this.player.isBot) {
+            gameMutations.attachCard.act(this.player, { card: target, minion: this.minion })
+        }
     }
 }

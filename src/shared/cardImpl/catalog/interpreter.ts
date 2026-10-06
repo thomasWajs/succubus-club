@@ -46,7 +46,9 @@ import {
 } from '@/shared/types/state.ts'
 import { findPlay, playsOfKind } from '@/shared/cardImpl/catalog/requirements.ts'
 import { getCardDef } from '@/shared/cardImpl/catalog/index.ts'
+import { getAttachCandidates, hasAttachedCopy } from '@/shared/cardImpl/catalog/attached.ts'
 import {
+    ActionPlay,
     CardDef,
     Condition,
     GainBloodEffect,
@@ -158,8 +160,47 @@ class InterpretedAction extends ActionCardImplementation {
         )
     }
 
+    get attachesToMinion() {
+        return this.play?.staysInPlay == 'onMinion'
+    }
+
+    get attachedLife() {
+        return (this.play?.attached ?? []).reduce(
+            (sum, effect) => (effect.type == 'life' ? sum + effect.amount : sum),
+            0,
+        )
+    }
+
+    // The minions the player can choose to put the card on, when it does not go on the acting one
+    private get attachFilter() {
+        const attachTo = this.play?.attachTo
+        return typeof attachTo == 'object' ? attachTo : undefined
+    }
+
+    private get attachCandidates(): Minion[] {
+        const filter = this.attachFilter
+        const onePerMinion = this.play?.onePerMinion
+        return filter ?
+                getAttachCandidates(this.player, filter).filter(
+                    candidate => !(onePerMinion && hasAttachedCopy(candidate, this.def.id)),
+                )
+            :   []
+    }
+
+    get attachHost(): Minion {
+        const target = this.usage.target
+        return this.attachFilter && target instanceof Card && target.isMinion() ?
+                target
+            :   this.minion
+    }
+
     getTargets(): LibraryCardUsage['target'][] {
+        if (this.attachFilter) {
+            return this.attachCandidates
+        }
         switch (this.play?.target) {
+            case 'none':
+                return [undefined]
             case 'player':
                 return this.player.gameState.competingPlayers.filter(other => other != this.player)
             case 'youngerUncontrolledVampire':
@@ -179,6 +220,9 @@ class InterpretedAction extends ActionCardImplementation {
             return Invalid('The way the card is used matches none of its plays')
         }
         const target = this.usage.target
+        if (play.target == 'none') {
+            return this.canDeclareOnMinion(play, target)
+        }
         if (!target) {
             return Invalid('Usage has no target')
         }
@@ -201,6 +245,25 @@ class InterpretedAction extends ActionCardImplementation {
                         canEnterCombatWith(this.minion, target)
                     :   Invalid('Target must be a minion')
         }
+    }
+
+    // An action with no target: it has none, or the minion the card is put on is its target
+    private canDeclareOnMinion(play: ActionPlay, target: LibraryCardUsage['target']): Validity {
+        const filter = this.attachFilter
+        if (!filter && target) {
+            return Invalid('The action has no target')
+        }
+        if (filter) {
+            if (!(target instanceof Card && target.isMinion())) {
+                return Invalid('Target must be a minion')
+            }
+            if (!getAttachCandidates(this.player, filter).includes(target)) {
+                return Invalid('The card cannot be put on this minion')
+            }
+        }
+        return play.onePerMinion && hasAttachedCopy(this.attachHost, this.def.id) ?
+                Invalid('The minion already has this card')
+            :   VALID
     }
 
     declare() {
@@ -637,16 +700,28 @@ class InterpretedMaster extends MasterCardImplementation {
         return validity
     }
 
-    getPlayTargets(): Vampire[] | null {
-        return this.play?.onPlay ? this.readyVampiresBelowCapacity() : null
+    getPlayTargets(): Minion[] | null {
+        const play = this.play
+        if (play?.attachTo) {
+            return getAttachCandidates(this.player, play.attachTo).filter(
+                candidate => !(play.onePerMinion && hasAttachedCopy(candidate, this.def.id)),
+            )
+        }
+        return play?.onPlay ? this.readyVampiresBelowCapacity() : null
     }
 
-    applyPlayEffect(vampire: Vampire): Validity {
-        const onPlay = this.play?.onPlay
-        if (!onPlay || !this.readyVampiresBelowCapacity().includes(vampire)) {
+    applyPlayEffect(minion: Minion): Validity {
+        const play = this.play
+        if (play?.attachTo) {
+            return this.getPlayTargets()?.includes(minion) ?
+                    gameMutations.attachCard.act(this.player, { card: this.card, minion })
+                :   Invalid('The card cannot be put on this minion')
+        }
+        const vampire = this.readyVampiresBelowCapacity().find(candidate => candidate == minion)
+        if (!play?.onPlay || !vampire) {
             return Invalid('The vampire cannot gain blood')
         }
-        return this.gainBlood(onPlay.effects, vampire)
+        return this.gainBlood(play.onPlay.effects, vampire)
     }
 
     getUnlockEffectTargets(): Vampire[] {

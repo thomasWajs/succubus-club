@@ -1,14 +1,17 @@
 import { GOVERN_ID } from '@/shared/cardImpl/cardIds.ts'
 import {
     all,
+    attachToMinion,
     bleed,
     bleedAction,
+    cannotPlay,
     defineCard,
     discipline,
     enterCombat,
     gainBlood,
     stealPool,
     stealth,
+    strength,
     strengthIfBlocked,
 } from '@/shared/cardImpl/catalog/builders.ts'
 
@@ -61,6 +64,17 @@ export const ACTION_CARDS = [
             target: 'player',
             effects: [bleedAction, bleed(2), strengthIfBlocked(2)],
         },
+    ]),
+    // Put on the acting vampire, which gets more strength ( one per vampire, and no Torn Signpost )
+    defineCard('101483', 'Preternatural Strength', [
+        attachToMinion([strength(1), cannotPlay('Torn Signpost')], discipline('pot', 'inferior'), {
+            effects: [stealth(2)],
+            onePerMinion: true,
+        }),
+        attachToMinion([strength(2), cannotPlay('Torn Signpost')], discipline('pot', 'superior'), {
+            effects: [stealth(2)],
+            onePerMinion: true,
+        }),
     ]),
     defineCard('100640', 'Enchant Kindred', [
         {

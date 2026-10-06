@@ -2,7 +2,17 @@ import { DisciplineCode, DisciplineLevel } from '@/shared/const/model.ts'
 import { KrcgId } from '@/shared/types/gateway.ts'
 import { EventName } from '@/shared/state/events.ts'
 import {
+    ActionEffect,
+    ActionPlay,
     AdditionalStrikeEffect,
+    AttachedEffect,
+    CannotPlayEffect,
+    LifeEffect,
+    MasterPlay,
+    MinionFilter,
+    MoveBloodEffect,
+    StrengthEffect,
+    WeaponStrikeEffect,
     BleedActionEffect,
     BleedEffect,
     CardDef,
@@ -113,6 +123,67 @@ export const endOfRound: Condition = { type: 'combatStep', step: 'endOfRound' }
 export const closeRange: Condition = { type: 'closeRange' }
 export const oncePerRound: Condition = { type: 'oncePerRound' }
 export const opposingIsVampire: Condition = { type: 'opposingIsVampire' }
+
+// An equipment, a retainer, an action card that is put on a minion: an undirected action after which
+// the card stays attached, and does what the effects say. A card with two versions has a play for
+// each level. The card is put on the acting minion, unless `to` says which minions it can be put
+// on ( "put this card on a Ventrue" ): the player then chooses one.
+export function attachToMinion(
+    attached: AttachedEffect[],
+    requires?: Requirement,
+    options: { effects?: ActionEffect[]; onePerMinion?: boolean; to?: MinionFilter } = {},
+): ActionPlay {
+    return {
+        kind: 'action',
+        target: 'none',
+        staysInPlay: 'onMinion',
+        requires,
+        attachTo: options.to ?? 'this',
+        onePerMinion: options.onePerMinion,
+        attached,
+        effects: options.effects ?? [],
+    }
+}
+
+// A master card that is put on a minion of the player ( "put this card on a vampire you control" )
+export function putOnMinion(
+    to: MinionFilter,
+    attached: AttachedEffect[],
+    options: { onePerMinion?: boolean } = {},
+): MasterPlay {
+    return { kind: 'master', staysInPlay: 'onMinion', attachTo: to, attached, ...options }
+}
+
+export function aVampire(options: Omit<MinionFilter, 'of'> = {}): MinionFilter {
+    return { of: 'vampire', ...options }
+}
+
+export function aMinion(options: Omit<MinionFilter, 'of'> = {}): MinionFilter {
+    return { of: 'minion', ...options }
+}
+
+export function strength(amount: number): StrengthEffect {
+    return { type: 'strength', amount }
+}
+
+export function moveBlood(amount: number): MoveBloodEffect {
+    return { type: 'moveBlood', amount }
+}
+
+export function cannotPlay(...names: string[]): CannotPlayEffect {
+    return { type: 'cannotPlay', names }
+}
+
+export function weaponStrike(
+    damage: number,
+    options: { ranged?: boolean; aggravated?: boolean; maneuver?: boolean } = {},
+): WeaponStrikeEffect {
+    return { type: 'weaponStrike', damage, ...options }
+}
+
+export function life(amount: number): LifeEffect {
+    return { type: 'life', amount }
+}
 
 // Effects
 export function stealth(amount: number): StealthEffect {

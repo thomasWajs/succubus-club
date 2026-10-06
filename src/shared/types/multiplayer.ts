@@ -115,6 +115,7 @@ export enum VersioningTarget {
     WidgetPosition = 'WidgetPosition',
     TheEdgeWidgetPosition = 'TheEdgeWidgetPosition',
     TakeControl = 'TakeControl',
+    Attachment = 'Attachment',
 }
 
 /**

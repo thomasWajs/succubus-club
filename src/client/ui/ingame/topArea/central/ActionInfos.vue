@@ -151,6 +151,15 @@
                 </button>
 
                 <button
+                    v-if="selfCanResolve"
+                    class="game-button"
+                    title="Let the game resolve this action: costs, effects, bleed or hunt amount as they stand"
+                    @click="gameMutations.ACTION_resolveAction.actSelf({})"
+                >
+                    Resolve action
+                </button>
+
+                <button
                     class="game-button is-danger"
                     @click="gameMutations.ACTION_endAction.actSelf({})"
                 >
@@ -374,6 +383,17 @@ const blockingDecisions = computed(() =>
 // The intercept only matters once a minion is actually attempting the block.
 const hasBlockingMinion = computed(() =>
     blockingDecisions.value.some(decision => decision.minionName !== null),
+)
+
+// Against bots only, the human can let the game resolve the actions it knows how to resolve
+// (a standing block attempt is resolved first)
+const selfCanResolve = computed(
+    () =>
+        gameState.gameType == GameType.TrainBot &&
+        !botDisplay.value &&
+        props.action.minionAction.actingMinion.controller == players.selfPlayer &&
+        actions.isResolvable(props.action.minionAction) &&
+        !hasBlockingMinion.value,
 )
 </script>
 

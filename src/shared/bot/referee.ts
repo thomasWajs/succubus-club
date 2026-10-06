@@ -37,6 +37,7 @@ import {
     isAwake,
 } from '@/shared/state/actionState.ts'
 import { getAutoPlayPosition, getPlayRegion } from '@/shared/state/cardPlacement.ts'
+import { isAttached } from '@/shared/state/attachments.ts'
 import { canUseTrigger, getCardTriggers } from '@/shared/state/triggers.ts'
 import {
     canChooseStrike,
@@ -59,9 +60,11 @@ import {
 import {
     getActionCardOptions,
     getActionModifierOptions,
+    getAttachedCombatOptions,
     getCombatCardOptions,
     getLockEffectOptions,
     getMasterCardOptions,
+    getMoveBloodOptions,
     getReactionCardOptions,
     getTransferEffectOptions,
     getUnlockEffectOptions,
@@ -96,6 +99,9 @@ const ONE_SHOT_TYPES = [
     LibraryCardType.Reaction,
     LibraryCardType.Combat,
 ]
+
+// Cards that stay in play attached to a minion when the action that played them succeeds
+const ATTACHABLE_TYPES = [LibraryCardType.Equipment, LibraryCardType.Retainer]
 
 /**
  * Who has to decide
@@ -198,18 +204,29 @@ function decision(kind: DecisionKind, player: Player, options: BotOption[]): Dec
     return { kind, player, options }
 }
 
+// A card attached to a minion is kept, whatever its type ( an action card put on a vampire )
 function getCleanupCards(player: Player): LibraryCard[] {
     return player.ready.cards.filter(
         (card): card is LibraryCard =>
             card instanceof LibraryCard &&
-            (ONE_SHOT_TYPES.some(type => card.hasType(type)) || isMasterDiscardedAfterUse(card)),
+            !isAttached(card) &&
+            (ONE_SHOT_TYPES.some(type => card.hasType(type)) ||
+                isMasterDiscardedAfterUse(card) ||
+                isEquipmentOrRetainer(card)),
     )
+}
+
+// An equipment or a retainer is only kept when the action that played it succeeded ( attached )
+function isEquipmentOrRetainer(card: LibraryCard): boolean {
+    return ATTACHABLE_TYPES.some(type => card.hasType(type))
 }
 
 // A master card needs the master phase action of the turn, on top of its own cost
 function masterPhaseOptions(gameState: GameState, player: Player): BotOption[] {
     const options: BotOption[] = gameState.turnResources.mpa > 0 ? getMasterCardOptions(player) : []
-    options.push(...getLockEffectOptions(player), { type: 'endPhase' })
+    options.push(...getLockEffectOptions(player), ...getMoveBloodOptions(player), {
+        type: 'endPhase',
+    })
     return options
 }
 
@@ -421,7 +438,7 @@ function isCombatOptionValid(gameState: GameState, option: CombatCardOption): bo
         case 'combatStrengthBonus':
             return canTakeStrengthBonus(gameState, option.minion).isValid
         case 'combatManeuver':
-            return canManeuver(gameState, option.minion, option.strike).isValid
+            return canManeuver(gameState, option.minion, option.strike, option.weapon).isValid
         case 'combatPress':
             return canPress(gameState, option.minion, option.granted).isValid
         case 'combatStrength':
@@ -457,7 +474,11 @@ function combatDecision(gameState: GameState, combat: CombatState, player: Playe
         { type: 'combatPress', minion: combatant.minion, granted: true },
         { type: 'combatStrengthBonus', minion: combatant.minion },
     ]
-    for (const option of [...given, ...getCombatCardOptions(combatant.minion)]) {
+    for (const option of [
+        ...given,
+        ...getCombatCardOptions(combatant.minion),
+        ...getAttachedCombatOptions(combatant.minion),
+    ]) {
         if (isCombatOptionValid(gameState, option)) {
             options.push(option)
         }
@@ -588,6 +609,18 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
                 implementation.applyTransferEffect(option.ability, option.removed),
                 'transfer effect',
             )
+            break
+        }
+
+        case 'moveBlood': {
+            const { card, vampire, amount, toPool } = option
+            const sign = toPool ? 1 : -1
+            check(gameMutations.markCardUsed.act(player, { player, card }), 'use card')
+            check(
+                gameMutations.changeBlood.act(player, { card: vampire, amount: -sign * amount }),
+                'blood of the vampire',
+            )
+            check(gameMutations.changePool.act(player, { player, amount: sign * amount }), 'pool')
             break
         }
 
@@ -889,6 +922,7 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
                 gameMutations.COMBAT_maneuver.act(player, {
                     minion: option.minion,
                     strike: option.strike,
+                    weapon: option.weapon,
                 }),
                 'combatManeuver',
             )

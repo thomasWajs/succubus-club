@@ -29,6 +29,7 @@ export function createActionState(minionAction: MinionAction): ActionState {
         bleed: actingMinion.minionAttrs.bleed,
         hunt: actingMinion.isVampire() ? actingMinion.vampireAttrs.hunt : 0,
         impulsePlayer: actingMinion.controller,
+        declared: actingMinion.controller.isBot || actions.isDeclarationComplete(minionAction),
         reactionsPassed: false,
     }
 }

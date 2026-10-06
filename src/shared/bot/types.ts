@@ -1,5 +1,5 @@
 import { Player } from '@/shared/model/Player.ts'
-import { CryptCard, LibraryCard, Minion, Vampire } from '@/shared/model/Card.ts'
+import { Card, CryptCard, LibraryCard, Minion, Vampire } from '@/shared/model/Card.ts'
 import {
     ActionModifier,
     CombatStrike,
@@ -42,6 +42,14 @@ interface GrappleOption {
     card?: LibraryCard
 }
 
+interface ManeuverOption {
+    type: 'combatManeuver'
+    minion: Minion
+    strike?: CombatStrike
+    card?: LibraryCard
+    weapon?: Card
+}
+
 interface StrikeOption {
     type: 'combatStrike'
     minion: Minion
@@ -75,9 +83,12 @@ export type BotOption =
     // Uses an ability of a master card in play that is paid with transfers ( the ability is an
     // index of the card's abilities ). Some remove a card of the uncontrolled region.
     | { type: 'transferEffect'; card: LibraryCard; ability: number; removed?: CryptCard }
-    // Plays a master card from the hand (master phase action + pool cost). The vampire is the
-    // target of the effect of the card on play, for the cards that have one.
-    | { type: 'playMaster'; card: LibraryCard; target?: Vampire }
+    // Uses the ability of a card put on a vampire ( a Blood Doll ) to move blood between the vampire
+    // and the pool, in the master phase ( once per card and turn, no master phase action )
+    | { type: 'moveBlood'; card: Card; vampire: Vampire; amount: number; toPool: boolean }
+    // Plays a master card from the hand (master phase action + pool cost). The minion is the
+    // target of the effect of the card on play ( or the one it is put on ), for the cards that have one.
+    | { type: 'playMaster'; card: LibraryCard; target?: Minion }
     // Go to the next turn (the hand is never refilled here: replacements are drawn immediately)
     | { type: 'endTurn' }
     // Send the one-shot cards played during the last action to the ash heap
@@ -109,8 +120,9 @@ export type BotOption =
     // hand strike.
     // The strike of the round
     | StrikeOption
-    // Moves the range to long, or back to close. May also choose the strike (strike card).
-    | { type: 'combatManeuver'; minion: Minion; strike?: CombatStrike; card?: LibraryCard }
+    // Moves the range to long, or back to close. May also choose the strike (strike card, weapon).
+    // The maneuver of a weapon in play has no card to play: the weapon is the one that gives it.
+    | ManeuverOption
     // A press to continue, or the cancellation of the opposing one
     // A granted press is the one a card played earlier gave: no card to play
     | { type: 'combatPress'; minion: Minion; card?: LibraryCard; granted?: boolean }

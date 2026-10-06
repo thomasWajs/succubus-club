@@ -98,6 +98,9 @@ export type ActionState = {
     bleed: number
     hunt: number
     impulsePlayer: Player
+    // Everything the others need to react is known. True at once for a bot and for the built-in
+    // actions; a human's action card turns it true with the "Declare" button of its usage box.
+    declared: boolean
     // Everybody who could react passed on the action of a human, who has the impulse back to end it
     // by hand. Nothing is left to pass until something new happens (see regainImpulse).
     reactionsPassed: boolean
@@ -190,6 +193,8 @@ export type CombatStrike = {
     firstStrike: boolean
     // Blood ( or life ) moved from the opposing minion to the striking one
     stealBlood: number
+    // A retainer of the opposing minion the strike is aimed at, instead of the minion
+    retainer?: Card
 }
 
 export type PendingDamage = {
@@ -239,6 +244,9 @@ export type CombatState = {
     closeNextRound: boolean
     // The krcgIds of the combat cards each minion ( by oid ) played this round
     playedThisRound: Record<string, string[]>
+    // The oids of the weapons that gave their maneuver in this combat ( once per combat, even if
+    // the bearer changes )
+    weaponManeuvers: string[]
     // The combat ends after the end of round step
     isOver: boolean
 }

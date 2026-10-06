@@ -17,6 +17,7 @@ import {
     CardRevelationTarget,
     CardRevelationViewer,
     CombatStrike,
+    DisciplineUse,
     GameType,
     getViewerKey,
     Invalid,
@@ -57,7 +58,9 @@ import {
     regainImpulse,
 } from '@/shared/state/actionState.ts'
 import { emitEvent } from '@/shared/state/events.ts'
+import { syncAttachedCards } from '@/shared/state/attachments.ts'
 import { Trigger } from '@/shared/cardImpl/catalog/types.ts'
+import { getMinionIntercept } from '@/shared/cardImpl/catalog/attached.ts'
 import { getTriggerKey } from '@/shared/state/triggers.ts'
 import {
     applyDamageNow,
@@ -1149,6 +1152,7 @@ class MoveCardToRegion extends GameMutation<MoveCardToRegionParams> {
         if (this.params.propsInPlay) {
             card.updatePropertiesInPlay(this.params.propsInPlay)
         }
+        syncAttachedCards(gameState, card)
     }
 
     formatForLog() {
@@ -1594,6 +1598,86 @@ class TakeControl extends GameMutation<TakeControlParams> {
                 this.previousState.controllerOid ?
                     this.gameState.players[this.previousState.controllerOid]
                 :   undefined,
+        })
+    }
+}
+
+/**
+ * Attach a card ( equipment, retainer ) to a minion, or detach it ( `minion` undefined ).
+ * The card goes under its minion, in the region of the minion ( see attachments.ts ).
+ */
+
+export interface AttachCardParams extends GameMutationParams {
+    card: Card
+    minion: Minion | undefined
+    // How the card was played, when it comes in play ( the version of a retainer ). A card that
+    // changes minion keeps the ones it had.
+    disciplines?: DisciplineUse[]
+}
+
+class AttachCard extends GameMutation<AttachCardParams> {
+    _isUserCancellable = false
+    readonly syncMode = MutationSyncMode.Ordered
+    declare public previousState: {
+        minionOid: CardOid | undefined
+        disciplines: DisciplineUse[] | undefined
+    }
+
+    protected get _versioningId(): VersioningId {
+        return `${VersioningTarget.Attachment}-${this.params.card.oid}`
+    }
+
+    get card() {
+        return this.params.card
+    }
+
+    getValidity() {
+        const { card, minion } = this.params
+        if (!minion) {
+            return VALID
+        }
+        if (card.oid == minion.oid || card.isMinion()) {
+            return Invalid('Only a card that is not a minion can be attached')
+        }
+        // A card still in the hand is accepted: a master card is played and put on a minion in one go,
+        // and in the browser the move of a bot's card to play is queued, not done yet
+        if (!(card.isIn.controlled || card.isIn.hand) || !minion.isIn.controlled) {
+            return Invalid('Only cards in play can be attached')
+        }
+        return VALID
+    }
+
+    protected updateGameState(gameState: GameState) {
+        const { card, minion, disciplines } = this.params
+        this.previousState.minionOid = gameState.attachments[card.oid]
+        this.previousState.disciplines = gameState.attachmentUsages[card.oid]
+        if (minion) {
+            gameState.attachments[card.oid] = minion.oid
+            if (disciplines) {
+                gameState.attachmentUsages[card.oid] = disciplines
+            }
+            syncAttachedCards(gameState, minion)
+        } else {
+            gameState.detachCard(card.oid)
+        }
+    }
+
+    formatForLog() {
+        const { minion } = this.params
+        return minion ?
+                `${CARD_LOG_PLACEHOLDER} is attached to ${secureName(minion, this.author)}`
+            :   `${CARD_LOG_PLACEHOLDER} is detached`
+    }
+
+    getCancelMutation(): AnyGameMutation {
+        const previous =
+            this.previousState.minionOid ?
+                this.gameState.cards[this.previousState.minionOid]
+            :   undefined
+        return gameMutations.attachCard.createCancelMutation(this, {
+            card: this.params.card,
+            minion: previous?.isMinion() ? previous : undefined,
+            disciplines: this.previousState.disciplines,
         })
     }
 }
@@ -2062,10 +2146,7 @@ class DeclareAction extends GameMutation<DeclareActionParams> {
         gameState.action = createActionState(this.params.minionAction)
         actions.declare(this.params.minionAction)
         // A bot may react (block) as soon as it knows everything about the action
-        if (
-            actions.isDeclarationComplete(this.params.minionAction) &&
-            humanActsOnBot(this.params.minionAction)
-        ) {
+        if (gameState.action.declared && humanActsOnBot(this.params.minionAction)) {
             passImpulse(gameState)
         }
     }
@@ -2159,6 +2240,9 @@ class UpdateActionUsage extends GameMutation<UpdateActionUsageParams> {
         this.previousState.usage = minionAction.usage
         minionAction.usage = this.params.usage
         minionAction.target = this.params.usage.target
+        if (gameState.action) {
+            gameState.action.reactionsPassed = false
+        }
     }
 
     formatForLog() {
@@ -2186,6 +2270,52 @@ class UpdateActionUsage extends GameMutation<UpdateActionUsageParams> {
         return gameMutations.ACTION_updateUsage.createCancelMutation(this, {
             usage: this.previousState.usage as LibraryCardUsage,
         })
+    }
+}
+
+/**
+ * Action: Complete the declaration of a human's action card
+ *
+ * The usage box only records the level, target and X of a card as the human fills them in, and
+ * any card is arbitrary, so the human says when it is all declared. The reactors may play from
+ * then on: a bot reactor gets the impulse, like for a built-in action.
+ */
+class CompleteActionDeclaration extends GameMutation<GameMutationParams> {
+    _isUserCancellable = false
+    readonly syncMode = MutationSyncMode.Exclusive
+
+    get allowedPlayer() {
+        return this.gameState.activePlayer
+    }
+
+    get card(): Card | null {
+        const minionAction = this.gameState.action?.minionAction
+        return minionAction?.type == MinionActionType.ActionCardFromHand ? minionAction.card : null
+    }
+
+    getValidity(gameState: GameState) {
+        if (!gameState.action) {
+            return Invalid('Must be applied during an action')
+        }
+        if (gameState.action.declared) {
+            return Invalid('The action is already declared')
+        }
+        return VALID
+    }
+
+    protected updateGameState(gameState: GameState) {
+        if (!gameState.action) {
+            throw new Error('gameState.action is null')
+        }
+        gameState.action.declared = true
+        if (humanActsOnBot(gameState.action.minionAction)) {
+            passImpulse(gameState)
+        }
+    }
+
+    formatForLog() {
+        const minionAction = this.gameState.action?.minionAction
+        return minionAction ? `${actions.getName(minionAction)} declared` : null
     }
 }
 
@@ -2294,7 +2424,7 @@ class DeclareBlock extends GameMutation<DeclareBlockParams> {
         // Seed the action intercept from the attempting minion, or reset it once
         // no minion is attempting the block anymore.
         if (block instanceof Card) {
-            gameState.action.intercept = block.minionAttrs.intercept
+            gameState.action.intercept = getMinionIntercept(block)
             if (!gameState.action.blockAttempters.includes(block)) {
                 gameState.action.blockAttempters.push(block)
             }
@@ -2447,9 +2577,19 @@ export class ResolveAction extends GameMutation<EmptyParams> {
         if (!gameState.action) {
             return Invalid('Must be applied during an action')
         }
-        // Humans resolve their own actions by hand
-        if (!gameState.action.minionAction.actingMinion.controller.isBot) {
-            return Invalid('Only a bot action is resolved automatically')
+        // Humans resolve their own actions by hand, except for the ones the engine knows how to
+        // resolve, in a game against bots (the "Resolve action" button)
+        const minionAction = gameState.action.minionAction
+        if (!minionAction.actingMinion.controller.isBot) {
+            if (gameState.gameType != GameType.TrainBot) {
+                return Invalid('Only a bot action is resolved automatically')
+            }
+            if (!actions.isResolvable(minionAction)) {
+                return Invalid('The engine cannot resolve this action')
+            }
+            if (getBlockingMinion(gameState)) {
+                return Invalid('A block attempt is standing: resolve the block first')
+            }
         }
         return VALID
     }
@@ -2464,6 +2604,7 @@ export class ResolveAction extends GameMutation<EmptyParams> {
         emitEvent(gameState, { type: 'actionResolving', action: minionAction })
         actions.resolve(minionAction)
         gameState.action = null
+        gameState.targetDeclarations = []
         emitEvent(gameState, { type: 'actionResolved', action: minionAction })
     }
 
@@ -2587,15 +2728,19 @@ interface CombatManeuverParams extends GameMutationParams {
     minion: Minion
     // A maneuver given by a strike card or a weapon also chooses the strike
     strike?: CombatStrike
+    // The weapon that gives the maneuver ( once per combat )
+    weapon?: Card
 }
 
 class CombatManeuver extends CombatMutation<CombatManeuverParams> {
     getValidity(gameState: GameState) {
-        return canManeuver(gameState, this.params.minion, this.params.strike)
+        const { minion, strike, weapon } = this.params
+        return canManeuver(gameState, minion, strike, weapon)
     }
 
     protected move(gameState: GameState) {
-        return playManeuver(gameState, this.params.minion, this.params.strike)
+        const { minion, strike, weapon } = this.params
+        return playManeuver(gameState, minion, strike, weapon)
     }
 }
 
@@ -3457,6 +3602,7 @@ function defineMutation<
 }
 
 export const gameMutations = {
+    attachCard: defineMutation(AttachCard),
     becomeMinion: defineMutation(BecomeMinion),
     becomeVampire: defineMutation(BecomeVampire),
     becomeVampireInverse: defineMutation(BecomeVampireInverse),
@@ -3505,6 +3651,7 @@ export const gameMutations = {
     ACTION_updateUsage: defineMutation(UpdateActionUsage),
     ACTION_wake: defineMutation(WakeMinion),
     ACTION_armTrigger: defineMutation(ArmTrigger),
+    ACTION_completeDeclaration: defineMutation(CompleteActionDeclaration),
     ACTION_declareActionModifier: defineMutation(DeclareActionModifier),
     ACTION_declareBlock: defineMutation(DeclareBlock),
     ACTION_declareReaction: defineMutation(DeclareReaction),
