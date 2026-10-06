@@ -65,7 +65,6 @@ import {
     getReactionCardOptions,
     getTransferEffectOptions,
     getUnlockEffectOptions,
-    hasPlayedModifierThisAction,
     isMasterDiscardedAfterUse,
 } from '@/shared/bot/cardOptions.ts'
 import {
@@ -333,9 +332,6 @@ function actionImpulseDecision(gameState: GameState, player: Player): DecisionPo
     if (gameState.action) {
         const actingMinion = gameState.action.minionAction.actingMinion
         for (const card of player.hand.cards) {
-            if (hasPlayedModifierThisAction(player, card)) {
-                continue
-            }
             for (const modifier of getActionModifierOptions(actingMinion, card)) {
                 options.push({ type: 'playModifier', modifier })
             }
@@ -803,7 +799,7 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
             payCosts(minion, card)
             // Playing a reaction is an effect: the acting player regains the impulse
             check(
-                gameMutations.ACTION_declareReaction.act(player, { reaction: card }),
+                gameMutations.ACTION_declareReaction.act(player, { reaction: card, minion }),
                 'declare reaction',
             )
             switch (effect.type) {

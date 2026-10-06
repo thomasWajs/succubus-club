@@ -20,7 +20,7 @@ import { CombatCardEffect } from '@/shared/cardImpl/base.ts'
 import { getCardDef } from '@/shared/cardImpl/catalog/index.ts'
 import { findPlay, getUsageOptions, playsOfKind } from '@/shared/cardImpl/catalog/requirements.ts'
 import { CardKind } from '@/shared/cardImpl/catalog/types.ts'
-import { isAvailableToReact } from '@/shared/state/actionState.ts'
+import { hasPlayedThisAction, isAvailableToReact } from '@/shared/state/actionState.ts'
 import { canDeclare } from '@/shared/state/minionActions.ts'
 import {
     createActionCardAction,
@@ -153,7 +153,11 @@ export function getActionModifierOptions(
     }
 
     return modifierPlayers(actingMinion, card)
-        .filter(minion => minionMeetsRequirements(minion, card))
+        .filter(
+            minion =>
+                minionMeetsRequirements(minion, card) &&
+                !hasPlayedThisAction(minion.gameState, minion, card),
+        )
         .flatMap(minion =>
             usageChoices(minion, card, 'modifier')
                 .flatMap(disciplines => {
@@ -273,6 +277,7 @@ export function getReactionCardOptions(minion: Minion): BotOptionOf<'playReactio
             !(card instanceof LibraryCard) ||
             !hasImplementation(REACTION_CARD_IMPLEMENTATIONS, card) ||
             !card.hasType(LibraryCardType.Reaction) ||
+            hasPlayedThisAction(minion.gameState, minion, card) ||
             !canPayCosts(minion, card) ||
             !minionMeetsRequirements(minion, card)
         ) {
@@ -397,16 +402,5 @@ export function isMasterDiscardedAfterUse(card: LibraryCard): boolean {
     return (
         card.type == LibraryCardType.Master &&
         getMasterImplementation(card, card.controller)?.staysInPlay === false
-    )
-}
-
-// Same-named modifiers can't be played twice in an action: the ones already
-// played are still in the ready region until the end-of-action cleanup.
-export function hasPlayedModifierThisAction(player: Player, card: LibraryCard): boolean {
-    return player.ready.cards.some(
-        played =>
-            played instanceof LibraryCard &&
-            played.type == LibraryCardType.ActionModifier &&
-            played.krcgId == card.krcgId,
     )
 }

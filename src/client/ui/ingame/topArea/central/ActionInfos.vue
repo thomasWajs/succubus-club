@@ -192,12 +192,12 @@
                 <button
                     v-if="impulseDisplay"
                     class="game-button"
-                    :disabled="!selfHasImpulse || !(humanBleedsBot || selfCanAttemptBlock())"
-                    @click="
-                        gameMutations.ACTION_declareReaction.actSelf({
-                            reaction: NO_REACTION,
-                        })
+                    :disabled="
+                        !selfHasImpulse ||
+                        action.reactionsPassed ||
+                        !(humanActsOnBotAction || selfCanAttemptBlock())
                     "
+                    @click="passImpulse"
                 >
                     Pass impulse
                 </button>
@@ -215,6 +215,7 @@ import {
     ActionProperty,
     ActionState,
     MinionActionType,
+    NO_ACTION_MODIFIER,
     NO_BLOCK,
     NO_REACTION,
 } from '@/shared/types/state.ts'
@@ -224,11 +225,10 @@ import { selfCanAttemptBlock, selfSecureName } from '@/client/state/self.ts'
 import PropertyStepper from '@/client/ui/components/PropertyStepper.vue'
 import DisciplineIcon from '@/client/ui/components/DisciplineIcon.vue'
 import CentralPanel from '@/client/ui/ingame/topArea/central/CentralPanel.vue'
-import { canChangeTarget, getBlockingDecision } from '@/shared/state/actionState.ts'
+import { canChangeTarget, getBlockingDecision, humanActsOnBot } from '@/shared/state/actionState.ts'
 import { GameType } from '@/shared/types/state.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { LibraryCard } from '@/shared/model/Card.ts'
-import { Player } from '@/shared/model/Player.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
 
@@ -310,18 +310,15 @@ function payActionCost() {
 
 const botDisplay = computed(() => props.action.minionAction.actingMinion.controller.isBot)
 
-// The bot only reacts once it holds the impulse, so the human bleeding a bot passes it by hand
-// ( after playing their modifiers ), and gets it back whenever the bot did something.
-const humanBleedsBot = computed(() => {
-    const minionAction = props.action.minionAction
-    return (
-        actions.isBleed(minionAction) &&
-        minionAction.actingMinion.controller == players.selfPlayer &&
-        minionAction.target instanceof Player &&
-        minionAction.target.isBot
-    )
-})
-const impulseDisplay = computed(() => botDisplay.value || humanBleedsBot.value)
+// The bot only reacts once it holds the impulse. A built-in action hands it over when declared ;
+// afterwards the human passes it by hand ( after playing their modifiers ), and gets it back
+// whenever the bot did something.
+const humanActsOnBotAction = computed(
+    () =>
+        props.action.minionAction.actingMinion.controller == players.selfPlayer &&
+        humanActsOnBot(props.action.minionAction),
+)
+const impulseDisplay = computed(() => botDisplay.value || humanActsOnBotAction.value)
 const politicalActionCard = computed(() =>
     actions.getPoliticalActionCard(props.action.minionAction),
 )
@@ -350,6 +347,15 @@ const bounceTargets = computed(() => {
 })
 
 const selfHasImpulse = computed(() => props.action.impulsePlayer == players.selfPlayer)
+
+// The acting player declines to play a modifier, a reacting one declines to react
+function passImpulse() {
+    if (humanActsOnBotAction.value) {
+        gameMutations.ACTION_declareActionModifier.actSelf({ actionModifier: NO_ACTION_MODIFIER })
+    } else {
+        gameMutations.ACTION_declareReaction.actSelf({ reaction: NO_REACTION })
+    }
+}
 const selfDeclinedBlock = computed(
     () =>
         !!players.selfPlayer &&

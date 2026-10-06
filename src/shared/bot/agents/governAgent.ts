@@ -20,7 +20,7 @@ import { BotOption, BotOptionOf, DecisionPoint, optionsOfType } from '@/shared/b
 /**
  * Port of the GovernBot strategy onto the referee's options: hunt when empty
  * (enforced by the referee), Govern with the oldest able vampire, influence the
- * highest-capacity uncontrolled vampire. Never blocks. With more than 2 ready minions,
+ * highest-capacity uncontrolled vampire. Blocks when it can win (see chooseBlock). With more than 2 ready minions,
  * the youngest stays unlocked (unless it is empty and must hunt). When bled, it declines to block then
  * bounces the bleed to its prey with Deflection.
  */
@@ -201,8 +201,36 @@ export class GovernAgent extends BaseAgent {
         return super.combat(decision)
     }
 
+    // First rule-based block (the Phase 3 scorer refines it): attempt it when it would succeed against
+    // the current stealth and the blocker is not weaker than the acting minion, so the combat that
+    // follows is not a losing one. The strongest, then the fullest, minion blocks.
+    private chooseBlock(decision: DecisionPoint): BotOptionOf<'block'> | null {
+        const action = decision.player.gameState.action
+        if (!action) {
+            return null
+        }
+        const actorStrength = action.minionAction.actingMinion.minionAttrs.strength
+        return (
+            optionsOfType(decision.options, 'block')
+                .filter(
+                    option =>
+                        option.minion.minionAttrs.intercept >= action.stealth &&
+                        option.minion.minionAttrs.strength >= actorStrength,
+                )
+                .toSorted(
+                    (a, b) =>
+                        b.minion.minionAttrs.strength - a.minion.minionAttrs.strength ||
+                        b.minion.blood - a.minion.blood,
+                )[0] ?? null
+        )
+    }
+
     protected override reactionImpulse(decision: DecisionPoint): BotOption {
         const player = decision.player
+        const block = this.chooseBlock(decision)
+        if (block) {
+            return block
+        }
         if (!isBledByAction(player)) {
             return super.reactionImpulse(decision)
         }

@@ -51,6 +51,8 @@ import {
     createActionState,
     endAction,
     getBlockingMinion,
+    humanActsOnBot,
+    markPlayedThisAction,
     passImpulse,
     regainImpulse,
 } from '@/shared/state/actionState.ts'
@@ -2008,6 +2010,8 @@ class ChangeActionProperty extends GameMutation<ChangeActionPropertyParams> {
             throw new Error('gameState.action is null')
         }
         gameState.action[this.params.propertyName] += this.params.amount
+        // A change gives the others something new to react to
+        gameState.action.reactionsPassed = false
     }
 
     formatForLog() {
@@ -2057,6 +2061,13 @@ class DeclareAction extends GameMutation<DeclareActionParams> {
         this.params.minionAction.actingMinion.lock()
         gameState.action = createActionState(this.params.minionAction)
         actions.declare(this.params.minionAction)
+        // A bot may react (block) as soon as it knows everything about the action
+        if (
+            actions.isDeclarationComplete(this.params.minionAction) &&
+            humanActsOnBot(this.params.minionAction)
+        ) {
+            passImpulse(gameState)
+        }
     }
 
     formatForLog() {
@@ -2206,6 +2217,13 @@ class DeclareActionModifier extends GameMutation<DeclareActionModifierParams> {
         // Only declining to play one passes it.
         if (this.params.actionModifier === NO_ACTION_MODIFIER) {
             passImpulse(gameState)
+        } else {
+            gameState.action.reactionsPassed = false
+            markPlayedThisAction(
+                gameState,
+                this.params.actionModifier.by ?? gameState.action.minionAction.actingMinion,
+                this.params.actionModifier.card,
+            )
         }
     }
 
@@ -2308,6 +2326,8 @@ class DeclareBlock extends GameMutation<DeclareBlockParams> {
 
 interface DeclareReactionParams extends GameMutationParams {
     reaction: Card | typeof NO_REACTION
+    // The minion playing the reaction card
+    minion?: Minion
 }
 
 class DeclareReaction extends GameMutation<DeclareReactionParams> {
@@ -2334,6 +2354,9 @@ class DeclareReaction extends GameMutation<DeclareReactionParams> {
             passImpulse(gameState)
         } else {
             regainImpulse(gameState)
+            if (this.params.minion) {
+                markPlayedThisAction(gameState, this.params.minion, this.params.reaction)
+            }
         }
     }
 

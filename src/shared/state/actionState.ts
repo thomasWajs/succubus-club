@@ -23,11 +23,13 @@ export function createActionState(minionAction: MinionAction): ActionState {
         blockAttempters: [],
         awakeMinions: [],
         armedTriggers: [],
+        playedCards: [],
         stealth: actingMinion.minionAttrs.stealth + actions.getDefaultStealth(minionAction),
         intercept: 0,
         bleed: actingMinion.minionAttrs.bleed,
         hunt: actingMinion.isVampire() ? actingMinion.vampireAttrs.hunt : 0,
         impulsePlayer: actingMinion.controller,
+        reactionsPassed: false,
     }
 }
 
@@ -41,6 +43,18 @@ export function endAction(gameState: GameState): void {
     gameState.targetDeclarations = []
     if (ended) {
         emitEvent(gameState, { type: 'actionResolved', action: ended })
+    }
+}
+
+export function hasPlayedThisAction(gameState: GameState, minion: Minion, card: Card): boolean {
+    return !!gameState.action?.playedCards.some(
+        played => played.minion == minion && played.krcgId == card.krcgId,
+    )
+}
+
+export function markPlayedThisAction(gameState: GameState, minion: Minion, card: Card): void {
+    if (card.krcgId) {
+        gameState.action?.playedCards.push({ minion, krcgId: card.krcgId })
     }
 }
 
@@ -185,11 +199,39 @@ export function changeActionTarget(gameState: GameState, target: Player): void {
     regainImpulse(gameState)
 }
 
+// The Methuselahs the impulse can reach after the acting player, see passImpulse(): the
+// target of a directed action, else the prey and the predator
+export function getReactingPlayers(minionAction: MinionAction): Player[] {
+    const actingPlayer = minionAction.actingMinion.controller
+    if (actions.isDirected(minionAction)) {
+        const target = minionAction.target
+        const targetPlayer =
+            target instanceof Player ? target
+            : target instanceof Card ? target.controller
+            : null
+        return targetPlayer ? [targetPlayer] : []
+    }
+    return [actingPlayer.prey, actingPlayer.predator].filter(
+        (player, index, all): player is Player =>
+            player !== undefined && player != actingPlayer && all.indexOf(player) == index,
+    )
+}
+
+// Does a bot have a chance to react to this action of a human ? It only does once it holds the
+// impulse, so the human hands it over by hand or, for a declaration that is complete, at once
+export function humanActsOnBot(minionAction: MinionAction): boolean {
+    return (
+        !minionAction.actingMinion.controller.isBot &&
+        getReactingPlayers(minionAction).some(player => player.isBot)
+    )
+}
+
 // Acting player regain impulse after another player used it
 export function regainImpulse(gameState: GameState): void {
     const action = gameState.action
     if (!action) return
     action.impulsePlayer = action.minionAction.actingMinion.controller
+    action.reactionsPassed = false
 }
 
 // We don't handle cards ignoring normal impulse rules, like eagle's sight
@@ -242,6 +284,7 @@ function resolveAction(gameState: GameState): void {
         !gameState.action.minionAction.actingMinion.controller.isBot
     ) {
         regainImpulse(gameState)
+        gameState.action.reactionsPassed = true
         return
     }
 

@@ -18,11 +18,13 @@ import {
     getCombatant,
 } from '@/shared/state/combatState.ts'
 import {
+    ActionProperty,
     CombatRange,
     CombatState,
     CombatStep,
     CombatStrike,
     LibraryCardUsage,
+    MinionAction,
     MinionActionType,
     Validity,
 } from '@/shared/types/state.ts'
@@ -54,7 +56,13 @@ import { MASTER_CARD_IMPLEMENTATIONS } from '@/shared/cardImpl/index.ts'
 import { getUnlockEffectOptions } from '@/shared/bot/cardOptions.ts'
 import { chooseThroughView, createPlayerView } from '@/shared/bot/playerView.ts'
 import { findOption } from '@/shared/bot/helpers.ts'
-import { createBleedAction, createHuntAction } from '@/shared/state/minionActionFactories.ts'
+import {
+    createActionCardAction,
+    createBleedAction,
+    createHuntAction,
+    createLeaveTorporAction,
+    createRescueFromTorporAction,
+} from '@/shared/state/minionActionFactories.ts'
 import { GovernAgent } from '@/shared/bot/agents/governAgent.ts'
 import {
     createHeadlessGame,
@@ -1346,6 +1354,7 @@ function createBounce(
     level: DisciplineLevel,
     nbPlayers = 3,
     actionType = MinionActionType.Bleed,
+    copies = 1,
 ): Bounce {
     const { gameState, players } = createHeadlessGame(
         Array.from({ length: nbPlayers }, () => GovernDeck),
@@ -1363,13 +1372,19 @@ function createBounce(
     gameState.turnPhaseIndex = TurnSequence.indexOf(TurnPhase.Minion)
     gameState.turnResources.unlocked = true
 
+    // The bleeder is the stronger one: the Govern agent would lose the combat of a block, so it
+    // does not block and falls back on Deflection
     const bleeding = readyVampire(gameState, bleeder, 5)
+    bleeding.minionAttrs.strength = 2
     const reactor = readyVampire(gameState, bled, 3)
     if (third) {
         readyVampire(gameState, third, 3)
     }
     reactor.minionAttrs.disciplines[Discipline.Dominate] = level
     const deflection = giveCard(gameState, bled, DEFLECTION_ID)
+    for (let copy = 1; copy < copies; copy++) {
+        giveCard(gameState, bled, DEFLECTION_ID)
+    }
     for (const player of players) {
         sealLibrary(gameState, player)
     }
@@ -1506,6 +1521,35 @@ const BOUNCE_SCENARIOS: { name: string; run: () => void }[] = [
             expectEqual(bled.pool, pools.bled, 'the previous target is not bled')
             expectEqual(bleeder.pool, pools.bleeder, 'the bleeder pool')
             expectEqual(deflection.isIn.ashHeap, true, 'Deflection put away')
+        },
+    },
+    {
+        name: 'a minion plays a reaction card once per action, whatever the copies in hand; another minion still can',
+        run() {
+            const bounce = createBounce(DisciplineLevel.SUPERIOR, 3, MinionActionType.Bleed, 2)
+            const { gameState, bled, third, reactor } = bounce
+            if (!third) {
+                throw new ScenarioFailure('No third player')
+            }
+            const other = readyVampire(gameState, bled, 3)
+            other.minionAttrs.disciplines[Discipline.Dominate] = DisciplineLevel.SUPERIOR
+            const decision = declineBlock(bounce)
+            applyOption(
+                decision,
+                optionsOfType(decision.options, 'playReaction').find(
+                    option =>
+                        option.minion == reactor &&
+                        option.usage.disciplines?.[0]?.level == DisciplineLevel.SUPERIOR,
+                ) ?? getBounceOption(decision, DisciplineLevel.SUPERIOR),
+            )
+
+            // The bleed comes back to the first target, which still holds a Deflection
+            must(gameMutations.ACTION_changeTarget.act(third, { target: bled }), 'back to the bled')
+            const minions = optionsOfType(declineBlock(bounce).options, 'playReaction').map(
+                option => option.minion,
+            )
+            expectEqual(minions.includes(reactor), false, 'the same minion played it twice')
+            expectEqual(minions.includes(other), true, 'another minion cannot play it')
         },
     },
     {
@@ -4475,6 +4519,258 @@ const ALINE_SCENARIOS: { name: string; run: () => void }[] = [
     },
 ]
 
+/**
+ * A human acts, the bots block (Phase 2.5)
+ */
+
+type HumanTable = {
+    gameState: GameState
+    human: Player
+    // The Methuselahs after the human, in turn order: [prey, predator] (just the prey at 2 players)
+    others: Player[]
+    acting: Vampire
+    // The ready vampire of each other player, same order as `others`
+    blockers: Vampire[]
+    // The card given to the human, when asked
+    card: LibraryCard | null
+}
+
+function createHumanTable(nbPlayers: number, humanCard?: string): HumanTable {
+    const { gameState, players } = createHeadlessGame(
+        Array.from({ length: nbPlayers }, () => GovernDeck),
+    )
+    createdGames.push(gameState)
+    const human = gameState.activePlayer
+    const prey = human?.prey
+    if (!human || !prey || !players.includes(human)) {
+        throw new ScenarioFailure('No active player or no prey')
+    }
+    human.permId = 'human'
+    const others = nbPlayers >= 3 && prey.prey ? [prey, prey.prey] : [prey]
+    for (const player of players) {
+        emptyHand(gameState, player)
+    }
+    const card = humanCard ? giveCard(gameState, human, humanCard) : null
+    for (const player of players) {
+        sealLibrary(gameState, player)
+    }
+    gameState.turnPhaseIndex = TurnSequence.indexOf(TurnPhase.Minion)
+    gameState.turnResources.unlocked = true
+
+    const acting = readyVampire(gameState, human, 3)
+    const blockers = others.map(other => {
+        const blocker = readyVampire(gameState, other, 3)
+        blocker.minionAttrs.intercept = 1
+        return blocker
+    })
+    return { gameState, human, others, acting, blockers, card }
+}
+
+function humanDeclares(table: HumanTable, minionAction: MinionAction): void {
+    must(
+        gameMutations.ACTION_declareAction.act(table.human, { minionAction }),
+        `human ${minionAction.type}`,
+    )
+}
+
+function inTorpor(gameState: GameState, vampire: Vampire, blood: number): void {
+    gameState.moveCardToRegion(vampire, vampire.controller.torpor)
+    vampire.blood = blood
+}
+
+const HUMAN_ACTION_SCENARIOS: { name: string; run: () => void }[] = [
+    {
+        name: 'a human bleed hands the impulse to the bot prey as soon as it is declared',
+        run() {
+            const table = createHumanTable(3)
+            humanDeclares(table, createBleedAction(table.acting, table.others[0]))
+            expectEqual(getDecidingPlayer(table.gameState), table.others[0], 'the prey decides')
+        },
+    },
+    {
+        name: 'a human hunt hands the impulse to the bot prey, then the predator once the prey has passed',
+        run() {
+            const table = createHumanTable(3)
+            const [prey, predator] = table.others
+            humanDeclares(table, createHuntAction(table.acting))
+            expectEqual(getDecidingPlayer(table.gameState), prey, 'the prey decides first')
+            // Its vampire does not intercept enough: the prey passes without a block
+            table.blockers[0].minionAttrs.intercept = 0
+            expectEqual(stepBot(prey, new GovernAgent())?.option.type, 'noReaction', 'prey passes')
+            expectEqual(getDecidingPlayer(table.gameState), predator, 'the predator decides')
+        },
+    },
+    {
+        name: 'a human leaving torpor hands the impulse to the bot prey',
+        run() {
+            const table = createHumanTable(2)
+            inTorpor(table.gameState, table.acting, LEAVE_TORPOR_COST)
+            humanDeclares(table, createLeaveTorporAction(table.acting))
+            expectEqual(getDecidingPlayer(table.gameState), table.others[0], 'the prey decides')
+        },
+    },
+    {
+        name: 'a human rescuing a bot vampire hands the impulse to that bot, not to the prey',
+        run() {
+            const table = createHumanTable(3)
+            const [prey, predator] = table.others
+            const rescued = readyVampire(table.gameState, predator, 4)
+            inTorpor(table.gameState, rescued, 4)
+            humanDeclares(table, createRescueFromTorporAction(table.acting, rescued, 1, 1))
+            expectEqual(getDecidingPlayer(table.gameState), predator, 'the owner decides')
+            expectEqual(prey == predator, false, 'a prey that differs from the owner')
+        },
+    },
+    {
+        name: 'a human diablerizing a bot vampire hands the impulse to that bot',
+        run() {
+            const table = createHumanTable(2)
+            const [prey] = table.others
+            const victim = readyVampire(table.gameState, prey, 4)
+            inTorpor(table.gameState, victim, 4)
+            humanDeclares(table, {
+                type: MinionActionType.Diablerize,
+                actingMinion: table.acting,
+                target: victim,
+            })
+            expectEqual(getDecidingPlayer(table.gameState), prey, 'the owner decides')
+        },
+    },
+    {
+        name: 'a human action card waits for the human: the bot is not given the impulse',
+        run() {
+            const table = createHumanTable(2, GOVERN_ID)
+            if (!table.card) {
+                throw new ScenarioFailure('No card given')
+            }
+            humanDeclares(table, createActionCardAction(table.acting, table.card, {}))
+            expectEqual(getDecidingPlayer(table.gameState), table.human, 'the human decides')
+        },
+    },
+    {
+        name: 'a bot action does not pass the impulse by itself, only the human action does',
+        run() {
+            const table = createHumanTable(2)
+            table.human.permId = 'Bot1'
+            humanDeclares(table, createBleedAction(table.acting, table.others[0]))
+            expectEqual(getDecidingPlayer(table.gameState), table.human, 'the bleeder decides')
+        },
+    },
+    {
+        name: 'the Govern agent blocks the bleed of a human, and the successful block starts a combat',
+        run() {
+            const table = createHumanTable(2)
+            const [prey] = table.others
+            const agent = new GovernAgent()
+            humanDeclares(table, createBleedAction(table.acting, prey))
+            expectEqual(stepBot(prey, agent)?.option.type, 'block', 'the bot blocks')
+            expectEqual(getDecidingPlayer(table.gameState), table.human, 'back to the human')
+
+            decideWith(table.gameState, table.human, 'noModifier')
+            expectEqual(stepBot(prey, agent)?.option.type, 'noReaction', 'the bot passes')
+            expectEqual(table.gameState.action, null, 'the action is over')
+            const combat = table.gameState.combat
+            expectEqual(combat?.acting.minion, table.acting, 'the human minion is the one blocked')
+            expectEqual(combat?.defending.minion, table.blockers[0], 'the bot minion blocked')
+            expectEqual(table.blockers[0].isLocked, true, 'the blocker is locked')
+        },
+    },
+    {
+        name: 'the Govern agent blocks a human hunt with the prey, which intercepts as much as the stealth',
+        run() {
+            const table = createHumanTable(3)
+            const [prey] = table.others
+            humanDeclares(table, createHuntAction(table.acting))
+            expectEqual(table.gameState.action?.stealth, 1, 'the stealth of an undirected action')
+            expectEqual(stepBot(prey, new GovernAgent())?.option.type, 'block', 'the prey blocks')
+        },
+    },
+    {
+        name: 'the Govern agent does not block when the stealth is above the intercept',
+        run() {
+            const table = createHumanTable(2)
+            const [prey] = table.others
+            humanDeclares(table, createBleedAction(table.acting, prey))
+            if (!table.gameState.action) {
+                throw new ScenarioFailure('No action')
+            }
+            table.gameState.action.stealth = 2
+            expectEqual(stepBot(prey, new GovernAgent())?.option.type, 'noReaction', 'no block')
+        },
+    },
+    {
+        name: 'the Govern agent does not block a stronger minion',
+        run() {
+            const table = createHumanTable(2)
+            const [prey] = table.others
+            table.acting.minionAttrs.strength = table.blockers[0].minionAttrs.strength + 1
+            humanDeclares(table, createBleedAction(table.acting, prey))
+            expectEqual(stepBot(prey, new GovernAgent())?.option.type, 'noReaction', 'no block')
+        },
+    },
+    {
+        name: 'the Govern agent blocks with the strongest of its minions',
+        run() {
+            const table = createHumanTable(2)
+            const [prey] = table.others
+            const strong = readyVampire(table.gameState, prey, 3)
+            strong.minionAttrs.intercept = 1
+            strong.minionAttrs.strength = 2
+            humanDeclares(table, createBleedAction(table.acting, prey))
+            const step = stepBot(prey, new GovernAgent())
+            expectEqual(step?.option.type, 'block', 'the bot blocks')
+            expectEqual(
+                step?.option.type == 'block' ? step.option.minion : null,
+                strong,
+                'the strongest blocks',
+            )
+        },
+    },
+    {
+        name: 'a block that fails against a raised stealth gives the impulse back and the action goes on',
+        run() {
+            const table = createHumanTable(2)
+            const [prey] = table.others
+            const agent = new GovernAgent()
+            humanDeclares(table, createBleedAction(table.acting, prey))
+            expectEqual(stepBot(prey, agent)?.option.type, 'block', 'the bot blocks')
+            // The human plays a stealth modifier by hand, then passes
+            if (!table.gameState.action) {
+                throw new ScenarioFailure('No action')
+            }
+            table.gameState.action.stealth = 2
+            decideWith(table.gameState, table.human, 'noModifier')
+            stepBot(prey, agent)
+            expectEqual(table.gameState.combat, null, 'no combat')
+            expectEqual(table.gameState.action !== null, true, 'the human ends the action')
+            expectEqual(getDecidingPlayer(table.gameState), table.human, 'the human decides')
+            expectEqual(table.blockers[0].isLocked, false, 'the failed blocker stays unlocked')
+        },
+    },
+    {
+        name: 'once the bots have passed, nothing is left to pass until the human changes the action',
+        run() {
+            const table = createHumanTable(2)
+            const [prey] = table.others
+            table.acting.minionAttrs.strength = table.blockers[0].minionAttrs.strength + 1
+            humanDeclares(table, createBleedAction(table.acting, prey))
+            expectEqual(table.gameState.action?.reactionsPassed, false, 'passed at declaration')
+            stepBot(prey, new GovernAgent())
+            expectEqual(getDecidingPlayer(table.gameState), table.human, 'back to the human')
+            expectEqual(table.gameState.action?.reactionsPassed, true, 'all passed')
+
+            must(
+                gameMutations.ACTION_changeProperty.act(table.human, {
+                    propertyName: ActionProperty.Bleed,
+                    amount: 1,
+                }),
+                'raise the bleed',
+            )
+            expectEqual(table.gameState.action?.reactionsPassed, false, 'new reason to react')
+        },
+    },
+]
+
 function parseFilter(argv: string[]): string {
     const index = argv.indexOf('--filter')
     if (index < 0) {
@@ -4497,6 +4793,7 @@ function runScenarios(filter: string): ScenarioResult[] {
         ...CARD_SCENARIOS,
         ...HUMAN_DAMAGE_SCENARIOS,
         ...BOUNCE_SCENARIOS,
+        ...HUMAN_ACTION_SCENARIOS,
         ...MASTER_SCENARIOS,
         ...CATALOG_SCENARIOS,
         ...BRUJAH_SCENARIOS,

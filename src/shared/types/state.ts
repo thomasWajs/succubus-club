@@ -91,11 +91,16 @@ export type ActionState = {
     awakeMinions: Minion[]
     // The triggers armed by the cards played in this action, for the rest of it
     armedTriggers: ArmedTrigger[]
+    // The modifiers and reactions each minion played (krcgId): a minion plays a given card once per action
+    playedCards: { minion: Minion; krcgId: string }[]
     stealth: number
     intercept: number
     bleed: number
     hunt: number
     impulsePlayer: Player
+    // Everybody who could react passed on the action of a human, who has the impulse back to end it
+    // by hand. Nothing is left to pass until something new happens (see regainImpulse).
+    reactionsPassed: boolean
 }
 
 /** Referendum state **/

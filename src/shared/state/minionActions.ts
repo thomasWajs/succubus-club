@@ -178,6 +178,16 @@ export function isPoliticalAction(action: MinionAction): boolean {
     return getPoliticalActionCard(action) !== null
 }
 
+// Is everything the others need to react known as soon as the action is declared ? True for the
+// built-in actions (a rescue or a diablerie is only declared once its target is). An action card
+// still waits for its discipline level, target and X, and an action in play cannot be understood.
+export function isDeclarationComplete(action: MinionAction): boolean {
+    return (
+        action.type != MinionActionType.ActionCardFromHand &&
+        action.type != MinionActionType.ActionInPlay
+    )
+}
+
 /**
  * Behaviours
  */
