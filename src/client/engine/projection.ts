@@ -20,7 +20,7 @@ import { gameMutations } from '@/shared/state/gameMutations.ts'
 import { generateCardOid } from '@/shared/state/ids.ts'
 import { DisciplineCode, DisciplineLevel, TurnPhase, TurnSequence } from '@/shared/const/model.ts'
 import { GRID_SIZE, TORPOR_ZONE_Y } from '@/shared/const/game.ts'
-import { findFreePlayPosition } from '@/client/game/utils.ts'
+import { findFreePlayPosition, getCardRectangle, getCardRectangleAt } from '@/client/game/utils.ts'
 import { createReferendumState } from '@/shared/state/referendumState.ts'
 import {
     BlockingDecision,
@@ -34,6 +34,7 @@ import {
 import { useEngineStore } from '@/client/store/engine.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { nextTick } from 'vue'
+import Phaser from 'phaser'
 import {
     EngineCard,
     EngineInPlay,
@@ -569,8 +570,19 @@ export class Projection {
         const start = GRID_SIZE + rank * CARD_SPACING_X
 
         switch (placement.spot) {
-            case Spot.Uncontrolled:
-                return { x: player.separators.verticalX + 8 * GRID_SIZE * rank, y: TORPOR_ZONE_Y }
+            case Spot.Uncontrolled: {
+                // The first slot no card covers : those already there stay
+                // where they are, so once one left, the rank alone placed a
+                // newcomer past the row, behind the panel ( Family Gathering )
+                const others = region.cards.filter(c => c.oid != card.oid).map(getCardRectangle)
+                for (let slot = 0; ; slot++) {
+                    const x = player.separators.verticalX + 8 * GRID_SIZE * slot
+                    const rect = getCardRectangleAt(region, x, TORPOR_ZONE_Y)
+                    if (!others.some(o => Phaser.Geom.Intersects.RectangleToRectangle(rect, o))) {
+                        return { x, y: TORPOR_ZONE_Y }
+                    }
+                }
+            }
             case Spot.Torpor:
                 return { x: start, y: TORPOR_ZONE_Y }
             case Spot.Attached: {
