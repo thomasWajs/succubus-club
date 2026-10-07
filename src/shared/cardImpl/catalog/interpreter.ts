@@ -74,7 +74,9 @@ function conditionHolds(
     def: CardDef,
 ): boolean {
     const gameState = implementation.player.gameState
-    const action = gameState.action?.minionAction
+    // Once the block is resolved, what is about the action ( target, block attempts ) is over
+    const blockResolved = !!gameState.action?.blockResolved
+    const action = blockResolved ? undefined : gameState.action?.minionAction
     switch (condition.type) {
         case 'during':
             return !!action && isBleed(action)
@@ -87,7 +89,12 @@ function conditionHolds(
                 action.actingMinion.controller == implementation.player.predator
             )
         case 'afterBlocksDeclined':
-            return getBlockingDecision(gameState, implementation.player)?.block === NO_BLOCK
+            return (
+                !blockResolved &&
+                getBlockingDecision(gameState, implementation.player)?.block === NO_BLOCK
+            )
+        case 'afterYourBlock':
+            return !gameState.combat && gameState.action?.blockResolved == implementation.minion
         case 'combatRound':
             return gameState.combat?.round == condition.round
         case 'reactorIs':
@@ -100,7 +107,7 @@ function conditionHolds(
         case 'targetPoolAtMost':
             return action?.target instanceof Player && action.target.pool <= condition.amount
         case 'yourBlockStands': {
-            const blocker = getBlockingMinion(gameState)
+            const blocker = blockResolved ? null : getBlockingMinion(gameState)
             return (
                 blocker?.controller == implementation.player &&
                 (!condition.sect ||
@@ -491,13 +498,23 @@ class InterpretedReaction extends ReactionCardImplementation {
 
     getEffects(): ReactionCardEffect[] {
         const play = this.play
-        const action = this.player.gameState.action?.minionAction
-        if (!play || !action || !checkConditions(this, play.when, this.def).isValid) {
+        const gameState = this.player.gameState
+        const action = gameState.action?.minionAction
+        // Once the block is resolved, only the plays made for the post block window are possible
+        // ( and they are possible only then )
+        const madeForBlockResolved = !!play?.when?.some(
+            condition => condition.type == 'afterYourBlock',
+        )
+        if (
+            !play ||
+            !action ||
+            !!gameState.action?.blockResolved != madeForBlockResolved ||
+            !checkConditions(this, play.when, this.def).isValid
+        ) {
             return []
         }
 
         const actingPlayer = action.actingMinion.controller
-        const gameState = this.player.gameState
         const blockManeuver = play.effects.some(
             effect =>
                 effect.type == 'blockManeuver' &&

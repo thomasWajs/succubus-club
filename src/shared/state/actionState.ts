@@ -25,6 +25,7 @@ export function createActionState(minionAction: MinionAction): ActionState {
         blockManeuvers: [],
         armedTriggers: [],
         playedCards: [],
+        blockResolved: null,
         stealth: actingMinion.minionAttrs.stealth + actions.getDefaultStealth(minionAction),
         intercept: 0,
         bleed: actingMinion.minionAttrs.bleed,
@@ -41,10 +42,11 @@ export function createActionState(minionAction: MinionAction): ActionState {
  */
 export function endAction(gameState: GameState): void {
     const ended = gameState.action?.minionAction
+    const successful = !gameState.action?.blockResolved
     gameState.action = null
     gameState.targetDeclarations = []
     if (ended) {
-        emitEvent(gameState, { type: 'actionResolved', action: ended })
+        emitEvent(gameState, { type: 'actionResolved', action: ended, successful })
     }
 }
 

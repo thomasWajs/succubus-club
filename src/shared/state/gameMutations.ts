@@ -84,6 +84,7 @@ import {
     chooseStrike,
     createCombatState,
     endCombatNow,
+    finishBlock,
     passCombatImpulse,
     playManeuver,
     playPress,
@@ -2575,6 +2576,9 @@ class EndAction extends GameMutation<EmptyParams> {
     declare public previousState: { actionName: string }
 
     getValidity(gameState: GameState) {
+        if (gameState.action?.blockResolved) {
+            return Invalid('The block was resolved: the action ends with its combat')
+        }
         return gameState.action ? VALID : Invalid('Must be applied during an action')
     }
 
@@ -2637,7 +2641,7 @@ export class ResolveAction extends GameMutation<EmptyParams> {
         actions.resolve(minionAction)
         gameState.action = null
         gameState.targetDeclarations = []
-        emitEvent(gameState, { type: 'actionResolved', action: minionAction })
+        emitEvent(gameState, { type: 'actionResolved', action: minionAction, successful: true })
     }
 
     formatForLog() {
@@ -2664,6 +2668,9 @@ export class ResolveBlock extends GameMutation<EmptyParams> {
             return Invalid('Must be applied during an action')
         }
 
+        if (gameState.action.blockResolved) {
+            return Invalid('The block is already resolved')
+        }
         if (!getBlockingMinion(gameState)) {
             return Invalid('Need a blocking minion to resolve a block')
         }
@@ -2688,15 +2695,24 @@ export class ResolveBlock extends GameMutation<EmptyParams> {
         if (action.intercept >= action.stealth) {
             this.previousState.isBlockSuccessful = true
             blockingMinion.lock()
+            action.blockResolved = blockingMinion
+            const actingMinion = action.minionAction.actingMinion
 
-            gameState.combat = createCombatState(action.minionAction.actingMinion, blockingMinion)
+            // A vampire in torpor cannot enter combat ( leave torpor ): the action just fails
+            if (!actingMinion.isIn.ready) {
+                this.previousState.isCombatStarted = false
+                finishBlock(gameState)
+                return
+            }
+            this.previousState.isCombatStarted = true
+
+            gameState.combat = createCombatState(actingMinion, blockingMinion)
             gameState.combat.acting.strengthBonus = actions.getBlockedStrengthBonus(
                 action.minionAction,
             )
             gameState.combat.defending.freeManeuvers = action.blockManeuvers.filter(
                 minion => minion == blockingMinion,
             ).length
-            gameState.action = null
         }
         // Failed block
         else {
@@ -2713,9 +2729,40 @@ export class ResolveBlock extends GameMutation<EmptyParams> {
     }
 
     formatForLog() {
-        return this.previousState.isBlockSuccessful ?
-                `Block successful. Combat begins`
-            :   `Block failed`
+        if (!this.previousState.isBlockSuccessful) {
+            return `Block failed`
+        }
+        return this.previousState.isCombatStarted === false ?
+                `Block successful. The action fails, no combat`
+            :   `Block successful. Combat begins`
+    }
+}
+
+/**
+ * Close the post block window: the blocker's controller has nothing more to play after the block,
+ * the action ends
+ */
+
+class ClosePostBlock extends GameMutation<EmptyParams> {
+    _isUserCancellable = false
+    readonly syncMode = MutationSyncMode.Exclusive
+
+    get allowedPlayer() {
+        return ANY_PLAYER
+    }
+
+    getValidity(gameState: GameState) {
+        return gameState.action?.blockResolved && !gameState.combat ?
+                VALID
+            :   Invalid('No post block window is open')
+    }
+
+    protected updateGameState(gameState: GameState) {
+        endAction(gameState)
+    }
+
+    formatForLog() {
+        return null
     }
 }
 
@@ -3696,6 +3743,7 @@ export const gameMutations = {
     ACTION_endAction: defineMutation(EndAction),
     ACTION_resolveAction: defineMutation(ResolveAction),
     ACTION_resolveBlock: defineMutation(ResolveBlock),
+    ACTION_closePostBlock: defineMutation(ClosePostBlock),
 
     /**
      * Combat mutations

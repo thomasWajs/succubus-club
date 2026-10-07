@@ -22,6 +22,8 @@ export enum DecisionKind {
     Trigger = 'Trigger',
     ActionImpulse = 'ActionImpulse',
     ReactionImpulse = 'ReactionImpulse',
+    // The combat of a block is over: the blocker's controller may play the reactions made for it
+    PostBlock = 'PostBlock',
     // A window of a combat step, or the choice of a strike
     Combat = 'Combat',
 }

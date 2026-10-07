@@ -88,6 +88,7 @@ export const duringBleed: Condition = { type: 'during', action: 'bleed' }
 export const actionTargetsYou: Condition = { type: 'actionTargets', who: 'you' }
 export const actorIsFromPredator: Condition = { type: 'actorControlledBy', who: 'predator' }
 export const afterBlocksDeclined: Condition = { type: 'afterBlocksDeclined' }
+export const afterYourBlock: Condition = { type: 'afterYourBlock' }
 export const reactorIsVampire: Condition = { type: 'reactorIs', minion: 'vampire' }
 export const reactorTitled: Condition = { type: 'reactorTitled', titled: true }
 export const reactorUntitled: Condition = { type: 'reactorTitled', titled: false }
@@ -259,6 +260,9 @@ export function actorIs(options: {
 }): EventCondition {
     return { type: 'actorIs', ...options }
 }
+
+// The action of the event was not blocked
+export const actionSuccessful: EventCondition = { type: 'actionSuccessful' }
 
 export function burnBlood(amount: number): TriggerCost {
     return { type: 'burnBlood', amount }

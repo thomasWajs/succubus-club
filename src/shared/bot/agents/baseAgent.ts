@@ -25,6 +25,8 @@ export abstract class BaseAgent implements BotAgent {
                 return this.actionImpulse(decision)
             case DecisionKind.ReactionImpulse:
                 return this.reactionImpulse(decision)
+            case DecisionKind.PostBlock:
+                return this.postBlock(decision)
             case DecisionKind.Combat:
                 return this.combat(decision)
         }
@@ -80,6 +82,14 @@ export abstract class BaseAgent implements BotAgent {
 
     protected reactionImpulse(decision: DecisionPoint): BotOption {
         return findOption(decision.options, 'noReaction')
+    }
+
+    // Plays what is offered ( the reactions of this window only unlock the blocker ), else passes
+    protected postBlock(decision: DecisionPoint): BotOption {
+        return (
+            decision.options.find(option => option.type == 'playReaction') ??
+            findOption(decision.options, 'noReaction')
+        )
     }
 
     // Strikes with the first strike offered (the hand strike), and plays nothing else

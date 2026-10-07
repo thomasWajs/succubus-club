@@ -50,6 +50,9 @@ export function canUseTrigger(gameState: GameState, source: Minion, index: numbe
 }
 
 function meetsCondition(condition: EventCondition, source: Minion, event: GameEvent): boolean {
+    if (condition.type == 'actionSuccessful') {
+        return event.type == 'actionResolved' && event.successful
+    }
     const actor = event.action.actingMinion
     if (condition.other && actor == source) {
         return false

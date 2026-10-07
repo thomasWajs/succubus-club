@@ -825,14 +825,19 @@ function playGovernBleed(agent: BaseAgent) {
     }
     const start = { pool: turn.player.pool, preyPool: prey.pool, blood: turn.ready.blood }
     applyOption(decision, bleed)
-    for (let i = 0; i < 20 && turn.gameState.action; i++) {
+    // Until the action is over, or a block is resolved ( the combat of the block is not played )
+    for (let i = 0; i < 20 && turn.gameState.action && !turn.gameState.action.blockResolved; i++) {
         const player = getDecidingPlayer(turn.gameState)
         if (!player) {
             throw new ScenarioFailure('Nobody has the impulse during the action')
         }
         stepBot(player, agent)
     }
-    expectEqual(turn.gameState.action, null, 'action in progress')
+    expectEqual(
+        !turn.gameState.action || !!turn.gameState.action.blockResolved,
+        true,
+        'action in progress',
+    )
     return { turn, prey, start }
 }
 
@@ -1218,6 +1223,7 @@ const CARD_SCENARIOS: { name: string; run: () => void }[] = [
                 applyOption(current, pass)
             }
             expectEqual(fight.gameState.combat, null, 'combat over')
+            applyPendingCleanup(fight.gameState, fight.defendingPlayer)
             expectEqual(card.region == fight.defendingPlayer.ashHeap, true, 'in the ash heap')
         },
     },
@@ -1442,6 +1448,18 @@ function decideWith(gameState: GameState, player: Player, type: BotOption['type'
     applyOption(decision, findOption(decision.options, type))
 }
 
+// Once an action or a combat is over, the bot holding its cards has a forced cleanup decision, which
+// comes first even when that bot is not the active player
+function applyPendingCleanup(gameState: GameState, expected: Player): void {
+    const decider = getDecidingPlayer(gameState)
+    expectEqual(decider, expected, 'the bot that cleans up')
+    const cleanup = decider && getDecisionPoint(gameState, decider)
+    if (cleanup?.kind != DecisionKind.Cleanup) {
+        throw new ScenarioFailure(`Expected a cleanup, got ${cleanup?.kind}`)
+    }
+    applyOption(cleanup, cleanup.options[0])
+}
+
 // The bleeder passes, the bled player declines to block, the bleeder passes again:
 // the bled player is back with a decision to make
 function declineBlock(bounce: Bounce): DecisionPoint {
@@ -1550,6 +1568,7 @@ const BOUNCE_SCENARIOS: { name: string; run: () => void }[] = [
             expectEqual(third.pool < pools.third, true, 'the new target is bled')
             expectEqual(bled.pool, pools.bled, 'the previous target is not bled')
             expectEqual(bleeder.pool, pools.bleeder, 'the bleeder pool')
+            applyPendingCleanup(gameState, bled)
             expectEqual(deflection.isIn.ashHeap, true, 'Deflection put away')
         },
     },
@@ -1660,6 +1679,7 @@ const BOUNCE_SCENARIOS: { name: string; run: () => void }[] = [
             expectEqual(bled.pool, pools.bled, 'the bled agent is not bled')
             expectEqual(bleeder.pool, pools.bleeder, 'the bleeder pool')
             expectEqual(reactor.isLocked, false, 'superior does not lock')
+            applyPendingCleanup(gameState, bled)
             expectEqual(deflection.isIn.ashHeap, true, 'Deflection put away')
         },
     },
@@ -3188,14 +3208,15 @@ function passUntilCombat(gameState: GameState) {
 function blockWithReaction(
     cardId: string,
     level: DisciplineLevel,
-    options: { locked?: boolean } = {},
+    options: { locked?: boolean; copies?: number; extra?: string[] } = {},
 ) {
+    const extra = options.extra ?? []
     const game = createCatalogBleed({
-        deck: { ...MalkavDeck, [cardId]: 4 },
+        deck: { ...MalkavDeck, [cardId]: 4, ...Object.fromEntries(extra.map(id => [id, 4])) },
         discipline: Discipline.Dominate,
         level: DisciplineLevel.INFERIOR,
         cards: [],
-        preyCards: [cardId],
+        preyCards: [...Array.from({ length: options.copies ?? 1 }, () => cardId), ...extra],
         preyDiscipline: [Discipline.Animalism, level],
     })
     if (options.locked) {
@@ -3347,6 +3368,251 @@ const ANIMALISM_REACTION_SCENARIOS: { name: string; run: () => void }[] = [
                 false,
                 'no second one',
             )
+        },
+    },
+]
+
+/**
+ * The post block window: Cats' Guidance, played by the blocker once the combat of its block is over
+ */
+
+const CATS_GUIDANCE_ID = '100308'
+
+// The prey, a bot holding Cats' Guidance, blocks the bleed with its vampire: the combat starts
+function createBlockCombat(level: DisciplineLevel, extra: string[] = []) {
+    const game = blockWithReaction(CATS_GUIDANCE_ID, level, { extra })
+    const { gameState, bleeder, bled, blocker } = game
+    const first = passUntilDecides(gameState, bled)
+    applyOption(
+        first,
+        optionsOfType(first.options, 'block').find(o => o.minion == blocker) ??
+            findOption(first.options, 'block'),
+    )
+    if (gameState.action) {
+        gameState.action.stealth = 0
+    }
+    decideWith(gameState, bleeder, 'noModifier')
+    const combat = passUntilCombat(gameState)
+    if (!combat) {
+        throw new ScenarioFailure('No combat')
+    }
+    return { ...game, combat }
+}
+
+const endCombatByHand = (game: { gameState: GameState; bleeder: Player }) =>
+    must(gameMutations.COMBAT_end.act(game.bleeder, {}), 'end combat')
+
+function getPostBlockDecision(game: { gameState: GameState; bled: Player }): DecisionPoint {
+    expectEqual(getDecidingPlayer(game.gameState), game.bled, 'the blocker decides')
+    const decision = getDecisionPoint(game.gameState, game.bled)
+    if (!decision) {
+        throw new ScenarioFailure('No decision in the post block window')
+    }
+    expectEqual(decision.kind, DecisionKind.PostBlock, 'decision kind')
+    return decision
+}
+
+const CATS_GUIDANCE_SCENARIOS: { name: string; run: () => void }[] = [
+    {
+        name: "Cats' Guidance: the window opens after the combat of a block, the inferior version unlocks the blocker",
+        run() {
+            const game = createBlockCombat(DisciplineLevel.INFERIOR)
+            const { gameState, bleeder, bled, blocker, combat } = game
+            expectEqual(gameState.action?.blockResolved, blocker, 'the action is open, blocked')
+            expectEqual(blocker.isLocked, true, 'locked by its block')
+            expectEqual(getDecidingPlayer(gameState), combat.impulsePlayer, 'the combat decides')
+            const during = getDecisionPoint(gameState, combat.impulsePlayer)
+            expectEqual(
+                (during?.options ?? []).some(option => option.type == 'playReaction'),
+                false,
+                'no reaction in the combat',
+            )
+
+            endCombatByHand(game)
+            expectEqual(gameState.action?.blockResolved, blocker, 'the window is open')
+            const decision = getPostBlockDecision(game)
+            const reactions = reactionOptions(decision)
+            expectEqual(reactions.length, 1, 'offered')
+            expectEqual(reactions[0].effect.type, 'unlock', 'unlocks')
+            expectEqual(
+                decision.options.some(option => option.type == 'noReaction'),
+                true,
+                'it can pass',
+            )
+
+            applyOption(decision, reactions[0])
+            expectEqual(blocker.isLocked, false, 'unlocked')
+            expectEqual(getMinionIntercept(blocker), blocker.minionAttrs.intercept, 'intercept')
+
+            // Nothing more to play: the player passes, and the turn goes on
+            const next = getPostBlockDecision(game)
+            expectEqual(next.options.length, 1, 'only passing is left')
+            applyOption(next, findOption(next.options, 'noReaction'))
+            expectEqual(gameState.action, null, 'the window is closed, the action is over')
+            applyPendingCleanup(gameState, bled)
+            expectEqual(reactions[0].card.region == bled.ashHeap, true, 'the card is discarded')
+            expectEqual(getDecidingPlayer(gameState), bleeder, 'the active player goes on')
+        },
+    },
+    {
+        name: "Cats' Guidance: the versions are separate plays, and a minion plays the card once per action",
+        run() {
+            // Played during the block attempt: +1 intercept, and the unlock is no longer playable
+            const game = blockWithReaction(CATS_GUIDANCE_ID, DisciplineLevel.SUPERIOR, {
+                copies: 2,
+            })
+            const { gameState, bleeder, bled, blocker } = game
+            const first = passUntilDecides(gameState, bled)
+            applyOption(
+                first,
+                optionsOfType(first.options, 'block').find(o => o.minion == blocker) ??
+                    findOption(first.options, 'block'),
+            )
+            if (gameState.action) {
+                gameState.action.stealth = 0
+            }
+            decideWith(gameState, bleeder, 'noModifier')
+            const decision = getDecisionPoint(gameState, bled)
+            const reactions = decision ? optionsOfType(decision.options, 'playReaction') : []
+            expectEqual(reactions.length, 2, 'one play per copy: only the superior version fits')
+            expectEqual(
+                reactions.some(reaction => reaction.effect.type == 'unlock'),
+                false,
+                'no unlock during the block attempt',
+            )
+            const before = gameState.action?.intercept ?? 0
+            if (decision) {
+                applyOption(decision, reactions[0])
+            }
+            expectEqual(gameState.action?.intercept, before + 1, 'intercept')
+            const again = getDecisionPoint(gameState, bled)
+            expectEqual(
+                again ? reactionOptions(again).length : 0,
+                0,
+                'not played twice in the same action',
+            )
+
+            passUntilCombat(gameState)
+            endCombatByHand(game)
+            const post = getPostBlockDecision(game)
+            expectEqual(reactionOptions(post).length, 0, 'the unlock is not playable after it')
+            expectEqual(post.options.length, 1, 'only passing is left')
+
+            // Not played during the block attempt: the unlock is offered after it
+            const other = createBlockCombat(DisciplineLevel.SUPERIOR)
+            endCombatByHand(other)
+            const postOther = reactionOptions(getPostBlockDecision(other))
+            expectEqual(postOther.length, 1, 'the unlock is offered')
+            expectEqual(postOther[0].effect.type, 'unlock', 'unlocks')
+        },
+    },
+    {
+        name: "Cats' Guidance: a blocked leave torpor starts no combat, the blocker is locked and the window opens",
+        run() {
+            const game = blockWithReaction(CATS_GUIDANCE_ID, DisciplineLevel.INFERIOR)
+            const { gameState, bleeder, bled, blocker, bleeding } = game
+            const first = passUntilDecides(gameState, bled)
+            applyOption(
+                first,
+                optionsOfType(first.options, 'block').find(o => o.minion == blocker) ??
+                    findOption(first.options, 'block'),
+            )
+            if (gameState.action) {
+                gameState.action.stealth = 0
+            }
+            // The acting vampire is in torpor, as for a leave torpor action
+            gameState.moveCardToRegion(bleeding, bleeder.torpor)
+            decideWith(gameState, bleeder, 'noModifier')
+            for (let i = 0; i < 8 && gameState.action && !gameState.action.blockResolved; i++) {
+                const decider = getDecidingPlayer(gameState)
+                const decision = decider && getDecisionPoint(gameState, decider)
+                const pass = decision?.options.find(option =>
+                    ['noReaction', 'noModifier'].includes(option.type),
+                )
+                if (!decision || !pass) {
+                    break
+                }
+                applyOption(decision, pass)
+            }
+            expectEqual(gameState.combat, null, 'no combat')
+            expectEqual(blocker.isLocked, true, 'the blocker is locked')
+            expectEqual(gameState.action?.blockResolved, blocker, 'the window is open')
+        },
+    },
+    {
+        name: "Cats' Guidance: the window offers only what is made for it, not the reactions about the action",
+        run() {
+            const game = createBlockCombat(DisciplineLevel.INFERIOR, [GUARD_DOGS_ID])
+            expectEqual(
+                game.bled.hand.cards.some(card => card.krcgId == GUARD_DOGS_ID),
+                true,
+                'Guard Dogs in hand',
+            )
+            endCombatByHand(game)
+            const reactions = reactionOptions(getPostBlockDecision(game))
+            expectEqual(reactions.length, 1, 'one play only')
+            expectEqual(reactions[0].card.krcgId, CATS_GUIDANCE_ID, 'Cats Guidance')
+        },
+    },
+    {
+        name: "Cats' Guidance is not offered as a reaction during the action",
+        run() {
+            const locked = blockWithReaction(CATS_GUIDANCE_ID, DisciplineLevel.INFERIOR, {
+                locked: true,
+            })
+            expectEqual(
+                reactionOptions(passUntilDecides(locked.gameState, locked.bled)).length,
+                0,
+                'during the action',
+            )
+        },
+    },
+    {
+        name: "Cats' Guidance: no window when the blocker went to torpor, when the hand has no reaction, or when the combat is not from a block",
+        run() {
+            const torpor = createBlockCombat(DisciplineLevel.INFERIOR)
+            torpor.gameState.moveCardToRegion(torpor.blocker, torpor.bled.torpor)
+            endCombatByHand(torpor)
+            expectEqual(torpor.gameState.action, null, 'in torpor: the action is over')
+
+            const noCard = createBlockCombat(DisciplineLevel.INFERIOR)
+            for (const card of [...noCard.bled.hand.cards]) {
+                noCard.gameState.moveCardToRegion(card, noCard.bled.ashHeap)
+            }
+            endCombatByHand(noCard)
+            expectEqual(noCard.gameState.action, null, 'no reaction card in hand')
+
+            // An enter combat action is not a block
+            const fight = createFight(3, 3, { ...MalkavDeck, [CATS_GUIDANCE_ID]: 4 })
+            giveCard(fight.gameState, fight.defendingPlayer, CATS_GUIDANCE_ID)
+            expectEqual(fight.gameState.action, null, 'no action stays open')
+            must(gameMutations.COMBAT_end.act(fight.actingPlayer, {}), 'end combat')
+            expectEqual(fight.gameState.action, null, 'no window')
+        },
+    },
+    {
+        name: "Cats' Guidance: a bot plays it through the decision flow, and the combat played out ends the same way",
+        run() {
+            const game = createBlockCombat(DisciplineLevel.INFERIOR)
+            const { gameState, blocker } = game
+            const agent = new GovernAgent()
+            let steps = 0
+            while (gameState.combat && steps++ < 200) {
+                const decider = getDecidingPlayer(gameState)
+                if (!decider) {
+                    throw new ScenarioFailure('Nobody decides in the combat')
+                }
+                stepBot(decider, agent)
+            }
+            expectEqual(gameState.combat, null, 'the combat is over')
+            // The window opens only if the blocker is still ready
+            if (blocker.isIn.ready) {
+                expectEqual(gameState.action?.blockResolved, blocker, 'the window is open')
+                stepBot(game.bled, agent)
+                expectEqual(blocker.isLocked, false, 'the bot unlocked its blocker')
+            } else {
+                expectEqual(gameState.action, null, 'no window for a blocker in torpor')
+            }
         },
     },
 ]
@@ -4434,14 +4700,19 @@ const BRUJAH_REACTION_SCENARIOS: { name: string; run: () => void }[] = [
 function watchEvents(): { names: string[]; stop: () => void } {
     const names: string[] = []
     const stop = addEventObserver((_gameState, event) => {
-        names.push(event.type)
+        names.push(
+            event.type == 'actionResolved' && !event.successful ?
+                'actionResolved(blocked)'
+            :   event.type,
+        )
     })
     return { names, stop }
 }
 
 // Everybody passes ( a standing block is kept ) until the action is over
+// Until the action is over, or a block is resolved ( its combat, if any, is not played )
 function passUntilActionOver(gameState: GameState): void {
-    for (let i = 0; i < 12 && gameState.action; i++) {
+    for (let i = 0; i < 12 && gameState.action && !gameState.action.blockResolved; i++) {
         const decider = getDecidingPlayer(gameState)
         const next = decider && getDecisionPoint(gameState, decider)
         const pass = ['noModifier', 'noReaction', 'noBlock']
@@ -4452,7 +4723,7 @@ function passUntilActionOver(gameState: GameState): void {
         }
         applyOption(next, pass)
     }
-    expectEqual(gameState.action, null, 'the action is over')
+    expectEqual(!gameState.action || !!gameState.action.blockResolved, true, 'the action is over')
 }
 
 function createEventBleed(blockerIntercept: number) {
@@ -4467,6 +4738,16 @@ function createEventBleed(blockerIntercept: number) {
     game.gameState.action.stealth = 1
     game.blocker.minionAttrs.intercept = blockerIntercept
     return game
+}
+
+// The combat of a block is ended by hand, and the post block window of the blocker, if open, is passed
+function endBlockCombat(game: { gameState: GameState; bleeder: Player; bled: Player }): void {
+    must(gameMutations.COMBAT_end.act(game.bleeder, {}), 'end combat')
+    const window = game.gameState.action ? getDecisionPoint(game.gameState, game.bled) : null
+    if (window) {
+        applyOption(window, findOption(window.options, 'noReaction'))
+    }
+    expectEqual(game.gameState.action, null, 'the blocked action is over')
 }
 
 function blockWithBlocker(game: ReturnType<typeof createEventBleed>): void {
@@ -4511,18 +4792,21 @@ const EVENT_SCENARIOS: { name: string; run: () => void }[] = [
         },
     },
     {
-        name: 'Events: a block that succeeds starts a combat and announces nothing',
+        name: 'Events: a block that succeeds starts a combat, and the action ends unsuccessful with it',
         run() {
             const game = createEventBleed(5)
             const watch = watchEvents()
             try {
                 blockWithBlocker(game)
                 passUntilActionOver(game.gameState)
+                expectEqual(watch.names.length, 0, 'events during the combat')
+                expectEqual(game.gameState.combat != null, true, 'combat')
+                expectEqual(game.gameState.action?.blockResolved, game.blocker, 'block resolved')
+                endBlockCombat(game)
             } finally {
                 watch.stop()
             }
-            expectEqual(watch.names.length, 0, 'events')
-            expectEqual(game.gameState.combat != null, true, 'combat')
+            expectEqual(watch.names.join(','), 'actionResolved(blocked)', 'events')
         },
     },
     {
@@ -4686,7 +4970,8 @@ const ALINE_SCENARIOS: { name: string; run: () => void }[] = [
             blockWithBlocker(game)
             passUntilActionOver(game.gameState)
             expectEqual(game.gameState.combat != null, true, 'combat')
-            expectNoTrigger(game.gameState, 'pending')
+            endBlockCombat(game)
+            expectNoTrigger(game.gameState, 'an unsuccessful action')
         },
     },
     {
@@ -4730,6 +5015,7 @@ const ALINE_SCENARIOS: { name: string; run: () => void }[] = [
             emitEvent(game.gameState, {
                 type: 'actionResolved',
                 action: createBleedAction(game.bleeding, game.bled),
+                successful: true,
             })
             expectNoTrigger(game.gameState, 'once per turn')
         },
@@ -4964,7 +5250,7 @@ const HUMAN_ACTION_SCENARIOS: { name: string; run: () => void }[] = [
 
             decideWith(table.gameState, table.human, 'noModifier')
             expectEqual(stepBot(prey, agent)?.option.type, 'noReaction', 'the bot passes')
-            expectEqual(table.gameState.action, null, 'the action is over')
+            expectEqual(table.gameState.action?.blockResolved, table.blockers[0], 'block resolved')
             const combat = table.gameState.combat
             expectEqual(combat?.acting.minion, table.acting, 'the human minion is the one blocked')
             expectEqual(combat?.defending.minion, table.blockers[0], 'the bot minion blocked')
@@ -5055,6 +5341,29 @@ const HUMAN_ACTION_SCENARIOS: { name: string; run: () => void }[] = [
             must(gameMutations.ACTION_resolveAction.act(table.human, {}), 'resolve')
             expectEqual(table.gameState.action, null, 'the action is over')
             expectEqual(prey.pool, pool - table.acting.minionAttrs.bleed, 'the bleed went through')
+        },
+    },
+    {
+        name: 'the reaction card a bot played against a human action is put away once the human ends the action',
+        run() {
+            const bounce = createBounce(DisciplineLevel.SUPERIOR)
+            const { gameState, bleeder, bled, third, deflection } = bounce
+            if (!third) {
+                throw new ScenarioFailure('No third player')
+            }
+            bleeder.permId = 'human'
+            const decision = declineBlock(bounce)
+            applyOption(decision, getBounceOption(decision, DisciplineLevel.SUPERIOR))
+            decideWith(gameState, bleeder, 'noModifier')
+            decideWith(gameState, third, 'noReaction')
+            expectEqual(gameState.action !== null, true, 'the human ends the action')
+            expectEqual(deflection.isIn.ready, true, 'Deflection stays while the action goes on')
+
+            must(gameMutations.ACTION_resolveAction.act(bleeder, {}), 'the human resolves')
+            expectEqual(gameState.action, null, 'the action is over')
+            applyPendingCleanup(gameState, bled)
+            expectEqual(deflection.isIn.ashHeap, true, 'Deflection put away')
+            expectEqual(getDecidingPlayer(gameState), bleeder, 'the turn goes on')
         },
     },
     {
@@ -6247,6 +6556,7 @@ function runScenarios(filters: string[]): ScenarioResult[] {
         ...BRUJAH_REACTION_SCENARIOS,
         ...WARRENS_SCENARIOS,
         ...ANIMALISM_REACTION_SCENARIOS,
+        ...CATS_GUIDANCE_SCENARIOS,
         ...EVENT_SCENARIOS,
         ...ALINE_SCENARIOS,
         ...ATTACHMENT_SCENARIOS,

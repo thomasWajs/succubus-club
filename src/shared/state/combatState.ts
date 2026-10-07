@@ -1,4 +1,6 @@
-import { Card, Minion } from '@/shared/model/Card.ts'
+import { Card, LibraryCard, Minion } from '@/shared/model/Card.ts'
+import { endAction } from '@/shared/state/actionState.ts'
+import { LibraryCardType } from '@/shared/const/model.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { GameState } from '@/shared/state/gameState.ts'
 import { getHost, syncAttachedCards } from '@/shared/state/attachments.ts'
@@ -75,6 +77,37 @@ export function createCombatState(acting: Minion, defending: Minion): CombatStat
         playedThisRound: {},
         weaponManeuvers: [],
         isOver: false,
+    }
+}
+
+// The combat is over. One that came from a block ( the action is still open ) goes on with the
+// end of the block
+export function closeCombat(gameState: GameState): void {
+    gameState.combat = null
+    if (gameState.action?.blockResolved) {
+        finishBlock(gameState)
+    }
+}
+
+// The block is resolved and its combat, if any, is over. The action ends, unless the blocker's
+// controller can still play reaction cards made for this window ( bots only: it needs a reaction
+// card in hand and a blocker still ready, so one that went to torpor cannot play any ): then the
+// action stays open, and the window closes it ( ClosePostBlock ).
+export function finishBlock(gameState: GameState): void {
+    const blocker = gameState.action?.blockResolved
+    if (!blocker) {
+        return
+    }
+    const controller = blocker.controller
+    const canPlay =
+        controller.isBot &&
+        !controller.isOusted &&
+        blocker.isIn.ready &&
+        controller.hand.cards.some(
+            card => card instanceof LibraryCard && card.hasType(LibraryCardType.Reaction),
+        )
+    if (!canPlay) {
+        endAction(gameState)
     }
 }
 
@@ -459,7 +492,7 @@ function closeWindow(gameState: GameState, combat: CombatState, log: string[]): 
 
 function finishRound(gameState: GameState, combat: CombatState, log: string[]): void {
     if (combat.isOver || !combat.pressed || !bothReady(combat)) {
-        gameState.combat = null
+        closeCombat(gameState)
         log.push('Combat ends')
         return
     }
@@ -992,6 +1025,6 @@ export function applyDamageNow(gameState: GameState, minion: Minion): string[] {
 
 // Stops the combat on the spot, nothing more is resolved
 export function endCombatNow(gameState: GameState): string[] {
-    gameState.combat = null
+    closeCombat(gameState)
     return ['Combat ended']
 }

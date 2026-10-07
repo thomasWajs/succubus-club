@@ -129,11 +129,21 @@ export function getDecidingPlayer(gameState: GameState): Player | null {
     if (gameState.combat) {
         return gameState.combat.impulsePlayer
     }
+    // The window after a block, the action being still open: the blocker's controller decides
+    if (gameState.action?.blockResolved) {
+        const blocker = gameState.action.blockResolved.controller
+        return blocker.isOusted ? null : blocker
+    }
     if (gameState.action) {
         const impulsePlayer = gameState.action.impulsePlayer
         return impulsePlayer.isOusted ? null : impulsePlayer
     }
-    return gameState.activePlayer ?? null
+    // Once the action is over, a bot puts away the cards it played in it, even when it is not the
+    // active player and even when a human ended the action: no bot decision would follow otherwise
+    const cleaning = gameState.competingPlayers.find(
+        player => player.isBot && getCleanupCards(gameState, player).length > 0,
+    )
+    return cleaning ?? gameState.activePlayer ?? null
 }
 
 function hasExcessCards(player: Player): boolean {
@@ -171,13 +181,17 @@ export function getDecisionPoint(gameState: GameState, player: Player): Decision
         return combatDecision(gameState, gameState.combat, player)
     }
 
+    if (gameState.action?.blockResolved) {
+        return postBlockDecision(gameState, gameState.action.blockResolved, player)
+    }
+
     if (gameState.action) {
         return player == gameState.activePlayer ?
                 actionImpulseDecision(gameState, player)
             :   reactionImpulseDecision(gameState, player)
     }
 
-    const cleanupCards = getCleanupCards(player)
+    const cleanupCards = getCleanupCards(gameState, player)
     if (cleanupCards.length > 0) {
         return decision(DecisionKind.Cleanup, player, [{ type: 'cleanup', cards: cleanupCards }])
     }
@@ -204,15 +218,22 @@ function decision(kind: DecisionKind, player: Player, options: BotOption[]): Dec
     return { kind, player, options }
 }
 
-// A card attached to a minion is kept, whatever its type ( an action card put on a vampire )
-function getCleanupCards(player: Player): LibraryCard[] {
+// Cards a bot plays out of its own turn, while someone else's action or combat is going on
+const OUT_OF_TURN_TYPES = [LibraryCardType.Combat, LibraryCardType.Reaction]
+
+// A card attached to a minion is kept, whatever its type ( an action card put on a vampire ).
+// Out of its own turn a player only has the cards of the reactions and combats it took part in.
+function getCleanupCards(gameState: GameState, player: Player): LibraryCard[] {
+    const ownTurn = player == gameState.activePlayer
     return player.ready.cards.filter(
         (card): card is LibraryCard =>
             card instanceof LibraryCard &&
             !isAttached(card) &&
-            (ONE_SHOT_TYPES.some(type => card.hasType(type)) ||
+            (ownTurn ?
+                ONE_SHOT_TYPES.some(type => card.hasType(type)) ||
                 isMasterDiscardedAfterUse(card) ||
-                isEquipmentOrRetainer(card)),
+                isEquipmentOrRetainer(card)
+            :   OUT_OF_TURN_TYPES.some(type => card.hasType(type))),
     )
 }
 
@@ -406,6 +427,15 @@ function reactionImpulseDecision(gameState: GameState, player: Player): Decision
     return decision(DecisionKind.ReactionImpulse, player, options)
 }
 
+// After a block: only the blocker plays, with the cards made for this window ( each card checks it )
+function postBlockDecision(gameState: GameState, blocker: Minion, player: Player): DecisionPoint {
+    const options: BotOption[] = getReactionCardOptions(blocker).filter(option =>
+        isReactionOptionValid(gameState, option),
+    )
+    options.push({ type: 'noReaction' })
+    return decision(DecisionKind.PostBlock, player, options)
+}
+
 function isReactionOptionValid(gameState: GameState, option: BotOptionOf<'playReaction'>): boolean {
     switch (option.effect.type) {
         case 'changeTarget':
@@ -540,36 +570,6 @@ function playCombatCard(player: Player, minion: Minion, card?: LibraryCard): voi
         playCardFromHand(player, card, minion)
         payCosts(minion, card)
         check(gameMutations.COMBAT_markPlayed.act(player, { minion, card }), 'remember the play')
-    }
-}
-
-// Cards a bot plays out of its own turn: they are played while someone else's action or
-// combat is going on, so the owner's cleanup (own turn only) comes too late.
-const OUT_OF_TURN_TYPES = [LibraryCardType.Combat, LibraryCardType.Reaction]
-
-// Once the action and the combat are over, bots put away the combat and reaction cards
-// played in them, whoever played them. Humans do it themselves.
-function cleanupOutOfTurnCards(gameState: GameState, player: Player): void {
-    if (gameState.combat || gameState.action) {
-        return
-    }
-    for (const bot of gameState.orderedPlayers.filter(candidate => candidate.isBot)) {
-        const cards = bot.ready.cards.filter(
-            card =>
-                card instanceof LibraryCard && OUT_OF_TURN_TYPES.some(type => card.hasType(type)),
-        )
-        for (const card of cards) {
-            check(
-                gameMutations.moveCardToRegion.act(player, {
-                    card,
-                    fromCardRegion: card.region,
-                    toCardRegion: card.owner.ashHeap,
-                    x: 0,
-                    y: 0,
-                }),
-                'out of turn cards cleanup',
-            )
-        }
     }
 }
 
@@ -833,7 +833,6 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
             const { minion, card, effect } = option
             playCardFromHand(player, card, minion)
             payCosts(minion, card)
-            // Playing a reaction is an effect: the acting player regains the impulse
             check(
                 gameMutations.ACTION_declareReaction.act(player, { reaction: card, minion }),
                 'declare reaction',
@@ -910,7 +909,9 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
 
         case 'noReaction':
             check(
-                gameMutations.ACTION_declareReaction.act(player, { reaction: NO_REACTION }),
+                decisionPoint.kind == DecisionKind.PostBlock ?
+                    gameMutations.ACTION_closePostBlock.act(player, {})
+                :   gameMutations.ACTION_declareReaction.act(player, { reaction: NO_REACTION }),
                 'noReaction',
             )
             break
@@ -1020,7 +1021,6 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
             break
     }
 
-    cleanupOutOfTurnCards(gameState, player)
     // The hand is always kept full. The hand size depends on the cards in play: it may have
     // grown during the option ( a location played, a vampire out of torpor ).
     drawToHandSize(player)

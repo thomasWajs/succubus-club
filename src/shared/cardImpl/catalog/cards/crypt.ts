@@ -1,5 +1,11 @@
 import { ABRAHAM_MELLON_ID } from '@/shared/cardImpl/cardIds.ts'
-import { actorIs, burnBlood, defineCrypt, unlockSelf } from '@/shared/cardImpl/catalog/builders.ts'
+import {
+    actionSuccessful,
+    actorIs,
+    burnBlood,
+    defineCrypt,
+    unlockSelf,
+} from '@/shared/cardImpl/catalog/builders.ts'
 
 export const CRYPT_CARDS = [
     defineCrypt('201628', 'Jason "Son" Newberry', { bleed: 1 }),
@@ -15,7 +21,10 @@ export const CRYPT_CARDS = [
             {
                 on: 'actionResolved',
                 mode: 'optional',
-                when: [actorIs({ other: true, controller: 'self', sect: 'Anarch' })],
+                when: [
+                    actionSuccessful,
+                    actorIs({ other: true, controller: 'self', sect: 'Anarch' }),
+                ],
                 cost: burnBlood(1),
                 limit: 'oncePerTurn',
                 sourceIn: ['ready', 'torpor'],

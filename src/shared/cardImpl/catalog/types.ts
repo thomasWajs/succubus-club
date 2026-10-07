@@ -28,6 +28,10 @@ export type Condition =
     // The acting minion is controlled by your predator
     | { type: 'actorControlledBy'; who: 'predator' }
     | { type: 'afterBlocksDeclined' }
+    // The post block window is open ( the combat of a block is over, the action with it ) and the
+    // minion is the one that blocked. The only condition that makes a reaction playable outside
+    // an action.
+    | { type: 'afterYourBlock' }
     | { type: 'combatRound'; round: number }
     | { type: 'reactorIs'; minion: 'vampire' }
     // The minion playing the card is a vampire with a title ( or without one )
@@ -112,7 +116,9 @@ export type TriggerEffect =
 export type EventCondition =
     // The minion that acted: another minion than the card ( `other` ), controlled by the same
     // Methuselah ( `controller: 'self'` ), of this sect
-    { type: 'actorIs'; other?: boolean; controller?: 'self'; sect?: 'Anarch' }
+    | { type: 'actorIs'; other?: boolean; controller?: 'self'; sect?: 'Anarch' }
+    // The action of the event ended successful: it was not blocked ( actionResolved )
+    | { type: 'actionSuccessful' }
 // Paid when an optional trigger is used
 export type TriggerCost = { type: 'burnBlood'; amount: number }
 // A card in play or a played card that reacts to an event, with the effects it has

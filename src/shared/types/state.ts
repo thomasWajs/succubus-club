@@ -96,6 +96,11 @@ export type ActionState = {
     armedTriggers: ArmedTrigger[]
     // The modifiers and reactions each minion played (krcgId): a minion plays a given card once per action
     playedCards: { minion: Minion; krcgId: string }[]
+    // The minion whose block was resolved as a success: the action is no longer open to modifiers
+    // and reactions, it only waits for the combat of the block ( if any ) and for the cards made
+    // for this window ( the post block window: Cats' Guidance ), a decision of a bot only. Then
+    // the action ends, unsuccessful.
+    blockResolved: Minion | null
     stealth: number
     intercept: number
     bleed: number

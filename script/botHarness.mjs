@@ -1,5 +1,5 @@
 // Headless bot-vs-bot games, 2 to 5 players. Run from the repo root:
-//   npx tsx script/botHarness.mjs [--games N] [--agents govern,random] [--players N] [--max-turns N] [--deck govern|malkav|brujah|attach] [--trace]
+//   npx tsx script/botHarness.mjs [--games N] [--agents govern,random] [--players N] [--max-turns N] [--deck govern|malkav|brujah|attach|postblock] [--trace]
 // --agents lists one agent per seat; with --players N the list is cycled (or cut) to N players,
 // e.g. `--players 4 --agents govern` is 4 govern bots.
 // Exits with code 1 if any game hits a hard failure (invalid move, stall, exception, broken invariant).
@@ -15,11 +15,17 @@ import {
 import { GovernAgent } from '@/shared/bot/agents/governAgent.ts'
 import { RandomAgent } from '@/shared/bot/agents/randomAgent.ts'
 import { BrujahDeck, GovernDeck, MalkavDeck } from '@/shared/bot/decks.ts'
-import { AttachDeck } from './attachDeck.ts'
+import { AttachDeck, PostBlockDeck } from './attachDeck.ts'
 import { BOT_NAME } from '@/shared/const/bot.ts'
 import { MAX_PLAYERS } from '@/shared/const/model.ts'
 
-const DECKS = { govern: GovernDeck, malkav: MalkavDeck, brujah: BrujahDeck, attach: AttachDeck }
+const DECKS = {
+    govern: GovernDeck,
+    malkav: MalkavDeck,
+    brujah: BrujahDeck,
+    attach: AttachDeck,
+    postblock: PostBlockDeck,
+}
 
 const AGENTS = {
     govern: () => new GovernAgent(),

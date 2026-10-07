@@ -14,7 +14,7 @@
 
         <!-- Action Infos -->
         <ActionInfos
-            v-if="gameState.action && !gameState.referendum"
+            v-if="gameState.action && !gameState.action.blockResolved && !gameState.referendum"
             :action="gameState.action"
         />
 

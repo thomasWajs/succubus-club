@@ -2,6 +2,7 @@ import { DEFLECTION_ID } from '@/shared/cardImpl/cardIds.ts'
 import {
     actionTargetsYou,
     actorIsFromPredator,
+    afterYourBlock,
     blockManeuver,
     unlockReactor,
     afterBlocksDeclined,
@@ -113,6 +114,23 @@ export const REACTION_CARDS = [
             requires: discipline('ani', 'superior'),
             when: [actorIsFromPredator, yourBlockStands],
             effects: [intercept(1), blockManeuver],
+        },
+    ]),
+    // The two versions are separate: inferior is played in the post block window, once the combat of
+    // the block is over and the blocker is still ready ( it is locked since it blocked ); superior
+    // is played during a block attempt, for +1 intercept until the end of the action
+    defineCard('100308', "Cats' Guidance", [
+        {
+            kind: 'reaction',
+            requires: discipline('ani', 'inferior'),
+            when: [afterYourBlock, minionLocked, reactorIsVampire],
+            effects: [unlockReactor],
+        },
+        {
+            kind: 'reaction',
+            requires: discipline('ani', 'superior'),
+            when: [yourBlockStands],
+            effects: [intercept(1)],
         },
     ]),
     defineCard('101949', 'Telepathic Misdirection', [

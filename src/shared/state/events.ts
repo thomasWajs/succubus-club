@@ -14,9 +14,9 @@ export type GameEvent =
     | { type: 'blockFailed'; action: MinionAction; blocker: Minion }
     // The action is about to resolve ( no block stands )
     | { type: 'actionResolving'; action: MinionAction }
-    // The action is over and was not blocked into a combat: nobody blocked, or the blocks failed.
-    // It does not need to have had an effect.
-    | { type: 'actionResolved'; action: MinionAction }
+    // The action is over. It is successful when it was not blocked: nobody blocked, or the blocks
+    // failed ( it does not need to have had an effect ). A block that succeeded ends it unsuccessful.
+    | { type: 'actionResolved'; action: MinionAction; successful: boolean }
 
 export type EventName = GameEvent['type']
 
