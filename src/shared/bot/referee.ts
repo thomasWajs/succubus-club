@@ -2,6 +2,7 @@ import { LibraryCard, Minion } from '@/shared/model/Card.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { GameState } from '@/shared/state/gameState.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
+import { botMutations } from '@/shared/state/botMutations.ts'
 import {
     LEAVE_TORPOR_COST,
     LibraryCardType,
@@ -569,7 +570,7 @@ function playCombatCard(player: Player, minion: Minion, card?: LibraryCard): voi
     if (card) {
         playCardFromHand(player, card, minion)
         payCosts(minion, card)
-        check(gameMutations.COMBAT_markPlayed.act(player, { minion, card }), 'remember the play')
+        check(botMutations.COMBAT_markPlayed.act(player, { minion, card }), 'remember the play')
     }
 }
 
@@ -598,7 +599,7 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
             if (!implementation) {
                 throw new InvalidBotMove(`${option.card.name} has no unlock effect`)
             }
-            check(gameMutations.markCardUsed.act(player, { player, card: option.card }), 'use card')
+            check(botMutations.markCardUsed.act(player, { player, card: option.card }), 'use card')
             check(implementation.applyUnlockEffect(option.vampire), 'unlock effect')
             break
         }
@@ -618,7 +619,7 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
         case 'moveBlood': {
             const { card, vampire, amount, toPool } = option
             const sign = toPool ? 1 : -1
-            check(gameMutations.markCardUsed.act(player, { player, card }), 'use card')
+            check(botMutations.markCardUsed.act(player, { player, card }), 'use card')
             check(
                 gameMutations.changeBlood.act(player, { card: vampire, amount: -sign * amount }),
                 'blood of the vampire',
@@ -750,7 +751,7 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
                 )
             }
             check(
-                gameMutations.resolvePendingTrigger.act(player, {
+                botMutations.resolvePendingTrigger.act(player, {
                     player,
                     source,
                     index,
@@ -763,7 +764,7 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
 
         case 'skipTrigger':
             check(
-                gameMutations.resolvePendingTrigger.act(player, {
+                botMutations.resolvePendingTrigger.act(player, {
                     player,
                     source: option.pending.source,
                     index: option.pending.index,
@@ -777,7 +778,7 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
             playCardFromHand(player, option.card)
             check(payMasterCardCosts(player, option.card), 'card cost')
             check(
-                gameMutations.spendMasterPhaseAction.act(player, { player }),
+                botMutations.spendMasterPhaseAction.act(player, { player }),
                 'master phase action',
             )
             if (option.target) {
@@ -803,7 +804,7 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
             // effect is applied by separate mutations so a replay won't apply
             // it twice. It keeps the impulse with the acting player.
             check(
-                gameMutations.ACTION_declareActionModifier.act(player, {
+                botMutations.ACTION_declareActionModifier.act(player, {
                     actionModifier: option.modifier,
                 }),
                 'declare modifier',
@@ -814,7 +815,7 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
 
         case 'noModifier':
             check(
-                gameMutations.ACTION_declareActionModifier.act(player, {
+                botMutations.ACTION_declareActionModifier.act(player, {
                     actionModifier: NO_ACTION_MODIFIER,
                 }),
                 'noModifier',
@@ -834,7 +835,7 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
             playCardFromHand(player, card, minion)
             payCosts(minion, card)
             check(
-                gameMutations.ACTION_declareReaction.act(player, { reaction: card, minion }),
+                botMutations.ACTION_declareReaction.act(player, { reaction: card, minion }),
                 'declare reaction',
             )
             switch (effect.type) {
@@ -846,7 +847,7 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
                         )
                     }
                     check(
-                        gameMutations.ACTION_changeTarget.act(player, { target: effect.target }),
+                        botMutations.ACTION_changeTarget.act(player, { target: effect.target }),
                         'change target',
                     )
                     break
@@ -860,7 +861,7 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
                     )
                     break
                 case 'wake':
-                    check(gameMutations.ACTION_wake.act(player, { minion }), 'wake')
+                    check(botMutations.ACTION_wake.act(player, { minion }), 'wake')
                     break
                 case 'unlock':
                     check(
@@ -891,7 +892,7 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
             }
             if (effect.blockManeuver) {
                 check(
-                    gameMutations.ACTION_grantBlockManeuver.act(player, { minion }),
+                    botMutations.ACTION_grantBlockManeuver.act(player, { minion }),
                     'maneuver if it blocks',
                 )
             }
@@ -900,7 +901,7 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
                     ?.oncePerUnlock
             ) {
                 check(
-                    gameMutations.markPlayedSinceUnlock.act(player, { minion, card }),
+                    botMutations.markPlayedSinceUnlock.act(player, { minion, card }),
                     'remember the play',
                 )
             }
@@ -910,20 +911,20 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
         case 'noReaction':
             check(
                 decisionPoint.kind == DecisionKind.PostBlock ?
-                    gameMutations.ACTION_closePostBlock.act(player, {})
-                :   gameMutations.ACTION_declareReaction.act(player, { reaction: NO_REACTION }),
+                    botMutations.ACTION_closePostBlock.act(player, {})
+                :   botMutations.ACTION_declareReaction.act(player, { reaction: NO_REACTION }),
                 'noReaction',
             )
             break
 
         case 'combatPass':
-            check(gameMutations.COMBAT_pass.act(player, {}), 'combatPass')
+            check(botMutations.COMBAT_pass.act(player, {}), 'combatPass')
             break
 
         case 'combatStrike':
             playCombatCard(player, option.minion, option.card)
             check(
-                gameMutations.COMBAT_chooseStrike.act(player, {
+                botMutations.COMBAT_chooseStrike.act(player, {
                     minion: option.minion,
                     strike: option.strike,
                     additional: option.additional,
@@ -935,7 +936,7 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
         case 'combatManeuver':
             playCombatCard(player, option.minion, option.card)
             check(
-                gameMutations.COMBAT_maneuver.act(player, {
+                botMutations.COMBAT_maneuver.act(player, {
                     minion: option.minion,
                     strike: option.strike,
                     weapon: option.weapon,
@@ -948,7 +949,7 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
         case 'combatPress':
             playCombatCard(player, option.minion, option.card)
             check(
-                gameMutations.COMBAT_press.act(player, {
+                botMutations.COMBAT_press.act(player, {
                     minion: option.minion,
                     granted: option.granted,
                 }),
@@ -959,7 +960,7 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
         case 'combatAdditionalStrike':
             playCombatCard(player, option.minion, option.card)
             check(
-                gameMutations.COMBAT_addStrikes.act(player, {
+                botMutations.COMBAT_addStrikes.act(player, {
                     minion: option.minion,
                     gain: { limited: option.limited },
                 }),
@@ -970,7 +971,7 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
         case 'combatGrapple':
             playCombatCard(player, option.minion, option.card)
             check(
-                gameMutations.COMBAT_grapple.act(player, {
+                botMutations.COMBAT_grapple.act(player, {
                     minion: option.minion,
                     press: option.press,
                     closeNextRound: option.closeNextRound,
@@ -982,7 +983,7 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
         case 'combatGainBlood':
             playCombatCard(player, option.minion, option.card)
             check(
-                gameMutations.COMBAT_gainBlood.act(player, {
+                botMutations.COMBAT_gainBlood.act(player, {
                     minion: option.minion,
                     amount: option.amount,
                 }),
@@ -992,7 +993,7 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
 
         case 'combatStrengthBonus':
             check(
-                gameMutations.COMBAT_takeStrengthBonus.act(player, { minion: option.minion }),
+                botMutations.COMBAT_takeStrengthBonus.act(player, { minion: option.minion }),
                 'combatStrengthBonus',
             )
             break
@@ -1000,7 +1001,7 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
         case 'combatStrength':
             playCombatCard(player, option.minion, option.card)
             check(
-                gameMutations.COMBAT_setStrength.act(player, {
+                botMutations.COMBAT_setStrength.act(player, {
                     minion: option.minion,
                     strength: option.amount,
                 }),
@@ -1011,7 +1012,7 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
         case 'combatPrevent':
             playCombatCard(player, option.minion, option.card)
             check(
-                gameMutations.COMBAT_preventDamage.act(player, {
+                botMutations.COMBAT_preventDamage.act(player, {
                     minion: option.minion,
                     amount: option.amount,
                     aggravated: option.aggravated,

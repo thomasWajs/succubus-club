@@ -19,7 +19,7 @@ import {
     releaseRoomRole,
 } from '@/shared/multiplayer/roles.ts'
 import { LamportClock, VectorClock } from '@/shared/multiplayer/clock.ts'
-import { GameMutationId } from '@/shared/state/gameMutations.ts'
+import { GameMutationId } from '@/shared/state/mutationBase.ts'
 import { fetchAvatar } from '@/client/gateway/user.ts'
 import { AvatarId, DeckList } from '@/shared/types/gateway.ts'
 import { MutationHistoryEntry } from '@/shared/types/history.ts'

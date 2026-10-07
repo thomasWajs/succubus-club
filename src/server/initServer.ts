@@ -1,6 +1,6 @@
 // Register server code into shared functions
 import { registerLogger, setGameResources } from '@/shared/registries.ts'
-import { initWasmHasher } from '@/shared/serialization.ts'
+import { initWasmHasher } from '@/shared/hashing.ts'
 import { readFileSync } from 'fs'
 import { resolve } from 'path'
 import { initTables, loadPersistedData } from './persistence.ts'

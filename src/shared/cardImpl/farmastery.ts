@@ -1,6 +1,7 @@
 import { ActionCardImplementation } from '@/shared/cardImpl/base.ts'
 import { DisciplineLevel, LibraryCardType } from '@/shared/const/model.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
+import { botMutations } from '@/shared/state/botMutations.ts'
 import { Card, LibraryCard } from '@/shared/model/Card.ts'
 import { getAutoPlayPosition, getPlayRegion } from '@/shared/state/cardPlacement.ts'
 import { Invalid, LibraryCardUsage, VALID } from '@/shared/types/state.ts'
@@ -69,7 +70,7 @@ export class FarMastery extends ActionCardImplementation {
             })
         }
         if (isRetainer && this.player.isBot) {
-            gameMutations.attachCard.act(this.player, { card: target, minion: this.minion })
+            botMutations.attachCard.act(this.player, { card: target, minion: this.minion })
         }
     }
 }

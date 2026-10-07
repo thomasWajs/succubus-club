@@ -1,6 +1,6 @@
 import { Card, Minion } from '@/shared/model/Card.ts'
 import { Player } from '@/shared/model/Player.ts'
-import { gameMutations } from '@/shared/state/gameMutations.ts'
+import { botMutations } from '@/shared/state/botMutations.ts'
 import {
     ActionState,
     BlockingDecision,
@@ -294,10 +294,10 @@ function resolveAction(gameState: GameState): void {
 
     // Block attempt
     if (getBlockingMinion(gameState)) {
-        gameMutations.ACTION_resolveBlock.act(gameState.activePlayer, {})
+        botMutations.ACTION_resolveBlock.act(gameState.activePlayer, {})
     }
     // Successful action
     else {
-        gameMutations.ACTION_resolveAction.act(gameState.activePlayer, {})
+        botMutations.ACTION_resolveAction.act(gameState.activePlayer, {})
     }
 }

@@ -1,7 +1,7 @@
 import { GameState } from '@/shared/state/gameState.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { LibraryCard } from '@/shared/model/Card.ts'
-import { createMutation } from '@/shared/state/gameMutations.ts'
+import { createMutation } from '@/shared/state/mutationBase.ts'
 import { registerGameState, registerMutationTrigger, deleteGameState } from '@/shared/registries.ts'
 import { setupPlayArea } from '@/shared/state/setup.ts'
 import { generateGameId } from '@/shared/state/ids.ts'

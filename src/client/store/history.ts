@@ -4,7 +4,7 @@ import { defineOptionStore } from 'pinia-class-transformer'
 import { HistoryStore } from '@/shared/state/history.ts'
 import { MutationHistoryEntry } from '@/shared/types/history.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
-import { AnyGameMutation } from '@/shared/state/gameMutations.ts'
+import { AnyGameMutation } from '@/shared/state/mutationBase.ts'
 
 export class ClientHistoryStore extends HistoryStore {
     get nextCancellableMutation(): MutationHistoryEntry | null {

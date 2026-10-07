@@ -1,7 +1,7 @@
 import { Card, UNKNOWN_VAMPIRE_ATTRS } from '@/shared/model/Card.ts'
 import { CardRegion } from '@/shared/model/CardRegion.ts'
 import { Player } from '@/shared/model/Player.ts'
-import type { AnyGameMutation } from '@/shared/state/gameMutations.ts'
+import type { AnyGameMutation } from '@/shared/state/mutationBase.ts'
 import { DEFAULT_CARD_ATTRS } from '@/shared/const/model.ts'
 import { CastVote, ReferendumState, VOTE_SIDES, VoteCount, VoteSide } from '@/shared/types/state.ts'
 import { GameState } from '@/shared/state/gameState.ts'

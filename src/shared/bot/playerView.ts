@@ -1,11 +1,8 @@
 import { GameState } from '@/shared/state/gameState.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { deleteGameState } from '@/shared/registries.ts'
-import {
-    deserializeGameState,
-    serializeGameState,
-    serializeValueRecursive,
-} from '@/shared/serialization.ts'
+import { deserializeGameState, serializeGameState } from '@/shared/serialization.ts'
+import { serializeValueRecursive } from '@/shared/hashing.ts'
 import { getKnownCards, redactUnknownCard } from '@/shared/state/cardVisibility.ts'
 import { generateGameId } from '@/shared/state/ids.ts'
 import { getDecisionPoint } from '@/shared/bot/referee.ts'

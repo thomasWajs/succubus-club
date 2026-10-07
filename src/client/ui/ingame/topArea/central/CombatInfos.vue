@@ -61,7 +61,7 @@
                 v-else
                 class="game-button"
                 :disabled="!selfCombatant"
-                @click="gameMutations.COMBAT_pass.actSelf({})"
+                @click="botMutations.COMBAT_pass.actSelf({})"
             >
                 Pass
             </button>
@@ -74,14 +74,14 @@
                     hasPendingDamage(selfCombatant)
                 "
                 class="game-button"
-                @click="gameMutations.COMBAT_applyDamage.actSelf({ minion: selfCombatant.minion })"
+                @click="botMutations.COMBAT_applyDamage.actSelf({ minion: selfCombatant.minion })"
             >
                 Apply damage
             </button>
 
             <button
                 class="game-button is-danger"
-                @click="gameMutations.COMBAT_end.actSelf({})"
+                @click="botMutations.COMBAT_end.actSelf({})"
             >
                 End combat
             </button>
@@ -92,7 +92,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { usePlayersStore } from '@/client/state/players.ts'
-import { gameMutations } from '@/shared/state/gameMutations.ts'
+import { botMutations } from '@/shared/state/botMutations.ts'
 import { CombatantMinion, CombatState, CombatStep, CombatStrike } from '@/shared/types/state.ts'
 import { createDodgeStrike, createHandStrike, createStrike } from '@/shared/state/combatState.ts'
 import CentralPanel from '@/client/ui/ingame/topArea/central/CentralPanel.vue'
@@ -129,7 +129,7 @@ function hasPendingDamage(combatant: CombatantMinion): boolean {
 
 function strike(chosen: CombatStrike) {
     if (selfCombatant.value) {
-        gameMutations.COMBAT_chooseStrike.actSelf({
+        botMutations.COMBAT_chooseStrike.actSelf({
             minion: selfCombatant.value.minion,
             strike: chosen,
         })

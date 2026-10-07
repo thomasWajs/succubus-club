@@ -30,14 +30,13 @@ import {
     redactUnknownCard,
 } from '@/shared/state/cardVisibility.ts'
 import {
-    hashObject,
     packGameMutation,
     rehydrateCard,
     serializeGameState,
     serializeHistory,
-    serializeValueRecursive,
     unpackGameMutation,
 } from '@/shared/serialization.ts'
+import { hashObject, serializeValueRecursive } from '@/shared/hashing.ts'
 import { getAuthorColorRgba } from '@/shared/colors.ts'
 import { ChatMessage } from '@/shared/types/history.ts'
 import * as persistence from './persistence.ts'

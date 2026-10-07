@@ -19,7 +19,7 @@ or with an authoritative central server ("Succubus Club Server" ==> SCS mode).
 
 ### Game State & Mutations (`src/shared/state`)
 - `gameState.ts` holds the authoritative game state. NEVER mutate it directly.
-- All state changes go through `GameMutation` subclasses in `gameMutations.ts`. Trigger them via the mutation trigger registry (`getMutationTrigger().act(...)` / `.actSelf(...)` from `@/shared/registries.ts`), never by writing to state fields.
+- All state changes go through `GameMutation` subclasses: `gameMutations.ts` holds the ones used by human play (and so by multiplayer), `botMutations.ts` the ones that only exist for the bots (combat, action impulse, attachment, cards used...), `mutationBase.ts` the `GameMutation` base class, `defineMutation` and the name registry. Trigger them via the mutation trigger registry (`getMutationTrigger().act(...)` / `.actSelf(...)` from `@/shared/registries.ts`), never by writing to state fields.
 - `src/shared` must stay environment-agnostic (it runs on both client and server). It reaches the outside world only through the registries in `registries.ts` (logger, game resources, game state, mutation trigger), which the client and server each register at startup.
 
 ### Client State Layer

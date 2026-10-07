@@ -5,7 +5,7 @@
 // Exits with code 1 if any game hits a hard failure (invalid move, stall, exception, broken invariant).
 import { readFileSync } from 'node:fs'
 import { registerLogger, setGameResources } from '@/shared/registries.ts'
-import { initWasmHasher } from '@/shared/serialization.ts'
+import { initWasmHasher } from '@/shared/hashing.ts'
 import {
     createHeadlessGame,
     describeOption,

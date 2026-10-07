@@ -8,7 +8,7 @@ import {
     TITLE_BALLOTS,
     TITLE_VOTES,
 } from '@/shared/const/model.ts'
-import { CRYPT_CARD_IMPLEMENTATIONS } from '@/shared/cardImpl'
+import { getCardDef } from '@/shared/cardImpl/catalog/index.ts'
 import * as cardVisibility from '@/shared/state/cardVisibility.ts'
 import { GRID_SIZE } from '@/shared/const/game.ts'
 import { KrcgId } from '@/shared/types/gateway.ts'
@@ -329,8 +329,12 @@ export class CryptCard extends Card {
                 TITLE_BALLOTS[cardResource.title] ?? DEFAULT_CARD_ATTRS.Ballot
         }
 
-        const implementation = CRYPT_CARD_IMPLEMENTATIONS[this.krcgId]
-        implementation?.adapt?.(this)
+        // Set from the default, not added to the current value: harmless if called twice
+        const crypt = getCardDef(this)?.crypt
+        if (crypt?.bleed || crypt?.strength) {
+            this.minionAttrs.bleed = DEFAULT_CARD_ATTRS.Bleed + (crypt.bleed ?? 0)
+            this.minionAttrs.strength = DEFAULT_CARD_ATTRS.Strength + (crypt.strength ?? 0)
+        }
     }
 }
 

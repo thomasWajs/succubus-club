@@ -14,90 +14,17 @@ import {
     SerializedPlayer,
 } from '@/shared/types/multiplayer.ts'
 import { DATE_PREFIX, OID_PREFIX } from '@/shared/const/multiplayer.ts'
-import { AnyGameMutation, GameMutationName, gameMutations } from '@/shared/state/gameMutations.ts'
+import { AnyGameMutation, GameMutationName, getMutationClass } from '@/shared/state/mutationBase.ts'
 import { GameId, PlayerCardRegions, PlayerOid } from '@/shared/types/model.ts'
 import { getGameState, registerGameState } from '@/shared/registries.ts'
 import { HistoryStore } from '@/shared/state/history.ts'
 import { PlayerVision } from '@/shared/types/state.ts'
 import { Card, CryptCard, LibraryCard } from '@/shared/model/Card.ts'
 import { GameState } from '@/shared/state/gameState.ts'
-import { stringify as stableStringify } from 'safe-stable-stringify'
-import xxhash, { XXHashAPI } from 'xxhash-wasm'
 import { Player } from '@/shared/model/Player.ts'
 import { CardRegion } from '@/shared/model/CardRegion.ts'
 import { BaseModel } from '@/shared/model/BaseModel.ts'
-
-/**
- * Hashing functions
- */
-
-let wasmHasher: XXHashAPI | null = null
-
-export async function initWasmHasher() {
-    wasmHasher = await xxhash()
-}
-
-export function isHasherReady(): boolean {
-    return !!wasmHasher
-}
-
-export function hash(content: string) {
-    if (!wasmHasher) {
-        throw new Error('hasher not initialized')
-    }
-    return wasmHasher.h32(content)
-}
-
-export function hashObject(object: object) {
-    return hash(stableStringify(object))
-}
-
-/**
- * Generic serialization
- */
-
-export function serializeValueRecursive(value: unknown): JsonValue {
-    // Handle null and undefined
-    if (value === null || value === undefined) {
-        return null
-    }
-
-    // Handle primitives
-    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-        return value
-    }
-
-    // Handle Date objects
-    if (value instanceof Date) {
-        return DATE_PREFIX + value.toISOString()
-    }
-
-    // Handle objects with oid
-    if (value && typeof value === 'object' && 'oid' in value) {
-        return OID_PREFIX + value.oid
-    }
-
-    // Handle arrays
-    if (Array.isArray(value)) {
-        return value.map(item => serializeValueRecursive(item))
-    }
-
-    // Handle plain objects
-    if (typeof value === 'object') {
-        const result: Serialized<unknown> = {}
-        for (const [k, v] of Object.entries(value)) {
-            result[k] = serializeValueRecursive(v)
-        }
-        return result
-    }
-
-    // Fallback for anything else
-    return null
-}
-
-export function serializeObject<T extends object>(object: T) {
-    return serializeValueRecursive(object) as Serialized<T> & object
-}
+import { serializeObject, serializeValueRecursive } from '@/shared/hashing.ts'
 
 export function deserializeValueRecursive(value: JsonValue, gameId: GameId): unknown {
     // Handle null
@@ -449,11 +376,7 @@ export function deserializeGameMutation(gameMutationJson: SerializedGameMutation
     const gameId = gameMutationJson.gameId
     const gameState = getGameState(gameId)
 
-    const definition = gameMutations[gameMutationJson.name]
-    if (!definition) {
-        throw new Error(`Unknown GameMutation : ${gameMutationJson.name}`)
-    }
-    const GameMutationClass = definition.gameMutationClass
+    const GameMutationClass = getMutationClass(gameMutationJson.name)
 
     const author = gameState.players[gameMutationJson.authorOid]
     if (!author) {

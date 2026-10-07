@@ -97,7 +97,7 @@
             />
             <div
                 class="usage-declare-button"
-                @click="gameMutations.ACTION_completeDeclaration.actSelf({})"
+                @click="botMutations.ACTION_completeDeclaration.actSelf({})"
             >
                 Declare
             </div>
@@ -134,6 +134,7 @@ import { DisciplineUse, LibraryCardUsage, MinionActionType } from '@/shared/type
 import { LibraryCardType } from '@/shared/const/model.ts'
 import { parseCardUsage } from '@/shared/state/usageParsing.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
+import { botMutations } from '@/shared/state/botMutations.ts'
 import { startTargetDeclaration } from '@/client/game/declaration.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
 import DisciplineIcon from '@/client/ui/components/DisciplineIcon.vue'

@@ -1,6 +1,6 @@
 import { PlayerVision } from '@/shared/types/state.ts'
 import { Card } from '@/shared/model/Card.ts'
-import { GameMutationId } from '@/shared/state/gameMutations.ts'
+import { GameMutationId } from '@/shared/state/mutationBase.ts'
 import { SerializedGameMutation } from '@/shared/types/multiplayer.ts'
 
 export type MutationHistoryEntry = {

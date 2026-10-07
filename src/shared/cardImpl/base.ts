@@ -4,8 +4,6 @@ import { CombatStrike, Invalid, LibraryCardUsage, VALID, Validity } from '@/shar
 import { DisciplineLevel } from '@/shared/const/model.ts'
 
 export type CryptCardImplementation = {
-    // Changes the attributes of the card itself
-    adapt?: (card: CryptCard) => void
     // Added to the hand size of the controller while the vampire is ready
     handSizeBonus?: number
     // The vampire can enter combat with a minion of another Methuselah as a directed action

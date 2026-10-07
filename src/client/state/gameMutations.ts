@@ -2,15 +2,14 @@ import { useBusStore, useGameBusStore } from '@/client/store/bus.ts'
 import { GameType, Invalid, VALID, Validity } from '@/shared/types/state.ts'
 import { broadcastGameMutation } from '@/client/multiplayer/room.ts'
 import { enqueueBotMutation } from '@/client/bot/mutationQueue.ts'
+import { gameMutations, PingCard } from '@/shared/state/gameMutations.ts'
 import {
     AnyGameMutation,
     createMutation,
     GameMutation,
     GameMutationClassType,
     GameMutationParams,
-    gameMutations,
-    PingCard,
-} from '@/shared/state/gameMutations.ts'
+} from '@/shared/state/mutationBase.ts'
 import { useHistoryStore } from '@/client/store/history.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
 import { Player } from '@/shared/model/Player.ts'

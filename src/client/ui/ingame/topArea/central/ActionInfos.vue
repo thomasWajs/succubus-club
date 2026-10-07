@@ -145,7 +145,7 @@
                     :key="target.oid"
                     class="game-button"
                     title="Tell the game that you changed the target of the bleed (Deflection...). Play the card by hand first."
-                    @click="gameMutations.ACTION_changeTarget.actSelf({ target })"
+                    @click="botMutations.ACTION_changeTarget.actSelf({ target })"
                 >
                     Bounce to {{ target.shortName }}
                 </button>
@@ -154,7 +154,7 @@
                     v-if="selfCanResolve"
                     class="game-button"
                     title="Let the game resolve this action: costs, effects, bleed or hunt amount as they stand"
-                    @click="gameMutations.ACTION_resolveAction.actSelf({})"
+                    @click="botMutations.ACTION_resolveAction.actSelf({})"
                 >
                     Resolve action
                 </button>
@@ -219,6 +219,7 @@
 import { computed } from 'vue'
 import { usePlayersStore } from '@/client/state/players.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
+import { botMutations } from '@/shared/state/botMutations.ts'
 import { ACTION_TYPES, ActionVerb } from '@/shared/const/model.ts'
 import {
     ActionProperty,
@@ -360,9 +361,9 @@ const selfHasImpulse = computed(() => props.action.impulsePlayer == players.self
 // The acting player declines to play a modifier, a reacting one declines to react
 function passImpulse() {
     if (humanActsOnBotAction.value) {
-        gameMutations.ACTION_declareActionModifier.actSelf({ actionModifier: NO_ACTION_MODIFIER })
+        botMutations.ACTION_declareActionModifier.actSelf({ actionModifier: NO_ACTION_MODIFIER })
     } else {
-        gameMutations.ACTION_declareReaction.actSelf({ reaction: NO_REACTION })
+        botMutations.ACTION_declareReaction.actSelf({ reaction: NO_REACTION })
     }
 }
 const selfDeclinedBlock = computed(

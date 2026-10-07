@@ -1,4 +1,4 @@
-import { AnyGameMutation } from '@/shared/state/gameMutations.ts'
+import { AnyGameMutation } from '@/shared/state/mutationBase.ts'
 import { useCoreStore } from '@/client/store/core.ts'
 
 import { BOT_PAUSE_TIME, BOT_PERM_ID } from '@/shared/const/bot.ts'

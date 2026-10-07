@@ -1,4 +1,4 @@
-import { AnyGameMutation, GameMutationId } from '@/shared/state/gameMutations.ts'
+import { AnyGameMutation, GameMutationId } from '@/shared/state/mutationBase.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { ChatMessage, LogEntry, MutationHistoryEntry } from '@/shared/types/history.ts'
 import {

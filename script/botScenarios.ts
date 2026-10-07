@@ -9,8 +9,9 @@ import { Card, LibraryCard, Minion, Vampire } from '@/shared/model/Card.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { GameState } from '@/shared/state/gameState.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
+import { botMutations } from '@/shared/state/botMutations.ts'
 import { deleteGameState, registerLogger, setGameResources } from '@/shared/registries.ts'
-import { initWasmHasher } from '@/shared/serialization.ts'
+import { initWasmHasher } from '@/shared/hashing.ts'
 import {
     canManeuver,
     createCombatState,
@@ -214,18 +215,18 @@ function passUntil(fight: Fight, step: CombatStep | null): void {
         if (!combat) {
             throw new ScenarioFailure(`The combat ended before the ${step} step`)
         }
-        must(gameMutations.COMBAT_pass.act(combat.impulsePlayer, {}), `pass in ${combat.step}`)
+        must(botMutations.COMBAT_pass.act(combat.impulsePlayer, {}), `pass in ${combat.step}`)
     }
     throw new ScenarioFailure(`The ${step} step was not reached`)
 }
 
-const pass = (player: Player, what: string) => must(gameMutations.COMBAT_pass.act(player, {}), what)
+const pass = (player: Player, what: string) => must(botMutations.COMBAT_pass.act(player, {}), what)
 
 const maneuver = (player: Player, minion: Minion, strike?: CombatStrike) =>
-    must(gameMutations.COMBAT_maneuver.act(player, { minion, strike }), 'maneuver')
+    must(botMutations.COMBAT_maneuver.act(player, { minion, strike }), 'maneuver')
 
 const press = (player: Player, minion: Minion) =>
-    must(gameMutations.COMBAT_press.act(player, { minion }), 'press')
+    must(botMutations.COMBAT_press.act(player, { minion }), 'press')
 
 // Plays the strike step: acting minion first. Defaults to a hand strike.
 function strikes(fight: Fight, actingStrike?: CombatStrike, defendingStrike?: CombatStrike): void {
@@ -240,7 +241,7 @@ function strikes(fight: Fight, actingStrike?: CombatStrike, defendingStrike?: Co
             continue
         }
         must(
-            gameMutations.COMBAT_chooseStrike.act(player, {
+            botMutations.COMBAT_chooseStrike.act(player, {
                 minion,
                 strike: strike ?? createHandStrike(combatant),
             }),
@@ -300,9 +301,9 @@ const SCENARIOS: { name: string; run: () => void }[] = [
         run() {
             const fight = createFight(3, 3)
             passUntil(fight, CombatStep.Strike)
-            mustRefuse(gameMutations.COMBAT_pass.act(fight.actingPlayer, {}), 'pass')
+            mustRefuse(botMutations.COMBAT_pass.act(fight.actingPlayer, {}), 'pass')
             mustRefuse(
-                gameMutations.COMBAT_chooseStrike.act(fight.defendingPlayer, {
+                botMutations.COMBAT_chooseStrike.act(fight.defendingPlayer, {
                     minion: fight.defending,
                     strike: createHandStrike(getCombat(fight).defending),
                 }),
@@ -314,13 +315,13 @@ const SCENARIOS: { name: string; run: () => void }[] = [
         name: 'only the impulse player can move, and only in the matching step',
         run() {
             const fight = createFight(3, 3)
-            mustRefuse(gameMutations.COMBAT_pass.act(fight.defendingPlayer, {}), 'pass out of turn')
+            mustRefuse(botMutations.COMBAT_pass.act(fight.defendingPlayer, {}), 'pass out of turn')
             mustRefuse(
-                gameMutations.COMBAT_maneuver.act(fight.actingPlayer, { minion: fight.acting }),
+                botMutations.COMBAT_maneuver.act(fight.actingPlayer, { minion: fight.acting }),
                 'maneuver before the range step',
             )
             mustRefuse(
-                gameMutations.COMBAT_press.act(fight.actingPlayer, { minion: fight.acting }),
+                botMutations.COMBAT_press.act(fight.actingPlayer, { minion: fight.acting }),
                 'press before the press step',
             )
         },
@@ -334,7 +335,7 @@ const SCENARIOS: { name: string; run: () => void }[] = [
             expectEqual(getCombat(fight).range, CombatRange.Long, 'range')
             // The impulse went to the opponent: no second maneuver in a row
             mustRefuse(
-                gameMutations.COMBAT_maneuver.act(fight.actingPlayer, { minion: fight.acting }),
+                botMutations.COMBAT_maneuver.act(fight.actingPlayer, { minion: fight.acting }),
                 'second maneuver in a row',
             )
             strikeRound(fight, createStrike('Gun', { damage: 2, ranged: true }))
@@ -534,7 +535,7 @@ const SCENARIOS: { name: string; run: () => void }[] = [
             expectStep(fight, CombatStep.DamageResolution)
             expectEqual(getCombat(fight).impulsePlayer, fight.actingPlayer, 'first victim')
             must(
-                gameMutations.COMBAT_preventDamage.act(fight.actingPlayer, {
+                botMutations.COMBAT_preventDamage.act(fight.actingPlayer, {
                     minion: fight.acting,
                     amount: 1,
                     aggravated: false,
@@ -542,7 +543,7 @@ const SCENARIOS: { name: string; run: () => void }[] = [
                 'prevent',
             )
             mustRefuse(
-                gameMutations.COMBAT_preventDamage.act(fight.actingPlayer, {
+                botMutations.COMBAT_preventDamage.act(fight.actingPlayer, {
                     minion: fight.acting,
                     amount: 1,
                     aggravated: false,
@@ -582,7 +583,7 @@ const SCENARIOS: { name: string; run: () => void }[] = [
             passUntil(fight, CombatStep.Press)
             press(fight.actingPlayer, fight.acting)
             mustRefuse(
-                gameMutations.COMBAT_press.act(fight.actingPlayer, { minion: fight.acting }),
+                botMutations.COMBAT_press.act(fight.actingPlayer, { minion: fight.acting }),
                 'second press in a row',
             )
             press(fight.defendingPlayer, fight.defending)
@@ -605,7 +606,7 @@ const SCENARIOS: { name: string; run: () => void }[] = [
         name: 'ending the combat by hand stops everything, whoever has the impulse',
         run() {
             const fight = createFight(3, 3)
-            must(gameMutations.COMBAT_end.act(fight.defendingPlayer, {}), 'end combat')
+            must(botMutations.COMBAT_end.act(fight.defendingPlayer, {}), 'end combat')
             expectStep(fight, null)
         },
     },
@@ -1140,7 +1141,7 @@ const CARD_SCENARIOS: { name: string; run: () => void }[] = [
             )
             passUntil(fight, CombatStep.Strike)
             must(
-                gameMutations.COMBAT_chooseStrike.act(fight.actingPlayer, {
+                botMutations.COMBAT_chooseStrike.act(fight.actingPlayer, {
                     minion: fight.acting,
                     strike: createHandStrike(getCombat(fight).acting),
                 }),
@@ -1172,7 +1173,7 @@ const CARD_SCENARIOS: { name: string; run: () => void }[] = [
             giveBehindYou(fight, fight.defendingPlayer, fight.defending, DisciplineLevel.SUPERIOR)
             passUntil(fight, CombatStep.Strike)
             must(
-                gameMutations.COMBAT_chooseStrike.act(fight.actingPlayer, {
+                botMutations.COMBAT_chooseStrike.act(fight.actingPlayer, {
                     minion: fight.acting,
                     strike: createHandStrike(getCombat(fight).acting),
                 }),
@@ -1198,7 +1199,7 @@ const CARD_SCENARIOS: { name: string; run: () => void }[] = [
             )
             passUntil(fight, CombatStep.Strike)
             must(
-                gameMutations.COMBAT_chooseStrike.act(fight.actingPlayer, {
+                botMutations.COMBAT_chooseStrike.act(fight.actingPlayer, {
                     minion: fight.acting,
                     strike: createHandStrike(getCombat(fight).acting),
                 }),
@@ -1235,7 +1236,7 @@ const CARD_SCENARIOS: { name: string; run: () => void }[] = [
             getCombat(fight).range = CombatRange.Long
             passUntil(fight, CombatStep.Strike)
             must(
-                gameMutations.COMBAT_chooseStrike.act(fight.actingPlayer, {
+                botMutations.COMBAT_chooseStrike.act(fight.actingPlayer, {
                     minion: fight.acting,
                     strike: createHandStrike(getCombat(fight).acting),
                 }),
@@ -1286,7 +1287,7 @@ const HUMAN_DAMAGE_SCENARIOS: { name: string; run: () => void }[] = [
             const fight = createHumanDefender(1)
             damageResolution(fight, fight.defending, 3, 0)
             mustRefuse(
-                gameMutations.COMBAT_applyDamage.act(fight.actingPlayer, { minion: fight.acting }),
+                botMutations.COMBAT_applyDamage.act(fight.actingPlayer, { minion: fight.acting }),
                 'apply damage without damage or impulse',
             )
             pass(fight.defendingPlayer, 'pass')
@@ -1302,7 +1303,7 @@ const HUMAN_DAMAGE_SCENARIOS: { name: string; run: () => void }[] = [
             const fight = createHumanDefender(1)
             damageResolution(fight, fight.defending, 3, 0)
             must(
-                gameMutations.COMBAT_applyDamage.act(fight.defendingPlayer, {
+                botMutations.COMBAT_applyDamage.act(fight.defendingPlayer, {
                     minion: fight.defending,
                 }),
                 'apply damage',
@@ -1310,7 +1311,7 @@ const HUMAN_DAMAGE_SCENARIOS: { name: string; run: () => void }[] = [
             expectEqual(fight.defending.blood, 0, 'defending blood')
             expectRegion(fight.defending, 'torpor')
             mustRefuse(
-                gameMutations.COMBAT_applyDamage.act(fight.defendingPlayer, {
+                botMutations.COMBAT_applyDamage.act(fight.defendingPlayer, {
                     minion: fight.defending,
                 }),
                 'apply damage twice',
@@ -1593,7 +1594,7 @@ const BOUNCE_SCENARIOS: { name: string; run: () => void }[] = [
             )
 
             // The bleed comes back to the first target, which still holds a Deflection
-            must(gameMutations.ACTION_changeTarget.act(third, { target: bled }), 'back to the bled')
+            must(botMutations.ACTION_changeTarget.act(third, { target: bled }), 'back to the bled')
             const minions = optionsOfType(declineBlock(bounce).options, 'playReaction').map(
                 option => option.minion,
             )
@@ -1639,17 +1640,14 @@ const BOUNCE_SCENARIOS: { name: string; run: () => void }[] = [
                 throw new ScenarioFailure('No third player')
             }
             mustRefuse(
-                gameMutations.ACTION_changeTarget.act(bled, { target: bleeder }),
+                botMutations.ACTION_changeTarget.act(bled, { target: bleeder }),
                 'to the bleeder',
             )
             mustRefuse(
-                gameMutations.ACTION_changeTarget.act(bled, { target: bled }),
+                botMutations.ACTION_changeTarget.act(bled, { target: bled }),
                 'to the same target',
             )
-            must(
-                gameMutations.ACTION_changeTarget.act(bled, { target: third }),
-                'to a third player',
-            )
+            must(botMutations.ACTION_changeTarget.act(bled, { target: third }), 'to a third player')
             expectEqual(gameState.action?.minionAction.target, third, 'new target')
         },
     },
@@ -1965,7 +1963,7 @@ const MASTER_SCENARIOS: { name: string; run: () => void }[] = [
         run() {
             const { gameState, player } = createMasterPhase()
             gameState.turnResources.mpa = 0
-            mustRefuse(gameMutations.spendMasterPhaseAction.act(player, { player }), 'spend (none)')
+            mustRefuse(botMutations.spendMasterPhaseAction.act(player, { player }), 'spend (none)')
         },
     },
     {
@@ -2181,7 +2179,7 @@ const MASTER_SCENARIOS: { name: string; run: () => void }[] = [
             expectEqual(full.blood, 5, 'the full vampire is untouched')
             expectEqual(countUnlockEffects(turn), 0, 'once per turn')
             mustRefuse(
-                gameMutations.markCardUsed.act(player, { player, card: asylum }),
+                botMutations.markCardUsed.act(player, { player, card: asylum }),
                 'used twice',
             )
 
@@ -3355,10 +3353,10 @@ const ANIMALISM_REACTION_SCENARIOS: { name: string; run: () => void }[] = [
             }
             const range = combat.range
             while (combat.step != CombatStep.DetermineRange || combat.impulsePlayer != bled) {
-                must(gameMutations.COMBAT_pass.act(combat.impulsePlayer, {}), 'pass')
+                must(botMutations.COMBAT_pass.act(combat.impulsePlayer, {}), 'pass')
             }
             must(
-                gameMutations.COMBAT_maneuver.act(bled, { minion: blocker, free: true }),
+                botMutations.COMBAT_maneuver.act(bled, { minion: blocker, free: true }),
                 'free maneuver',
             )
             expectEqual(combat.range == range, false, 'the range moved')
@@ -3400,7 +3398,7 @@ function createBlockCombat(level: DisciplineLevel, extra: string[] = []) {
 }
 
 const endCombatByHand = (game: { gameState: GameState; bleeder: Player }) =>
-    must(gameMutations.COMBAT_end.act(game.bleeder, {}), 'end combat')
+    must(botMutations.COMBAT_end.act(game.bleeder, {}), 'end combat')
 
 function getPostBlockDecision(game: { gameState: GameState; bled: Player }): DecisionPoint {
     expectEqual(getDecidingPlayer(game.gameState), game.bled, 'the blocker decides')
@@ -3586,7 +3584,7 @@ const CATS_GUIDANCE_SCENARIOS: { name: string; run: () => void }[] = [
             const fight = createFight(3, 3, { ...MalkavDeck, [CATS_GUIDANCE_ID]: 4 })
             giveCard(fight.gameState, fight.defendingPlayer, CATS_GUIDANCE_ID)
             expectEqual(fight.gameState.action, null, 'no action stays open')
-            must(gameMutations.COMBAT_end.act(fight.actingPlayer, {}), 'end combat')
+            must(botMutations.COMBAT_end.act(fight.actingPlayer, {}), 'end combat')
             expectEqual(fight.gameState.action, null, 'no window')
         },
     },
@@ -4161,7 +4159,7 @@ const BRUJAH_COMBAT_SCENARIOS: { name: string; run: () => void }[] = [
             expectEqual(options[0].strike.undodgeable, true, 'undodgeable')
             playCardOption(fight, 'combatStrike', fight.card)
             must(
-                gameMutations.COMBAT_chooseStrike.act(fight.defendingPlayer, {
+                botMutations.COMBAT_chooseStrike.act(fight.defendingPlayer, {
                     minion: fight.defending,
                     strike: createDodgeStrike(),
                 }),
@@ -4214,7 +4212,7 @@ const BRUJAH_COMBAT_SCENARIOS: { name: string; run: () => void }[] = [
             expectEqual(getCombat(fight).handStrikesOnly, true, 'hand strikes only')
             passUntil(fight, CombatStep.Strike)
             mustRefuse(
-                gameMutations.COMBAT_chooseStrike.act(fight.actingPlayer, {
+                botMutations.COMBAT_chooseStrike.act(fight.actingPlayer, {
                     minion: fight.acting,
                     strike: createDodgeStrike(),
                 }),
@@ -4283,7 +4281,7 @@ const BRUJAH_COMBAT_SCENARIOS: { name: string; run: () => void }[] = [
             passUntil(fight, CombatStep.Strike)
             decideCombat(fight, 'combatStrike')
             must(
-                gameMutations.COMBAT_chooseStrike.act(fight.defendingPlayer, {
+                botMutations.COMBAT_chooseStrike.act(fight.defendingPlayer, {
                     minion: fight.defending,
                     strike: createDodgeStrike(),
                 }),
@@ -4742,7 +4740,7 @@ function createEventBleed(blockerIntercept: number) {
 
 // The combat of a block is ended by hand, and the post block window of the blocker, if open, is passed
 function endBlockCombat(game: { gameState: GameState; bleeder: Player; bled: Player }): void {
-    must(gameMutations.COMBAT_end.act(game.bleeder, {}), 'end combat')
+    must(botMutations.COMBAT_end.act(game.bleeder, {}), 'end combat')
     const window = game.gameState.action ? getDecisionPoint(game.gameState, game.bled) : null
     if (window) {
         applyOption(window, findOption(window.options, 'noReaction'))
@@ -5202,12 +5200,12 @@ const HUMAN_ACTION_SCENARIOS: { name: string; run: () => void }[] = [
                 throw new ScenarioFailure('No card given')
             }
             humanDeclares(table, createActionCardAction(table.acting, table.card, {}))
-            must(gameMutations.ACTION_completeDeclaration.act(table.human, {}), 'declare')
+            must(botMutations.ACTION_completeDeclaration.act(table.human, {}), 'declare')
             expectEqual(table.gameState.action?.declared, true, 'declared')
             expectEqual(getDecidingPlayer(table.gameState), prey, 'the bot decides')
             expectEqual(stepBot(prey, new GovernAgent())?.option.type, 'block', 'the bot blocks')
             mustRefuse(
-                gameMutations.ACTION_completeDeclaration.act(table.human, {}),
+                botMutations.ACTION_completeDeclaration.act(table.human, {}),
                 'declared twice',
             )
         },
@@ -5222,7 +5220,7 @@ const HUMAN_ACTION_SCENARIOS: { name: string; run: () => void }[] = [
             }
             table.acting.minionAttrs.strength = table.blockers[0].minionAttrs.strength + 1
             humanDeclares(table, createActionCardAction(table.acting, table.card, {}))
-            must(gameMutations.ACTION_completeDeclaration.act(table.human, {}), 'declare')
+            must(botMutations.ACTION_completeDeclaration.act(table.human, {}), 'declare')
             stepBot(prey, new GovernAgent())
             expectEqual(table.gameState.action?.reactionsPassed, true, 'all passed')
             must(gameMutations.ACTION_updateUsage.act(table.human, { usage: { x: 1 } }), 'usage')
@@ -5338,7 +5336,7 @@ const HUMAN_ACTION_SCENARIOS: { name: string; run: () => void }[] = [
             humanDeclares(table, createBleedAction(table.acting, prey))
             stepBot(prey, new GovernAgent())
             const pool = prey.pool
-            must(gameMutations.ACTION_resolveAction.act(table.human, {}), 'resolve')
+            must(botMutations.ACTION_resolveAction.act(table.human, {}), 'resolve')
             expectEqual(table.gameState.action, null, 'the action is over')
             expectEqual(prey.pool, pool - table.acting.minionAttrs.bleed, 'the bleed went through')
         },
@@ -5359,7 +5357,7 @@ const HUMAN_ACTION_SCENARIOS: { name: string; run: () => void }[] = [
             expectEqual(gameState.action !== null, true, 'the human ends the action')
             expectEqual(deflection.isIn.ready, true, 'Deflection stays while the action goes on')
 
-            must(gameMutations.ACTION_resolveAction.act(bleeder, {}), 'the human resolves')
+            must(botMutations.ACTION_resolveAction.act(bleeder, {}), 'the human resolves')
             expectEqual(gameState.action, null, 'the action is over')
             applyPendingCleanup(gameState, bled)
             expectEqual(deflection.isIn.ashHeap, true, 'Deflection put away')
@@ -5373,12 +5371,12 @@ const HUMAN_ACTION_SCENARIOS: { name: string; run: () => void }[] = [
             const [prey] = table.others
             humanDeclares(table, createBleedAction(table.acting, prey))
             stepBot(prey, new GovernAgent())
-            mustRefuse(gameMutations.ACTION_resolveAction.act(table.human, {}), 'a standing block')
+            mustRefuse(botMutations.ACTION_resolveAction.act(table.human, {}), 'a standing block')
 
             table.gameState.action = null
             table.gameState.gameType = GameType.Unset
             humanDeclares(table, createBleedAction(table.acting, prey))
-            mustRefuse(gameMutations.ACTION_resolveAction.act(table.human, {}), 'outside bot games')
+            mustRefuse(botMutations.ACTION_resolveAction.act(table.human, {}), 'outside bot games')
 
             table.gameState.action = null
             table.gameState.gameType = GameType.TrainBot
@@ -5387,7 +5385,7 @@ const HUMAN_ACTION_SCENARIOS: { name: string; run: () => void }[] = [
                 actingMinion: table.acting,
                 target: table.blockers[0],
             })
-            mustRefuse(gameMutations.ACTION_resolveAction.act(table.human, {}), 'a diablerie')
+            mustRefuse(botMutations.ACTION_resolveAction.act(table.human, {}), 'a diablerie')
         },
     },
     {
@@ -5480,7 +5478,7 @@ function attachInPlay(
     const player = minion.controller
     player.gameState.moveCardToRegion(card, player.ready)
     must(
-        gameMutations.attachCard.act(player, { card, minion, disciplines: options.disciplines }),
+        botMutations.attachCard.act(player, { card, minion, disciplines: options.disciplines }),
         'attach',
     )
     if (options.life) {
@@ -5545,7 +5543,7 @@ const ATTACHMENT_SCENARIOS: { name: string; run: () => void }[] = [
             for (const card of [turn.card, second]) {
                 turn.gameState.moveCardToRegion(card, turn.player.ready)
                 must(
-                    gameMutations.attachCard.act(turn.player, { card, minion: turn.ready }),
+                    botMutations.attachCard.act(turn.player, { card, minion: turn.ready }),
                     'attach',
                 )
             }
@@ -5707,11 +5705,11 @@ const ATTACHMENT_SCENARIOS: { name: string; run: () => void }[] = [
             const turn = createEquipTurn(MAGNUM_ID)
             const { player, ready, torpid } = turn
             mustRefuse(
-                gameMutations.attachCard.act(player, { card: torpid, minion: ready }),
+                botMutations.attachCard.act(player, { card: torpid, minion: ready }),
                 'a minion',
             )
             mustRefuse(
-                gameMutations.attachCard.act(player, { card: ready, minion: ready }),
+                botMutations.attachCard.act(player, { card: ready, minion: ready }),
                 'itself',
             )
         },
@@ -5765,7 +5763,7 @@ const ATTACHMENT_SCENARIOS: { name: string; run: () => void }[] = [
             // The human puts the card on the table by hand
             table.gameState.moveCardToRegion(card, table.human.ready)
             const pool = table.human.pool
-            must(gameMutations.ACTION_resolveAction.act(table.human, {}), 'resolve')
+            must(botMutations.ACTION_resolveAction.act(table.human, {}), 'resolve')
             expectEqual(table.human.pool, pool - 2, 'the cost is paid')
             expectEqual(isAttached(card), false, 'attached')
             expectEqual(card.isIn.ready, true, 'the human keeps the card where it is')
@@ -5841,7 +5839,7 @@ const ATTACHMENT_SCENARIOS: { name: string; run: () => void }[] = [
             combat.lastPlayedBy = null
             combat.impulsePlayer = fight.actingPlayer
             mustRefuse(
-                gameMutations.COMBAT_maneuver.act(fight.actingPlayer, {
+                botMutations.COMBAT_maneuver.act(fight.actingPlayer, {
                     minion: fight.acting,
                     strike: maneuver.strike,
                     weapon: magnum,
@@ -6051,7 +6049,7 @@ const ATTACHMENT_SCENARIOS: { name: string; run: () => void }[] = [
 
             passUntil(fight, CombatStep.Strike)
             mustRefuse(
-                gameMutations.COMBAT_chooseStrike.act(fight.actingPlayer, {
+                botMutations.COMBAT_chooseStrike.act(fight.actingPlayer, {
                     minion: fight.acting,
                     strike: { ...createHandStrike(getCombat(fight).acting), retainer: ownSpy },
                 }),

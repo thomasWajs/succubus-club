@@ -13,16 +13,9 @@ import type {
     CardImplementationConstructor,
     MasterCardImplementationConstructor,
 } from '@/shared/cardImpl/index.ts'
-import {
-    Card,
-    CryptCard,
-    LibraryCard,
-    Minion,
-    UNKNOWN_MINION_ATTRS,
-    Vampire,
-} from '@/shared/model/Card.ts'
+import { Card, CryptCard, LibraryCard, Minion, Vampire } from '@/shared/model/Card.ts'
 import { Player } from '@/shared/model/Player.ts'
-import { DEFAULT_CARD_ATTRS, LibraryCardType } from '@/shared/const/model.ts'
+import { LibraryCardType } from '@/shared/const/model.ts'
 import { getBlockingDecision, getBlockingMinion, isAwake } from '@/shared/state/actionState.ts'
 import {
     createDodgeStrike,
@@ -32,6 +25,7 @@ import {
     startCombat,
 } from '@/shared/state/combatState.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
+import { botMutations } from '@/shared/state/botMutations.ts'
 import { canEnterCombatWith, isBleed } from '@/shared/state/minionActions.ts'
 import {
     ActionProperty,
@@ -370,7 +364,7 @@ class InterpretedModifier extends ActionModifierCardImplementation {
     apply() {
         for (const effect of this.play?.effects ?? []) {
             if (effect.type == 'armTrigger') {
-                gameMutations.ACTION_armTrigger.act(this.player, { trigger: effect.trigger })
+                botMutations.ACTION_armTrigger.act(this.player, { trigger: effect.trigger })
                 continue
             }
             const propertyName = {
@@ -643,7 +637,7 @@ class InterpretedMaster extends MasterCardImplementation {
             return Invalid('The ability cannot be used')
         }
         const { player } = this
-        const spent = gameMutations.spendTransfers.act(player, {
+        const spent = botMutations.spendTransfers.act(player, {
             player,
             amount: found.ability.transfers,
         })
@@ -753,7 +747,7 @@ class InterpretedMaster extends MasterCardImplementation {
         const play = this.play
         if (play?.attachTo) {
             return this.getPlayTargets()?.includes(minion) ?
-                    gameMutations.attachCard.act(this.player, { card: this.card, minion })
+                    botMutations.attachCard.act(this.player, { card: this.card, minion })
                 :   Invalid('The card cannot be put on this minion')
         }
         const vampire = this.readyVampiresBelowCapacity().find(candidate => candidate == minion)
@@ -827,25 +821,9 @@ export function masterImplementation(def: CardDef): MasterCardImplementationCons
 }
 
 export function cryptImplementation(def: CardDef): CryptCardImplementation {
-    const {
-        bleed,
-        strength,
-        handSize,
-        canEnterCombat,
-        undirectedStealth,
-        mustBleedWhileMinionLocked,
-    } = def.crypt ?? {}
+    const { handSize, canEnterCombat, undirectedStealth, mustBleedWhileMinionLocked } =
+        def.crypt ?? {}
     return {
-        // Set from the default, not added to the current value: harmless if called twice
-        adapt:
-            bleed || strength ?
-                (card: CryptCard) => {
-                    if (card.minionAttrs != UNKNOWN_MINION_ATTRS) {
-                        card.minionAttrs.bleed = DEFAULT_CARD_ATTRS.Bleed + (bleed ?? 0)
-                        card.minionAttrs.strength = DEFAULT_CARD_ATTRS.Strength + (strength ?? 0)
-                    }
-                }
-            :   undefined,
         handSizeBonus: handSize,
         canEnterCombat,
         undirectedStealth,

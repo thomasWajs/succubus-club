@@ -1,6 +1,6 @@
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import { loadGame, serializeMultiplayerGame } from '@/client/gateway/serialization.ts'
-import { AnyGameMutation, GameMutationId } from '@/shared/state/gameMutations.ts'
+import { AnyGameMutation, GameMutationId } from '@/shared/state/mutationBase.ts'
 import { Mutex } from '@/shared/utils.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { useBusStore, useGameBusStore } from '@/client/store/bus.ts'
@@ -27,10 +27,10 @@ import { applyMutationLocally } from '@/client/state/gameMutations.ts'
 import {
     deserializeGameMutation,
     deserializeObject,
-    hashObject,
     packGameMutation,
     unpackGameMutation,
 } from '@/shared/serialization.ts'
+import { hashObject } from '@/shared/hashing.ts'
 
 const DESYNC_MESSAGE_MINIMUM_TIME_VISIBLE = 2000 // 2 seconds in milliseconds
 

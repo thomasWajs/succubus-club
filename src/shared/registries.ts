@@ -7,7 +7,7 @@ import {
     GameMutation,
     GameMutationClassType,
     GameMutationParams,
-} from '@/shared/state/gameMutations.ts'
+} from '@/shared/state/mutationBase.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { Validity } from '@/shared/types/state.ts'
 

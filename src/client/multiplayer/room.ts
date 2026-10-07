@@ -39,7 +39,7 @@ import * as logging from '@/client/logging.ts'
 import { useCoreStore } from '@/client/store/core.ts'
 import { useHistoryStore } from '@/client/store/history.ts'
 import { resetState, startGame } from '@/client/state/setup.ts'
-import { AnyGameMutation } from '@/shared/state/gameMutations.ts'
+import { AnyGameMutation } from '@/shared/state/mutationBase.ts'
 import {
     applyInitialGameState,
     makeMutationMessage,

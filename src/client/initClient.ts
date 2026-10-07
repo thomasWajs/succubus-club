@@ -1,7 +1,7 @@
 import { registerGameState, registerLogger, registerMutationTrigger } from '@/shared/registries.ts'
 import { act, actSelf } from '@/client/state/gameMutations.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
-import { initWasmHasher } from '@/shared/serialization.ts'
+import { initWasmHasher } from '@/shared/hashing.ts'
 import { captureException, captureMessage } from '@/client/logging.ts'
 
 // Register client code into shared functions

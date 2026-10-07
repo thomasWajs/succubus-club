@@ -28,7 +28,7 @@ import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import { applyGameResync, makeResyncGameStateMessage } from '@/client/multiplayer/sync.ts'
 import { DbSavedGame } from '@/client/gateway/db.ts'
 import { useHistoryStore } from '@/client/store/history.ts'
-import { serializeObject } from '@/shared/serialization.ts'
+import { serializeObject } from '@/shared/hashing.ts'
 import { ChatMessage } from '@/shared/types/history.ts'
 
 /**

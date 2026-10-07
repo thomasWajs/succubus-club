@@ -2,7 +2,7 @@ import {
     GameMutationId,
     GameMutationName,
     GameMutationParams,
-} from '@/shared/state/gameMutations.ts'
+} from '@/shared/state/mutationBase.ts'
 import { AvatarId, DeckList } from '@/shared/types/gateway.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { CardRegion } from '@/shared/model/CardRegion.ts'

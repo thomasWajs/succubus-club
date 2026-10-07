@@ -1,6 +1,7 @@
 import { Card, LibraryCard, Minion } from '@/shared/model/Card.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
+import { botMutations } from '@/shared/state/botMutations.ts'
 import { payCardCosts } from '@/shared/state/cardCosts.ts'
 import { Discipline, LEAVE_TORPOR_COST, LibraryCardType, Sect } from '@/shared/const/model.ts'
 import {
@@ -425,7 +426,7 @@ const behaviors: Behaviors = {
             // Only a bot's card is attached for now: a human puts it where they want
             if (implementation.attachesToMinion && action.actingMinion.controller.isBot) {
                 const player = action.actingMinion.controller
-                const attached = gameMutations.attachCard.act(player, {
+                const attached = botMutations.attachCard.act(player, {
                     card: action.card,
                     minion: implementation.attachHost,
                     disciplines: action.usage.disciplines,
