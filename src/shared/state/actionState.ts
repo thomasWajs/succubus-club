@@ -22,6 +22,7 @@ export function createActionState(minionAction: MinionAction): ActionState {
         blockingDecisions: [],
         blockAttempters: [],
         awakeMinions: [],
+        blockManeuvers: [],
         armedTriggers: [],
         playedCards: [],
         stealth: actingMinion.minionAttrs.stealth + actions.getDefaultStealth(minionAction),

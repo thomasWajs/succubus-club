@@ -48,6 +48,8 @@ interface ManeuverOption {
     strike?: CombatStrike
     card?: LibraryCard
     weapon?: Card
+    // A maneuver the minion has with no card ( given by a reaction when it blocked )
+    free?: boolean
 }
 
 interface StrikeOption {

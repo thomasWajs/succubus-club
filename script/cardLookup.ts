@@ -1,6 +1,8 @@
 // Look up cards in public/assets/cardbase.json by krcgId or by name.
 //
-// CLI:    npm run card -- "far mastery" 100620 "deflection" [--json] [--partial]
+// CLI:    npm run card -- "far mastery" 100620 "deflection" [--file list.txt] [--json] [--partial]
+//         ( list.txt: one name or id per line, '#' starts a comment; cards already described in
+//         the catalog are flagged )
 // Import: import { findCards } from './cardLookup.ts'
 //
 // A name matches when, once lowercased and stripped of accents and punctuation, it equals the query
@@ -122,14 +124,40 @@ export function formatCard(card: CardbaseEntry): string {
     return lines.join('\n')
 }
 
-function main(args: string[]) {
+// One query per line, blank lines and lines starting with '#' are ignored.
+function readQueriesFile(path: string): string[] {
+    return readFileSync(path, 'utf-8')
+        .split(/\r?\n/)
+        .map(line => line.trim())
+        .filter(line => line.length > 0 && !line.startsWith('#'))
+}
+
+async function main(args: string[]) {
     const asJson = args.includes('--json')
     const partial = args.includes('--partial')
-    const queries = args.filter(arg => !arg.startsWith('--'))
+    const queries: string[] = []
+    for (let index = 0; index < args.length; index++) {
+        const arg = args[index]
+        if (arg == '--file') {
+            const path = args[++index]
+            if (!path) {
+                console.error('--file needs a path')
+                process.exit(2)
+            }
+            queries.push(...readQueriesFile(path))
+        } else if (!arg.startsWith('--')) {
+            queries.push(arg)
+        }
+    }
     if (queries.length == 0) {
-        console.error('Usage: npm run card -- <name or id>... [--partial] [--json]')
+        console.error(
+            'Usage: npm run card -- <name or id>... [--file list.txt] [--partial] [--json]',
+        )
         process.exit(2)
     }
+
+    const { CARD_DEFS } = await import('@/shared/cardImpl/catalog/index.ts')
+    const inCatalog = new Set(CARD_DEFS.map(def => String(def.id)))
 
     let missing = 0
     const results = queries.map(query => {
@@ -141,13 +169,34 @@ function main(args: string[]) {
     })
 
     if (asJson) {
-        console.log(JSON.stringify(results, null, 2))
+        console.log(
+            JSON.stringify(
+                results.map(({ query, cards }) => ({
+                    query,
+                    cards: cards.map(card => ({
+                        ...card,
+                        inCatalog: inCatalog.has(String(card.id)),
+                    })),
+                })),
+                null,
+                2,
+            ),
+        )
     } else {
         for (const { query, cards } of results) {
             if (cards.length == 0) {
                 console.log(`${query}: not found${partial ? '' : ' (try --partial)'}`)
             } else {
-                console.log(cards.map(formatCard).join('\n\n'))
+                console.log(
+                    cards
+                        .map(card => {
+                            const text = formatCard(card)
+                            return inCatalog.has(String(card.id)) ?
+                                    `${text}\n  [ALREADY IN CATALOG]`
+                                :   text
+                        })
+                        .join('\n\n'),
+                )
             }
             console.log()
         }
@@ -156,5 +205,5 @@ function main(args: string[]) {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) == fileURLToPath(import.meta.url)) {
-    main(process.argv.slice(2))
+    await main(process.argv.slice(2))
 }

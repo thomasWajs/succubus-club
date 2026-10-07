@@ -89,6 +89,9 @@ export type ActionState = {
     // Minions woken by a card: they ignore the requirement to be unlocked to block and to react,
     // until the end of the action
     awakeMinions: Minion[]
+    // The minions that played a card giving a maneuver in the combat resulting from their block
+    // ( one entry per card played )
+    blockManeuvers: Minion[]
     // The triggers armed by the cards played in this action, for the rest of it
     armedTriggers: ArmedTrigger[]
     // The modifiers and reactions each minion played (krcgId): a minion plays a given card once per action
@@ -219,6 +222,8 @@ export type CombatantMinion = {
     pressesGranted: number
     // A strength bonus the combatant can take before the range of the first round ( Show of Force )
     strengthBonus: number
+    // Maneuvers the combatant can play without a card ( given by a reaction when it blocked )
+    freeManeuvers: number
 }
 
 export type CombatState = {

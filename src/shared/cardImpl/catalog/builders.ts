@@ -44,6 +44,8 @@ import {
     StrikeEffect,
     VariableBleedEffect,
     WakeEffect,
+    UnlockReactorEffect,
+    BlockManeuverEffect,
 } from '@/shared/cardImpl/catalog/types.ts'
 
 /**
@@ -84,8 +86,11 @@ export function any(...of: Requirement[]): Requirement {
 // Conditions
 export const duringBleed: Condition = { type: 'during', action: 'bleed' }
 export const actionTargetsYou: Condition = { type: 'actionTargets', who: 'you' }
+export const actorIsFromPredator: Condition = { type: 'actorControlledBy', who: 'predator' }
 export const afterBlocksDeclined: Condition = { type: 'afterBlocksDeclined' }
 export const reactorIsVampire: Condition = { type: 'reactorIs', minion: 'vampire' }
+export const reactorTitled: Condition = { type: 'reactorTitled', titled: true }
+export const reactorUntitled: Condition = { type: 'reactorTitled', titled: false }
 
 export const yourBlockStands: Condition = { type: 'yourBlockStands' }
 export const yourAnarchBlockStands: Condition = { type: 'yourBlockStands', sect: 'Anarch' }
@@ -267,6 +272,8 @@ export function lockAt(at: EventName, who: 'eventBlocker'): TriggerEffect {
 }
 
 export const wake: WakeEffect = { type: 'wake' }
+export const unlockReactor: UnlockReactorEffect = { type: 'unlock' }
+export const blockManeuver: BlockManeuverEffect = { type: 'blockManeuver' }
 
 export const drawCryptRemoveUncontrolled: TransferEffect = { type: 'drawCryptRemoveUncontrolled' }
 export const burnSelf: TransferEffect = { type: 'burnSelf' }

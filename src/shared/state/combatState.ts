@@ -54,6 +54,7 @@ export function createCombatantMinion(minion: Minion): CombatantMinion {
         strikesInPair: true,
         pressesGranted: 0,
         strengthBonus: 0,
+        freeManeuvers: 0,
     }
 }
 
@@ -211,6 +212,7 @@ export function canManeuver(
     minion: Minion,
     strike?: CombatStrike,
     weapon?: Card,
+    free?: boolean,
 ): Validity {
     const validity = getMoveValidity(gameState, CombatStep.DetermineRange, minion)
     const combat = gameState.combat
@@ -221,6 +223,9 @@ export function canManeuver(
         return Invalid('A minion cannot play two maneuvers in a row')
     }
     const combatant = getCombatant(combat, minion)
+    if (free && !combatant?.freeManeuvers) {
+        return Invalid('The minion has no maneuver to play for free')
+    }
     if (strike && combatant?.strike) {
         return Invalid('The strike is already chosen')
     }
@@ -807,11 +812,15 @@ export function playManeuver(
     minion: Minion,
     strike?: CombatStrike,
     weapon?: Card,
+    free?: boolean,
 ): string[] {
     const combat = getActiveCombat(gameState)
     const combatant = getCombatant(combat, minion)
     if (!combatant) {
         throw new Error(`${minion.name} is not in this combat`)
+    }
+    if (free) {
+        combatant.freeManeuvers -= 1
     }
     if (weapon) {
         combat.weaponManeuvers.push(weapon.oid)

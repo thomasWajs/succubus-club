@@ -2042,6 +2042,38 @@ class WakeMinion extends GameMutation<WakeParams> {
 }
 
 /**
+ * Action: A minion gets a maneuver in the combat resulting from its block ( if it blocks )
+ */
+
+class GrantBlockManeuver extends GameMutation<WakeParams> {
+    _isUserCancellable = false
+    readonly syncMode = MutationSyncMode.Exclusive
+
+    get allowedPlayer() {
+        return ANY_PLAYER
+    }
+
+    get card() {
+        return this.params.minion
+    }
+
+    getValidity(gameState: GameState) {
+        return gameState.action ? VALID : Invalid('Must be applied during an action')
+    }
+
+    protected updateGameState(gameState: GameState) {
+        if (!gameState.action) {
+            throw new Error('gameState.action is null')
+        }
+        gameState.action.blockManeuvers.push(this.params.minion)
+    }
+
+    formatForLog() {
+        return `${CARD_LOG_PLACEHOLDER} gets a maneuver if it blocks`
+    }
+}
+
+/**
  * Action: Arm a trigger for the rest of the action. Only the events from now on count.
  */
 
@@ -2661,6 +2693,9 @@ export class ResolveBlock extends GameMutation<EmptyParams> {
             gameState.combat.acting.strengthBonus = actions.getBlockedStrengthBonus(
                 action.minionAction,
             )
+            gameState.combat.defending.freeManeuvers = action.blockManeuvers.filter(
+                minion => minion == blockingMinion,
+            ).length
             gameState.action = null
         }
         // Failed block
@@ -2730,17 +2765,19 @@ interface CombatManeuverParams extends GameMutationParams {
     strike?: CombatStrike
     // The weapon that gives the maneuver ( once per combat )
     weapon?: Card
+    // A maneuver given with no card ( by a reaction when the minion blocked )
+    free?: boolean
 }
 
 class CombatManeuver extends CombatMutation<CombatManeuverParams> {
     getValidity(gameState: GameState) {
-        const { minion, strike, weapon } = this.params
-        return canManeuver(gameState, minion, strike, weapon)
+        const { minion, strike, weapon, free } = this.params
+        return canManeuver(gameState, minion, strike, weapon, free)
     }
 
     protected move(gameState: GameState) {
-        const { minion, strike, weapon } = this.params
-        return playManeuver(gameState, minion, strike, weapon)
+        const { minion, strike, weapon, free } = this.params
+        return playManeuver(gameState, minion, strike, weapon, free)
     }
 }
 
@@ -3650,6 +3687,7 @@ export const gameMutations = {
     ACTION_declareActionInverse: defineMutation(DeclareActionInverse),
     ACTION_updateUsage: defineMutation(UpdateActionUsage),
     ACTION_wake: defineMutation(WakeMinion),
+    ACTION_grantBlockManeuver: defineMutation(GrantBlockManeuver),
     ACTION_armTrigger: defineMutation(ArmTrigger),
     ACTION_completeDeclaration: defineMutation(CompleteActionDeclaration),
     ACTION_declareActionModifier: defineMutation(DeclareActionModifier),

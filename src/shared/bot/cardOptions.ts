@@ -298,6 +298,9 @@ export function getAttachedCombatOptions(minion: Minion): CombatCardOption[] {
     const retainers = getRetainers(getOpposingCombatant(combat, combatant).minion)
     const options: CombatCardOption[] = []
 
+    if (combatant.freeManeuvers > 0) {
+        options.push({ type: 'combatManeuver', minion, free: true })
+    }
     for (const weapon of getAttachedCards(minion)) {
         for (const effect of getAttachedEffects(weapon)) {
             if (effect.type != 'weaponStrike') {

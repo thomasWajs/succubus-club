@@ -416,6 +416,8 @@ function isReactionOptionValid(gameState: GameState, option: BotOptionOf<'playRe
             return !isAwake(gameState, option.minion)
         case 'unlockBlock':
             return option.effect.target.isLocked
+        case 'unlock':
+            return option.minion.isLocked
     }
 }
 
@@ -438,7 +440,8 @@ function isCombatOptionValid(gameState: GameState, option: CombatCardOption): bo
         case 'combatStrengthBonus':
             return canTakeStrengthBonus(gameState, option.minion).isValid
         case 'combatManeuver':
-            return canManeuver(gameState, option.minion, option.strike, option.weapon).isValid
+            return canManeuver(gameState, option.minion, option.strike, option.weapon, option.free)
+                .isValid
         case 'combatPress':
             return canPress(gameState, option.minion, option.granted).isValid
         case 'combatStrength':
@@ -860,6 +863,12 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
                 case 'wake':
                     check(gameMutations.ACTION_wake.act(player, { minion }), 'wake')
                     break
+                case 'unlock':
+                    check(
+                        gameMutations.setLock.act(player, { card: minion, newValue: false }),
+                        'unlock the reacting minion',
+                    )
+                    break
                 case 'unlockBlock':
                     check(
                         gameMutations.setLock.act(player, {
@@ -880,6 +889,12 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
                         'intercept',
                     )
                     break
+            }
+            if (effect.blockManeuver) {
+                check(
+                    gameMutations.ACTION_grantBlockManeuver.act(player, { minion }),
+                    'maneuver if it blocks',
+                )
             }
             if (
                 getImplementation(REACTION_CARD_IMPLEMENTATIONS, card, minion, option.usage)
@@ -923,6 +938,7 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
                     minion: option.minion,
                     strike: option.strike,
                     weapon: option.weapon,
+                    free: option.free,
                 }),
                 'combatManeuver',
             )

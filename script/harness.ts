@@ -98,6 +98,8 @@ function describeReactionEffect(effect: ReactionCardEffect): string {
             return 'wake'
         case 'unlockBlock':
             return `unlockBlock ${effect.target.name} +${effect.intercept}`
+        case 'unlock':
+            return 'unlock'
     }
 }
 

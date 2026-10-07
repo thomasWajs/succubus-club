@@ -1,6 +1,9 @@
 import { DEFLECTION_ID } from '@/shared/cardImpl/cardIds.ts'
 import {
     actionTargetsYou,
+    actorIsFromPredator,
+    blockManeuver,
+    unlockReactor,
     afterBlocksDeclined,
     changeTarget,
     defineCard,
@@ -14,6 +17,8 @@ import {
     yourAnarchBlockStands,
     oncePerUnlock,
     reactorIsVampire,
+    reactorTitled,
+    reactorUntitled,
     wake,
     yourBlockStands,
 } from '@/shared/cardImpl/catalog/builders.ts'
@@ -62,6 +67,14 @@ export const REACTION_CARDS = [
     ]),
     // Requires a baron, locked or not ( the cardbase says it ): +1 intercept for an Anarch whose block
     // attempt stands, or unlock an Anarch which attempts to block with +1 intercept
+    // Only usable by a Nosferatu ( cardbase requirement )
+    defineCard('102216', 'Warrens, The', [
+        {
+            kind: 'reaction',
+            when: [actionTargetsYou, reactorIsVampire],
+            effects: [onlyIf(intercept(3), reactorTitled), onlyIf(intercept(2), reactorUntitled)],
+        },
+    ]),
     defineCard('102230', 'Organized Resistance', [
         {
             kind: 'reaction',
@@ -70,6 +83,36 @@ export const REACTION_CARDS = [
                 onlyIf(intercept(1), yourAnarchBlockStands),
                 unlockAndBlock({ intercept: 1 }),
             ],
+        },
+    ]),
+    // Superior: the maneuver is not provided again when a second block happens on the same action
+    defineCard('100863', 'Guard Dogs', [
+        {
+            kind: 'reaction',
+            requires: discipline('ani', 'inferior'),
+            when: [minionLocked, duringBleed, actionTargetsYou, reactorIsVampire],
+            effects: [unlockReactor],
+        },
+        {
+            kind: 'reaction',
+            requires: discipline('ani', 'superior'),
+            when: [minionLocked, duringBleed, actionTargetsYou, reactorIsVampire],
+            effects: [unlockReactor, blockManeuver],
+        },
+    ]),
+    // Superior: the maneuver is not provided again when a second block happens on the same action
+    defineCard('100995', 'Instinctive Reaction', [
+        {
+            kind: 'reaction',
+            requires: discipline('ani', 'inferior'),
+            when: [actorIsFromPredator, yourBlockStands],
+            effects: [intercept(1)],
+        },
+        {
+            kind: 'reaction',
+            requires: discipline('ani', 'superior'),
+            when: [actorIsFromPredator, yourBlockStands],
+            effects: [intercept(1), blockManeuver],
         },
     ]),
     defineCard('101949', 'Telepathic Misdirection', [

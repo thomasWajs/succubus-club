@@ -80,12 +80,23 @@ function conditionHolds(
             return !!action && isBleed(action)
         case 'actionTargets':
             return !!action && action.target == implementation.player
+        case 'actorControlledBy':
+            return (
+                !!action &&
+                !!implementation.player.predator &&
+                action.actingMinion.controller == implementation.player.predator
+            )
         case 'afterBlocksDeclined':
             return getBlockingDecision(gameState, implementation.player)?.block === NO_BLOCK
         case 'combatRound':
             return gameState.combat?.round == condition.round
         case 'reactorIs':
             return implementation.minion.isVampire()
+        case 'reactorTitled':
+            return (
+                implementation.minion.isVampire() &&
+                !!implementation.minion.vampireAttrs.title == condition.titled
+            )
         case 'targetPoolAtMost':
             return action?.target instanceof Player && action.target.pool <= condition.amount
         case 'yourBlockStands': {
@@ -487,11 +498,21 @@ class InterpretedReaction extends ReactionCardImplementation {
 
         const actingPlayer = action.actingMinion.controller
         const gameState = this.player.gameState
-        return play.effects.flatMap((effect): ReactionCardEffect[] => {
+        const blockManeuver = play.effects.some(
+            effect =>
+                effect.type == 'blockManeuver' &&
+                checkConditions(this, effect.when, this.def).isValid,
+        )
+        const effects = play.effects.flatMap((effect): ReactionCardEffect[] => {
             if (!checkConditions(this, effect.when, this.def).isValid) {
                 return []
             }
             switch (effect.type) {
+                // Not an alternative: it comes with the other effects, see below
+                case 'blockManeuver':
+                    return []
+                case 'unlock':
+                    return [{ type: 'unlock' }]
                 case 'unlockAndBlock': {
                     // Only while a block is still possible
                     if (getBlockingMinion(gameState)) {
@@ -525,6 +546,7 @@ class InterpretedReaction extends ReactionCardImplementation {
                         }))
             }
         })
+        return blockManeuver ? effects.map(effect => ({ ...effect, blockManeuver })) : effects
     }
 }
 

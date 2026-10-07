@@ -25,9 +25,13 @@ export type Requirement =
 export type Condition =
     | { type: 'during'; action: 'bleed' }
     | { type: 'actionTargets'; who: 'you' }
+    // The acting minion is controlled by your predator
+    | { type: 'actorControlledBy'; who: 'predator' }
     | { type: 'afterBlocksDeclined' }
     | { type: 'combatRound'; round: number }
     | { type: 'reactorIs'; minion: 'vampire' }
+    // The minion playing the card is a vampire with a title ( or without one )
+    | { type: 'reactorTitled'; titled: boolean }
     // The target of the action has this much pool or less
     | { type: 'targetPoolAtMost'; amount: number }
     // A block attempt by one of your minions is standing ( by a vampire of the sect, when given )
@@ -75,6 +79,11 @@ export type SetStrengthEffect = { type: 'setStrength'; amount: number }
 export type ChangeTargetEffect = { type: 'changeTarget'; lockReactor: boolean }
 // The reacting minion wakes until the end of the action
 export type WakeEffect = { type: 'wake' }
+// The reacting minion is unlocked ( it may then attempt to block )
+export type UnlockReactorEffect = { type: 'unlock' }
+// The reacting minion gets a maneuver in the combat resulting from its block, if it blocks. It
+// comes on top of the other effects of the play ( it is not an alternative to them ).
+export type BlockManeuverEffect = { type: 'blockManeuver' }
 export type HandSizeEffect = { type: 'handSize'; amount: number }
 
 // Takes pool from the target Methuselah ( at most what they have ) for the acting one
@@ -151,6 +160,8 @@ export type ReactionEffect =
     | InterceptEffect
     | WakeEffect
     | UnlockAndBlockEffect
+    | UnlockReactorEffect
+    | BlockManeuverEffect
 export type MasterEffect = HandSizeEffect
 
 // What an action card aims at ( 'none': an undirected action, such as equipping a card )

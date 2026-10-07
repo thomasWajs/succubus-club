@@ -115,13 +115,20 @@ export abstract class CombatCardImplementation extends CardImplementation {
 export type ReactionCardEffect =
     // A bounce: the new target of the action ( who gets a new chance to block and react ).
     // The reacting minion is locked when the card says so.
-    | { type: 'changeTarget'; target: Player; lockMinion: boolean }
-    // More intercept for the block attempt of the reacting player
-    | { type: 'intercept'; amount: number }
-    // The reacting minion wakes: it may block and react while locked, until the end of the action
-    | { type: 'wake' }
-    // A locked minion is unlocked and attempts to block, with more intercept
-    | { type: 'unlockBlock'; target: Minion; intercept: number }
+    (
+        | { type: 'changeTarget'; target: Player; lockMinion: boolean }
+        // More intercept for the block attempt of the reacting player
+        | { type: 'intercept'; amount: number }
+        // The reacting minion wakes: it may block and react while locked, until the end of the action
+        | { type: 'wake' }
+        // A locked minion is unlocked and attempts to block, with more intercept
+        | { type: 'unlockBlock'; target: Minion; intercept: number }
+        // The reacting minion is unlocked ( it may then attempt to block )
+        | { type: 'unlock' }
+    ) & {
+        // The reacting minion also gets a maneuver in the combat resulting from its block
+        blockManeuver?: boolean
+    }
 
 export abstract class ReactionCardImplementation extends CardImplementation {
     // A locked minion that is not awake may play the card ( "only usable by a locked minion" )
