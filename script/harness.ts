@@ -1,7 +1,14 @@
 import { GameState } from '@/shared/state/gameState.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { LibraryCard } from '@/shared/model/Card.ts'
-import { createMutation } from '@/shared/state/mutationBase.ts'
+import { AnyGameMutation, createMutation } from '@/shared/state/mutationBase.ts'
+import { HistoryStore } from '@/shared/state/history.ts'
+import {
+    createLedger,
+    foldMutation,
+    rebuildLedger,
+    TableLedger,
+} from '@/shared/bot/utility/ledger.ts'
 import { registerGameState, registerMutationTrigger, deleteGameState } from '@/shared/registries.ts'
 import { setupPlayArea } from '@/shared/state/setup.ts'
 import { generateGameId } from '@/shared/state/ids.ts'
@@ -9,7 +16,7 @@ import { ORDERED_PLAYER_COLORS } from '@/shared/const/game.ts'
 import { BOT_NAME, BOT_PERM_ID } from '@/shared/const/bot.ts'
 import { CombatStep, GameType, MinionActionType, NO_BLOCK } from '@/shared/types/state.ts'
 import { DeckList } from '@/shared/types/gateway.ts'
-import { PlayerOid } from '@/shared/types/model.ts'
+import { GameId, PlayerOid } from '@/shared/types/model.ts'
 import { shuffleArray } from '@/shared/utils.ts'
 import { getDecidingPlayer } from '@/shared/bot/referee.ts'
 import { BotStep, stepBot } from '@/shared/bot/driver.ts'
@@ -24,6 +31,47 @@ import { isRetainer } from '@/shared/cardImpl/catalog/attached.ts'
 
 export class HarnessFailure extends Error {}
 
+/**
+ * What the table did, recorded the way the client does: the mutations that were applied, in the
+ * order they finished ( a mutation applied inside another one comes first ). The ledger is folded
+ * live; the history store ( heavy: serialization, compression ) is only filled on demand, to check
+ * that the ledger rebuilt from it is the live one.
+ */
+
+export type MutationRecorder = {
+    // The game being recorded ( the first one created while recording ): the copies of a game that an
+    // agent plays with ( a player view ) apply mutations too, which are not what the table did
+    gameId: GameId | null
+    ledger: TableLedger
+    history: HistoryStore | null
+    stop: () => void
+}
+
+let recorder: MutationRecorder | null = null
+
+function notifyApplied(mutation: AnyGameMutation): void {
+    if (recorder && mutation.gameId == recorder.gameId) {
+        foldMutation(recorder.ledger, mutation)
+        recorder.history?.addGameMutation(mutation)
+    }
+}
+
+// Records every mutation applied from now on, until stop() ( one game at a time )
+export function recordMutations(options: { history: boolean }): MutationRecorder {
+    const current: MutationRecorder = {
+        gameId: null,
+        ledger: createLedger(),
+        history: options.history ? new HistoryStore() : null,
+        stop: () => {
+            if (recorder == current) {
+                recorder = null
+            }
+        },
+    }
+    recorder = current
+    return current
+}
+
 // Apply each mutation immediately, in order (the client queue is a UI concern)
 export function registerSyncMutationTrigger(): void {
     registerMutationTrigger({
@@ -32,6 +80,7 @@ export function registerSyncMutationTrigger(): void {
             const validity = mutation.canApply()
             if (validity.isValid) {
                 mutation.apply()
+                notifyApplied(mutation)
             }
             return validity
         },
@@ -50,7 +99,10 @@ export function registerQueuedMutationTrigger(): { flush: () => void; queued: ()
             const mutation = createMutation(gameMutationClass, author, params)
             const validity = mutation.canApply()
             if (validity.isValid) {
-                queue.push(() => mutation.apply())
+                queue.push(() => {
+                    mutation.apply()
+                    notifyApplied(mutation)
+                })
             }
             return validity
         },
@@ -69,6 +121,9 @@ export function createHeadlessGame(decks: DeckList[]) {
     gameState.gameId = generateGameId()
     gameState.gameType = GameType.TrainBot
     registerGameState(gameState.gameId, gameState)
+    if (recorder && !recorder.gameId) {
+        recorder.gameId = gameState.gameId
+    }
 
     const players = decks.map((deck, i) => {
         const player = gameState.createPlayer(
@@ -188,6 +243,10 @@ function describeState(gameState: GameState): string {
 export type HarnessOptions = {
     maxTurns: number
     maxSteps: number
+    // Given to the agents as what the table did. With a history store, the ledger rebuilt from it
+    // is checked against the live one when the game ends.
+    recorder?: MutationRecorder
+    beforeStep?: () => void
     onStep?: (step: BotStep) => void
 }
 
@@ -341,6 +400,20 @@ function checkInvariants(gameState: GameState, tracker: TurnTracker): void {
     tracker.activeOid = active.oid
 }
 
+// The ledger rebuilt from the recorded history is the one folded live
+export function checkRecordedLedger(gameState: GameState, recorded?: MutationRecorder): void {
+    if (!recorded?.history) {
+        return
+    }
+    const rebuilt = JSON.stringify(rebuildLedger(recorded.history, gameState.gameId))
+    const live = JSON.stringify(recorded.ledger)
+    if (rebuilt != live) {
+        throw new HarnessFailure(
+            `The ledger rebuilt from the history differs:\n${rebuilt}\n${live}`,
+        )
+    }
+}
+
 export function playHeadlessGame(
     gameState: GameState,
     agents: Map<PlayerOid, BotAgent>,
@@ -371,13 +444,18 @@ export function playHeadlessGame(
         })),
     })
 
+    const end = (outcome: GameReport['outcome']): GameReport => {
+        checkRecordedLedger(gameState, options.recorder)
+        return report(outcome)
+    }
+
     try {
         for (;;) {
             if (gameState.competingPlayers.length <= 1) {
-                return report('win')
+                return end('win')
             }
             if (gameState.turnNumber > options.maxTurns) {
-                return report('turnLimit')
+                return end('turnLimit')
             }
             if (steps >= options.maxSteps) {
                 throw new HarnessFailure(`Step limit reached (${options.maxSteps})`)
@@ -392,7 +470,12 @@ export function playHeadlessGame(
                 throw new HarnessFailure(`No agent for ${player.name}`)
             }
 
-            const step = stepBot(player, agent)
+            options.beforeStep?.()
+            const step = stepBot(
+                player,
+                agent,
+                options.recorder && { ledger: options.recorder.ledger },
+            )
             if (!step) {
                 throw new HarnessFailure(`Stall: ${player.name} has no decision point`)
             }

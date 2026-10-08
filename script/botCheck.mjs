@@ -11,18 +11,19 @@ const filterIndex = args.indexOf('--filter')
 const filter = filterIndex >= 0 ? args[filterIndex + 1] : null
 
 const games = full ? 100 : 15
-const harness = (players, agents, deck = 'govern') => ({
-    name: `harness ${players}p ${agents}${deck == 'govern' ? '' : ` ${deck}`}`,
+const harness = (players, agents, deck = 'govern', extra = [], nbGames = games) => ({
+    name: `harness ${players}p ${agents}${deck == 'govern' ? '' : ` ${deck}`}${extra.length ? ` ${extra.join(' ')}` : ''}`,
     args: [
         'script/botHarness.mjs',
         '--games',
-        String(games),
+        String(nbGames),
         '--players',
         String(players),
         '--agents',
         agents,
         '--deck',
         deck,
+        ...extra,
     ],
 })
 
@@ -36,6 +37,11 @@ const jobs =
             harness(3, 'govern,random'),
             harness(4, 'govern,random'),
             harness(5, 'govern'),
+            harness(2, 'utility,govern'),
+            harness(3, 'utility,govern'),
+            harness(4, 'utility,govern'),
+            harness(5, 'utility,govern'),
+            harness(4, 'utility,govern', 'govern', ['--check-ledger'], full ? 10 : 4),
             harness(3, 'random', 'malkav'),
             harness(3, 'random', 'brujah'),
             harness(3, 'random', 'attach'),

@@ -6,7 +6,13 @@ import { serializeValueRecursive } from '@/shared/hashing.ts'
 import { getKnownCards, redactUnknownCard } from '@/shared/state/cardVisibility.ts'
 import { generateGameId } from '@/shared/state/ids.ts'
 import { getDecisionPoint } from '@/shared/bot/referee.ts'
-import { BotAgent, BotOption, DecisionPoint, InvalidBotMove } from '@/shared/bot/types.ts'
+import {
+    BotAgent,
+    BotContext,
+    BotOption,
+    DecisionPoint,
+    InvalidBotMove,
+} from '@/shared/bot/types.ts'
 
 /**
  * Information hiding for agents: an agent never sees the live GameState, only a
@@ -61,7 +67,11 @@ function optionKey(option: BotOption): string {
  * The two option lists must match exactly: a difference means the referee read
  * information the player should not have, so it is a hard failure.
  */
-export function chooseThroughView(decision: DecisionPoint, agent: BotAgent): BotOption {
+export function chooseThroughView(
+    decision: DecisionPoint,
+    agent: BotAgent,
+    context?: BotContext,
+): BotOption {
     const view = createPlayerView(decision.player.gameState, decision.player)
     try {
         const viewDecision = getDecisionPoint(view.gameState, view.player)
@@ -77,7 +87,7 @@ export function chooseThroughView(decision: DecisionPoint, agent: BotAgent): Bot
             )
         }
 
-        const chosen = agent.choose(viewDecision)
+        const chosen = agent.choose(viewDecision, context)
         const index = viewDecision.options.indexOf(chosen)
         if (index < 0) {
             throw new InvalidBotMove(`Option '${chosen.type}' is not offered at ${decision.kind}`)

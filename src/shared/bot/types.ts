@@ -8,6 +8,7 @@ import {
     PendingTrigger,
 } from '@/shared/types/state.ts'
 import { ReactionCardEffect } from '@/shared/cardImpl/base.ts'
+import type { TableLedger } from '@/shared/bot/utility/ledger.ts'
 
 export enum DecisionKind {
     Unlock = 'Unlock',
@@ -179,8 +180,14 @@ export type DecisionPoint = {
     options: BotOption[]
 }
 
+// What an agent gets next to the view of the game: the state is not enough to know what the table
+// did ( it keeps no history ), and the view is a copy that cannot hold it
+export type BotContext = {
+    ledger: TableLedger
+}
+
 export interface BotAgent {
-    choose(decision: DecisionPoint): BotOption
+    choose(decision: DecisionPoint, context?: BotContext): BotOption
 }
 
 // Thrown when a bot (agent or referee) does something the engine refuses
