@@ -40,6 +40,10 @@ export function getCardDef(card: Card): CardDef | undefined {
     return card.krcgId ? CATALOG[card.krcgId] : undefined
 }
 
+export function getCardDefById(id: KrcgId): CardDef | undefined {
+    return CATALOG[id]
+}
+
 // The kinds the card has a play for, in the catalog
 export function getPlayKinds(def: CardDef): CardKind[] {
     return [...new Set(def.plays.map(play => play.kind))]

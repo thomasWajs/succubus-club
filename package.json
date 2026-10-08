@@ -38,6 +38,7 @@
         "bot:harness": "tsx script/botHarness.mjs --games 100 --players 4 --agents govern",
         "bot:scenarios": "tsx script/botScenarios.ts",
         "bot:check": "node script/botCheck.mjs",
+        "bot:summaries": "tsx script/botSummaries.ts",
         "card": "tsx script/cardLookup.ts",
         "card:skip": "tsx script/skippedCards.ts",
         "catalog:check": "tsx script/catalogCheck.ts",

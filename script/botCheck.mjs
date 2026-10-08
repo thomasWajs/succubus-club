@@ -11,6 +11,7 @@ const filterIndex = args.indexOf('--filter')
 const filter = filterIndex >= 0 ? args[filterIndex + 1] : null
 
 const games = full ? 100 : 15
+const MAX_PARALLEL_JOBS = 6
 const harness = (players, agents, deck = 'govern', extra = [], nbGames = games) => ({
     name: `harness ${players}p ${agents}${deck == 'govern' ? '' : ` ${deck}`}${extra.length ? ` ${extra.join(' ')}` : ''}`,
     args: [
@@ -33,6 +34,7 @@ const jobs =
     :   [
             { name: 'scenarios', args: ['script/botScenarios.ts'] },
             { name: 'catalog', args: ['script/catalogCheck.ts'] },
+            { name: 'summaries', args: ['script/botSummaries.ts', '--check'] },
             harness(2, 'govern,random'),
             harness(3, 'govern,random'),
             harness(4, 'govern,random'),
@@ -57,14 +59,24 @@ function run(job) {
         let output = ''
         child.stdout.on('data', chunk => (output += chunk))
         child.stderr.on('data', chunk => (output += chunk))
-        child.on('close', code => resolve({ job, code, output }))
+        child.on('close', (code, signal) => resolve({ job, code, signal, output }))
     })
 }
 
 const startTime = performance.now()
-const results = await Promise.all(jobs.map(run))
+// Not all at once: a dozen node processes started together crashed now and then ( exit code 0xC0000005 )
+const results = []
+let nextJob = 0
+await Promise.all(
+    Array.from({ length: MAX_PARALLEL_JOBS }, async () => {
+        while (nextJob < jobs.length) {
+            const index = nextJob++
+            results[index] = await run(jobs[index])
+        }
+    }),
+)
 let failed = false
-for (const { job, code, output } of results) {
+for (const { job, code, signal, output } of results) {
     const lines = output.trim().split('\n')
     if (code == 0) {
         console.log(
@@ -72,8 +84,13 @@ for (const { job, code, output } of results) {
         )
     } else {
         failed = true
-        const problems = lines.filter(line => !line.startsWith('ok ') && !line.startsWith('game '))
-        console.log(`FAIL ${job.name}\n${problems.join('\n')}`)
+        const problems = lines.filter(
+            line =>
+                line.includes('FAILURE') || (!line.startsWith('ok ') && !line.startsWith('game ')),
+        )
+        console.log(
+            `FAIL ${job.name} ( exit code ${code}, signal ${signal} ), ${lines.length} lines\n${problems.join('\n')}`,
+        )
     }
 }
 console.log(
