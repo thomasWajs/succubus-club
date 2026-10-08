@@ -39,6 +39,7 @@
         "bot:scenarios": "tsx script/botScenarios.ts",
         "bot:check": "node script/botCheck.mjs",
         "card": "tsx script/cardLookup.ts",
+        "card:skip": "tsx script/skippedCards.ts",
         "catalog:check": "tsx script/catalogCheck.ts",
         "catalog:vocab": "tsx script/catalogVocabulary.ts",
         "catalog:verify": "node script/catalogVerify.mjs",

@@ -38,6 +38,13 @@ function getReservedMinion(player: Player): Minion | null {
     )
 }
 
+// The move of blood to the pool from the vampire holding the most past half its capacity
+function getBloodSurplusMove(decision: DecisionPoint): BotOptionOf<'moveBlood'> | undefined {
+    return optionsOfType(decision.options, 'moveBlood')
+        .filter(option => option.toPool && option.vampire.blood * 2 > capacityOf(option.vampire))
+        .toSorted((a, b) => b.vampire.blood - a.vampire.blood)[0]
+}
+
 function isBledByAction(player: Player): boolean {
     const action = player.gameState.action?.minionAction
     return !!action && isBleed(action) && action.target?.oid == player.oid
@@ -74,20 +81,16 @@ export class GovernAgent extends BaseAgent {
         if (doll) {
             return doll
         }
-        const surplus = optionsOfType(decision.options, 'moveBlood')
-            .filter(
-                option => option.toPool && option.vampire.blood * 2 > capacityOf(option.vampire),
-            )
-            .toSorted((a, b) => b.vampire.blood - a.vampire.blood)[0]
-        return surplus ?? super.masterPhase(decision)
+        return getBloodSurplusMove(decision) ?? super.masterPhase(decision)
     }
 
-    // Blood on the vampire with the least ( none when they are all full: not offered )
+    // Blood on the vampire with the least ( none when they are all full: not offered ), else the
+    // blood past half the capacity of a vampire banked ( a Vessel )
     protected override unlockPhase(decision: DecisionPoint): BotOption {
         const emptiest = optionsOfType(decision.options, 'unlockEffect').toSorted(
             (a, b) => a.vampire.blood - b.vampire.blood,
         )[0]
-        return emptiest ?? super.unlockPhase(decision)
+        return emptiest ?? getBloodSurplusMove(decision) ?? super.unlockPhase(decision)
     }
 
     protected override minionPhase(decision: DecisionPoint): BotOption {
@@ -232,6 +235,16 @@ export class GovernAgent extends BaseAgent {
             }
         }
 
+        // Damage a card in play can prevent for free is always prevented
+        if (combat.step == CombatStep.DamageResolution) {
+            const prevent = optionsOfType(decision.options, 'combatPrevent').find(
+                option => !option.card,
+            )
+            if (prevent) {
+                return prevent
+            }
+        }
+
         return super.combat(decision)
     }
 
@@ -305,13 +318,15 @@ export class GovernAgent extends BaseAgent {
         const lostInCrowds = optionsOfType(decision.options, 'playModifier').find(
             option => option.modifier.card.krcgId == LOST_IN_CROWDS_ID,
         )
-        if (
-            action &&
-            lostInCrowds &&
-            getBlockingMinion(gameState) &&
-            action.intercept >= action.stealth
-        ) {
-            return lostInCrowds
+        // A block stands that would succeed: a free bonus first ( a location to lock ), then the card
+        if (action && getBlockingMinion(gameState) && action.intercept >= action.stealth) {
+            const free = optionsOfType(decision.options, 'lockForAction')[0]
+            if (free) {
+                return free
+            }
+            if (lostInCrowds) {
+                return lostInCrowds
+            }
         }
         return super.actionImpulse(decision)
     }

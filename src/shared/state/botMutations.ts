@@ -32,8 +32,10 @@ import { Trigger } from '@/shared/cardImpl/catalog/types.ts'
 import { getTriggerKey } from '@/shared/state/triggers.ts'
 import {
     AdditionalStrikeGain,
+    addEnvironmentalDamage,
     addStrikes,
     applyDamageNow,
+    canAddEnvironmentalDamage,
     canAddStrikes,
     canApplyDamage,
     canChooseStrike,
@@ -550,6 +552,43 @@ class DeclareActionModifier extends GameMutation<DeclareActionModifierParams> {
 }
 
 /**
+ * Action: A card in play is locked for the action ( The Labyrinth ). Like a modifier it is an
+ * effect: the acting player keeps the impulse. Its bonus and its lock are applied by other mutations.
+ */
+
+interface DeclareLockForActionParams extends GameMutationParams {
+    card: Card
+}
+
+class DeclareLockForAction extends GameMutation<DeclareLockForActionParams> {
+    _isUserCancellable = false
+    readonly syncMode = MutationSyncMode.Exclusive
+
+    get allowedPlayer() {
+        return this.gameState.activePlayer
+    }
+
+    get card() {
+        return this.params.card
+    }
+
+    getValidity(gameState: GameState) {
+        return gameState.action ? VALID : Invalid('Must be applied during an action')
+    }
+
+    protected updateGameState(gameState: GameState) {
+        if (!gameState.action) {
+            throw new Error('gameState.action is null')
+        }
+        gameState.action.reactionsPassed = false
+    }
+
+    formatForLog() {
+        return `${CARD_LOG_PLACEHOLDER} is locked for the action`
+    }
+}
+
+/**
  * Action: Declare reaction
  */
 
@@ -879,6 +918,21 @@ class CombatSetStrength extends CombatMutation<CombatSetStrengthParams> {
     }
 }
 
+interface CombatEnvironmentalDamageParams extends GameMutationParams {
+    minion: Minion
+    amount: number
+}
+
+class CombatAddEnvironmentalDamage extends CombatMutation<CombatEnvironmentalDamageParams> {
+    getValidity(gameState: GameState) {
+        return canAddEnvironmentalDamage(gameState, this.params.minion)
+    }
+
+    protected move(gameState: GameState) {
+        return addEnvironmentalDamage(gameState, this.params.minion, this.params.amount)
+    }
+}
+
 interface CombatStrikeParams extends GameMutationParams {
     minion: Minion
     strike: CombatStrike
@@ -999,17 +1053,19 @@ interface CombatPreventDamageParams extends GameMutationParams {
     minion: Minion
     amount: number
     aggravated: boolean
+    // The card attached to the minion that prevents ( once per combat ), none for a combat card
+    source?: Card
 }
 
 class CombatPreventDamage extends CombatMutation<CombatPreventDamageParams> {
     getValidity(gameState: GameState) {
-        const { minion, amount, aggravated } = this.params
-        return canPreventDamage(gameState, minion, amount, aggravated)
+        const { minion, amount, aggravated, source } = this.params
+        return canPreventDamage(gameState, minion, amount, aggravated, source)
     }
 
     protected move(gameState: GameState) {
-        const { minion, amount, aggravated } = this.params
-        return preventDamage(gameState, minion, amount, aggravated)
+        const { minion, amount, aggravated, source } = this.params
+        return preventDamage(gameState, minion, amount, aggravated, source)
     }
 }
 
@@ -1055,6 +1111,7 @@ export const botMutations = {
     ACTION_closePostBlock: defineMutation(ClosePostBlock),
     ACTION_completeDeclaration: defineMutation(CompleteActionDeclaration),
     ACTION_declareActionModifier: defineMutation(DeclareActionModifier),
+    ACTION_declareLockForAction: defineMutation(DeclareLockForAction),
     ACTION_declareReaction: defineMutation(DeclareReaction),
     ACTION_grantBlockManeuver: defineMutation(GrantBlockManeuver),
     ACTION_resolveAction: defineMutation(ResolveAction),
@@ -1068,6 +1125,7 @@ export const botMutations = {
     COMBAT_maneuver: defineMutation(CombatManeuver),
     COMBAT_chooseStrike: defineMutation(CombatChooseStrike),
     COMBAT_setStrength: defineMutation(CombatSetStrength),
+    COMBAT_addEnvironmentalDamage: defineMutation(CombatAddEnvironmentalDamage),
     COMBAT_addStrikes: defineMutation(CombatAddStrikes),
     COMBAT_grapple: defineMutation(CombatGrapple),
     COMBAT_gainBlood: defineMutation(CombatGainBlood),

@@ -9,6 +9,17 @@ export const AttachDeck = <DeckList>{
     '101550': 8, // Raven Spy
     '100199': 8, // Blood Doll
     '101483': 8, // Preternatural Strength
+    '102113': 8, // Vessel
+    '100866': 8, // Guardian Angel
+    '100913': 8, // Heroic Might
+}
+
+// The Govern deck with the Animalism cards that hurt, to fight with them in the harness
+export const CrowsDeck = <DeckList>{
+    ...GovernDeck,
+    '100301': 8, // Carrion Crows
+    '100515': 8, // Deep Song
+    '101254': 8, // Murder of Crows
 }
 
 // The Govern deck with Cats' Guidance and vampires with Animalism, to block and play it in the

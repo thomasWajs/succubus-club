@@ -1,6 +1,7 @@
 import { Card, LibraryCard, Minion } from '@/shared/model/Card.ts'
 import { LibraryCardType } from '@/shared/const/model.ts'
 import { getAttachedCards } from '@/shared/state/attachments.ts'
+import { isBleed, isDirected } from '@/shared/state/minionActions.ts'
 import { getCardDef } from '@/shared/cardImpl/catalog/index.ts'
 import { findPlay, playsOfKind } from '@/shared/cardImpl/catalog/requirements.ts'
 import { Player } from '@/shared/model/Player.ts'
@@ -45,13 +46,29 @@ export function getRetainers(minion: Minion): Card[] {
     return getAttachedCards(minion).filter(isRetainer)
 }
 
+// The intercept of the minion for the block attempt against the action in progress
 export function getMinionIntercept(minion: Minion): number {
+    const action = minion.gameState.action?.minionAction
+    const directed = action && isDirected(action) ? getCardDef(minion)?.crypt?.directedIntercept : 0
+    const bleedAtController = !!action && isBleed(action) && action.target == minion.controller
     return getAttachedCards(minion)
         .flatMap(getAttachedEffects)
         .reduce(
-            (sum, effect) => (effect.type == 'intercept' ? sum + effect.amount : sum),
-            minion.minionAttrs.intercept,
+            (sum, effect) => {
+                if (effect.type == 'intercept') {
+                    return sum + effect.amount
+                }
+                return effect.type == 'bleedIntercept' && bleedAtController ?
+                        sum + effect.amount
+                    :   sum
+            },
+            minion.minionAttrs.intercept + (directed ?? 0),
         )
+}
+
+// The card is burned when its bearer is in torpor
+export function burnsInTorpor(card: Card): boolean {
+    return getAttachedEffects(card).some(effect => effect.type == 'burnInTorpor')
 }
 
 // The strength the minion starts a combat with
@@ -61,6 +78,16 @@ export function getMinionStrength(minion: Minion): number {
         .reduce(
             (sum, effect) => (effect.type == 'strength' ? sum + effect.amount : sum),
             minion.minionAttrs.strength,
+        )
+}
+
+// The environmental damage the retainers of the minion inflict on the opposing minion each round
+export function getEnvironmentalDamage(minion: Minion): number {
+    return getAttachedCards(minion)
+        .flatMap(getAttachedEffects)
+        .reduce(
+            (sum, effect) => (effect.type == 'environmentalDamage' ? sum + effect.amount : sum),
+            0,
         )
 }
 

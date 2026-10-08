@@ -93,6 +93,8 @@ export type CombatCardEffect =
     | { type: 'prevent'; amount: number; aggravated: boolean }
     // The strength of the minion for the rest of the combat
     | { type: 'setStrength'; amount: number }
+    // Damage the opposing minion takes each round of the combat
+    | { type: 'environmentalDamage'; amount: number }
     // Played in the window after a pair of strikes
     | { type: 'additionalStrike'; limited: boolean }
     | { type: 'grapple'; press: boolean; closeNextRound: boolean }
@@ -188,6 +190,17 @@ export abstract class MasterCardImplementation {
     // Locks the card and discards the card of the hand ( the caller draws back up )
     applyLockEffect(_discarded: LibraryCard): Validity {
         return Invalid('The card has no lock ability')
+    }
+
+    // "You can lock this card to give a Nosferatu you control +1 stealth": whether the card can be
+    // locked now for the action of the minion ( it is unlocked, and the minion fits )
+    canLockForAction(_actingMinion: Minion): boolean {
+        return false
+    }
+
+    // Locks the card and gives the minion's action what the ability says
+    applyLockForAction(_actingMinion: Minion): Validity {
+        return Invalid('The card has no ability to lock for an action')
     }
 
     // The ways to use the abilities paid with transfers ( influence phase ): the index of the

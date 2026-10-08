@@ -5,8 +5,10 @@ import {
     beforeStrikes,
     closeRange,
     endOfRound,
+    environmentalDamage,
     gainBloodFromDamage,
     grapple,
+    oncePerCombat,
     oncePerRound,
     opposingIsVampire,
     combatRound,
@@ -59,6 +61,21 @@ export const COMBAT_CARDS = [
             requires: discipline('pot', 'superior'),
             when: [beforeRange],
             effects: [setStrength(3)],
+        },
+    ]),
+    // A vampire plays only one per combat
+    defineCard('100301', 'Carrion Crows', [
+        {
+            kind: 'combat',
+            requires: discipline('ani', 'inferior'),
+            when: [beforeRange, oncePerCombat],
+            effects: [environmentalDamage(1)],
+        },
+        {
+            kind: 'combat',
+            requires: discipline('ani', 'superior'),
+            when: [beforeRange, oncePerCombat],
+            effects: [environmentalDamage(2)],
         },
     ]),
     defineCard('101532', 'Quickness', [

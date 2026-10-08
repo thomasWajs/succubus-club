@@ -40,7 +40,11 @@ import {
 } from '@/shared/types/state.ts'
 import { findPlay, playsOfKind } from '@/shared/cardImpl/catalog/requirements.ts'
 import { getCardDef } from '@/shared/cardImpl/catalog/index.ts'
-import { getAttachCandidates, hasAttachedCopy } from '@/shared/cardImpl/catalog/attached.ts'
+import {
+    getAttachCandidates,
+    hasAttachedCopy,
+    matchesMinionFilter,
+} from '@/shared/cardImpl/catalog/attached.ts'
 import {
     ActionPlay,
     CardDef,
@@ -120,6 +124,8 @@ function conditionHolds(
             return gameState.combat?.range == CombatRange.Close
         case 'oncePerRound':
             return !gameState.combat?.playedThisRound[implementation.minion.oid]?.includes(def.id)
+        case 'oncePerCombat':
+            return !gameState.combat?.playedThisCombat[implementation.minion.oid]?.includes(def.id)
         case 'opposingIsVampire': {
             const combat = gameState.combat
             const combatant = combat && getCombatant(combat, implementation.minion)
@@ -221,6 +227,10 @@ class InterpretedAction extends ActionCardImplementation {
                 return this.player.gameState.competingPlayers
                     .filter(other => other != this.player)
                     .flatMap(other => other.minionsReady)
+            case 'vampireOfOtherMethuselah':
+                return this.player.gameState.competingPlayers
+                    .filter(other => other != this.player)
+                    .flatMap(other => other.vampiresReady)
             default:
                 return []
         }
@@ -256,6 +266,10 @@ class InterpretedAction extends ActionCardImplementation {
                 return target instanceof Card && target.isMinion() ?
                         canEnterCombatWith(this.minion, target)
                     :   Invalid('Target must be a minion')
+            case 'vampireOfOtherMethuselah':
+                return target instanceof Card && target.isVampire() ?
+                        canEnterCombatWith(this.minion, target)
+                    :   Invalid('Target must be a vampire')
         }
     }
 
@@ -303,8 +317,13 @@ class InterpretedAction extends ActionCardImplementation {
                 gameMutations.changePool.act(this.player, { player: target, amount: -stolen })
                 gameMutations.changePool.act(this.player, { player: this.player, amount: stolen })
             }
+            if (effect.type == 'lockTarget' && target instanceof Card && target.isMinion()) {
+                target.lock()
+            }
             if (effect.type == 'enterCombat' && target instanceof Card && target.isMinion()) {
-                startCombat(this.player.gameState, this.minion, target)
+                const [acting, defending] =
+                    effect.targetActs ? [target, this.minion] : [this.minion, target]
+                startCombat(this.player.gameState, acting, defending)
             }
         }
     }
@@ -448,6 +467,8 @@ class InterpretedCombat extends CombatCardImplementation {
                             closeNextRound: effect.closeNextRound,
                         },
                     ]
+                case 'environmentalDamage':
+                    return [{ type: 'environmentalDamage', amount: effect.amount }]
                 case 'gainBloodFromDamage':
                     return opposing.bloodLost > 0 ?
                             [{ type: 'gainBlood', amount: opposing.bloodLost }]
@@ -600,6 +621,13 @@ class InterpretedMaster extends MasterCardImplementation {
         )
     }
 
+    private get lockForActionAbility() {
+        return this.play?.abilities?.find(
+            (ability): ability is Extract<MasterAbility, { activate: 'lockForAction' }> =>
+                ability.activate == 'lockForAction',
+        )
+    }
+
     private get transferAbilities() {
         return (this.play?.abilities ?? []).flatMap((ability, index) =>
             ability.activate == 'transfer' ? [{ ability, index }] : [],
@@ -711,6 +739,35 @@ class InterpretedMaster extends MasterCardImplementation {
             x: 0,
             y: 0,
         })
+    }
+
+    canLockForAction(actingMinion: Minion): boolean {
+        const ability = this.lockForActionAbility
+        return (
+            !!ability &&
+            !this.card.isLocked &&
+            actingMinion.controller == this.player &&
+            matchesMinionFilter(actingMinion, ability.minion)
+        )
+    }
+
+    applyLockForAction(actingMinion: Minion): Validity {
+        const ability = this.lockForActionAbility
+        if (!ability || !this.canLockForAction(actingMinion)) {
+            return Invalid('The card cannot be locked for this action')
+        }
+        const locked = gameMutations.setLock.act(this.player, { card: this.card, newValue: true })
+        let validity: Validity = locked
+        for (const effect of ability.effects) {
+            if (!validity.isValid) {
+                break
+            }
+            validity = gameMutations.ACTION_changeProperty.act(this.player, {
+                propertyName: ActionProperty.Stealth,
+                amount: effect.amount,
+            })
+        }
+        return validity
     }
 
     // A vampire never goes over its capacity

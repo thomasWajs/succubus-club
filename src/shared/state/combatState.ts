@@ -4,7 +4,7 @@ import { LibraryCardType } from '@/shared/const/model.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { GameState } from '@/shared/state/gameState.ts'
 import { getHost, syncAttachedCards } from '@/shared/state/attachments.ts'
-import { getMinionStrength } from '@/shared/cardImpl/catalog/attached.ts'
+import { getEnvironmentalDamage, getMinionStrength } from '@/shared/cardImpl/catalog/attached.ts'
 import { GRID_SIZE, TORPOR_ZONE_Y } from '@/shared/const/game.ts'
 import {
     CombatantMinion,
@@ -57,6 +57,7 @@ export function createCombatantMinion(minion: Minion): CombatantMinion {
         pressesGranted: 0,
         strengthBonus: 0,
         freeManeuvers: 0,
+        environmentalDamage: 0,
     }
 }
 
@@ -75,7 +76,10 @@ export function createCombatState(acting: Minion, defending: Minion): CombatStat
         handStrikesOnly: false,
         closeNextRound: false,
         playedThisRound: {},
+        playedThisCombat: {},
+        environmentalApplied: false,
         weaponManeuvers: [],
+        attachedPreventions: [],
         isOver: false,
     }
 }
@@ -343,6 +347,11 @@ export function canSetStrength(gameState: GameState, minion: Minion): Validity {
         :   Invalid(`${minion.name} does not have the impulse`)
 }
 
+// A card that makes the opposing minion take damage each round ( Carrion Crows ): before the range
+export function canAddEnvironmentalDamage(gameState: GameState, minion: Minion): Validity {
+    return getMoveValidity(gameState, CombatStep.BeforeRange, minion)
+}
+
 // A press: the one a card gives ( granted ) is not played from the hand
 export function canPress(gameState: GameState, minion: Minion, granted = false): Validity {
     const validity = getMoveValidity(gameState, CombatStep.Press, minion)
@@ -404,11 +413,15 @@ export function canPreventDamage(
     minion: Minion,
     amount: number,
     aggravated: boolean,
+    source?: Card,
 ): Validity {
     const validity = getMoveValidity(gameState, CombatStep.DamageResolution, minion)
     const combat = gameState.combat
     if (!validity.isValid || !combat) {
         return validity
+    }
+    if (source && combat.attachedPreventions.includes(source.oid)) {
+        return Invalid(`${source.name} already prevented damage in this combat`)
     }
     const pending = getCombatant(combat, minion)?.pendingDamage
     const available = aggravated ? pending?.aggravated : pending?.regular
@@ -504,6 +517,7 @@ function finishRound(gameState: GameState, combat: CombatState, log: string[]): 
     combat.strikePair = 0
     combat.handStrikesOnly = false
     combat.playedThisRound = {}
+    combat.environmentalApplied = false
     for (const combatant of [combat.acting, combat.defending]) {
         combatant.strike = null
         combatant.strikesInPair = true
@@ -559,7 +573,12 @@ function resolveStrikeTier(gameState: GameState, combat: CombatState, log: strin
             !!combatant.strike && getStrikeTier(combatant.strike) > combat.resolvedStrikeTier,
     )
     if (strikers.length == 0) {
-        leaveStrikes(combat)
+        // Only first strikes were played: the normal strike resolution still happens
+        if (applyEnvironmentalDamage(combat, log)) {
+            enterDamageResolution(gameState, combat, log)
+        } else {
+            leaveStrikes(combat)
+        }
         return
     }
 
@@ -578,7 +597,31 @@ function resolveStrikeTier(gameState: GameState, combat: CombatState, log: strin
     for (const striker of resolving) {
         resolveStrike(gameState, combat, striker, striker.strike, log)
     }
+    if (tier == TIER_NORMAL) {
+        applyEnvironmentalDamage(combat, log)
+    }
     enterDamageResolution(gameState, combat, log)
+}
+
+// The damage that is not a strike: what the combat cards played against a combatant and the
+// retainers of its opponent inflict, once per round with the normal strikes ( it is not dodged ).
+// Tells whether some damage is pending.
+function applyEnvironmentalDamage(combat: CombatState, log: string[]): boolean {
+    if (combat.environmentalApplied) {
+        return false
+    }
+    combat.environmentalApplied = true
+    let inflicted = false
+    for (const victim of [combat.acting, combat.defending]) {
+        const source = getOpposingCombatant(combat, victim)
+        const amount = victim.environmentalDamage + getEnvironmentalDamage(source.minion)
+        if (amount > 0) {
+            victim.pendingDamage.regular += amount
+            inflicted = true
+            log.push(`${victim.minion.name} takes ${amount} environmental damage`)
+        }
+    }
+    return inflicted
 }
 
 // The damage of a strike aimed at a retainer burns its life counters at once ( no damage
@@ -881,6 +924,25 @@ export function setStrength(gameState: GameState, minion: Minion, strength: numb
     return [`${minion.name} has a strength of ${strength}`]
 }
 
+// The opposing minion takes this much damage each round from now on. Playing something in a
+// window gives the acting minion the impulse back.
+export function addEnvironmentalDamage(
+    gameState: GameState,
+    minion: Minion,
+    amount: number,
+): string[] {
+    const combat = getActiveCombat(gameState)
+    const combatant = getCombatant(combat, minion)
+    if (!combatant) {
+        throw new Error(`${minion.name} is not in this combat`)
+    }
+
+    const opposing = getOpposingCombatant(combat, combatant)
+    opposing.environmentalDamage += amount
+    combat.impulsePlayer = getPlayer(combat.acting)
+    return [`${opposing.minion.name} will take ${amount} environmental damage each round`]
+}
+
 export function chooseStrike(
     gameState: GameState,
     minion: Minion,
@@ -974,6 +1036,8 @@ export function markCombatCardPlayed(gameState: GameState, minion: Minion, krcgI
     const combat = getActiveCombat(gameState)
     const played = combat.playedThisRound[minion.oid] ?? []
     combat.playedThisRound[minion.oid] = [...played, krcgId]
+    const playedInCombat = combat.playedThisCombat[minion.oid] ?? []
+    combat.playedThisCombat[minion.oid] = [...playedInCombat, krcgId]
 }
 
 // A press to continue, or the cancellation of the opposing one. A granted press is used up.
@@ -995,11 +1059,15 @@ export function preventDamage(
     minion: Minion,
     amount: number,
     aggravated: boolean,
+    source?: Card,
 ): string[] {
     const combat = getActiveCombat(gameState)
     const combatant = getCombatant(combat, minion)
     if (!combatant) {
         throw new Error(`${minion.name} is not in this combat`)
+    }
+    if (source) {
+        combat.attachedPreventions.push(source.oid)
     }
 
     if (aggravated) {

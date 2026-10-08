@@ -69,6 +69,8 @@ interface CombatPreventOption {
     amount: number
     aggravated: boolean
     card?: LibraryCard
+    // The card attached to the minion that prevents the damage ( once per combat ): nothing to play
+    source?: Card
 }
 
 /**
@@ -84,6 +86,9 @@ export type BotOption =
     // Uses the "lock this card to discard a card" ability of a master card in play ( the hand is
     // drawn back up )
     | { type: 'lockEffect'; card: LibraryCard; discard: LibraryCard }
+    // Locks a master card in play for the action in progress, which gives it its bonus ( The
+    // Labyrinth ). Played like an action modifier: the acting player keeps the impulse.
+    | { type: 'lockForAction'; card: LibraryCard }
     // Uses an ability of a master card in play that is paid with transfers ( the ability is an
     // index of the card's abilities ). Some remove a card of the uncontrolled region.
     | { type: 'transferEffect'; card: LibraryCard; ability: number; removed?: CryptCard }
@@ -139,6 +144,8 @@ export type BotOption =
     | { type: 'combatStrengthBonus'; minion: Minion }
     // The strength of the minion for the rest of the combat ( window before the range )
     | { type: 'combatStrength'; minion: Minion; amount: number; card?: LibraryCard }
+    // The opposing minion takes this much damage each round ( window before the range )
+    | { type: 'combatEnvironmentalDamage'; minion: Minion; amount: number; card?: LibraryCard }
     | CombatPreventOption
 
 export type BotOptionType = BotOption['type']
@@ -151,6 +158,7 @@ export type CombatCardOption = BotOptionOf<
     | 'combatPress'
     | 'combatPrevent'
     | 'combatStrength'
+    | 'combatEnvironmentalDamage'
     | 'combatAdditionalStrike'
     | 'combatGrapple'
     | 'combatGainBlood'

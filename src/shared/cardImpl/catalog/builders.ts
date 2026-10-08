@@ -6,8 +6,11 @@ import {
     ActionPlay,
     AdditionalStrikeEffect,
     AttachedEffect,
+    BleedInterceptEffect,
+    BurnInTorporEffect,
     CannotPlayEffect,
     LifeEffect,
+    PreventDamageEffect,
     MasterPlay,
     MinionFilter,
     MoveBloodEffect,
@@ -20,6 +23,8 @@ import {
     CryptStatics,
     DiscardFromHandEffect,
     EnterCombatEffect,
+    EnvironmentalDamageEffect,
+    LockTargetEffect,
     StealPoolEffect,
     StrengthIfBlockedEffect,
     UnlockAndBlockEffect,
@@ -128,6 +133,7 @@ export const beforeStrikes: Condition = { type: 'combatStep', step: 'beforeStrik
 export const endOfRound: Condition = { type: 'combatStep', step: 'endOfRound' }
 export const closeRange: Condition = { type: 'closeRange' }
 export const oncePerRound: Condition = { type: 'oncePerRound' }
+export const oncePerCombat: Condition = { type: 'oncePerCombat' }
 export const opposingIsVampire: Condition = { type: 'opposingIsVampire' }
 
 // An equipment, a retainer, an action card that is put on a minion: an undirected action after which
@@ -172,13 +178,26 @@ export function strength(amount: number): StrengthEffect {
     return { type: 'strength', amount }
 }
 
-export function moveBlood(amount: number): MoveBloodEffect {
-    return { type: 'moveBlood', amount }
+export function moveBlood(
+    amount: number,
+    options: { phase?: 'master' | 'unlock' } = {},
+): MoveBloodEffect {
+    return { type: 'moveBlood', amount, ...options }
 }
 
 export function cannotPlay(...names: string[]): CannotPlayEffect {
     return { type: 'cannotPlay', names }
 }
+
+export function bleedIntercept(amount: number): BleedInterceptEffect {
+    return { type: 'bleedIntercept', amount }
+}
+
+export function preventDamage(amount: number): PreventDamageEffect {
+    return { type: 'preventDamage', amount }
+}
+
+export const burnInTorpor: BurnInTorporEffect = { type: 'burnInTorpor' }
 
 export function weaponStrike(
     damage: number,
@@ -215,6 +234,12 @@ export function stealPool(amount: number): StealPoolEffect {
 }
 
 export const enterCombat: EnterCombatEffect = { type: 'enterCombat' }
+export const enterCombatTargetActs: EnterCombatEffect = { type: 'enterCombat', targetActs: true }
+export const lockTarget: LockTargetEffect = { type: 'lockTarget' }
+
+export function environmentalDamage(amount: number): EnvironmentalDamageEffect {
+    return { type: 'environmentalDamage', amount }
+}
 
 export function gainBlood(amount: number): GainBloodEffect {
     return { type: 'gainBlood', amount }

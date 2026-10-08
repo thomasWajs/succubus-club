@@ -98,3 +98,33 @@ export const BrujahDeck = <DeckList>{
     '201613': 1, // Theo Bell
     '201614': 1, // Valeriya Zinovieva
 }
+
+// The Nosferatu precon of reference ( .claude/cards/precon/nosfe_v5.txt ) restricted to the cards
+// the catalog describes. Dropped: Creeping Sabotage, Fame, Guardian Angel, Haven Uncovered, The Labyrinth,
+// Protected District, Rebel, Smiling Jack, Underbridge Stray, Vessel, Warsaw Station, Larissa Moreira
+export const NosferatuDeck = <DeckList>{
+    '100301': 2, // Carrion Crows
+    '100308': 4, // Cats' Guidance
+    '100515': 6, // Deep Song
+    '100863': 4, // Guard Dogs
+    '100959': 4, // Immortal Grapple
+    '100995': 4, // Instinctive Reaction
+    '101125': 4, // Lost in Crowds
+    '101254': 2, // Murder of Crows
+    '101321': 5, // On the Qui Vive
+    '101483': 2, // Preternatural Strength
+    '101550': 2, // Raven Spy
+    '101808': 1, // Slum Hunting Ground
+    '101945': 4, // Taste of Vitae
+    '102215': 8, // Roundhouse
+    '102216': 4, // Warrens, The
+
+    '201534': 1, // Aunt Linda
+    '201536': 1, // Baixinho
+    '201537': 2, // Belinde
+    '201545': 1, // Dowager, The
+    '201549': 1, // Horace Radcliffe
+    '201555': 2, // Lenny Burkhead
+    '201568': 1, // Ryan
+    '201573': 1, // Wauneka
+}

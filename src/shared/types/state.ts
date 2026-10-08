@@ -229,6 +229,9 @@ export type CombatantMinion = {
     strengthBonus: number
     // Maneuvers the combatant can play without a card ( given by a reaction when it blocked )
     freeManeuvers: number
+    // Regular damage the combatant takes each round from the combat cards played against it
+    // ( Carrion Crows ), on top of what the retainers of the opposing minion inflict
+    environmentalDamage: number
 }
 
 export type CombatState = {
@@ -254,9 +257,15 @@ export type CombatState = {
     closeNextRound: boolean
     // The krcgIds of the combat cards each minion ( by oid ) played this round
     playedThisRound: Record<string, string[]>
+    // Same for the whole combat
+    playedThisCombat: Record<string, string[]>
+    // The environmental damage of the round is inflicted ( once per round, with the normal strikes )
+    environmentalApplied: boolean
     // The oids of the weapons that gave their maneuver in this combat ( once per combat, even if
     // the bearer changes )
     weaponManeuvers: string[]
+    // The oids of the attached cards that prevented damage in this combat ( once per combat )
+    attachedPreventions: string[]
     // The combat ends after the end of round step
     isOver: boolean
 }

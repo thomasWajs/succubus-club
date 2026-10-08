@@ -2,7 +2,7 @@
 //
 // CLI:    npm run card -- "far mastery" 100620 "deflection" [--file list.txt] [--json] [--partial]
 //         ( list.txt: one name or id per line, '#' starts a comment; cards already described in
-//         the catalog are flagged )
+//         the catalog, or already analysed and skipped ( see skippedCards.ts ), are flagged )
 // Import: import { findCards } from './cardLookup.ts'
 //
 // A name matches when, once lowercased and stripped of accents and punctuation, it equals the query
@@ -12,6 +12,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { getSkippedCards } from './skippedCards.ts'
 
 export interface CardbaseEntry {
     id: number
@@ -158,6 +159,7 @@ async function main(args: string[]) {
 
     const { CARD_DEFS } = await import('@/shared/cardImpl/catalog/index.ts')
     const inCatalog = new Set(CARD_DEFS.map(def => String(def.id)))
+    const skipped = getSkippedCards()
 
     let missing = 0
     const results = queries.map(query => {
@@ -176,6 +178,7 @@ async function main(args: string[]) {
                     cards: cards.map(card => ({
                         ...card,
                         inCatalog: inCatalog.has(String(card.id)),
+                        skipped: skipped.get(String(card.id)) ?? null,
                     })),
                 })),
                 null,
@@ -191,8 +194,12 @@ async function main(args: string[]) {
                     cards
                         .map(card => {
                             const text = formatCard(card)
-                            return inCatalog.has(String(card.id)) ?
-                                    `${text}\n  [ALREADY IN CATALOG]`
+                            const skip = skipped.get(String(card.id))
+                            if (inCatalog.has(String(card.id))) {
+                                return `${text}\n  [ALREADY IN CATALOG]`
+                            }
+                            return skip ?
+                                    `${text}\n  [ALREADY ANALYSED, SKIPPED: ${skip.category}] ${skip.reason}`
                                 :   text
                         })
                         .join('\n\n'),

@@ -2,6 +2,7 @@ import { Card, Minion } from '@/shared/model/Card.ts'
 import { CARD_WIDTH, GRID_SIZE } from '@/shared/const/game.ts'
 import { GameState } from '@/shared/state/gameState.ts'
 import { cardHalfExtents, getTableCardScale } from '@/shared/state/cardPlacement.ts'
+import { burnsInTorpor } from '@/shared/cardImpl/catalog/attached.ts'
 
 /**
  * Cards attached to a minion ( equipment, retainers ). The link lives in GameState.attachments;
@@ -45,12 +46,13 @@ function getAttachmentPosition(host: Card, index: number): { x: number; y: numbe
 
 /**
  * Puts the cards attached to the host where they belong: in its region, under it. To call after
- * the host moved. A host that is out of play burns what is attached to it.
+ * the host moved. A host that is out of play burns what is attached to it, and a host in torpor
+ * what burns in torpor.
  */
 export function syncAttachedCards(gameState: GameState, host: Card): void {
     const attached = getAttachedCards(host)
     attached.forEach((card, index) => {
-        if (!host.isIn.controlled) {
+        if (!host.isIn.controlled || (host.isIn.torpor && burnsInTorpor(card))) {
             gameState.detachCard(card.oid)
             if (card.isIn.play) {
                 gameState.moveCardToRegion(card, card.owner.ashHeap)

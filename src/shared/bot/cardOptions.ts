@@ -239,6 +239,8 @@ function toCombatOption(
             return { type: 'combatPress', minion, card }
         case 'setStrength':
             return { type: 'combatStrength', minion, amount: effect.amount, card }
+        case 'environmentalDamage':
+            return { type: 'combatEnvironmentalDamage', minion, amount: effect.amount, card }
         case 'prevent':
             return {
                 type: 'combatPrevent',
@@ -303,6 +305,17 @@ export function getAttachedCombatOptions(minion: Minion): CombatCardOption[] {
     }
     for (const weapon of getAttachedCards(minion)) {
         for (const effect of getAttachedEffects(weapon)) {
+            if (effect.type == 'preventDamage') {
+                for (const aggravated of [false, true]) {
+                    options.push({
+                        type: 'combatPrevent',
+                        minion,
+                        amount: effect.amount,
+                        aggravated,
+                        source: weapon,
+                    })
+                }
+            }
             if (effect.type != 'weaponStrike') {
                 continue
             }
@@ -413,10 +426,14 @@ export function getMasterCardOptions(player: Player): BotOptionOf<'playMaster'>[
     return options
 }
 
-// The cards put on the player's vampires that move blood in the master phase ( a Blood Doll ), for
-// the cards not used yet this turn: one option per card and direction. The pool never goes down to
-// 0 ( the player would be ousted ), and a vampire never holds more than its capacity.
-export function getMoveBloodOptions(player: Player): BotOptionOf<'moveBlood'>[] {
+// The cards put on the player's vampires that move blood in the given phase ( a Blood Doll in the
+// master phase, a Vessel in the unlock phase ), for the cards not used yet this turn: one option
+// per card and direction. The pool never goes down to 0 ( the player would be ousted ), and a
+// vampire never holds more than its capacity.
+export function getMoveBloodOptions(
+    player: Player,
+    phase: 'master' | 'unlock',
+): BotOptionOf<'moveBlood'>[] {
     const usedCards = player.gameState.turnResources.usedCards
     const options: BotOptionOf<'moveBlood'>[] = []
 
@@ -426,7 +443,7 @@ export function getMoveBloodOptions(player: Player): BotOptionOf<'moveBlood'>[] 
                 continue
             }
             for (const effect of getAttachedEffects(card)) {
-                if (effect.type != 'moveBlood') {
+                if (effect.type != 'moveBlood' || (effect.phase ?? 'master') != phase) {
                     continue
                 }
                 const { amount } = effect
@@ -486,6 +503,23 @@ export function getLockEffectOptions(player: Player): BotOptionOf<'lockEffect'>[
         }
     }
     return options
+}
+
+// The master cards in play that the player controls and can lock for the action of the minion
+// ( "You can lock this card to give a Nosferatu you control +1 stealth" )
+export function getLockForActionOptions(
+    player: Player,
+    actingMinion: Minion,
+): BotOptionOf<'lockForAction'>[] {
+    return player.controlledReadyCards.flatMap(card =>
+        (
+            card instanceof LibraryCard &&
+            card.type == LibraryCardType.Master &&
+            getMasterImplementation(card, player)?.canLockForAction(actingMinion)
+        ) ?
+            [{ type: 'lockForAction' as const, card }]
+        :   [],
+    )
 }
 
 // The abilities paid with transfers of the master cards in play that the player controls

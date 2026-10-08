@@ -122,6 +122,8 @@ export function describeOption(option: BotOption): string {
             return `moveBlood ${option.card.name} ${option.amount} ${option.toPool ? 'from' : 'to'} ${option.vampire.name}`
         case 'lockEffect':
             return `lockEffect ${option.card.name} -> discard ${option.discard.name}`
+        case 'lockForAction':
+            return `lockForAction ${option.card.name}`
         case 'discardExcess':
             return `discardExcess ${option.card.name}`
         case 'useTrigger':
@@ -156,6 +158,8 @@ export function describeOption(option: BotOption): string {
             return `combatStrengthBonus ${option.minion.name}`
         case 'combatStrength':
             return `combatStrength ${option.minion.name} = ${option.amount}${withCard(option.card)}`
+        case 'combatEnvironmentalDamage':
+            return `combatEnvironmentalDamage ${option.minion.name} ${option.amount}${withCard(option.card)}`
         case 'combatPrevent':
             return `combatPrevent ${option.minion.name} ${option.amount}${option.aggravated ? ' aggravated' : ''}${withCard(option.card)}`
         default:

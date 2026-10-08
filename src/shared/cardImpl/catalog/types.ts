@@ -52,6 +52,8 @@ export type Condition =
     | { type: 'closeRange' }
     // The minion has not played this card in the current round of the combat
     | { type: 'oncePerRound' }
+    // The minion has not played this card in the current combat
+    | { type: 'oncePerCombat' }
     // The opponent in the combat is a vampire ( not an ally )
     | { type: 'opposingIsVampire' }
 
@@ -92,8 +94,11 @@ export type HandSizeEffect = { type: 'handSize'; amount: number }
 
 // Takes pool from the target Methuselah ( at most what they have ) for the acting one
 export type StealPoolEffect = { type: 'stealPool'; amount: number }
-// The acting minion enters combat with the target minion
-export type EnterCombatEffect = { type: 'enterCombat' }
+// The acting minion enters combat with the target minion. With targetActs, the target is the
+// acting minion of the combat ( it plays first ).
+export type EnterCombatEffect = { type: 'enterCombat'; targetActs?: boolean }
+// The target minion is locked
+export type LockTargetEffect = { type: 'lockTarget' }
 // If the action is blocked, the minion can gain this much strength in the first round of the
 // combat ( before the range )
 export type StrengthIfBlockedEffect = { type: 'strengthIfBlocked'; amount: number }
@@ -105,6 +110,7 @@ export type ActionEffect =
     | GainBloodEffect
     | StealPoolEffect
     | EnterCombatEffect
+    | LockTargetEffect
 // What a trigger does when its event is announced
 export type TriggerEffect =
     // The minion that failed its block is locked. With `at`, the lock waits for that event
@@ -151,6 +157,10 @@ export type AdditionalStrikeEffect = { type: 'additionalStrike'; limited: boolea
 export type GrappleEffect = { type: 'grapple'; press: boolean; closeNextRound: boolean }
 // At the end of a round: the blood the opponent lost to damage this round
 export type GainBloodFromDamageEffect = { type: 'gainBloodFromDamage' }
+// Regular damage the opposing minion takes each round, during the normal strike resolution: it
+// is not a strike ( a dodge does not stop it ) and does not happen if the combat ended before.
+// Played by a combat card it lasts the combat, on a retainer it lasts while it is attached.
+export type EnvironmentalDamageEffect = { type: 'environmentalDamage'; amount: number }
 export type CombatEffect =
     | ManeuverEffect
     | StrikeEffect
@@ -158,6 +168,7 @@ export type CombatEffect =
     | AdditionalStrikeEffect
     | GrappleEffect
     | GainBloodFromDamageEffect
+    | EnvironmentalDamageEffect
 // Unlocks a locked vampire of the sect you control, which attempts to block the action with this
 // much more intercept ( a block must be possible: none stands yet, the vampire did not try )
 export type UnlockAndBlockEffect = { type: 'unlockAndBlock'; sect: 'Anarch'; intercept: number }
@@ -176,6 +187,7 @@ export type ActionTarget =
     | 'player'
     | 'youngerUncontrolledVampire'
     | 'minionOfOtherMethuselah'
+    | 'vampireOfOtherMethuselah'
 
 // What a card attached to a minion does while it is attached ( equipment, retainer )
 // A strike of a fixed damage the bearer can choose in the strike step ( 'R': usable at long
@@ -192,19 +204,30 @@ export type WeaponStrikeEffect = {
 export type LifeEffect = { type: 'life'; amount: number }
 // More strength for the bearer ( the strength it fights with )
 export type StrengthEffect = { type: 'strength'; amount: number }
-// The controller of the bearer can use the card once per turn in their master phase, to move this
-// much blood from the bearer to their pool, or from their pool to the bearer
-export type MoveBloodEffect = { type: 'moveBlood'; amount: number }
+// The controller of the bearer can use the card once per turn in their master phase ( or in their
+// unlock phase, once unlocked, with `phase` ), to move this much blood from the bearer to their
+// pool, or from their pool to the bearer
+export type MoveBloodEffect = { type: 'moveBlood'; amount: number; phase?: 'master' | 'unlock' }
 // The bearer cannot play the cards with these names
 export type CannotPlayEffect = { type: 'cannotPlay'; names: string[] }
+// More intercept for the bearer while it attempts to block a bleed action directed at its controller
+export type BleedInterceptEffect = { type: 'bleedIntercept'; amount: number }
+// The bearer can prevent this much damage ( regular or aggravated ) each combat, without a card to play
+export type PreventDamageEffect = { type: 'preventDamage'; amount: number }
+// The card is burned as soon as the bearer is in torpor
+export type BurnInTorporEffect = { type: 'burnInTorpor' }
 // An intercept bonus for the bearer is an InterceptEffect
 export type AttachedEffect =
     | WeaponStrikeEffect
     | LifeEffect
     | InterceptEffect
+    | BleedInterceptEffect
     | StrengthEffect
     | MoveBloodEffect
     | CannotPlayEffect
+    | EnvironmentalDamageEffect
+    | PreventDamageEffect
+    | BurnInTorporEffect
 
 // The minions of the player a card can be put on ( "a Ventrue with capacity 8 or more" ). A
 // minion that is not a vampire has no clan, sect nor capacity condition to meet: it never fits one.
@@ -230,7 +253,15 @@ type AttachFields = {
 export type StaysInPlay = 'discard' | 'onMinion' | 'standalone'
 
 // Something a card in play does when the player chooses to
-export type MasterAbility = UnlockAbility | LockAbility | TransferAbility
+export type MasterAbility = UnlockAbility | LockAbility | TransferAbility | LockForActionAbility
+
+// "You can lock this card to give a Nosferatu you control +1 stealth": usable while the card is
+// unlocked, in the action of a minion of the player that fits the filter, like an action modifier
+type LockForActionAbility = {
+    activate: 'lockForAction'
+    minion: MinionFilter
+    effects: StealthEffect[]
+}
 
 // "You can use N transfers to ...": usable in the influence phase while the transfers last
 type TransferAbility = {
@@ -327,6 +358,8 @@ export type CryptStatics = {
     canEnterCombat?: boolean
     // Added to the stealth of the actions that are not directed at another Methuselah
     undirectedStealth?: number
+    // Added to the intercept of the vampire when the action it attempts to block is directed
+    directedIntercept?: number
     // Must bleed in the minion phase while the Methuselah controls a locked minion
     mustBleedWhileMinionLocked?: boolean
     // Hand size of the controller while the vampire is ready

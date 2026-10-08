@@ -48,6 +48,7 @@ import {
     canGainBlood,
     canGrapple,
     canPreventDamage,
+    canAddEnvironmentalDamage,
     canSetStrength,
     canTakeStrengthBonus,
     createHandStrike,
@@ -64,6 +65,7 @@ import {
     getAttachedCombatOptions,
     getCombatCardOptions,
     getLockEffectOptions,
+    getLockForActionOptions,
     getMasterCardOptions,
     getMoveBloodOptions,
     getReactionCardOptions,
@@ -246,7 +248,7 @@ function isEquipmentOrRetainer(card: LibraryCard): boolean {
 // A master card needs the master phase action of the turn, on top of its own cost
 function masterPhaseOptions(gameState: GameState, player: Player): BotOption[] {
     const options: BotOption[] = gameState.turnResources.mpa > 0 ? getMasterCardOptions(player) : []
-    options.push(...getLockEffectOptions(player), ...getMoveBloodOptions(player), {
+    options.push(...getLockEffectOptions(player), ...getMoveBloodOptions(player, 'master'), {
         type: 'endPhase',
     })
     return options
@@ -260,7 +262,11 @@ function unlockPhaseOptions(gameState: GameState, player: Player): BotOption[] {
         return [{ type: 'unlockAll' }]
     }
     // Once unlocked, the player may use the unlock-phase effects of the cards in play
-    return [...getUnlockEffectOptions(player), { type: 'endPhase' }]
+    return [
+        ...getUnlockEffectOptions(player),
+        ...getMoveBloodOptions(player, 'unlock'),
+        { type: 'endPhase' },
+    ]
 }
 
 function minionPhaseOptions(player: Player): BotOption[] {
@@ -375,6 +381,7 @@ function actionImpulseDecision(gameState: GameState, player: Player): DecisionPo
                 options.push({ type: 'playModifier', modifier })
             }
         }
+        options.push(...getLockForActionOptions(player, actingMinion))
     }
 
     options.push({ type: 'noModifier' })
@@ -477,9 +484,16 @@ function isCombatOptionValid(gameState: GameState, option: CombatCardOption): bo
             return canPress(gameState, option.minion, option.granted).isValid
         case 'combatStrength':
             return canSetStrength(gameState, option.minion).isValid
+        case 'combatEnvironmentalDamage':
+            return canAddEnvironmentalDamage(gameState, option.minion).isValid
         case 'combatPrevent':
-            return canPreventDamage(gameState, option.minion, option.amount, option.aggravated)
-                .isValid
+            return canPreventDamage(
+                gameState,
+                option.minion,
+                option.amount,
+                option.aggravated,
+                option.source,
+            ).isValid
     }
 }
 
@@ -634,6 +648,20 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
                 throw new InvalidBotMove(`${option.card.name} has no lock ability`)
             }
             check(implementation.applyLockEffect(option.discard), 'lock effect')
+            break
+        }
+
+        case 'lockForAction': {
+            const actingMinion = gameState.action?.minionAction.actingMinion
+            const implementation = getMasterImplementation(option.card, player)
+            if (!actingMinion || !implementation) {
+                throw new InvalidBotMove(`${option.card.name} cannot be locked for an action`)
+            }
+            check(
+                botMutations.ACTION_declareLockForAction.act(player, { card: option.card }),
+                'declare lock for action',
+            )
+            check(implementation.applyLockForAction(actingMinion), 'lock for action')
             break
         }
 
@@ -1009,6 +1037,17 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
             )
             break
 
+        case 'combatEnvironmentalDamage':
+            playCombatCard(player, option.minion, option.card)
+            check(
+                botMutations.COMBAT_addEnvironmentalDamage.act(player, {
+                    minion: option.minion,
+                    amount: option.amount,
+                }),
+                'combatEnvironmentalDamage',
+            )
+            break
+
         case 'combatPrevent':
             playCombatCard(player, option.minion, option.card)
             check(
@@ -1016,6 +1055,7 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
                     minion: option.minion,
                     amount: option.amount,
                     aggravated: option.aggravated,
+                    source: option.source,
                 }),
                 'combatPrevent',
             )

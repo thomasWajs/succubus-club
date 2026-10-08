@@ -4,15 +4,19 @@ import {
     attachToMinion,
     bleed,
     bleedAction,
+    burnInTorpor,
     cannotPlay,
     defineCard,
     discipline,
     enterCombat,
+    enterCombatTargetActs,
     gainBlood,
+    lockTarget,
     stealPool,
     stealth,
     strength,
     strengthIfBlocked,
+    weaponStrike,
 } from '@/shared/cardImpl/catalog/builders.ts'
 
 export const ACTION_CARDS = [
@@ -75,6 +79,34 @@ export const ACTION_CARDS = [
             effects: [stealth(2)],
             onePerMinion: true,
         }),
+    ]),
+    // Put on the acting vampire ( one per vampire ), burned when it is in torpor. The strike that
+    // burns an equipment is not modelled. Superior: +2 strength and a 2R strike
+    defineCard('100913', 'Heroic Might', [
+        attachToMinion([strength(1), burnInTorpor], discipline('pot', 'inferior'), {
+            effects: [stealth(3)],
+            onePerMinion: true,
+        }),
+        attachToMinion(
+            [strength(2), weaponStrike(2, { ranged: true }), burnInTorpor],
+            discipline('pot', 'superior'),
+            { effects: [stealth(3)], onePerMinion: true },
+        ),
+    ]),
+    // Superior: the target is the acting minion of the combat, it plays first
+    defineCard('100515', 'Deep Song', [
+        {
+            kind: 'action',
+            requires: discipline('ani', 'inferior'),
+            target: 'player',
+            effects: [bleedAction, bleed(1)],
+        },
+        {
+            kind: 'action',
+            requires: discipline('ani', 'superior'),
+            target: 'vampireOfOtherMethuselah',
+            effects: [lockTarget, enterCombatTargetActs],
+        },
     ]),
     defineCard('100640', 'Enchant Kindred', [
         {
