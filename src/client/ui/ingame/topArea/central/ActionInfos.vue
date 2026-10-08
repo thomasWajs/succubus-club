@@ -187,7 +187,7 @@
 
                 <button
                     v-if="selfCanAttemptBlock()"
-                    :disabled="botDisplay && selfDeclinedBlock"
+                    :disabled="botDisplay && (!selfEligibleBlocker || selfDeclinedBlock)"
                     class="game-button"
                     @click="
                         gameMutations.ACTION_declareBlock.actSelf({
@@ -204,7 +204,7 @@
                     :disabled="
                         !selfHasImpulse ||
                         action.reactionsPassed ||
-                        !(humanActsOnBotAction || selfCanAttemptBlock())
+                        !(humanActsOnBotAction || selfInReactionWindow)
                     "
                     @click="passImpulse"
                 >
@@ -235,7 +235,12 @@ import { selfCanAttemptBlock, selfSecureName } from '@/client/state/self.ts'
 import PropertyStepper from '@/client/ui/components/PropertyStepper.vue'
 import DisciplineIcon from '@/client/ui/components/DisciplineIcon.vue'
 import CentralPanel from '@/client/ui/ingame/topArea/central/CentralPanel.vue'
-import { canChangeTarget, getBlockingDecision, humanActsOnBot } from '@/shared/state/actionState.ts'
+import {
+    canChangeTarget,
+    getBlockingDecision,
+    humanActsOnBot,
+    isEligibleBlocker,
+} from '@/shared/state/actionState.ts'
 import { GameType } from '@/shared/types/state.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { LibraryCard } from '@/shared/model/Card.ts'
@@ -370,6 +375,17 @@ const selfDeclinedBlock = computed(
     () =>
         !!players.selfPlayer &&
         getBlockingDecision(gameState, players.selfPlayer)?.block == NO_BLOCK,
+)
+
+const selfEligibleBlocker = computed(
+    () => !!players.selfPlayer && isEligibleBlocker(gameState, players.selfPlayer),
+)
+
+// A reacting human first answers the block question ( No block ). Passing the impulse only comes
+// at the reaction window : a block attempt stands, or the block was declined and the acting
+// minion passed the impulse again.
+const selfInReactionWindow = computed(
+    () => selfEligibleBlocker.value && (hasBlockingMinion.value || selfDeclinedBlock.value),
 )
 
 // Every recorded block decision, flattened for display : the declaring player

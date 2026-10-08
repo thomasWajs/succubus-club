@@ -48,6 +48,13 @@
                 >
                     Dodge
                 </button>
+                <button
+                    class="game-button"
+                    :disabled="!selfCombatant"
+                    @click="strike(createCombatEndsStrike())"
+                >
+                    Combat ends
+                </button>
                 <!-- A strike from a card is resolved by hand: it has no effect here -->
                 <button
                     class="game-button"
@@ -94,7 +101,12 @@ import { computed } from 'vue'
 import { usePlayersStore } from '@/client/state/players.ts'
 import { botMutations } from '@/shared/state/botMutations.ts'
 import { CombatantMinion, CombatState, CombatStep, CombatStrike } from '@/shared/types/state.ts'
-import { createDodgeStrike, createHandStrike, createStrike } from '@/shared/state/combatState.ts'
+import {
+    createCombatEndsStrike,
+    createDodgeStrike,
+    createHandStrike,
+    createStrike,
+} from '@/shared/state/combatState.ts'
 import CentralPanel from '@/client/ui/ingame/topArea/central/CentralPanel.vue'
 
 const props = defineProps<{

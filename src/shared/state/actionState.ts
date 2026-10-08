@@ -86,38 +86,41 @@ export function getBlockingMinion(gameState: GameState): Minion | null {
     return blockingMinions[0] ?? null
 }
 
-/**
- * Players allowed to attempt a block against the ongoing action. Empty when no
- * block can be attempted ( no action, or a combat / referendum is in progress ).
- * A player who already decided stays eligible : they may switch to blocking with
- * another minion ( their prior decision is overwritten ).
- * - A directed action can only be blocked by its target player.
- * - An undirected action can be blocked by the active player's prey and predator.
- */
-/*
-export function getBlockEligiblePlayers(gameState: GameState): Player[] {
+// Rulebook: stealth can be added during an action only when needed, that is only if the action is
+// currently being blocked and the blocking minion has enough intercept to block the acting minion
+export function canAddStealth(gameState: GameState): Validity {
     const action = gameState.action
-    if (!action || gameState.combat || gameState.referendum) {
-        return []
+    if (!action || action.blockResolved || !getBlockingMinion(gameState)) {
+        return Invalid('Stealth can only be added while a block attempt stands')
     }
-
-    const minionAction = action.minionAction
-    if (actions.isDirected(minionAction)) {
-        const target = minionAction.target
-        const targetPlayer =
-            target instanceof Player ? target
-            : target instanceof Card ? target.controller
-            : null
-        return targetPlayer ? [targetPlayer] : []
-    }
-
-    const activePlayer = gameState.activePlayer
-    if (!activePlayer) {
-        return []
-    }
-    return [activePlayer.prey, activePlayer.predator].filter((p): p is Player => p !== undefined)
+    return action.intercept >= action.stealth ?
+            VALID
+        :   Invalid('The block attempt already fails: stealth is not needed')
 }
- */
+
+// Rulebook: intercept can be added during an action only when needed, only by a blocking minion
+// when the acting minion's stealth exceeds their intercept
+export function canAddIntercept(gameState: GameState, minion: Minion): Validity {
+    const action = gameState.action
+    if (!action || action.blockResolved || getBlockingMinion(gameState) != minion) {
+        return Invalid('Intercept can only be added by the minion whose block attempt stands')
+    }
+    return action.stealth > action.intercept ?
+            VALID
+        :   Invalid('The block attempt already succeeds: intercept is not needed')
+}
+
+// Can this player attempt a block against the ongoing action, by the rules : the target of a
+// directed action, else the prey and the predator of the acting player. A player who already
+// decided stays eligible, they may switch to blocking with another minion.
+export function isEligibleBlocker(gameState: GameState, player: Player): boolean {
+    return (
+        !!gameState.action &&
+        !gameState.combat &&
+        !gameState.referendum &&
+        getReactingPlayers(gameState.action.minionAction).includes(player)
+    )
+}
 
 export function playerCanAttemptBlock(gameState: GameState, player: Player): boolean {
     if (!gameState.action || gameState.combat || gameState.referendum) {

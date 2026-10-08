@@ -69,20 +69,14 @@ function overlapArea(a: Rect, b: Rect): number {
     return width > 0 && height > 0 ? width * height : 0
 }
 
-/**
- * Where to drop `card` into `cardRegion` when playing it near a target.
- *
- * Starts from ( x0, y0 ) and, when that overlaps existing cards too much,
- * searches outward on the grid for the closest spot with an acceptable overlap,
- * without straying too far from the start nor leaving the play area. Falls back
- * to the clamped start position when nothing better is found.
- */
-export function findFreePlayPosition(
-    cardRegion: AnyCardRegion,
-    card: Card,
-    x0: number,
-    y0: number,
-): { x: number; y: number } {
+// Free space left around the cards put in a row at an edge of the play area
+const ROW_BOTTOM_MARGIN = 2 * GRID_SIZE
+const ROW_TOP_MARGIN = 3 * GRID_SIZE
+const ROW_LEFT_MARGIN = 4 * GRID_SIZE
+
+// The bounds of the play area for `card` in `cardRegion`, and how much `card` would overlap the
+// cards already there at a given spot.
+function getPlaySpace(cardRegion: AnyCardRegion, card: Card) {
     const scale = getTableCardScale(cardRegion)
     const cardWidth = CARD_WIDTH * scale
     const cardHeight = CARD_HEIGHT * scale
@@ -115,6 +109,25 @@ export function findFreePlayPosition(
         }
         return worst
     }
+
+    return { cardHeight, maxX, maxY, clampX, clampY, maxOverlapRatio }
+}
+
+/**
+ * Where to drop `card` into `cardRegion` when playing it near a target.
+ *
+ * Starts from ( x0, y0 ) and, when that overlaps existing cards too much,
+ * searches outward on the grid for the closest spot with an acceptable overlap,
+ * without straying too far from the start nor leaving the play area. Falls back
+ * to the clamped start position when nothing better is found.
+ */
+export function findFreePlayPosition(
+    cardRegion: AnyCardRegion,
+    card: Card,
+    x0: number,
+    y0: number,
+): { x: number; y: number } {
+    const { clampX, clampY, maxOverlapRatio } = getPlaySpace(cardRegion, card)
 
     const startX = clampX(Snap.to(x0, GRID_SIZE))
     const startY = clampY(Snap.to(y0, GRID_SIZE))
@@ -150,6 +163,48 @@ export function findFreePlayPosition(
     }
 
     return best ? { x: best.x, y: best.y } : { x: startX, y: startY }
+}
+
+// The first free spot of a row of cards, from the left. Cards of a row are one locked
+// ( rotated ) footprint apart, so they do not collide once tapped.
+function findFreeRowPosition(
+    cardRegion: AnyCardRegion,
+    card: Card,
+    row: 'top' | 'bottom',
+    startX = 0,
+): { x: number; y: number } {
+    const { cardHeight, maxX, maxY, clampY, maxOverlapRatio } = getPlaySpace(cardRegion, card)
+    const y = clampY(Snap.to(row == 'top' ? ROW_TOP_MARGIN : maxY - ROW_BOTTOM_MARGIN, GRID_SIZE))
+    const pitch = Snap.to(cardHeight, GRID_SIZE)
+    for (let x = startX; x <= maxX; x += pitch) {
+        if (maxOverlapRatio(x, y) <= MAX_PLAY_OVERLAP_RATIO) {
+            return { x, y }
+        }
+    }
+    return findFreePlayPosition(cardRegion, card, startX, y)
+}
+
+// A vampire influenced out of the uncontrolled region : near the bottom of the ready
+// region ( not against its edge ), on the first free spot from the left, which is itself set
+// off the left edge.
+export function getInfluencedVampirePosition(
+    cardRegion: AnyCardRegion,
+    card: Card,
+): { x: number; y: number } {
+    return findFreeRowPosition(cardRegion, card, 'bottom', ROW_LEFT_MARGIN)
+}
+
+// A master card that stays in play, played by a bot : in the top left corner of the ready
+// region, shifted to the right until there is some free space. On the shared Free Table
+// there is no such corner, the card goes near the player's widget as any played card.
+export function getPermanentMasterPosition(
+    player: Player,
+    card: Card,
+    toCardRegion: AnyCardRegion,
+): { x: number; y: number } {
+    return player.gameState.isFreeTable ?
+            getAutoPlayPosition(player, card, toCardRegion)
+        :   findFreeRowPosition(toCardRegion, card, 'top')
 }
 
 // Free Table : there's no per-player Ready region on the shared table. Played

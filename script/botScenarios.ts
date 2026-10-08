@@ -2628,6 +2628,31 @@ function passUntilDecides(gameState: GameState, who: Player): DecisionPoint {
     throw new ScenarioFailure(`${who.name} never has a decision`)
 }
 
+// Rulebook: stealth is only added when a block attempt stands that would succeed, intercept when it
+// would fail. The prey's vampire attempts the block, then the scenario settles which one it is
+// ( the stealth and intercept of the action are set, whatever the vampires have ).
+function attemptBlock(
+    game: { gameState: GameState; bled: Player; blocker: Vampire },
+    wouldSucceed: boolean,
+): void {
+    const { gameState, bled, blocker } = game
+    const first = passUntilDecides(gameState, bled)
+    applyOption(
+        first,
+        optionsOfType(first.options, 'block').find(option => option.minion == blocker) ??
+            findOption(first.options, 'block'),
+    )
+    const action = gameState.action
+    if (!action) {
+        throw new ScenarioFailure('The block attempt closed the action')
+    }
+    if (wouldSucceed) {
+        action.intercept = Math.max(action.intercept, action.stealth)
+    } else {
+        action.stealth = action.intercept + 1
+    }
+}
+
 const modifierOptionsOf = (decision: DecisionPoint, krcgId: string) =>
     optionsOfType(decision.options, 'playModifier').filter(
         option => option.modifier.card.krcgId == krcgId,
@@ -2685,6 +2710,7 @@ const CATALOG_SCENARIOS: { name: string; run: () => void }[] = [
                 cards: [CONDITIONING_ID, LOST_IN_CROWDS_ID],
                 actionType: MinionActionType.Hunt,
             })
+            attemptBlock(game, true)
             const decision = passUntilDecides(game.gameState, game.bleeder)
             expectEqual(modifierOptionsOf(decision, CONDITIONING_ID).length, 0, 'Conditioning')
             expectEqual(
@@ -2702,6 +2728,7 @@ const CATALOG_SCENARIOS: { name: string; run: () => void }[] = [
                 level: DisciplineLevel.SUPERIOR,
                 cards: [CONDITIONING_ID, BONDING_ID, LOST_IN_CROWDS_ID],
             })
+            attemptBlock(game, true)
             const decision = passUntilDecides(game.gameState, game.bleeder)
             expectEqual(modifierOptionsOf(decision, BONDING_ID).length, 2, 'Bonding before')
             applyOption(decision, modifierOptionsOf(decision, CONDITIONING_ID)[0])
@@ -2750,6 +2777,7 @@ const CATALOG_SCENARIOS: { name: string; run: () => void }[] = [
                 level: DisciplineLevel.SUPERIOR,
                 cards: [SWALLOWED_ID],
             })
+            attemptBlock(game, true)
             const decision = passUntilDecides(game.gameState, game.bleeder)
             const options = modifierOptionsOf(decision, SWALLOWED_ID)
             expectEqual(options.length, 1, 'modifier options')
@@ -2757,6 +2785,45 @@ const CATALOG_SCENARIOS: { name: string; run: () => void }[] = [
             const before = game.gameState.action?.stealth ?? 0
             applyOption(decision, options[0])
             expectEqual(game.gameState.action?.stealth, before + 1, 'stealth')
+        },
+    },
+    {
+        name: 'Stealth and intercept are only added when needed (rulebook): stealth while the block would succeed, intercept while it would fail',
+        run() {
+            const setup = () =>
+                createCatalogBleed({
+                    discipline: Discipline.Obfuscate,
+                    level: DisciplineLevel.INFERIOR,
+                    cards: [LOST_IN_CROWDS_ID],
+                    preyCards: [TELEPATHIC_ID],
+                    preyDiscipline: [Discipline.Auspex, DisciplineLevel.INFERIOR],
+                })
+            const stealthOffered = (game: ReturnType<typeof setup>) => {
+                const decision = getDecisionPoint(game.gameState, game.bleeder)
+                return decision ? modifierOptionsOf(decision, LOST_IN_CROWDS_ID).length : -1
+            }
+            const interceptOffered = (game: ReturnType<typeof setup>) => {
+                const decision = getDecisionPoint(game.gameState, game.bled)
+                return decision ? optionsOfType(decision.options, 'playReaction').length : -1
+            }
+
+            // No block attempt stands: neither is needed
+            const none = setup()
+            expectEqual(stealthOffered(none), 0, 'stealth before any block attempt')
+
+            // The block attempt would fail: intercept is needed, stealth is not
+            const failing = setup()
+            attemptBlock(failing, false)
+            expectEqual(stealthOffered(failing), 0, 'stealth while the block fails')
+            decideWith(failing.gameState, failing.bleeder, 'noModifier')
+            expectEqual(interceptOffered(failing), 1, 'intercept while the block fails')
+
+            // The block attempt would succeed: stealth is needed, intercept is not
+            const succeeding = setup()
+            attemptBlock(succeeding, true)
+            expectEqual(stealthOffered(succeeding) > 0, true, 'stealth while the block succeeds')
+            decideWith(succeeding.gameState, succeeding.bleeder, 'noModifier')
+            expectEqual(interceptOffered(succeeding), 0, 'intercept while the block succeeds')
         },
     },
     {
@@ -2839,15 +2906,10 @@ const CATALOG_SCENARIOS: { name: string; run: () => void }[] = [
                     level,
                     cards: [FACELESS_NIGHT_ID],
                 })
-                const { gameState, bleeder, bled, blocker } = game
+                const { gameState, bleeder, blocker } = game
                 blocker.minionAttrs.intercept = 0
-                const first = passUntilDecides(gameState, bled)
-                applyOption(
-                    first,
-                    optionsOfType(first.options, 'block').find(
-                        option => option.minion == blocker,
-                    ) ?? findOption(first.options, 'block'),
-                )
+                // The block attempt is as good as the stealth: one more stealth makes it fail
+                attemptBlock(game, true)
                 const decision = getDecisionPoint(gameState, bleeder)
                 const played =
                     decision ?
@@ -2960,6 +3022,7 @@ const CATALOG_SCENARIOS: { name: string; run: () => void }[] = [
             const other = readyVampire(game.gameState, game.bleeder, 4)
             other.minionAttrs.disciplines[Discipline.Obfuscate] = DisciplineLevel.SUPERIOR
             other.lock()
+            attemptBlock(game, true)
             const decision = passUntilDecides(game.gameState, game.bleeder)
             const options = modifierOptionsOf(decision, CLOAK_ID)
             const byOther = options.filter(option => option.modifier.by == other)
@@ -2985,6 +3048,7 @@ const CATALOG_SCENARIOS: { name: string; run: () => void }[] = [
             })
             const other = readyVampire(game.gameState, game.bleeder, 4)
             other.minionAttrs.disciplines[Discipline.Obfuscate] = DisciplineLevel.INFERIOR
+            attemptBlock(game, true)
             const decision = passUntilDecides(game.gameState, game.bleeder)
             const options = modifierOptionsOf(decision, CLOAK_ID)
             expectEqual(options.length, 1, 'options')
@@ -3025,11 +3089,7 @@ const CATALOG_SCENARIOS: { name: string; run: () => void }[] = [
             const first = passUntilDecides(gameState, bled)
             expectEqual(optionsOfType(first.options, 'playReaction').length, 0, 'before the block')
 
-            applyOption(
-                first,
-                optionsOfType(first.options, 'block').find(option => option.minion == blocker) ??
-                    findOption(first.options, 'block'),
-            )
+            attemptBlock(game, false)
             decideWith(gameState, bleeder, 'noModifier')
             const decision = getDecisionPoint(gameState, bled)
             const reactions = decision ? optionsOfType(decision.options, 'playReaction') : []
@@ -3167,14 +3227,10 @@ const CATALOG_SCENARIOS: { name: string; run: () => void }[] = [
                 preyCards: [EYES_OF_ARGUS_ID],
                 preyDiscipline: [Discipline.Auspex, DisciplineLevel.INFERIOR],
             })
-            const { gameState, bleeder, bled, blocker } = inferior
+            const { gameState, bleeder, bled } = inferior
             const first = passUntilDecides(gameState, bled)
             expectEqual(optionsOfType(first.options, 'playReaction').length, 0, 'before the block')
-            applyOption(
-                first,
-                optionsOfType(first.options, 'block').find(option => option.minion == blocker) ??
-                    findOption(first.options, 'block'),
-            )
+            attemptBlock(inferior, false)
             decideWith(gameState, bleeder, 'noModifier')
             const standing = getDecisionPoint(gameState, bled)
             const intercepts = standing ? optionsOfType(standing.options, 'playReaction') : []
@@ -3213,17 +3269,34 @@ const WARRENS_SCENARIOS: { name: string; run: () => void }[] = [
                 [true, 3],
             ] as const) {
                 const game = createWarrens(titled, 'Nosferatu')
-                const decision = passUntilDecides(game.gameState, game.bled)
-                const reactions = optionsOfType(decision.options, 'playReaction')
+                const before = passUntilDecides(game.gameState, game.bled)
+                expectEqual(
+                    optionsOfType(before.options, 'playReaction').length,
+                    0,
+                    'no block attempt stands yet',
+                )
+                attemptBlock(game, false)
+                decideWith(game.gameState, game.bleeder, 'noModifier')
+                const decision = getDecisionPoint(game.gameState, game.bled)
+                const reactions = decision ? optionsOfType(decision.options, 'playReaction') : []
+                if (!decision) {
+                    throw new ScenarioFailure('The prey has no decision')
+                }
                 expectEqual(reactions.length, 1, 'offered')
-                const before = game.gameState.action?.intercept ?? 0
+                const intercept = game.gameState.action?.intercept ?? 0
                 applyOption(decision, reactions[0])
-                expectEqual(game.gameState.action?.intercept, before + expected, 'intercept')
+                expectEqual(game.gameState.action?.intercept, intercept + expected, 'intercept')
             }
 
             const other = createWarrens(false, 'Malkavian')
-            const next = passUntilDecides(other.gameState, other.bled)
-            expectEqual(optionsOfType(next.options, 'playReaction').length, 0, 'not a Nosferatu')
+            attemptBlock(other, false)
+            decideWith(other.gameState, other.bleeder, 'noModifier')
+            const next = getDecisionPoint(other.gameState, other.bled)
+            expectEqual(
+                next ? optionsOfType(next.options, 'playReaction').length : -1,
+                0,
+                'not a Nosferatu',
+            )
         },
     },
 ]
@@ -3340,14 +3413,10 @@ const ANIMALISM_REACTION_SCENARIOS: { name: string; run: () => void }[] = [
                 [DisciplineLevel.SUPERIOR, true],
             ] as const) {
                 const game = blockWithReaction(INSTINCTIVE_REACTION_ID, level)
-                const { gameState, bleeder, bled, blocker } = game
+                const { gameState, bleeder, bled } = game
                 const first = passUntilDecides(gameState, bled)
                 expectEqual(reactionOptions(first).length, 0, 'before the block')
-                applyOption(
-                    first,
-                    optionsOfType(first.options, 'block').find(o => o.minion == blocker) ??
-                        findOption(first.options, 'block'),
-                )
+                attemptBlock(game, false)
                 decideWith(gameState, bleeder, 'noModifier')
                 const standing = getDecisionPoint(gameState, bled)
                 const reactions = (standing ? reactionOptions(standing) : []).filter(
@@ -3377,12 +3446,7 @@ const ANIMALISM_REACTION_SCENARIOS: { name: string; run: () => void }[] = [
         run() {
             const game = blockWithReaction(INSTINCTIVE_REACTION_ID, DisciplineLevel.SUPERIOR)
             const { gameState, bleeder, bled, blocker } = game
-            const first = passUntilDecides(gameState, bled)
-            applyOption(
-                first,
-                optionsOfType(first.options, 'block').find(o => o.minion == blocker) ??
-                    findOption(first.options, 'block'),
-            )
+            attemptBlock(game, false)
             decideWith(gameState, bleeder, 'noModifier')
             const standing = getDecisionPoint(gameState, bled)
             const reaction = standing && reactionOptions(standing).find(o => o.effect.blockManeuver)
@@ -3505,16 +3569,8 @@ const CATS_GUIDANCE_SCENARIOS: { name: string; run: () => void }[] = [
             const game = blockWithReaction(CATS_GUIDANCE_ID, DisciplineLevel.SUPERIOR, {
                 copies: 2,
             })
-            const { gameState, bleeder, bled, blocker } = game
-            const first = passUntilDecides(gameState, bled)
-            applyOption(
-                first,
-                optionsOfType(first.options, 'block').find(o => o.minion == blocker) ??
-                    findOption(first.options, 'block'),
-            )
-            if (gameState.action) {
-                gameState.action.stealth = 0
-            }
+            const { gameState, bleeder, bled } = game
+            attemptBlock(game, false)
             decideWith(gameState, bleeder, 'noModifier')
             const decision = getDecisionPoint(gameState, bled)
             const reactions = decision ? optionsOfType(decision.options, 'playReaction') : []
@@ -4556,12 +4612,7 @@ const BRUJAH_REACTION_SCENARIOS: { name: string; run: () => void }[] = [
             const game = createResistance(false)
             const first = passUntilDecides(game.gameState, game.bled)
             expectEqual(reactionsOf(first, 'intercept').length, 0, 'before any block')
-            applyOption(
-                first,
-                optionsOfType(first.options, 'block').find(
-                    option => option.minion == game.blocker,
-                ) ?? findOption(first.options, 'block'),
-            )
+            attemptBlock(game, false)
             decideWith(game.gameState, game.bleeder, 'noModifier')
             const decision = getDecisionPoint(game.gameState, game.bled)
             if (!decision) {
@@ -4882,6 +4933,17 @@ const EVENT_SCENARIOS: { name: string; run: () => void }[] = [
                 applyOption(next, pass)
             }
             expectEqual(getBlockingMinion(gameState), null, 'the failed block is resolved')
+            // No block attempt stands: the stealth is not needed, the card is not offered
+            const idle = getDecisionPoint(gameState, bleeder)
+            expectEqual(
+                idle ? modifierOptionsOf(idle, FACELESS_NIGHT_ID).length : -1,
+                0,
+                'not offered after the failed block',
+            )
+
+            // A second vampire attempts the block, which would succeed: the card flips it
+            const second = readyVampire(gameState, game.bled, 3)
+            attemptBlock({ gameState, bled: game.bled, blocker: second }, true)
             const decision = getDecisionPoint(gameState, bleeder)
             const played =
                 decision &&
@@ -4889,12 +4951,13 @@ const EVENT_SCENARIOS: { name: string; run: () => void }[] = [
                     option => modifierLevel(option) == DisciplineLevel.SUPERIOR,
                 )
             if (!decision || !played) {
-                throw new ScenarioFailure('Faceless Night is not offered after the failed block')
+                throw new ScenarioFailure('Faceless Night is not offered during the second attempt')
             }
             applyOption(decision, played)
             expectEqual(gameState.action?.armedTriggers.length, 1, 'armed trigger')
             passUntilActionOver(gameState)
             expectEqual(blocker.isLocked, false, 'the earlier block does not count')
+            expectEqual(second.isLocked, true, 'the failed block of the card is locked')
             expectEqual(gameState.action, null, 'the action is over')
         },
     },
@@ -6937,6 +7000,20 @@ const LABYRINTH_SCENARIOS: { name: string; run: () => void }[] = [
         name: 'The Labyrinth locks for the action of a Nosferatu: +1 stealth once, the acting player keeps the impulse',
         run() {
             const game = createLabyrinthBleed()
+            expectEqual(
+                optionsOfType(labyrinthDecision(game).options, 'lockForAction').length,
+                0,
+                'no block attempt stands',
+            )
+            attemptBlock(game, false)
+            expectEqual(
+                optionsOfType(labyrinthDecision(game).options, 'lockForAction').length,
+                0,
+                'the block attempt fails anyway',
+            )
+            if (game.gameState.action) {
+                game.gameState.action.intercept = game.gameState.action.stealth
+            }
             const stealth = game.gameState.action?.stealth ?? 0
             const decision = labyrinthDecision(game)
             const options = optionsOfType(decision.options, 'lockForAction')
@@ -6954,8 +7031,14 @@ const LABYRINTH_SCENARIOS: { name: string; run: () => void }[] = [
     {
         name: 'The Labyrinth is not offered for another clan, a Nosferatu antitribu, a locked or a held card, nor to another Methuselah',
         run() {
-            const clanOf = (clan: string) => {
+            // A block attempt stands that would succeed: the stealth is needed
+            const blocked = () => {
                 const game = createLabyrinthBleed()
+                attemptBlock(game, true)
+                return game
+            }
+            const clanOf = (clan: string) => {
+                const game = blocked()
                 game.bleeding.vampireAttrs.clan = clan
                 return game
             }
@@ -6965,11 +7048,11 @@ const LABYRINTH_SCENARIOS: { name: string; run: () => void }[] = [
             expectEqual(offered(clanOf('Ventrue')), 0, 'another clan')
             expectEqual(offered(clanOf('Nosferatu antitribu')), 0, 'a Nosferatu antitribu')
 
-            const locked = createLabyrinthBleed()
+            const locked = blocked()
             locked.labyrinth.lock()
             expectEqual(offered(locked), 0, 'locked')
 
-            const held = createLabyrinthBleed()
+            const held = blocked()
             held.gameState.moveCardToRegion(held.labyrinth, held.bleeder.hand)
             expectEqual(offered(held), 0, 'in hand')
 

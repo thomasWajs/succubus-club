@@ -146,6 +146,10 @@ export function createDodgeStrike(source: Card | null = null): CombatStrike {
     return createStrike('Dodge', { source, dodge: true })
 }
 
+export function createCombatEndsStrike(source: Card | null = null): CombatStrike {
+    return createStrike('Combat ends', { source, combatEnds: true })
+}
+
 /**
  * Reading the state
  */

@@ -9,7 +9,6 @@ import {
     TurnPhase,
     TurnSequence,
 } from '@/shared/const/model.ts'
-import { GRID_SIZE } from '@/shared/const/game.ts'
 import {
     ActionProperty,
     CombatState,
@@ -37,7 +36,12 @@ import {
     isAvailableToReact,
     isAwake,
 } from '@/shared/state/actionState.ts'
-import { getAutoPlayPosition, getPlayRegion } from '@/shared/state/cardPlacement.ts'
+import {
+    getAutoPlayPosition,
+    getInfluencedVampirePosition,
+    getPermanentMasterPosition,
+    getPlayRegion,
+} from '@/shared/state/cardPlacement.ts'
 import { isAttached } from '@/shared/state/attachments.ts'
 import { canUseTrigger, getCardTriggers } from '@/shared/state/triggers.ts'
 import {
@@ -561,7 +565,13 @@ function drawToHandSize(player: Player): void {
 
 function playCardFromHand(player: Player, card: LibraryCard, byMinion?: Minion): void {
     const toCardRegion = getPlayRegion(player)
-    const { x, y } = getAutoPlayPosition(player, card, toCardRegion, byMinion)
+    const staysInPlay =
+        card.type == LibraryCardType.Master &&
+        getMasterImplementation(card, player)?.staysInPlay === true
+    const { x, y } =
+        staysInPlay ?
+            getPermanentMasterPosition(player, card, toCardRegion)
+        :   getAutoPlayPosition(player, card, toCardRegion, byMinion)
     check(
         gameMutations.moveCardToRegion.act(player, {
             card,
@@ -728,8 +738,7 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
                         card: vampire,
                         fromCardRegion: player.uncontrolled,
                         toCardRegion: player.ready,
-                        x: 12 * GRID_SIZE * player.ready.length,
-                        y: 12 * GRID_SIZE,
+                        ...getInfluencedVampirePosition(player.ready, vampire),
                     }),
                     'move vampire to ready',
                 )

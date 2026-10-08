@@ -16,7 +16,13 @@ import type {
 import { Card, CryptCard, LibraryCard, Minion, Vampire } from '@/shared/model/Card.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { LibraryCardType } from '@/shared/const/model.ts'
-import { getBlockingDecision, getBlockingMinion, isAwake } from '@/shared/state/actionState.ts'
+import {
+    canAddIntercept,
+    canAddStealth,
+    getBlockingDecision,
+    getBlockingMinion,
+    isAwake,
+} from '@/shared/state/actionState.ts'
 import {
     createDodgeStrike,
     createHandStrike,
@@ -362,6 +368,13 @@ class InterpretedModifier extends ActionModifierCardImplementation {
         if (hasLimitedBleed(play.effects) && this.limitedBleedPlayed()) {
             return Invalid('Only one limited bleed bonus per action')
         }
+        // A card that gives stealth is subject to the rule even when it gives something else too
+        if (play.effects.some(effect => effect.type == 'stealth')) {
+            const needed = canAddStealth(this.player.gameState)
+            if (!needed.isValid) {
+                return needed
+            }
+        }
         return checkConditions(this, play.when, this.def)
     }
 
@@ -565,7 +578,9 @@ class InterpretedReaction extends ReactionCardImplementation {
                         }))
                 }
                 case 'intercept':
-                    return [{ type: 'intercept', amount: effect.amount }]
+                    return canAddIntercept(gameState, this.minion).isValid ?
+                            [{ type: 'intercept', amount: effect.amount }]
+                        :   []
                 case 'wake':
                     return [{ type: 'wake' }]
                 case 'changeTarget':
@@ -747,7 +762,8 @@ class InterpretedMaster extends MasterCardImplementation {
             !!ability &&
             !this.card.isLocked &&
             actingMinion.controller == this.player &&
-            matchesMinionFilter(actingMinion, ability.minion)
+            matchesMinionFilter(actingMinion, ability.minion) &&
+            canAddStealth(this.player.gameState).isValid
         )
     }
 
