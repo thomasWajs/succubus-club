@@ -83,9 +83,18 @@ export async function getOrImportText(deckText: string) {
 }
 
 export async function getOrImportPrecon(fullPreconId: string, name: string, cards: DeckList) {
-    const dbDeck = await getOrImportDeck(DeckSource.Precon, fullPreconId, () =>
+    let dbDeck = await getOrImportDeck(DeckSource.Precon, fullPreconId, () =>
         Promise.resolve({ name, cards }),
     )
+    // A precon imported before its list was corrected keeps the old one :
+    // the shipped list wins
+    const same = (a: DeckList, b: DeckList) =>
+        Object.keys(a).length == Object.keys(b).length &&
+        Object.entries(a).every(([krcgId, quantity]) => b[krcgId] == quantity)
+    if (!same(dbDeck.cards, cards)) {
+        await db.decks.update(dbDeck.id, { cards })
+        dbDeck = (await DbDeck.get(dbDeck.id)) ?? dbDeck
+    }
     await selectDeck(dbDeck)
 }
 
