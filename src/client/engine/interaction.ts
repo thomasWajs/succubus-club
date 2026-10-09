@@ -236,7 +236,10 @@ export function minionMenuOptions(minion: Card): Record<string, EngineOption[]> 
         Rescue: by('rescue'),
         'Leave Torpor': by('leave torpor'),
         'Card In Hand': options.filter(o => o.kind == 'play' && is(actorOf(o), minion)),
-        'Card In Play': options.filter(o => o.kind == 'use_ability' && is(actorOf(o), minion)),
+        // Its own card's too ( an ally's Ⓓ action : Freakish Conglomeration )
+        'Card In Play': options.filter(
+            o => o.kind == 'use_ability' && (is(actorOf(o), minion) || is(cardOf(o), minion)),
+        ),
         'Other Actions': actions.filter(o => !named.includes(o.action ?? '')),
     }
 }
@@ -304,11 +307,16 @@ export function engineGlow(card: Card): number | null | undefined {
 /**
  * A click on this card is the engine's ( engineCardClick ), not SC's selection :
  * any glowing card but a minion that can take an action ( it opens SC's menu
- * of actions, which needs it selected ).
+ * of actions, which needs it selected ) — even one whose card can be used, its
+ * abilities in the menu ( an ally : Freakish Conglomeration ). A candidate or
+ * the card staged is the choice under way's.
  */
 export function engineClaims(card: Card): boolean {
     const highlight = engineHighlight(card)
-    return !!highlight && (highlight != 'actor' || !minionMenuOptions(card))
+    return (
+        !!highlight &&
+        (highlight == 'candidate' || highlight == 'staged' || !minionMenuOptions(card))
+    )
 }
 
 // Narrow the choice under way to these options : taken when a single one is left
