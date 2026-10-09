@@ -38,7 +38,7 @@
                 v-if="isEngine"
                 class="vote-amount"
             >
-                {{ voteBox.castVote.amount }} votes
+                {{ engineAmount(voteBox) }}
             </div>
             <div
                 v-else
@@ -61,7 +61,11 @@
             v-else
             class="vote-badge"
         >
-            {{ voteBox.castVote.amount }} {{ voteBox.isBallot ? 'ballots' : 'votes' }}
+            {{
+                isEngine ?
+                    engineAmount(voteBox)
+                :   `${voteBox.castVote.amount} ${voteBox.isBallot ? 'ballots' : 'votes'}`
+            }}
         </strong>
     </div>
 </template>
@@ -167,7 +171,8 @@ const voteBoxes = computed<VoteBoxData[]>(() => {
                         vampire,
                         castVote: cast ?? { side: null, amount },
                         isSelfControlled: !!offered,
-                        isBallot: false,
+                        // A priscus casts its prisci ballot too, even with no vote
+                        isBallot: isBallotVampire(vampire),
                         style,
                         engine: offered,
                     })
@@ -190,6 +195,15 @@ const voteBoxes = computed<VoteBoxData[]>(() => {
 
     return boxes
 })
+
+// A game with the rules engine : the votes a box casts, and a priscus's prisci ballot
+function engineAmount(voteBox: VoteBoxData): string {
+    const votes = voteBox.castVote.amount
+    if (!voteBox.isBallot) {
+        return `${votes} votes`
+    }
+    return votes > 0 ? `${votes} votes + 1 ballot` : '1 ballot'
+}
 
 function castVote(vampire: Vampire, side: VoteSide) {
     const option = engineVotes.value.get(vampire.oid)?.[side]
