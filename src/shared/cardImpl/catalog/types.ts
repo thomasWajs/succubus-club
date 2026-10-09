@@ -70,6 +70,8 @@ export type InterceptEffect = { type: 'intercept'; amount: number }
 export type BleedActionEffect = { type: 'bleedAction' }
 // Blood added to the target of the play ( an action's target, an ability's target )
 export type GainBloodEffect = { type: 'gainBlood'; amount: number }
+// Any amount of blood, chosen when the card is played, moved from the target ( a vampire ) to the pool of its controller
+export type BloodToPoolEffect = { type: 'bloodToPool' }
 // A maneuver moves the range. With toCloseOnly it is only worth it when the range is long. In a play
 // that also has a strike, the maneuver comes with it ( the card is played once ): the strike is
 // the one of the maneuver, or can be played alone at the strike step.
@@ -294,11 +296,11 @@ type LockAbility = {
 // A card of the hand is discarded ( the hand is drawn back up afterwards )
 export type DiscardFromHandEffect = { type: 'discardFromHand' }
 
-// What a master card does once, when it is played
-export type MasterOnPlay = {
-    target: 'readyVampireBelowCapacity'
-    effects: GainBloodEffect[]
-}
+// What a master card does once, when it is played: to a ready vampire with room for blood, or to a vampire
+// that has blood ( in torpor too )
+export type MasterOnPlay =
+    | { target: 'readyVampireBelowCapacity'; effects: GainBloodEffect[] }
+    | { target: 'vampireWithBlood'; effects: BloodToPoolEffect[] }
 
 type PlayBase = {
     // None by default

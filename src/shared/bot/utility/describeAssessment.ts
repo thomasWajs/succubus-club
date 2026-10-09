@@ -1,6 +1,7 @@
 import { Assessment, survivalCurve } from '@/shared/bot/utility/assessment.ts'
 import { MinionProfile } from '@/shared/bot/utility/minionProfile.ts'
 import { everyone, MethuselahSnapshot } from '@/shared/bot/utility/snapshot.ts'
+import { PlannedAction, TurnPlan } from '@/shared/bot/utility/turnPlan.ts'
 
 /**
  * The assessment as text: the dev dump ( npm run bot:assess ) and the explain trace of the utility agent.
@@ -51,6 +52,43 @@ function describeMethuselah(snapshot: MethuselahSnapshot): string {
     return `${snapshot.name} (${place}): pool ${snapshot.pool}, VP ${snapshot.victoryPoints}, hand ${snapshot.handSize}${inPlay}`
 }
 
+// The turn plan as text: the posture, what is kept home, what is done in what order, and how the reserves
+// compared ( equity = what the bleeds and the other actions bring, less the fights, plus the guard of the
+// minions at home, less the cost of the lunge of my predator and of the cards spent )
+export function describeTurnPlan(plan: TurnPlan): string[] {
+    const names = (minions: MinionProfile[]) =>
+        minions.length > 0 ? minions.map(minion => minion.name).join(', ') : 'nobody'
+    if (plan.posture == 'forced') {
+        return [`forced: ${plan.actions.map(describeAction).join(', ')}`]
+    }
+    const lines = [`${plan.posture}, keeps ${names(plan.reserved)} unlocked`]
+    const best = plan.cases[plan.chosen]
+    if (best) {
+        lines.push(
+            `oust my prey ${percent(best.chanceToOust)}, be ousted ${percent(best.chanceOfBeingOusted)}`,
+        )
+    }
+    lines.push(
+        plan.actions.length > 0 ?
+            `does ${plan.actions.map(describeAction).join(', ')}`
+        :   'does nothing',
+    )
+    if (plan.bounceRisk > 0) {
+        lines.push(`prey bounces ${percent(plan.bounceRisk)}`)
+    }
+    for (const [index, one] of plan.cases.entries()) {
+        const mark = index == plan.chosen ? '>' : ' '
+        lines.push(
+            `${mark} keep ${one.kept.length}: equity ${fixed(one.equity)} = bleeds ${fixed(one.bleeds.total)} - fights ${fixed(one.combat)} + other ${fixed(one.idle)} + guard ${fixed(one.guard)} - lunge ${fixed(one.lunge.total)} - cards ${fixed(one.cards)}`,
+        )
+    }
+    return lines
+}
+
+function describeAction(action: PlannedAction): string {
+    return `${action.actor.name} ${action.kind} ( ${fixed(action.value)} )`
+}
+
 export function describeAssessment(assessment: Assessment): string[] {
     const { table } = assessment
     const lines: string[] = []
@@ -65,6 +103,12 @@ export function describeAssessment(assessment: Assessment): string[] {
         lines.push(
             `    power ${fixed(assessment.power[snapshot.oid])}, believed to hold ${densities.join(', ')}`,
         )
+        const bloat = assessment.bloat[snapshot.oid]
+        if (bloat.pool >= 0.05 || bloat.blood >= 0.05) {
+            lines.push(
+                `    takes back ${fixed(bloat.pool)} pool and ${fixed(bloat.blood)} blood per turn from the blood bank`,
+            )
+        }
         if (snapshot.isMe) {
             continue
         }
@@ -100,7 +144,7 @@ export function describeAssessment(assessment: Assessment): string[] {
     for (const opening of assessment.rescues) {
         const owner = everyone(table).find(snapshot => snapshot.oid == opening.owner)
         lines.push(
-            `torpor: ${opening.vampire.name} of ${owner?.name ?? opening.owner} ${opening.vampire.blood}/${opening.vampire.capacity}, a helper brings it back ${percent(opening.chance)}, rescuing it is worth ${fixed(opening.value)}`,
+            `torpor: ${opening.vampire.name} of ${owner?.name ?? opening.owner} ${opening.vampire.blood}/${opening.vampire.capacity}, a helper brings it back ${percent(opening.chance)}, its Methuselah is still there ${percent(opening.survival)}, rescuing it is worth ${fixed(opening.value)}`,
         )
     }
     if (table.predator) {

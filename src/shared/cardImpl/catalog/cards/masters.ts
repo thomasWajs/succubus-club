@@ -2,6 +2,7 @@ import { ASYLUM_HUNTING_GROUND_ID, ELDER_LIBRARY_ID } from '@/shared/cardImpl/ca
 import {
     aVampire,
     bleedIntercept,
+    bloodToPool,
     burnInTorpor,
     burnSelf,
     defineCard,
@@ -72,6 +73,11 @@ export const MASTER_CARDS = [
                 },
             ],
         },
+    ]),
+    // Any amount of blood of a vampire you control, in torpor too. The +1 pool that a Villein on the target
+    // costs is not modelled ( Villein is not catalogued )
+    defineCard('101217', 'Minion Tap', [
+        { kind: 'master', onPlay: { target: 'vampireWithBlood', effects: [bloodToPool] } },
     ]),
     // Put on a vampire, in torpor too. The master phase ability is used once per turn
     defineCard('100199', 'Blood Doll', [putOnMinion(aVampire(), [moveBlood(1)])]),

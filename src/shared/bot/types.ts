@@ -98,7 +98,7 @@ export type BotOption =
     | { type: 'moveBlood'; card: Card; vampire: Vampire; amount: number; toPool: boolean }
     // Plays a master card from the hand (master phase action + pool cost). The minion is the
     // target of the effect of the card on play ( or the one it is put on ), for the cards that have one.
-    | { type: 'playMaster'; card: LibraryCard; target?: Minion }
+    | { type: 'playMaster'; card: LibraryCard; target?: Minion; amount?: number }
     // Go to the next turn (the hand is never refilled here: replacements are drawn immediately)
     | { type: 'endTurn' }
     // Send the one-shot cards played during the last action to the ash heap

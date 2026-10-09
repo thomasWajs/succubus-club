@@ -30,6 +30,7 @@ import {
     UnlockAndBlockEffect,
     TransferEffect,
     GainBloodEffect,
+    BloodToPoolEffect,
     GainBloodFromDamageEffect,
     GrappleEffect,
     HandSizeEffect,
@@ -240,6 +241,8 @@ export const lockTarget: LockTargetEffect = { type: 'lockTarget' }
 export function environmentalDamage(amount: number): EnvironmentalDamageEffect {
     return { type: 'environmentalDamage', amount }
 }
+
+export const bloodToPool: BloodToPoolEffect = { type: 'bloodToPool' }
 
 export function gainBlood(amount: number): GainBloodEffect {
     return { type: 'gainBlood', amount }

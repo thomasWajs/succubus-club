@@ -31,7 +31,8 @@ import {
     toAttackers,
     unlockCardsOf,
 } from '@/shared/bot/utility/defence.ts'
-import { boardsOf, returnsOf } from '@/shared/bot/utility/rescue.ts'
+import { boardsOf, returnsOf, returnWorth } from '@/shared/bot/utility/rescue.ts'
+import { Bloat, bloatOf, lastingLoss } from '@/shared/bot/utility/bloat.ts'
 
 /**
  * The table, read: what each Methuselah can do to me and what I can do to it, how my pool stands against
@@ -89,7 +90,11 @@ export type RescueOpening = {
     chance: number
     // What its return changes for me per turn, in pool: what its Methuselah drains from its prey, at the
     // weight that prey's pool has for me ( minus my own pool when it is me that is drained ). For one of
-    // mine: what it adds to my drain on my prey
+    // mine: what it adds to my drain on my prey. Before the worth of the vampire itself ( returnWorth )
+    drain: number
+    // The chance that its Methuselah is not ousted by its own predator before it can use the vampire
+    survival: number
+    // What it is worth when it comes back with all its blood ( the rescuer paying the cost )
     value: number
 }
 
@@ -98,7 +103,10 @@ export type Assessment = {
     profile: BotProfile
     // What each Methuselah is believed to hold, by role
     densities: Record<PlayerOid, Densities>
-    // What the minions and the cards in play are worth, in pool, plus the pool and the victory points
+    // What each Methuselah takes back from the blood bank per turn ( bloat.ts )
+    bloat: Record<PlayerOid, Bloat>
+    // What the minions and the cards in play are worth, in pool, plus the pool and the victory points,
+    // and what the bloat adds over the turns looked ahead
     power: Record<PlayerOid, number>
     threat: Record<PlayerOid, Threat>
     opportunity: Record<PlayerOid, Opportunity>
@@ -151,6 +159,7 @@ type Context = {
     table: TableSnapshot
     profile: BotProfile
     densities: Record<PlayerOid, Densities>
+    bloat: Record<PlayerOid, Bloat>
     held: Record<PlayerOid, CardOid[]>
     unlocks: Record<PlayerOid, Dist>
 }
@@ -242,6 +251,7 @@ function reserveOf(
 ): CardOid[] {
     const { table, densities, profile } = context
     const { caution, guard, action, tolerance, ousterGain } = profile.opponentPrior.reserve
+    const { recapture } = profile.bloat
     const ring = ringOf(table)
     const index = ring.indexOf(owner)
     const hunter = ring[(index - 1 + ring.length) % ring.length]
@@ -261,19 +271,26 @@ function reserveOf(
             defenceOf(table, owner, 'bleed', densities[owner.oid], order.slice(0, kept)),
             [],
         )
+    // What a loss costs, as what lasts against the income of whoever loses it. The reserve of the others
+    // does not cap what a lunge takes at the pool it finds, hence the unbounded pool
+    const lastingFor = (result: AttackResult, loser: MethuselahSnapshot) =>
+        lastingLoss(result, Infinity, context.bloat[loser.oid]?.pool ?? 0, recapture)
     // What the minion would drain from its prey instead
     const drainOf = (minion: MinionProfile) =>
-        resolveAttack(
-            toAttackers([minion]),
-            defenceOf(table, prey, 'bleed', densities[prey.oid], preyUnlocked),
-            attackKitOf(owner, [minion], densities[owner.oid], profile),
-        ).expectedLoss
+        lastingFor(
+            resolveAttack(
+                toAttackers([minion]),
+                defenceOf(table, prey, 'bleed', densities[prey.oid], preyUnlocked),
+                attackKitOf(owner, [minion], densities[owner.oid], profile),
+            ),
+            prey,
+        )
 
     let kept = order.filter(minion => !canBleed(minion)).length
     let result = lungeWith(kept)
     while (kept < order.length) {
         const next = lungeWith(kept + 1)
-        const saved = result.expectedLoss - next.expectedLoss
+        const saved = lastingFor(result, owner) - lastingFor(next, owner)
         const worth = saved * caution + guard >= Math.max(drainOf(order[kept]), action)
         const urgent =
             chanceOfLossAtLeast(result, owner.pool) > tolerance &&
@@ -311,30 +328,59 @@ function lungeOnMe(
     })
 }
 
+// What the lunge of my predator does to me ( null when nobody hunts me )
+export type LungeStats = {
+    chanceOfOust: number
+    // Pool I lose, never more than I have. Far from an ouster it is still what a bleed costs me: it
+    // weakens me for the rest of the game.
+    expectedLoss: number
+    // The same, as what lasts against what I take back from the blood bank each turn
+    lastingLoss: number
+    // Bleeds blocked, in expectation: each one is a block of one of my minions ( woken ones included )
+    blocks: number
+}
+
+function lungeStats(
+    assessment: Assessment,
+    options: { pool?: number; reserved?: MinionProfile[] },
+): LungeStats {
+    const result = lungeOnMe(assessment, options)
+    const pool = options.pool ?? assessment.table.me.pool
+    if (!result) {
+        return { chanceOfOust: 0, expectedLoss: 0, lastingLoss: 0, blocks: 0 }
+    }
+    const { me } = assessment.table
+    return {
+        chanceOfOust: chanceOfLossAtLeast(result, pool),
+        expectedLoss: result.outcomes.reduce(
+            (total, outcome) => total + outcome.p * Math.min(outcome.loss, pool),
+            0,
+        ),
+        lastingLoss: lastingLoss(
+            result,
+            pool,
+            assessment.bloat[me.oid]?.pool ?? 0,
+            assessment.profile.bloat.recapture,
+        ),
+        blocks: result.blockedShare * result.attackers,
+    }
+}
+
 // The chance that my predator ousts me on its next turn when I keep `reserved` unlocked ( by default
 // the minions that are unlocked now ) and my pool is `pool`: the lunge distribution, summed up
 export function chanceOfOust(
     assessment: Assessment,
     options: { pool?: number; reserved?: MinionProfile[] } = {},
 ): number {
-    const result = lungeOnMe(assessment, options)
-    return result ? chanceOfLossAtLeast(result, options.pool ?? assessment.table.me.pool) : 0
+    return lungeStats(assessment, options).chanceOfOust
 }
 
-// The pool I expect to lose to the lunge of my predator ( never more than I have ). Far from an ouster
-// it is still what a bleed costs me: it weakens me for the rest of the game.
+// The pool I expect to lose to the lunge of my predator ( never more than I have )
 export function expectedLossToLunge(
     assessment: Assessment,
     options: { pool?: number; reserved?: MinionProfile[] } = {},
 ): number {
-    const result = lungeOnMe(assessment, options)
-    const pool = options.pool ?? assessment.table.me.pool
-    return (
-        result?.outcomes.reduce(
-            (total, outcome) => total + outcome.p * Math.min(outcome.loss, pool),
-            0,
-        ) ?? 0
-    )
+    return lungeStats(assessment, options).expectedLoss
 }
 
 // Keeping the k best blockers unlocked ( the best intercept, then the most blood ): how the chance of
@@ -347,13 +393,38 @@ export function survivalCurve(
         (a, b) => b.intercept.againstBleeds - a.intercept.againstBleeds || b.blood - a.blood,
     )
     return Array.from({ length: best.length + 1 }, (_, reserved) => {
-        const options = { pool, reserved: best.slice(0, reserved) }
-        return {
-            reserved,
-            chanceOfOust: chanceOfOust(assessment, options),
-            expectedLoss: expectedLossToLunge(assessment, options),
-        }
+        const { chanceOfOust, expectedLoss } = lungeStats(assessment, {
+            pool,
+            reserved: best.slice(0, reserved),
+        })
+        return { reserved, chanceOfOust, expectedLoss }
     })
+}
+
+// What my bleeds on my prey do when `actors` go ( my exact hand, its defence as the table shows it ).
+// Null when there is no prey.
+export function bleedOnPrey(assessment: Assessment, actors: MinionProfile[]): AttackResult | null {
+    const { table, densities, profile } = assessment
+    const { me, prey } = table
+    return prey ?
+            resolveAttack(
+                toAttackers(actors),
+                defenceOf(table, prey, 'bleed', densities[prey.oid]),
+                attackKitOf(me, actors, densities[me.oid], profile),
+            )
+        :   null
+}
+
+export type TurnOutcome = {
+    bleeds: AttackResult | null
+    chanceToOust: number
+    chanceOfBeingOusted: number
+    // The pool my predator takes from me, with the pool I gain from an oust counted in
+    expectedLoss: number
+    // The same, as what lasts against what I take back from the blood bank each turn
+    lastingLoss: number
+    // The bleeds my predator makes that my defence blocks
+    blocks: number
 }
 
 /**
@@ -366,28 +437,25 @@ export function survivalCurve(
 export function outcomeOfTurn(
     assessment: Assessment,
     plan: { actors: MinionProfile[]; reserved: MinionProfile[] },
-): { chanceToOust: number; chanceOfBeingOusted: number } {
-    const { table, densities, profile } = assessment
+): TurnOutcome {
+    const { table } = assessment
     const { me, prey } = table
-    const chanceToOust =
-        prey ?
-            chanceOfLossAtLeast(
-                resolveAttack(
-                    toAttackers(plan.actors),
-                    defenceOf(table, prey, 'bleed', densities[prey.oid]),
-                    attackKitOf(me, plan.actors, densities[me.oid], profile),
-                ),
-                prey.pool,
-            )
-        :   0
-    const without = chanceOfOust(assessment, { pool: me.pool, reserved: plan.reserved })
+    const bleeds = bleedOnPrey(assessment, plan.actors)
+    const chanceToOust = bleeds && prey ? chanceOfLossAtLeast(bleeds, prey.pool) : 0
+    const without = lungeStats(assessment, { pool: me.pool, reserved: plan.reserved })
     const withGain =
         table.others.length > 1 ?
-            chanceOfOust(assessment, { pool: me.pool + OUST_POOL_GAIN, reserved: plan.reserved })
-        :   0
+            lungeStats(assessment, { pool: me.pool + OUST_POOL_GAIN, reserved: plan.reserved })
+        :   { chanceOfOust: 0, expectedLoss: 0, lastingLoss: 0, blocks: 0 }
+    const mix = (pick: (stats: LungeStats) => number) =>
+        chanceToOust * pick(withGain) + (1 - chanceToOust) * pick(without)
     return {
+        bleeds,
         chanceToOust,
-        chanceOfBeingOusted: chanceToOust * withGain + (1 - chanceToOust) * without,
+        chanceOfBeingOusted: mix(stats => stats.chanceOfOust),
+        expectedLoss: mix(stats => stats.expectedLoss),
+        lastingLoss: mix(stats => stats.lastingLoss),
+        blocks: mix(stats => stats.blocks),
     }
 }
 
@@ -396,6 +464,7 @@ function contextOf(assessment: Assessment): Context {
         table: assessment.table,
         profile: assessment.profile,
         densities: assessment.densities,
+        bloat: assessment.bloat,
         held: assessment.held,
         unlocks: assessment.unlocks,
     }
@@ -405,17 +474,20 @@ function contextOf(assessment: Assessment): Context {
  * Threat, opportunity, stakes
  */
 
-function powerOf(snapshot: MethuselahSnapshot, profile: BotProfile): number {
+function powerOf(snapshot: MethuselahSnapshot, profile: BotProfile, bloat: Bloat): number {
     const minions = snapshot.minions.reduce(
         (total, minion) =>
             total + (minion.state == 'torpor' ? 0.5 : 1) * minion.capacity + minion.attached.length,
         0,
     )
+    // What it takes back from the blood bank over the turns looked ahead: a Methuselah that bloats grows
+    const regained = profile.bloat.horizon * (bloat.pool + profile.plan.bloodValue * bloat.blood)
     return (
         snapshot.pool +
         profile.vpValue * snapshot.victoryPoints +
         minions +
-        snapshot.permanents.length
+        snapshot.permanents.length +
+        regained
     )
 }
 
@@ -450,12 +522,14 @@ function ringOf(table: TableSnapshot): MethuselahSnapshot[] {
 export function assessSnapshot(table: TableSnapshot, profile: BotProfile): Assessment {
     const { me } = table
     const densities: Record<PlayerOid, Densities> = {}
+    const bloat: Record<PlayerOid, Bloat> = {}
     const power: Record<PlayerOid, number> = {}
     for (const methuselah of everyone(table)) {
         densities[methuselah.oid] = densitiesOf(methuselah, profile)
-        power[methuselah.oid] = powerOf(methuselah, profile)
+        bloat[methuselah.oid] = bloatOf(methuselah, densities[methuselah.oid], profile)
+        power[methuselah.oid] = powerOf(methuselah, profile, bloat[methuselah.oid])
     }
-    const context: Context = { table, profile, densities, held: {}, unlocks: {} }
+    const context: Context = { table, profile, densities, bloat, held: {}, unlocks: {} }
     // Who keeps what back, read from the lunge of each one's predator before the rest uses it
     const held: Record<PlayerOid, CardOid[]> = {}
     const unlocks: Record<PlayerOid, Dist> = {}
@@ -526,7 +600,19 @@ export function assessSnapshot(table: TableSnapshot, profile: BotProfile): Asses
 
     const stakes = stakesOf(context, power, threat, exposure)
     const rescues = rescuesOf(context, stakes)
-    return { table, profile, densities, power, threat, opportunity, stakes, rescues, held, unlocks }
+    return {
+        table,
+        profile,
+        densities,
+        bloat,
+        power,
+        threat,
+        opportunity,
+        stakes,
+        rescues,
+        held,
+        unlocks,
+    }
 }
 
 // Every torpid vampire at the table: how likely a helper is to bring it back, and what it is worth to me
@@ -537,17 +623,31 @@ function rescuesOf(context: Context, stakes: Record<PlayerOid, Stake>): RescueOp
     const ring = ringOf(table)
     return ring.flatMap((owner, index) => {
         const prey = ring[(index + 1) % ring.length]
+        const hunter = ring[(index - 1 + ring.length) % ring.length]
         const weight = prey.isMe ? -1 : (stakes[prey.oid]?.weight ?? 0)
-        return returnsOf(table, owner, profile).map(back => {
-            const drain = (returns: boolean) =>
+        const returns = returnsOf(table, owner, profile)
+        // A Methuselah about to be ousted does not use its vampires. What I do is my own decision
+        const survival =
+            owner.isMe || returns.length == 0 ?
+                1
+            :   1 - chanceOfLossAtLeast(bleedsOn(context, hunter, owner), owner.pool)
+        return returns.map(back => {
+            const loss = (returns: boolean) =>
                 bleedsOn(context, owner, prey, {
                     forced: { oid: back.minion.oid, returns },
                 }).expectedLoss
+            const drain = weight * (loss(true) - loss(false))
             return {
                 owner: owner.oid,
                 vampire: back.minion,
                 chance: back.chance,
-                value: weight * (drain(true) - drain(false)),
+                drain,
+                survival,
+                value: returnWorth(
+                    { drain, survival, vampire: back.minion },
+                    back.minion.blood,
+                    profile,
+                ),
             }
         })
     })

@@ -415,10 +415,21 @@ export function getMasterCardOptions(player: Player): BotOptionOf<'playMaster'>[
         if (!implementation) {
             continue
         }
-        // One option per target for a card with a targeted effect ( none: not worth playing )
+        // One option per target for a card with a targeted effect ( none: not worth playing ), and per
+        // amount when the player chooses one
         const targets = implementation.getPlayTargets()
         if (targets) {
-            options.push(...targets.map(target => ({ type: 'playMaster' as const, card, target })))
+            for (const target of targets) {
+                const amounts = implementation.getPlayAmounts(target)
+                options.push(
+                    ...(amounts ?? [undefined]).map(amount => ({
+                        type: 'playMaster' as const,
+                        card,
+                        target,
+                        amount,
+                    })),
+                )
+            }
         } else {
             options.push({ type: 'playMaster', card })
         }

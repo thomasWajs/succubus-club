@@ -142,6 +142,8 @@ type EffectCore =
     | { type: 'drawCrypt' }
     | { type: 'burnSelf' }
     | { type: 'gainPool'; amount: number }
+    // Any amount of the blood of a vampire of mine, chosen when played, becomes pool
+    | { type: 'bloodToPool' }
     | { type: 'lockFailedBlocker' }
     | { type: 'unlockSelf' }
     // What happens when an event is announced: armed for the rest of the action by a played card, or
@@ -419,7 +421,10 @@ function summarizeMasterEffects(
         // The hand size is the only master effect for now: a second one makes this a switch
         ...effects.map((effect): Effect => ({ type: 'handSize', amount: effect.amount })),
         ...(onPlay?.effects ?? []).map(
-            (effect): Effect => ({ type: 'gainBlood', amount: effect.amount }),
+            (effect): Effect =>
+                effect.type == 'gainBlood' ?
+                    { type: 'gainBlood', amount: effect.amount }
+                :   { type: 'bloodToPool' },
         ),
     ]
 }
@@ -625,6 +630,7 @@ function deriveRoles(
                 roles.add('cycling')
                 break
             case 'gainPool':
+            case 'bloodToPool':
                 roles.add('poolGain')
                 break
             case 'lockFailedBlocker':
@@ -885,6 +891,8 @@ export function describeEffect(effect: Effect): string {
                 return 'burn this card'
             case 'gainPool':
                 return `gain ${effect.amount} pool`
+            case 'bloodToPool':
+                return 'move any amount of the blood of a vampire to the pool'
             case 'lockFailedBlocker':
                 return 'lock the minion that failed to block'
             case 'unlockSelf':

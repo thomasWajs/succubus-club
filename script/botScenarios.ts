@@ -60,7 +60,7 @@ import {
     LOST_IN_CROWDS_ID,
 } from '@/shared/cardImpl/cardIds.ts'
 import { MasterCardImplementation } from '@/shared/cardImpl/base.ts'
-import { MASTER_CARD_IMPLEMENTATIONS } from '@/shared/cardImpl/index.ts'
+import { getMasterImplementation, MASTER_CARD_IMPLEMENTATIONS } from '@/shared/cardImpl/index.ts'
 import {
     getAttachedCombatOptions,
     getCombatCardOptions,
@@ -133,12 +133,17 @@ import { attackKitOf, densitiesOf } from '@/shared/bot/utility/defence.ts'
 import {
     Assessment,
     assess,
+    bleedOnPrey,
     chanceOfOust,
     combatEdge,
     outcomeOfTurn,
     survivalCurve,
 } from '@/shared/bot/utility/assessment.ts'
-import { describeAssessment } from '@/shared/bot/utility/describeAssessment.ts'
+import { bloodChange } from '@/shared/bot/utility/bloat.ts'
+import { gainOfBleeds } from '@/shared/bot/utility/equity.ts'
+import { describeAssessment, describeTurnPlan } from '@/shared/bot/utility/describeAssessment.ts'
+import { returnWorth } from '@/shared/bot/utility/rescue.ts'
+import { candidateOf, planTurn, TurnPlan } from '@/shared/bot/utility/turnPlan.ts'
 import { serializeGameState } from '@/shared/serialization.ts'
 import {
     BotAgent,
@@ -2682,16 +2687,19 @@ function createWiderViewTurn(transfers: number) {
     return { gameState, player, card, decision }
 }
 
-// The master phase of a player holding Life in the City, with two ready vampires
-function createLifeInTheCityTurn(bloods: [number, number]) {
-    const { gameState } = createHeadlessGame([MalkavDeck, MalkavDeck])
+const MINION_TAP_ID = '101217'
+const MINION_TAP_DECK = <DeckList>{ ...MalkavDeck, [MINION_TAP_ID]: 4 }
+
+// The master phase of a player holding Life in the City ( or another master card ), with two ready vampires
+function createLifeInTheCityTurn(bloods: [number, number], cardId = LIFE_IN_THE_CITY_ID) {
+    const { gameState } = createHeadlessGame([MINION_TAP_DECK, MINION_TAP_DECK])
     createdGames.push(gameState)
     const player = gameState.activePlayer
     if (!player) {
         throw new ScenarioFailure('No active player')
     }
     emptyHand(gameState, player)
-    const card = giveCard(gameState, player, LIFE_IN_THE_CITY_ID)
+    const card = giveCard(gameState, player, cardId)
     const vampires = bloods.map(blood => readyVampire(gameState, player, blood))
     gameState.turnPhaseIndex = TurnSequence.indexOf(TurnPhase.Master)
     gameState.turnResources.unlocked = true
@@ -3035,6 +3043,70 @@ const CATALOG_SCENARIOS: { name: string; run: () => void }[] = [
                 throw new ScenarioFailure('No decision point')
             }
             expectEqual(optionsOfType(decision.options, 'playMaster').length, 0, 'options')
+        },
+    },
+    {
+        name: 'Minion Tap is offered per vampire with blood and per amount, torpor included, and moves the chosen amount to the pool',
+        run() {
+            const turn = createLifeInTheCityTurn([3, 0], MINION_TAP_ID)
+            const [full, empty] = turn.vampires
+            const [late] = [readyVampire(turn.gameState, turn.player, 2)]
+            turn.gameState.moveCardToRegion(late, turn.player.torpor)
+            const offered = () => {
+                const decision = getDecisionPoint(turn.gameState, turn.player)
+                if (!decision) {
+                    throw new ScenarioFailure('No decision point')
+                }
+                return { decision, options: optionsOfType(decision.options, 'playMaster') }
+            }
+            const { decision, options } = offered()
+            expectEqual(
+                options
+                    .map(
+                        option =>
+                            `${option.target?.oid == full.oid ? 'full' : 'late'}${option.amount}`,
+                    )
+                    .join(),
+                'full1,full2,full3,late1,late2',
+                'one option per amount, none for the empty vampire, one for the one in torpor',
+            )
+            expectEqual(
+                options.some(option => option.target == empty),
+                false,
+                'the empty vampire is not a target',
+            )
+            const pool = turn.player.pool
+            const two = options.find(option => option.target == full && option.amount == 2)
+            if (!two) {
+                throw new ScenarioFailure('No option for 2')
+            }
+            applyOption(decision, two)
+            expectEqual(full.blood, 1, 'the vampire lost the blood')
+            expectEqual(turn.player.pool, pool + 2, 'the pool gained it')
+            expectEqual(turn.gameState.turnResources.mpa, 0, 'master phase action')
+            expectEqual(turn.card.isIn.hand, false, 'the card is played')
+        },
+    },
+    {
+        name: 'Minion Tap is not offered when no vampire has blood, and moves only blood the vampire holds',
+        run() {
+            const turn = createLifeInTheCityTurn([0, 0], MINION_TAP_ID)
+            const decision = getDecisionPoint(turn.gameState, turn.player)
+            if (!decision) {
+                throw new ScenarioFailure('No decision point')
+            }
+            expectEqual(optionsOfType(decision.options, 'playMaster').length, 0, 'options')
+
+            const [vampire] = turn.vampires
+            vampire.blood = 2
+            const implementation = getMasterImplementation(turn.card, turn.player)
+            if (!implementation) {
+                throw new ScenarioFailure('No implementation')
+            }
+            expectEqual(implementation.applyPlayEffect(vampire, 3).isValid, false, 'too much')
+            expectEqual(implementation.applyPlayEffect(vampire, 0).isValid, false, 'nothing')
+            expectEqual(implementation.applyPlayEffect(vampire).isValid, false, 'no amount')
+            expectEqual(vampire.blood, 2, 'nothing moved')
         },
     },
     {
@@ -7910,6 +7982,23 @@ const SUMMARY_SCENARIOS: { name: string; run: () => void }[] = [
         },
     },
     {
+        name: 'Summary: Minion Tap is pool for me, from the blood of a vampire, and Life in the City is not',
+        run() {
+            const tap = summaryOf(MINION_TAP_ID).plays[0]
+            expectEqual(tap.roles.join(), 'poolGain,master', 'roles of Minion Tap')
+            expectEqual(
+                tap.effects.map(effect => effect.type).join(),
+                'bloodToPool',
+                'effects of Minion Tap',
+            )
+            expectEqual(
+                summaryOf(LIFE_IN_THE_CITY_ID).plays[0].roles.includes('poolGain'),
+                false,
+                'Life in the City',
+            )
+        },
+    },
+    {
         name: 'Summary: every catalogued play has a role',
         run() {
             const without = CARD_DEFS.flatMap(def =>
@@ -8801,6 +8890,794 @@ const ASSESSMENT_SCENARIOS: { name: string; run: () => void }[] = [
     },
 ]
 
+/**
+ * Turn plan ( step 3.3 of the utility bot ): who stays unlocked to defend, who acts and with what. The
+ * boards are small and the hands controlled, so the choice reads off the numbers of the plan.
+ */
+
+// The minion phase decision of `me`, as the referee offers it
+function minionDecisionOf(ring: Ring, me: Player): DecisionPoint {
+    const { gameState } = ring
+    gameState.turnPhaseIndex = TurnSequence.indexOf(TurnPhase.Minion)
+    gameState.turnResources.unlocked = true
+    gameState.activePlayerIndex = gameState.competingPlayers.indexOf(me)
+    const decision = getDecisionPoint(gameState, me)
+    if (decision?.kind != DecisionKind.Minion) {
+        throw new ScenarioFailure('No minion phase decision')
+    }
+    return decision
+}
+
+// The plan the utility bot makes for `me`, through its view, with the cards it cannot value left out
+function planAs(
+    ring: Ring,
+    me: Player,
+    options: { profile?: BotProfile; unlockCards?: number } = {},
+): TurnPlan {
+    const decision = minionDecisionOf(ring, me)
+    const view = createPlayerView(ring.gameState, me)
+    try {
+        const viewDecision = getDecisionPoint(view.gameState, view.player)
+        if (!viewDecision) {
+            throw new ScenarioFailure('No decision in the view')
+        }
+        return planTurn({
+            assessment: assess(view.gameState, view.player, options.profile ?? DEFAULT_PROFILE),
+            candidates: optionsOfType(viewDecision.options, 'declareAction')
+                .map(candidateOf)
+                .filter(candidate => candidate.kind != 'other'),
+            mandatory: !decision.options.some(option => option.type == 'endPhase'),
+            unlockCards: options.unlockCards ?? 0,
+        })
+    } finally {
+        view.dispose()
+    }
+}
+
+// The option the utility agent chooses at the minion phase of `me`
+function chooseAs(ring: Ring, me: Player, profile: BotProfile = DEFAULT_PROFILE): BotOption {
+    return chooseThroughView(minionDecisionOf(ring, me), new UtilityAgent(GovernDeck, profile))
+}
+
+// Plays the minion phase of `me` with the utility agent until it ends it ( nobody blocks or reacts )
+function playMinionPhase(ring: Ring, me: Player): BotOption[] {
+    const agent = new UtilityAgent(GovernDeck)
+    const passive = new PassiveAgent()
+    const chosen: BotOption[] = []
+    for (let step = 0; step < 60; step++) {
+        const deciding = getDecidingPlayer(ring.gameState)
+        if (!deciding) {
+            throw new ScenarioFailure('Nobody decides')
+        }
+        if (deciding != me) {
+            stepBot(deciding, passive)
+            continue
+        }
+        const decision = getDecisionPoint(ring.gameState, me)
+        if (!decision) {
+            throw new ScenarioFailure('No decision')
+        }
+        if (decision.kind != DecisionKind.Minion) {
+            stepBot(me, passive)
+            continue
+        }
+        const option = chooseThroughView(decision, agent)
+        chosen.push(option)
+        if (option.type == 'endPhase') {
+            return chosen
+        }
+        applyOption(decision, option)
+    }
+    throw new ScenarioFailure('The minion phase does not end')
+}
+
+const unlockedOf = (me: Player) => me.minionsReadyUnlocked.map(minion => minion.oid).toSorted()
+
+const isAction = (option: BotOption, type: MinionActionType) =>
+    option.type == 'declareAction' && option.action.type == type
+
+type HelperSetup = {
+    mineBleed?: number
+    torpidBlood?: number
+    torpidBleed?: number
+    // Ready vampires of the owner, all with a bleed of 4
+    ready?: number
+    ownerPool?: number
+    // Vampires of the predator of the owner ( my prey ) that bleed it
+    hunters?: number
+    // Vampires of my predator, which bleed me
+    menace?: number
+}
+
+// Four Methuselahs: I have one minion, `other` has a torpid vampire and bleeds my predator, which is
+// the Methuselah that hunts me
+function helperBoard(setup: HelperSetup = {}) {
+    const ring = createRing([GovernDeck, GovernDeck, GovernDeck, GovernDeck])
+    const [me, prey, other, predator] = ring.players
+    addMinions(ring, me, [{ bleed: setup.mineBleed ?? 1, blood: 5 }])
+    const [torpid] = addMinions(ring, other, [
+        { bleed: setup.torpidBleed ?? 4, blood: setup.torpidBlood ?? 5 },
+    ])
+    ring.gameState.moveCardToRegion(torpid, other.torpor)
+    addMinions(
+        ring,
+        other,
+        Array.from({ length: setup.ready ?? 1 }, () => ({ bleed: 4, blood: 5 })),
+    )
+    addMinions(
+        ring,
+        predator,
+        Array.from({ length: setup.menace ?? 1 }, () => ({ bleed: 2 })),
+    )
+    addMinions(
+        ring,
+        prey,
+        Array.from({ length: setup.hunters ?? 0 }, () => ({ bleed: 2 })),
+    )
+    other.pool = setup.ownerPool ?? other.pool
+    holdOnly(ring, me, [])
+    const opening = assessAs(ring, me).rescues.find(rescue => rescue.vampire.oid == torpid.oid)
+    if (!opening) {
+        throw new ScenarioFailure('No rescue opening')
+    }
+    return { ring, me, torpid, opening, plan: () => planAs(ring, me) }
+}
+
+const PLAN_SCENARIOS: { name: string; run: () => void }[] = [
+    {
+        name: 'Turn plan: the last unlocked minion stays home against a predator with a big bleed, and bleeds when nothing is to fear',
+        run() {
+            const board = (predatorBleeds: number[]) => {
+                const ring = createRing([GovernDeck, GovernDeck, GovernDeck])
+                const [me, , predator] = ring.players
+                addMinions(ring, me, [{ bleed: 2 }])
+                addMinions(
+                    ring,
+                    predator,
+                    predatorBleeds.map(bleed => ({ bleed })),
+                )
+                holdOnly(ring, me, [])
+                me.pool = 8
+                return { ring, me }
+            }
+            const afraid = board([4, 4])
+            const home = planAs(afraid.ring, afraid.me)
+            expectEqual(home.actions.length, 0, 'it does nothing')
+            expectEqual(home.reserved.length, 1, 'the minion stays unlocked')
+            expectEqual(
+                chooseAs(afraid.ring, afraid.me).type,
+                'endPhase',
+                'the agent ends the phase',
+            )
+            const kept = home.cases[home.chosen]
+            const sent = home.cases[1 - home.chosen]
+            expectEqual(
+                kept.chanceOfBeingOusted < sent.chanceOfBeingOusted,
+                true,
+                'the other way I am more exposed',
+            )
+
+            const calm = board([])
+            const out = planAs(calm.ring, calm.me)
+            expectEqual(out.actions[0]?.kind, 'bleed', 'it bleeds')
+            expectEqual(out.reserved.length, 0, 'nobody is kept')
+            expectEqual(
+                isAction(chooseAs(calm.ring, calm.me), MinionActionType.Bleed),
+                true,
+                'the agent declares the bleed',
+            )
+        },
+    },
+    {
+        name: 'Turn plan: a vampire without blood must hunt, whatever the table',
+        run() {
+            const ring = createRing([GovernDeck, GovernDeck, GovernDeck])
+            const [me, , predator] = ring.players
+            addMinions(ring, me, [{ blood: 0 }])
+            addMinions(ring, predator, [{ bleed: 4 }, { bleed: 4 }])
+            me.pool = 3
+            const plan = planAs(ring, me)
+            expectEqual(plan.posture, 'forced', 'forced')
+            expectEqual(plan.actions[0]?.kind, 'hunt', 'a hunt')
+            expectEqual(
+                isAction(chooseAs(ring, me), MinionActionType.Hunt),
+                true,
+                'the agent hunts',
+            )
+        },
+    },
+    {
+        name: 'Turn plan: a wake card lets a locked minion defend, so the unlocked one can act',
+        run() {
+            const board = (hand: string[]) => {
+                const ring = createRing([MalkavDeck, MalkavDeck, MalkavDeck])
+                const [me, , predator] = ring.players
+                addMinions(ring, me, [{ locked: true }, { bleed: 2 }])
+                addMinions(ring, predator, [{ bleed: 3 }])
+                holdOnly(ring, me, hand)
+                me.pool = 8
+                return { ring, me }
+            }
+            // How much better it is to keep the unlocked minion home than to send it
+            const margin = (plan: TurnPlan) => plan.cases[0].equity - plan.cases[1].equity
+            const without = board([])
+            const withCard = board([QUI_VIVE_ID])
+            const bare = planAs(without.ring, without.me)
+            const woken = planAs(withCard.ring, withCard.me)
+            expectEqual(bare.cases.length, 2, 'keep it, or send it')
+            expectEqual(
+                margin(woken) < margin(bare),
+                true,
+                `the card takes the place of the minion at home ( ${margin(woken)} against ${margin(bare)} )`,
+            )
+            expectEqual(bare.reserved.length, 1, 'without the card it stays')
+            expectEqual(woken.reserved.length, 0, 'with the card it acts')
+            expectEqual(woken.actions[0]?.kind, 'bleed', 'it bleeds')
+        },
+    },
+    {
+        name: 'Turn plan: when my prey can be finished every minion is sent, the pool it gives swallows the lunge',
+        run() {
+            const ring = createRing([GovernDeck, GovernDeck, GovernDeck])
+            const [me, prey, predator] = ring.players
+            addMinions(ring, me, [{ bleed: 2 }, { bleed: 2 }, { bleed: 2 }])
+            addMinions(ring, predator, [{ bleed: 2 }, { bleed: 2 }, { bleed: 2 }])
+            holdOnly(ring, me, [])
+            me.pool = 5
+            prey.pool = 6
+            const plan = planAs(ring, me)
+            expectEqual(plan.posture, 'lunge', 'a lunge')
+            expectEqual(plan.reserved.length, 0, 'nobody is kept')
+            expectEqual(
+                plan.actions.filter(action => action.kind == 'bleed').length,
+                3,
+                'three bleeds',
+            )
+            expectEqual(plan.cases[plan.chosen].chanceToOust, 1, 'the prey is finished')
+            expectEqual(
+                plan.cases[plan.chosen].chanceOfBeingOusted,
+                0,
+                'and the lunge does not reach',
+            )
+        },
+    },
+    {
+        name: 'Turn plan: an unlock card lets the last minion bleed and still defend',
+        run() {
+            const ring = createRing([GovernDeck, GovernDeck, GovernDeck])
+            const [me, , predator] = ring.players
+            addMinions(ring, me, [{ bleed: 2 }])
+            addMinions(ring, predator, [{ bleed: 4 }, { bleed: 4 }])
+            holdOnly(ring, me, [])
+            me.pool = 8
+            const without = planAs(ring, me)
+            expectEqual(without.actions.length, 0, 'without the card it stays home')
+            const withCard = planAs(ring, me, { unlockCards: 1 })
+            expectEqual(withCard.actions[0]?.kind, 'bleed', 'with it, it bleeds')
+            expectEqual(withCard.cases[withCard.chosen].unlocked.length, 1, 'and stays a blocker')
+            expectEqual(withCard.reserved.length, 0, 'nobody is kept back')
+            expectClose(
+                withCard.cases[withCard.chosen].chanceOfBeingOusted,
+                without.cases[without.chosen].chanceOfBeingOusted,
+                'the defence is the same as at home',
+                1e-9,
+            )
+        },
+    },
+    {
+        name: 'Turn plan: the small bleeds go first when the prey may bounce, the big one first otherwise',
+        run() {
+            const obfuscate = { [Discipline.Obfuscate]: DisciplineLevel.INFERIOR }
+            const ring = createRing([MalkavDeck, MalkavDeck, MalkavDeck])
+            const [me, prey] = ring.players
+            addMinions(ring, me, [
+                { bleed: 3, disciplines: obfuscate },
+                { bleed: 1, disciplines: obfuscate },
+            ])
+            const dominate = { disciplines: { [Discipline.Dominate]: DisciplineLevel.INFERIOR } }
+            addMinions(ring, prey, [dominate, dominate, dominate])
+            holdOnly(ring, me, [LOST_IN_CROWDS_ID, CLOAK_ID])
+            const order = (profile: BotProfile) =>
+                planAs(ring, me, { profile })
+                    .actions.filter(action => action.kind == 'bleed')
+                    .map(action => action.actor.bleed)
+                    .join()
+            const risk = planAs(ring, me).bounceRisk
+            expectEqual(risk > 0, true, 'the prey may bounce')
+            const bait = (above: number): BotProfile => ({
+                ...DEFAULT_PROFILE,
+                plan: { ...DEFAULT_PROFILE.plan, baitAbove: above },
+            })
+            expectEqual(order(bait(risk / 2)), '1,3', 'bait: the small one first')
+            expectEqual(order(bait(risk * 2)), '3,1', 'no bait: the big one first')
+        },
+    },
+    {
+        name: 'Turn plan: a minion keeps clear of a prey whose blocker would win the fight, and bleeds when it cannot block',
+        run() {
+            const board = (blockerLocked: boolean) => {
+                const ring = createRing([GovernDeck, GovernDeck, GovernDeck])
+                const [me, prey] = ring.players
+                addMinions(ring, me, [{ bleed: 2, strength: 1, blood: 2 }])
+                addMinions(ring, prey, [
+                    { strength: 5, blood: 8, intercept: 1, locked: blockerLocked },
+                ])
+                holdOnly(ring, me, [])
+                return { ring, me }
+            }
+            const blocked = board(false)
+            expectEqual(
+                planAs(blocked.ring, blocked.me).actions.filter(action => action.kind == 'bleed')
+                    .length,
+                0,
+                'it waits',
+            )
+            const open = board(true)
+            expectEqual(planAs(open.ring, open.me).actions[0]?.kind, 'bleed', 'it bleeds')
+        },
+    },
+    {
+        name: 'Turn plan: a torpid vampire of mine leaves torpor, a rescue is made only for a vampire that is worth it',
+        run() {
+            const ring = createRing([GovernDeck, GovernDeck, GovernDeck, GovernDeck])
+            const [me, , other, predator] = ring.players
+            const [mine] = addMinions(ring, me, [
+                { bleed: 0, blood: 5 },
+                { bleed: 0, blood: 5 },
+            ])
+            const [theirs] = addMinions(ring, other, [{ bleed: 2, blood: 3 }])
+            const [menace] = addMinions(ring, predator, [{ bleed: 2, blood: 3 }])
+            ring.gameState.moveCardToRegion(theirs, other.torpor)
+            ring.gameState.moveCardToRegion(menace, predator.torpor)
+            holdOnly(ring, me, [])
+            const plan = planAs(ring, me)
+            const targets = plan.actions.flatMap(action =>
+                action.option.action.type == MinionActionType.RescueFromTorpor ?
+                    [action.option.action.target.oid]
+                :   [],
+            )
+            expectEqual(
+                targets.includes(theirs.oid),
+                true,
+                'the vampire of the one that bleeds my predator',
+            )
+            expectEqual(targets.includes(menace.oid), false, 'never the vampire of my predator')
+
+            // Mine, in torpor with the blood to leave it
+            ring.gameState.moveCardToRegion(mine, me.torpor)
+            mine.blood = 4
+            expectEqual(planAs(ring, me).actions[0]?.kind, 'leaveTorpor', 'it leaves torpor first')
+        },
+    },
+    {
+        name: 'Turn plan: a rescue of the vampire of the one that bleeds my predator is made when it beats the minion bleeding, and is worth more the harder that vampire bleeds',
+        run() {
+            const board = (mineBleed: number, theirBleed: number) => {
+                const ring = createRing([GovernDeck, GovernDeck, GovernDeck, GovernDeck])
+                const [me, , other, predator] = ring.players
+                addMinions(ring, me, [{ bleed: mineBleed, blood: 5 }])
+                const [theirs] = addMinions(ring, other, [
+                    { bleed: theirBleed, blood: 5 },
+                    { bleed: theirBleed, blood: 5 },
+                ])
+                ring.gameState.moveCardToRegion(theirs, other.torpor)
+                addMinions(ring, predator, [{ bleed: 2 }])
+                holdOnly(ring, me, [])
+                const plan = planAs(ring, me)
+                const opening = assessAs(ring, me).rescues.find(
+                    rescue => rescue.vampire.oid == theirs.oid,
+                )
+                if (!opening) {
+                    throw new ScenarioFailure('No rescue opening')
+                }
+                const rescues = plan.actions.filter(action => action.kind == 'rescue')
+                return { plan, value: opening.value, rescues, theirs }
+            }
+            const weak = board(1, 2)
+            const middle = board(1, 4)
+            const strong = board(1, 6)
+            expectEqual(
+                weak.value < middle.value && middle.value < strong.value,
+                true,
+                `the harder it bleeds the more it is worth ( ${weak.value}, ${middle.value}, ${strong.value} )`,
+            )
+            expectEqual(
+                strong.plan.actions[0]?.kind,
+                'rescue',
+                'a weak bleed gives way to a rescue',
+            )
+            const target =
+                strong.rescues[0]?.option.action.type == MinionActionType.RescueFromTorpor ?
+                    strong.rescues[0].option.action.target.oid
+                :   null
+            expectEqual(target, strong.theirs.oid, 'the torpid vampire is the one rescued')
+
+            // A bleed of 3 on my prey is worth more than that rescue
+            const bleeding = board(3, 6)
+            expectEqual(bleeding.plan.actions[0]?.kind, 'bleed', 'a good bleed is kept')
+            expectEqual(bleeding.rescues.length, 0, 'no rescue then')
+        },
+    },
+    {
+        name: 'Rescue worth: a vampire with blood and equipment is worth more, one that comes back with no blood is worth less',
+        run() {
+            const poor = helperBoard({ torpidBlood: 2 }).opening
+            const rich = helperBoard({ torpidBlood: 8 }).opening
+            expectEqual(
+                rich.value > poor.value,
+                true,
+                `blood ( ${poor.value} for 2, ${rich.value} for 8 )`,
+            )
+
+            // Flat equipment: each attached card adds, up to the maximum of the profile
+            const equip = (cards: number) =>
+                returnWorth(
+                    {
+                        ...rich,
+                        vampire: {
+                            ...rich.vampire,
+                            attached: Array.from({ length: cards }, () => 'card'),
+                        },
+                    },
+                    rich.vampire.blood,
+                    DEFAULT_PROFILE,
+                )
+            expectEqual(equip(1) > equip(0) && equip(2) > equip(1), true, 'equipment')
+            expectEqual(
+                equip(9),
+                equip(DEFAULT_PROFILE.helpers.equipmentMax),
+                'the flat value stops',
+            )
+
+            // Back with no blood: it must hunt first, and keeps a share of its worth
+            const hungry = returnWorth(rich, 0, DEFAULT_PROFILE)
+            const fed = returnWorth(rich, 1, DEFAULT_PROFILE)
+            expectEqual(hungry < fed, true, 'it hunts first')
+            expectEqual(hungry > 0, true, 'but it is back')
+            expectEqual(
+                helperBoard({ torpidBlood: 0 }).opening.value <
+                    helperBoard({ torpidBlood: 1 }).opening.value,
+                true,
+                'an empty vampire in the table',
+            )
+        },
+    },
+    {
+        name: 'Rescue worth: a Methuselah that is about to be ousted, or that has many other minions, is worth helping less',
+        run() {
+            const base = helperBoard({ hunters: 2 }).opening
+            expectClose(base.survival, 1, 'the pool of the owner is not at stake', 1e-9)
+
+            const doomed = helperBoard({ hunters: 2, ownerPool: 1 }).opening
+            expectEqual(doomed.survival < 0.2, true, `the owner is finished ( ${doomed.survival} )`)
+            expectEqual(
+                Math.abs(doomed.value) < base.value / 3,
+                true,
+                `so is its vampire ( ${doomed.value} against ${base.value} )`,
+            )
+
+            const alone = helperBoard({ ready: 0 }).opening
+            const crowded = helperBoard({ ready: 3 }).opening
+            expectEqual(
+                crowded.value < alone.value / 2,
+                true,
+                `many minions already ( ${crowded.value} against ${alone.value} )`,
+            )
+        },
+    },
+    {
+        name: 'Rescue worth: the rescuer pays the cost when the vampire has little blood, so it comes back able to bleed',
+        run() {
+            const full = helperBoard({
+                mineBleed: 0,
+                ready: 0,
+                menace: 0,
+                torpidBleed: 6,
+                torpidBlood: 8,
+            })
+            const paidBy = (board: ReturnType<typeof helperBoard>) => {
+                const rescue = board.plan().actions.find(action => action.kind == 'rescue')
+                return rescue?.option.action.type == MinionActionType.RescueFromTorpor ?
+                        (rescue.option.action.bloodPaidByActingMinion ?? 0)
+                    :   null
+            }
+            expectEqual(paidBy(full), 0, 'a vampire with blood pays all of it')
+
+            const low = helperBoard({
+                mineBleed: 0,
+                ready: 0,
+                menace: 0,
+                torpidBleed: 6,
+                torpidBlood: 1,
+            })
+            expectEqual(paidBy(low), 2, 'with 1 blood left it would have to hunt: the rescuer pays')
+        },
+    },
+    {
+        name: 'Turn plan: the minion phase played by the agent ends with the minions the plan keeps unlocked',
+        run() {
+            const ring = createRing([GovernDeck, GovernDeck, GovernDeck])
+            const [me, , predator] = ring.players
+            addMinions(ring, me, [{ bleed: 2 }, { bleed: 2 }, { bleed: 2 }])
+            addMinions(ring, predator, [{ bleed: 3 }, { bleed: 3 }])
+            holdOnly(ring, me, [])
+            me.pool = 7
+            const first = planAs(ring, me)
+            const kept = first.reserved.map(minion => minion.oid).toSorted()
+            expectEqual(kept.length > 0 && kept.length < 3, true, 'a part of them is kept')
+            const options = playMinionPhase(ring, me)
+            expectEqual(options.at(-1)?.type, 'endPhase', 'the phase ends')
+            expectEqual(unlockedOf(me).join(), kept.join(), 'the ones the plan kept are unlocked')
+            expectEqual(
+                options.filter(option => option.type == 'declareAction').length,
+                3 - kept.length,
+                'the others acted',
+            )
+        },
+    },
+    {
+        name: 'Turn plan: it prints, and a plan is a function of the view',
+        run() {
+            const ring = createRing([GovernDeck, GovernDeck, GovernDeck])
+            const [me, , predator] = ring.players
+            addMinions(ring, me, [{ bleed: 2 }, { bleed: 1 }])
+            addMinions(ring, predator, [{ bleed: 2 }])
+            const lines = describeTurnPlan(planAs(ring, me)).join('\n')
+            expectEqual(lines.includes('equity'), true, 'the reserves are described')
+            expectEqual(
+                describeTurnPlan(planAs(ring, me)).join('\n'),
+                lines,
+                'the same view makes the same plan',
+            )
+        },
+    },
+]
+
+/**
+ * Bloat ( step 3.3 of the utility bot ): what each Methuselah takes back from the blood bank, and what it
+ * changes in the plan. The prey and the others hold no card in hand, so the believed income is 0 and the
+ * numbers can be worked out by hand.
+ */
+
+const dollOn = (vampire: Vampire) =>
+    attachInPlay(findAnyCard(vampire.controller, BLOOD_DOLL_ID), vampire)
+
+// Every Methuselah is worth its place in the ring: the stake of the prey is 1
+const FLAT_STAKES: BotProfile = {
+    ...DEFAULT_PROFILE,
+    stakes: { ...DEFAULT_PROFILE.stakes, dangerGain: 0, leaderGain: 0, usefulGain: 0 },
+}
+
+const minionOf = (assessment: Assessment, vampire: Vampire) => {
+    const found = assessment.table.me.minions.find(minion => minion.oid == vampire.oid)
+    if (!found) {
+        throw new ScenarioFailure(`No profile for ${vampire.name}`)
+    }
+    return found
+}
+
+const BLOAT_SCENARIOS: { name: string; run: () => void }[] = [
+    {
+        name: 'Bloat: what is in play is public, a Blood Doll carries the blood of its vampire to the pool and a hunting ground puts blood back',
+        run() {
+            const ring = createRing([AttachDeck, AttachDeck, AttachDeck])
+            const [me, prey] = ring.players
+            holdOnly(ring, me, [])
+            emptyHand(ring.gameState, prey)
+            const [theirs] = addMinions(ring, prey, [{ blood: 1, locked: true }])
+            theirs.minionAttrs.capacity = 6
+            const bloat = () => assessAs(ring, me).bloat[prey.oid]
+            expectEqual(bloat().pool + bloat().blood, 0, 'nothing in play, nothing regained')
+
+            dollOn(theirs)
+            expectClose(bloat().pool, 1 / 3, 'one blood, spread over the turns looked ahead')
+            theirs.blood = 4
+            expectClose(bloat().pool, 1, 'a Doll moves one blood a turn')
+            expectEqual(bloat().blood, 0, 'and puts none back')
+
+            theirs.blood = 1
+            ring.gameState.moveCardToRegion(findAnyCard(prey, ASYLUM_HUNTING_GROUND_ID), prey.ready)
+            expectClose(bloat().blood, 1, 'the ground puts a blood on the vampire')
+            expectClose(bloat().pool, 1, 'which the Doll carries over: 1/3 and the 1 put back')
+        },
+    },
+    {
+        name: 'Bloat: my hand is read exactly, the hand of another is believed from the cards it showed',
+        run() {
+            const ring = createRing([MalkavDeck, MalkavDeck, MalkavDeck])
+            const [me, prey] = ring.players
+            const [mine] = addMinions(ring, me, [{ blood: 1 }])
+            mine.minionAttrs.capacity = 5
+            holdOnly(ring, me, [LIFE_IN_THE_CITY_ID])
+            expectClose(
+                assessAs(ring, me).bloat[me.oid].blood,
+                1,
+                'Life in the City puts a blood back',
+            )
+            mine.blood = 5
+            expectEqual(assessAs(ring, me).bloat[me.oid].blood, 0, 'with no room for it, nothing')
+            mine.blood = 1
+            holdOnly(ring, me, [])
+            expectEqual(assessAs(ring, me).bloat[me.oid].blood, 0, 'with no card, nothing')
+
+            const held = prey.hand.cards.length
+            const believed = assessAs(ring, me).bloat[prey.oid]
+            const { opponentPrior, bloat } = DEFAULT_PROFILE
+            expectClose(
+                believed.pool,
+                Math.min(1, (opponentPrior.density.poolGain ?? 0) * held) * bloat.poolPerCard,
+                'the pool of the cards it may hold, one is played per turn',
+            )
+            expectEqual(believed.pool > 0, true, 'a hand of the others is worth something')
+        },
+    },
+    {
+        name: 'Bloat: a bleed on a Methuselah that takes pool back only counts above what it takes back, an oust is not eaten',
+        run() {
+            const board = (doll: boolean, pool: number) => {
+                const ring = createRing([AttachDeck, AttachDeck, AttachDeck])
+                const [me, prey] = ring.players
+                const [mine] = addMinions(ring, me, [{ bleed: 3 }])
+                const [theirs] = addMinions(ring, prey, [{ blood: 4, locked: true }])
+                holdOnly(ring, me, [])
+                emptyHand(ring.gameState, prey)
+                prey.pool = pool
+                if (doll) {
+                    dollOn(theirs)
+                }
+                const assessment = assessAs(ring, me)
+                const gain = gainOfBleeds(
+                    assessment,
+                    bleedOnPrey(assessment, [minionOf(assessment, mine)]),
+                )
+                return { gain, taken: gain.drain / assessment.stakes[prey.oid].weight }
+            }
+            expectClose(board(false, 10).taken, 3, 'a bleed of 3 takes 3')
+            expectClose(
+                board(true, 10).taken,
+                2.5,
+                'the pool it takes back eats half of the first point',
+            )
+            const lethal = board(true, 3)
+            expectClose(lethal.taken, 3, 'the pool a Methuselah is ousted with does not come back')
+            expectEqual(lethal.gain.oust > 0, true, 'and it is an oust')
+        },
+    },
+    {
+        name: 'Bloat: what I take back each turn softens the pool I lose to the lunge of my predator, not the chance of being ousted',
+        run() {
+            const board = (doll: boolean) => {
+                const ring = createRing([AttachDeck, AttachDeck, AttachDeck])
+                const [me, , predator] = ring.players
+                const [mine] = addMinions(ring, me, [{ bleed: 1, blood: 4 }])
+                addMinions(ring, predator, [{ bleed: 4 }, { bleed: 4 }])
+                holdOnly(ring, me, [])
+                me.pool = 12
+                if (doll) {
+                    dollOn(mine)
+                }
+                const assessment = assessAs(ring, me)
+                return outcomeOfTurn(assessment, {
+                    actors: [],
+                    reserved: [minionOf(assessment, mine)],
+                })
+            }
+            const bare = board(false)
+            const dolled = board(true)
+            expectClose(
+                dolled.chanceOfBeingOusted,
+                bare.chanceOfBeingOusted,
+                'the master phase is after the lunge: the ouster is the same',
+                1e-9,
+            )
+            expectClose(dolled.expectedLoss, bare.expectedLoss, 'so is the pool taken', 1e-9)
+            expectClose(bare.lastingLoss, bare.expectedLoss, 'with nothing to take back, all lasts')
+            expectEqual(
+                dolled.lastingLoss < dolled.expectedLoss - 0.3,
+                true,
+                `part of it is made good ( ${dolled.lastingLoss} of ${dolled.expectedLoss} )`,
+            )
+        },
+    },
+    {
+        name: 'Bloat: the blood a Blood Doll carries to the pool within the horizon is worth a point of pool, the rest the price of blood',
+        run() {
+            const ring = createRing([AttachDeck, AttachDeck, AttachDeck])
+            const [me] = ring.players
+            const [plain, carrier] = addMinions(ring, me, [{ blood: 2 }, { blood: 2 }])
+            dollOn(carrier)
+            const worth = (vampire: Vampire, delta: number) => {
+                const table = snapshotAs(ring, me)
+                const minion = table.me.minions.find(candidate => candidate.oid == vampire.oid)
+                if (!minion) {
+                    throw new ScenarioFailure(`No profile for ${vampire.name}`)
+                }
+                return bloodChange(DEFAULT_PROFILE, minion, delta)
+            }
+            expectClose(worth(plain, 1), 0.5, 'a blood is worth half a point of pool')
+            expectClose(worth(carrier, 1), 1, 'one a Doll carries over is a point of pool')
+            expectClose(worth(carrier, -1), -1, 'and losing it costs as much')
+            carrier.blood = 6
+            expectClose(worth(carrier, 1), 0.5, 'past what a Doll carries in 3 turns it is blood')
+        },
+    },
+    {
+        name: 'Turn plan: a vampire that carries a Blood Doll hunts for more, the blood is pool a turn later',
+        run() {
+            const board = (doll: boolean) => {
+                const ring = createRing([AttachDeck, AttachDeck, AttachDeck])
+                const [me] = ring.players
+                const [mine] = addMinions(ring, me, [{ bleed: 0, blood: 2 }])
+                mine.minionAttrs.capacity = 6
+                mine.vampireAttrs.hunt = 1
+                if (doll) {
+                    dollOn(mine)
+                }
+                holdOnly(ring, me, [])
+                return planAs(ring, me).actions[0]
+            }
+            const bare = board(false)
+            const dolled = board(true)
+            expectEqual(bare?.kind, 'hunt', 'it hunts')
+            expectClose(bare?.value ?? 0, 0.5, 'a blood')
+            expectEqual(dolled?.kind, 'hunt', 'and with a Doll')
+            expectClose(dolled?.value ?? 0, 1, 'a point of pool, a turn later')
+        },
+    },
+    {
+        name: 'Turn plan: a small bleed on a Methuselah that takes pool back is not worth the minion, which hunts instead',
+        run() {
+            const board = (dolls: number) => {
+                const ring = createRing([AttachDeck, AttachDeck, AttachDeck])
+                const [me, prey] = ring.players
+                const [mine] = addMinions(ring, me, [{ bleed: 2, blood: 3 }])
+                mine.minionAttrs.capacity = 8
+                mine.vampireAttrs.hunt = 3
+                const theirs = addMinions(ring, prey, [
+                    { blood: 4, locked: true },
+                    { blood: 4, locked: true },
+                ])
+                theirs.slice(0, dolls).forEach(dollOn)
+                holdOnly(ring, me, [])
+                emptyHand(ring.gameState, prey)
+                prey.pool = 10
+                return planAs(ring, me, { profile: FLAT_STAKES }).actions[0]?.kind
+            }
+            expectEqual(board(0), 'bleed', 'against a prey that takes nothing back, it bleeds')
+            expectEqual(board(2), 'hunt', 'against one that takes 2 back, the bleed is half eaten')
+        },
+    },
+    {
+        name: 'Bloat: a Minion Tap in my hand counts the blood of my richest vampire at what it is worth less than pool',
+        run() {
+            const ring = createRing([MINION_TAP_DECK, MINION_TAP_DECK, MINION_TAP_DECK])
+            const [me] = ring.players
+            addMinions(ring, me, [{ blood: 4 }, { blood: 2 }])
+            holdOnly(ring, me, [])
+            expectEqual(assessAs(ring, me).bloat[me.oid].pool, 0, 'no card, nothing')
+            holdOnly(ring, me, [MINION_TAP_ID])
+            const { caution, bloodValue } = DEFAULT_PROFILE.plan
+            expectClose(
+                assessAs(ring, me).bloat[me.oid].pool,
+                4 * (caution - bloodValue),
+                'the blood of the richest, less what the blood is worth',
+            )
+        },
+    },
+    {
+        name: 'Bloat: it prints',
+        run() {
+            const ring = createRing([AttachDeck, AttachDeck, AttachDeck])
+            const [me, prey] = ring.players
+            addMinions(ring, me, [{}])
+            const [theirs] = addMinions(ring, prey, [{ blood: 4, locked: true }])
+            dollOn(theirs)
+            const lines = describeAssessment(assessAs(ring, me)).join('\n')
+            expectEqual(lines.includes('from the blood bank'), true, 'the income is described')
+        },
+    },
+]
+
 function runScenarios(filters: string[]): ScenarioResult[] {
     return [
         ...SCENARIOS,
@@ -8832,6 +9709,8 @@ function runScenarios(filters: string[]): ScenarioResult[] {
         ...UTILITY_SCENARIOS,
         ...SUMMARY_SCENARIOS,
         ...ASSESSMENT_SCENARIOS,
+        ...PLAN_SCENARIOS,
+        ...BLOAT_SCENARIOS,
     ]
         .filter(({ name }) => filters.some(filter => name.toLowerCase().includes(filter)))
         .map(({ name, run }) => {

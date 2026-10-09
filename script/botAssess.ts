@@ -20,10 +20,12 @@ import {
 import { GovernAgent } from '@/shared/bot/agents/governAgent.ts'
 import { BrujahDeck, GovernDeck, MalkavDeck, NosferatuDeck } from '@/shared/bot/decks.ts'
 import { createPlayerView } from '@/shared/bot/playerView.ts'
-import { getDecidingPlayer } from '@/shared/bot/referee.ts'
+import { getDecidingPlayer, getDecisionPoint } from '@/shared/bot/referee.ts'
 import { Assessment, assess, survivalCurve } from '@/shared/bot/utility/assessment.ts'
 import { DEFAULT_PROFILE } from '@/shared/bot/utility/profile.ts'
-import { describeAssessment } from '@/shared/bot/utility/describeAssessment.ts'
+import { describeAssessment, describeTurnPlan } from '@/shared/bot/utility/describeAssessment.ts'
+import { candidateOf, planTurn, TurnPlan } from '@/shared/bot/utility/turnPlan.ts'
+import { DecisionKind, optionsOfType } from '@/shared/bot/types.ts'
 import { DeckList } from '@/shared/types/gateway.ts'
 import { TurnPhase } from '@/shared/const/model.ts'
 
@@ -135,6 +137,58 @@ function findProblems(assessment: Assessment): string[] {
     return problems
 }
 
+// What a sane turn plan looks like, whatever the board
+function findPlanProblems(plan: TurnPlan, assessment: Assessment): string[] {
+    const problems: string[] = []
+    const check = (value: number, what: string, min: number, max = Infinity) => {
+        if (!Number.isFinite(value) || value < min - 1e-9 || value > max + 1e-9) {
+            problems.push(`${what} is ${value}`)
+        }
+    }
+    const unlocked = assessment.table.me.minions.filter(minion => minion.state == 'unlocked')
+    for (const minion of plan.reserved) {
+        if (!unlocked.some(one => one.oid == minion.oid)) {
+            problems.push(`${minion.name} is kept home and is not an unlocked minion`)
+        }
+    }
+    const acting = new Map<string, string>()
+    for (const action of plan.actions) {
+        check(action.value, `value of ${action.kind} by ${action.actor.name}`, -Infinity)
+        if (plan.reserved.some(minion => minion.oid == action.actor.oid)) {
+            problems.push(`${action.actor.name} is kept home and acts`)
+        }
+        const key = `${action.actor.oid}/${action.kind}`
+        if (acting.has(key)) {
+            problems.push(`${action.actor.name} does ${action.kind} twice in the plan`)
+        }
+        acting.set(key, action.kind)
+    }
+    if (plan.posture != 'forced') {
+        if (plan.cases.length != unlockedWithActions(plan) + 1) {
+            problems.push(`${plan.cases.length} reserves played out`)
+        }
+        const best = Math.max(...plan.cases.map(one => one.equity))
+        if (plan.cases[plan.chosen]?.equity === undefined) {
+            problems.push('no reserve is chosen')
+        } else if (plan.cases[plan.chosen].equity < best - 1e-9) {
+            problems.push('the reserve chosen is not the best')
+        }
+        for (const one of plan.cases) {
+            check(one.equity, 'equity', -Infinity)
+            check(one.chanceToOust, 'chance to oust', 0, 1)
+            check(one.chanceOfBeingOusted, 'chance of being ousted', 0, 1)
+            check(one.combat, 'fights', 0)
+            check(one.cards, 'cards', 0)
+        }
+    }
+    return problems
+}
+
+// The minions that could act: the reserves played out are one more than that
+function unlockedWithActions(plan: TurnPlan): number {
+    return plan.cases.length > 0 ? plan.cases[0].kept.length : 0
+}
+
 registerLogger({
     captureException: error => console.error(error),
     captureMessage: message => console.warn(message),
@@ -166,6 +220,7 @@ function playGame(
 
 if (args.sweep > 0) {
     let assessments = 0
+    let plans = 0
     const failures: string[] = []
     for (let game = 1; game <= args.sweep; game++) {
         const players = 2 + (game % 4)
@@ -177,15 +232,38 @@ if (args.sweep > 0) {
                 names.map(name => DECKS[name]),
                 gameState => {
                     steps++
-                    const deciding = steps % 7 == 0 ? getDecidingPlayer(gameState) : null
+                    const minionPhase =
+                        gameState.turnPhase == TurnPhase.Minion &&
+                        !gameState.action &&
+                        !gameState.combat
+                    const deciding =
+                        steps % 7 == 0 || minionPhase ? getDecidingPlayer(gameState) : null
                     if (!deciding) {
                         return
                     }
                     const view = createPlayerView(gameState, deciding)
                     try {
-                        const problems = findProblems(
-                            assess(view.gameState, view.player, DEFAULT_PROFILE),
-                        )
+                        const assessment = assess(view.gameState, view.player, DEFAULT_PROFILE)
+                        const problems = steps % 7 == 0 ? findProblems(assessment) : []
+                        const decision =
+                            minionPhase ? getDecisionPoint(view.gameState, view.player) : null
+                        if (decision?.kind == DecisionKind.Minion) {
+                            const plan = planTurn({
+                                assessment,
+                                candidates: optionsOfType(decision.options, 'declareAction')
+                                    .map(candidateOf)
+                                    .filter(candidate => candidate.kind != 'other'),
+                                mandatory: !decision.options.some(
+                                    option => option.type == 'endPhase',
+                                ),
+                                unlockCards: 0,
+                            })
+                            plans++
+                            problems.push(...findPlanProblems(plan, assessment))
+                            if (process.env.ASSESS_DEBUG && problems.length > 0) {
+                                console.log(describeTurnPlan(plan).join(String.fromCharCode(10)))
+                            }
+                        }
                         assessments++
                         if (problems.length > 0) {
                             if (process.env.ASSESS_DEBUG && failures.length == 0) {
@@ -212,7 +290,7 @@ if (args.sweep > 0) {
     }
     failures.forEach(failure => console.log(failure))
     console.log(
-        `${args.sweep} games of 2 to 5 players, ${assessments} assessments, ${failures.length} failures`,
+        `${args.sweep} games of 2 to 5 players, ${assessments} assessments, ${plans} turn plans, ${failures.length} failures`,
     )
     process.exit(failures.length > 0 ? 1 : 0)
 }

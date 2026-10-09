@@ -40,6 +40,11 @@ export type MinionProfile = {
     disciplines: Partial<Disciplines>
     // Its own bleed ( crypt text included ): what an action of it bleeds, before any card
     bleed: number
+    // The blood a hunt of it gives ( 0 for a minion that is not a vampire )
+    hunt: number
+    // The blood that the cards attached to it carry from it to the pool, at most, each turn ( a Blood Doll,
+    // a Vessel ): 0 when it has none
+    bloodMove: number
     // The strength it starts a combat with, attached cards included
     strength: number
     // What its crypt card changes to the stealth of its undirected actions
@@ -101,6 +106,8 @@ export function profileMinion(minion: Minion): MinionProfile {
         capacity: minion.minionAttrs.capacity,
         disciplines: minion.minionAttrs.disciplines,
         bleed: minion.minionAttrs.bleed,
+        hunt: minion.isVampire() ? minion.vampireAttrs.hunt : 0,
+        bloodMove: sum(attached, effect => (effect.type == 'moveBlood' ? effect.amount : 0)),
         strength: getMinionStrength(minion),
         undirectedStealth: sum(crypt, effect =>
             effect.type == 'undirectedStealth' ? effect.amount : 0,

@@ -825,7 +825,10 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
                 if (!implementation) {
                     throw new InvalidBotMove(`${option.card.name} has no implementation`)
                 }
-                check(implementation.applyPlayEffect(option.target), 'effect on play')
+                check(
+                    implementation.applyPlayEffect(option.target, option.amount),
+                    'effect on play',
+                )
             }
             break
 

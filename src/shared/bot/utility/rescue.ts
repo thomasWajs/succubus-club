@@ -68,6 +68,24 @@ export function returnsOf(
         })
 }
 
+// What the return of a vampire is worth, in pool: its drain, if its Methuselah is still there to use it,
+// raised by what keeps it in the game ( blood, equipment ), and cut when it comes back with no blood and
+// must hunt first. `bloodAfter` is what is left once the cost is paid, so how the rescuer splits the cost
+// changes the worth.
+export function returnWorth(
+    opening: { drain: number; survival: number; vampire: MinionProfile },
+    bloodAfter: number,
+    profile: BotProfile,
+): number {
+    const { bloodStay, equipmentStay, equipmentMax, hungryShare } = profile.helpers
+    const { vampire } = opening
+    const stay =
+        1 +
+        bloodStay * Math.min(1, Math.max(0, bloodAfter) / Math.max(1, vampire.capacity)) +
+        equipmentStay * Math.min(vampire.attached.length, equipmentMax)
+    return opening.drain * opening.survival * stay * (bloodAfter > 0 ? 1 : hungryShare)
+}
+
 // At most this many torpid vampires of a Methuselah are weighed: each one doubles the boards to play out
 const MAX_RETURNS = 3
 
@@ -92,7 +110,13 @@ export function boardsOf(
     const candidates = returnsOf(table, owner, profile)
         .map(back => {
             if (forced?.oid == back.minion.oid) {
-                return { ...back, chance: forced.returns ? 1 : 0, blood: back.minion.blood }
+                // The drain of a return is the one of a vampire able to bleed: what it lacks in blood is
+                // priced apart ( returnWorth )
+                return {
+                    ...back,
+                    chance: forced.returns ? 1 : 0,
+                    blood: Math.max(1, back.minion.blood),
+                }
             }
             return back
         })

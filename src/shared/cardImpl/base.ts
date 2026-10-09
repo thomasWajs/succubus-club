@@ -177,7 +177,13 @@ export abstract class MasterCardImplementation {
         return null
     }
 
-    applyPlayEffect(_minion: Minion): Validity {
+    // The amounts the player can choose for the effect on a target ( "move any amount of blood" ), or
+    // null when the effect has no amount to choose
+    getPlayAmounts(_minion: Minion): number[] | null {
+        return null
+    }
+
+    applyPlayEffect(_minion: Minion, _amount?: number): Validity {
         return Invalid('The card has no effect on play')
     }
 

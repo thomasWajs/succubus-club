@@ -806,6 +806,13 @@ class InterpretedMaster extends MasterCardImplementation {
         return validity
     }
 
+    // The vampires of the player that have blood to move, in torpor too
+    private vampiresWithBlood(): Vampire[] {
+        return [...this.player.vampiresReady, ...this.player.vampiresInTorpor].filter(
+            vampire => vampire.blood > 0,
+        )
+    }
+
     getPlayTargets(): Minion[] | null {
         const play = this.play
         if (play?.attachTo) {
@@ -813,21 +820,64 @@ class InterpretedMaster extends MasterCardImplementation {
                 candidate => !(play.onePerMinion && hasAttachedCopy(candidate, this.def.id)),
             )
         }
-        return play?.onPlay ? this.readyVampiresBelowCapacity() : null
+        if (!play?.onPlay) {
+            return null
+        }
+        return play.onPlay.target == 'vampireWithBlood' ?
+                this.vampiresWithBlood()
+            :   this.readyVampiresBelowCapacity()
     }
 
-    applyPlayEffect(minion: Minion): Validity {
+    getPlayAmounts(minion: Minion): number[] | null {
+        const effects = this.play?.onPlay?.effects ?? []
+        if (!effects.some(effect => effect.type == 'bloodToPool')) {
+            return null
+        }
+        return Array.from({ length: minion.blood }, (_, index) => index + 1)
+    }
+
+    applyPlayEffect(minion: Minion, amount?: number): Validity {
         const play = this.play
         if (play?.attachTo) {
             return this.getPlayTargets()?.includes(minion) ?
                     botMutations.attachCard.act(this.player, { card: this.card, minion })
                 :   Invalid('The card cannot be put on this minion')
         }
-        const vampire = this.readyVampiresBelowCapacity().find(candidate => candidate == minion)
-        if (!play?.onPlay || !vampire) {
-            return Invalid('The vampire cannot gain blood')
+        const vampire = this.getPlayTargets()?.find(candidate => candidate == minion)
+        if (!play?.onPlay || !vampire?.isVampire()) {
+            return Invalid('The card has no effect on this minion')
         }
-        return this.gainBlood(play.onPlay.effects, vampire)
+        let validity: Validity = VALID
+        for (const effect of play.onPlay.effects) {
+            switch (effect.type) {
+                case 'gainBlood':
+                    validity = gameMutations.changeBlood.act(this.player, {
+                        card: vampire,
+                        amount: effect.amount,
+                    })
+                    break
+                case 'bloodToPool': {
+                    if (!amount || !this.getPlayAmounts(vampire)?.includes(amount)) {
+                        return Invalid('The amount of blood cannot be moved')
+                    }
+                    validity = gameMutations.changeBlood.act(this.player, {
+                        card: vampire,
+                        amount: -amount,
+                    })
+                    if (validity.isValid) {
+                        validity = gameMutations.changePool.act(this.player, {
+                            player: this.player,
+                            amount,
+                        })
+                    }
+                    break
+                }
+            }
+            if (!validity.isValid) {
+                return validity
+            }
+        }
+        return validity
     }
 
     getUnlockEffectTargets(): Vampire[] {

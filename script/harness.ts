@@ -188,7 +188,7 @@ export function describeOption(option: BotOption): string {
         case 'discard':
             return `discard ${option.card.name}`
         case 'playMaster':
-            return `playMaster ${option.card.name}${option.target ? ` on ${option.target.name}` : ''}`
+            return `playMaster ${option.card.name}${option.target ? ` on ${option.target.name}` : ''}${option.amount ? ` ( ${option.amount} )` : ''}`
         case 'playModifier':
             return `playModifier ${option.modifier.card.name}${option.modifier.usage.x !== undefined ? ` X=${option.modifier.usage.x}` : ''}${option.modifier.by ? ` by ${option.modifier.by.name}` : ''}`
         case 'block':
