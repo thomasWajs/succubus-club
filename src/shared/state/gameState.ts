@@ -114,6 +114,9 @@ export class GameState {
         dpa: DEFAULT_DPA, // discardPhaseActions
         usedCards: [] as CardOid[], // cards whose once-per-turn effect was used
         usedTriggers: [] as string[], // `${card oid}:${trigger index}` of the triggers used
+        // What each minion did this turn, by minion oid, as the keys of `performedKeys`: it stays
+        // there when the minion unlocks ( a bleed, an action card, a political action is once a turn )
+        performed: {} as Record<CardOid, string[]>,
     }
 
     // The optional triggers waiting for a decision of a bot ( the first one is decided first )
@@ -328,6 +331,7 @@ export class GameState {
             dpa: DEFAULT_DPA,
             usedCards: [],
             usedTriggers: [],
+            performed: {},
         }
     }
 

@@ -1610,7 +1610,12 @@ class DeclareAction extends GameMutation<DeclareActionParams> {
     }
 
     protected updateGameState(gameState: GameState) {
-        this.params.minionAction.actingMinion.lock()
+        const { actingMinion } = this.params.minionAction
+        actingMinion.lock()
+        gameState.turnResources.performed[actingMinion.oid] = [
+            ...(gameState.turnResources.performed[actingMinion.oid] ?? []),
+            ...actions.performedKeys(this.params.minionAction),
+        ]
         gameState.action = createActionState(this.params.minionAction)
         actions.declare(this.params.minionAction)
         // A bot may react (block) as soon as it knows everything about the action
@@ -1656,7 +1661,17 @@ class DeclareActionInverse extends GameMutation<DeclareActionParams> {
     }
 
     protected updateGameState(gameState: GameState) {
-        this.params.minionAction.actingMinion.unlock()
+        const { actingMinion } = this.params.minionAction
+        actingMinion.unlock()
+        // A cancelled action does not count: take back what the declaration noted, once each
+        const done = [...(gameState.turnResources.performed[actingMinion.oid] ?? [])]
+        for (const key of actions.performedKeys(this.params.minionAction)) {
+            const index = done.lastIndexOf(key)
+            if (index >= 0) {
+                done.splice(index, 1)
+            }
+        }
+        gameState.turnResources.performed[actingMinion.oid] = done
         gameState.action = null
     }
 

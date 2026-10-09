@@ -461,8 +461,49 @@ function getBehaviour(action: MinionAction) {
     return behaviors[action.type] as MinionActionBehaviour
 }
 
+/**
+ * What an action counts as for the limits of "once each turn, even if the minion unlocks": a bleed
+ * ( the basic action or a card that is one ), a political action, an action card of the same name
+ * from the hand, an action of the same card in play. The hunt, the combat and the torpor actions
+ * have no limit.
+ */
+export function performedKeys(action: MinionAction): string[] {
+    const keys: string[] = []
+    if (isBleed(action)) {
+        keys.push('bleed')
+    }
+    if (isPoliticalAction(action)) {
+        keys.push('political')
+    }
+    if (action.type == MinionActionType.ActionCardFromHand) {
+        keys.push(`card:${action.card.name}`)
+    }
+    if (action.type == MinionActionType.ActionInPlay) {
+        keys.push(`play:${action.card.oid}`)
+    }
+    return keys
+}
+
+const REPEAT_REASONS: Record<string, string> = {
+    bleed: 'A minion cannot bleed more than once each turn',
+    political: 'A vampire cannot take more than one political action each turn',
+}
+
+function checkNoRepeat(action: MinionAction): Validity {
+    const done =
+        action.actingMinion.gameState.turnResources.performed[action.actingMinion.oid] ?? []
+    const repeated = performedKeys(action).find(key => done.includes(key))
+    if (!repeated) {
+        return VALID
+    }
+    return Invalid(
+        REPEAT_REASONS[repeated] ?? 'A minion cannot repeat the same action card in a turn',
+    )
+}
+
 export function canDeclare(action: MinionAction): Validity {
-    return getBehaviour(action).canDeclare(action)
+    const valid = getBehaviour(action).canDeclare(action)
+    return valid.isValid ? checkNoRepeat(action) : valid
 }
 
 export function declare(action: MinionAction): void {

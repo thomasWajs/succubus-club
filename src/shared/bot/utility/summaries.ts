@@ -180,6 +180,8 @@ export type AbilitySummary = {
     locks: boolean
     // Transfers it costs ( influence phase )
     transfers: number
+    // The minions of the controller that can use it, when it is for one of them ( 'lockForAction' )
+    minion: MinionFilter | null
     effects: Effect[]
     roles: Role[]
 }
@@ -428,7 +430,7 @@ export function summarizeAbility(ability: MasterAbility): AbilitySummary {
             const effects = ability.effects.map(
                 (effect): Effect => ({ type: 'gainBlood', amount: effect.amount }),
             )
-            return abilitySummary(ability.activate, ['unlockPhase'], false, 0, effects)
+            return abilitySummary(ability.activate, ['unlockPhase'], false, 0, null, effects)
         }
         case 'lock':
             return abilitySummary(
@@ -436,6 +438,7 @@ export function summarizeAbility(ability: MasterAbility): AbilitySummary {
                 ['masterPhase', 'discardPhase'],
                 true,
                 0,
+                null,
                 ability.effects.map((): Effect => ({ type: 'discardFromHand' })),
             )
         case 'transfer':
@@ -444,6 +447,7 @@ export function summarizeAbility(ability: MasterAbility): AbilitySummary {
                 ['influencePhase'],
                 false,
                 ability.transfers,
+                null,
                 ability.effects.map((effect): Effect => {
                     switch (effect.type) {
                         case 'drawCryptRemoveUncontrolled':
@@ -463,6 +467,7 @@ export function summarizeAbility(ability: MasterAbility): AbilitySummary {
                 ['ownAction'],
                 true,
                 0,
+                ability.minion,
                 ability.effects.map(
                     (effect): Effect => ({ type: 'stealth', amount: effect.amount }),
                 ),
@@ -477,9 +482,10 @@ function abilitySummary(
     windows: AbilityWindow[],
     locks: boolean,
     transfers: number,
+    minion: MinionFilter | null,
     effects: Effect[],
 ): AbilitySummary {
-    return { activate, windows, locks, transfers, effects, roles: deriveRoles(effects) }
+    return { activate, windows, locks, transfers, minion, effects, roles: deriveRoles(effects) }
 }
 
 // What a crypt card adds to its vampire, whatever the text says

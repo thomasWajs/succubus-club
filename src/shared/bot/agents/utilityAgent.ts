@@ -4,12 +4,15 @@ import { DeckList } from '@/shared/types/gateway.ts'
 import { BotProfile, DEFAULT_PROFILE } from '@/shared/bot/utility/profile.ts'
 import { createLedger, TableLedger } from '@/shared/bot/utility/ledger.ts'
 import { ExplainSink } from '@/shared/bot/utility/explain.ts'
+import { Assessment, assess } from '@/shared/bot/utility/assessment.ts'
 
 // Everything a decision may read, and nothing else: the view of the game ( in the decision ), what the
 // table did, and what the bot knows of itself. Plans are functions of this, no state is kept between
 // two decisions.
 export type DecisionContext = {
     decision: DecisionPoint
+    // The table as this player sees it, read once for the decision
+    assessment: Assessment
     ledger: TableLedger
     // The bot's OWN decklist: a player knows its deck, never the ones of the others
     deck: DeckList
@@ -32,6 +35,7 @@ export class UtilityAgent implements BotAgent {
     choose(decision: DecisionPoint, context?: BotContext): BotOption {
         const option = this.decide({
             decision,
+            assessment: assess(decision.player.gameState, decision.player, this.profile),
             ledger: context?.ledger ?? createLedger(),
             deck: this.deck,
             profile: this.profile,

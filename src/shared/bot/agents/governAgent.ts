@@ -256,7 +256,15 @@ export class GovernAgent extends BaseAgent {
         if (!action) {
             return null
         }
-        const actorStrength = getMinionStrength(action.minionAction.actingMinion)
+        // A rescue of one of my own vampires helps me: it is directed at me and nobody else may block it
+        const { minionAction } = action
+        if (
+            minionAction.type == MinionActionType.RescueFromTorpor &&
+            minionAction.target.controller == decision.player
+        ) {
+            return null
+        }
+        const actorStrength = getMinionStrength(minionAction.actingMinion)
         return (
             optionsOfType(decision.options, 'block')
                 .filter(

@@ -39,6 +39,7 @@
         "bot:scenarios": "tsx script/botScenarios.ts",
         "bot:check": "node script/botCheck.mjs",
         "bot:summaries": "tsx script/botSummaries.ts",
+        "bot:assess": "tsx script/botAssess.ts",
         "card": "tsx script/cardLookup.ts",
         "card:skip": "tsx script/skippedCards.ts",
         "catalog:check": "tsx script/catalogCheck.ts",

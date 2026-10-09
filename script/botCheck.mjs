@@ -35,6 +35,10 @@ const jobs =
             { name: 'scenarios', args: ['script/botScenarios.ts'] },
             { name: 'catalog', args: ['script/catalogCheck.ts'] },
             { name: 'summaries', args: ['script/botSummaries.ts', '--check'] },
+            {
+                name: 'assessment',
+                args: ['script/botAssess.ts', '--sweep', String(full ? 40 : 10)],
+            },
             harness(2, 'govern,random'),
             harness(3, 'govern,random'),
             harness(4, 'govern,random'),

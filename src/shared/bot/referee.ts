@@ -277,6 +277,8 @@ function minionPhaseOptions(player: Player): BotOption[] {
     const candidates: MinionAction[] = []
     const prey = player.prey
     const torpid = player.vampiresInTorpor
+    // A rescue helps any Methuselah's vampire, not only mine: a table of helpers saves each other's vampires
+    const rescuable = player.gameState.competingPlayers.flatMap(other => other.vampiresInTorpor)
 
     for (const minion of player.minionsReadyUnlocked) {
         if (minion.isVampire()) {
@@ -297,7 +299,7 @@ function minionPhaseOptions(player: Player): BotOption[] {
         }
 
         // The LEAVE_TORPOR_COST blood of a rescue is shared between the two, any way they like
-        for (const rescued of torpid) {
+        for (const rescued of rescuable) {
             for (let fromRescuer = 0; fromRescuer <= LEAVE_TORPOR_COST; fromRescuer++) {
                 candidates.push(
                     createRescueFromTorporAction(
