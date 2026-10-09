@@ -281,8 +281,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, toRef, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, toRef, watch, watchEffect } from 'vue'
 import Phaser, { GameObjects } from 'phaser'
+import { GameType } from '@/shared/types/state.ts'
 import { Circle, FxGlow, Image, Rectangle, refObj, Text } from 'phavuer'
 import { Colors } from '@/client/colors.ts'
 import {
@@ -326,7 +327,7 @@ import FxPingCard from './FxPingCard.vue'
 import FxCardCost from './FxCardCost.vue'
 import { useCardTexture } from '@/client/game/composables/useCardTexture.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
-import { engineGlow, engineHighlight } from '@/client/engine/interaction.ts'
+import { engineClaims, engineGlow, engineHighlight } from '@/client/engine/interaction.ts'
 import Pointer = Phaser.Input.Pointer
 
 const { card, regionName } = defineProps<{
@@ -515,6 +516,22 @@ const outlineThickness = computed(() =>
         2 * CARD_OUTLINE_THICKNESS
     :   CARD_OUTLINE_THICKNESS,
 )
+
+// A card the engine's choice under way claims is clicked, never dragged : a press moving a few
+// pixels started a drag and the click was lost. A candidate takes the clicks on its glow and
+// outline too : its hit area padded by a few screen pixels
+const ENGINE_CANDIDATE_HIT_PADDING = 6
+const engineClaimed = computed(() => gameState.gameType == GameType.Engine && engineClaims(card))
+watchEffect(() => {
+    const img = image.value
+    if (!img?.input || gameState.gameType != GameType.Engine) {
+        return
+    }
+    img.scene.input.setDraggable(img, !engineClaimed.value)
+    const pad = engineCandidate.value ? ENGINE_CANDIDATE_HIT_PADDING / Math.abs(img.scaleX) : 0
+    const hitArea = img.input.hitArea as Phaser.Geom.Rectangle
+    hitArea.setTo(-pad, -pad, img.frame.width + 2 * pad, img.frame.height + 2 * pad)
+})
 
 const engineChoosing = computed(() => {
     const highlight = engineHighlight(card)

@@ -24,6 +24,7 @@ import { Colors } from '@/client/colors.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { GameType } from '@/shared/types/state.ts'
 import { onCardLabel } from '@/client/engine/gestures.ts'
+import { getOverlappingCards } from '@/client/game/utils.ts'
 
 // How a card of the table is highlighted : a card that can be played, a minion that can act
 // ( or play something ), a candidate of the choice under way ( or of a pick ), the card that
@@ -352,6 +353,14 @@ export function engineCardClick(card: Card): boolean {
             return true
         }
         if (isAlike(current.card, card)) {
+            return true
+        }
+        // A card over a candidate took the click meant for it : ignored, the choice kept
+        const candidates = current.step.choices.flatMap(c => alike(c.card))
+        if (
+            card.isIn.play &&
+            getOverlappingCards(card).some(other => candidates.some(c => c.oid == other.oid))
+        ) {
             return true
         }
         cancelStaging()

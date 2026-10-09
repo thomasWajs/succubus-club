@@ -433,7 +433,8 @@ function getActingMinionActions(actingMinion: Minion): FloatingActionData[] {
 function withEngineOptions(minion: Minion, actions: FloatingActionData[]): FloatingActionData[] {
     const menu = minionMenuOptions(minion)
     const positionning = getPositionning(minion)
-    if (!menu || !positionning) {
+    // None while a choice is under way : its buttons would cover the cards to pick
+    if (!menu || !positionning || useEngineStore().staging) {
         return []
     }
     const engineActions = actions.map((action): FloatingActionData => {
