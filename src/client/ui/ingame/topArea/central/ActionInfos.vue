@@ -167,6 +167,15 @@
                     </strong>
                 </span>
 
+                <!-- Enthrall's crypt draw for blood ( see actionDrawCrypt ) -->
+                <button
+                    v-if="drawCrypt"
+                    class="game-button engine-pass"
+                    @click="chooseEngineOption(drawCrypt.index)"
+                >
+                    {{ drawCrypt.text }}
+                </button>
+
                 <!-- Here when no panel above it holds it ( see centralPass ) -->
                 <EnginePassButton host="action" />
             </div>
@@ -243,6 +252,8 @@ import { LibraryCard } from '@/shared/model/Card.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import EnginePassButton from '@/client/ui/ingame/topArea/central/EnginePassButton.vue'
+import { actionDrawCrypt } from '@/client/engine/interaction.ts'
+import { chooseEngineOption } from '@/client/engine/driver.ts'
 
 const props = defineProps<{
     action: ActionState
@@ -253,6 +264,7 @@ const players = usePlayersStore()
 
 // A game with the rules engine : the engine plays the action out ( see engine/projection.ts )
 const isEngine = computed(() => gameState.gameType == GameType.Engine)
+const drawCrypt = actionDrawCrypt
 const gameBus = useGameBusStore()
 const { automaticCostPaymentEnabled } = useUIFeatures()
 

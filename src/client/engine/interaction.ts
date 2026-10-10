@@ -498,6 +498,8 @@ export function answeredOnTable(option: EngineOption): boolean {
             return !!pending?.allocation
         case 'set_x':
             return xOptions(options).length > 0
+        case 'draw_crypt':
+            return actionDrawCrypt.value !== null
     }
     if (isUse(option) || isPick(option) || isOwnAbility(option)) {
         return !!cardOf(option)
@@ -512,6 +514,19 @@ export function answeredOnTable(option: EngineOption): boolean {
     }
     return isCombatOption(option)
 }
+
+/**
+ * During an action, the acting player's crypt draw for blood ( Enthrall [OBF]/[PRE] : "this vampire
+ * can burn 1 blood to draw 1 card from your crypt", after a successful bleed ) : a button beside
+ * the pass in the action's panel.
+ */
+export const actionDrawCrypt = computed((): EngineOption | null => {
+    const pending = useEngineStore().pending
+    if (!pending || !useGameStateStore().action) {
+        return null
+    }
+    return pending.options.find(o => o.kind == 'draw_crypt') ?? null
+})
 
 // The panels of the central box that can hold the pass, top first ( see centralPass )
 export type PassHost = 'picking' | 'allocation' | 'votes' | 'x' | 'combat' | 'cards' | 'action'
