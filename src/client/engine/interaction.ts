@@ -135,10 +135,20 @@ function modeLabel(option: EngineOption): string {
     return tags.length > 0 ? tags.map(tag => `[${tag}]`).join('') : option.text
 }
 
+// What sets a mode apart from the others of its printed line ( "gain 3 blood" ), capitalized
+function splitLabel(option: EngineOption): string | undefined {
+    const label = option.mode?.label
+    return label ? label[0].toUpperCase() + label.slice(1) : undefined
+}
+
 function targetLabel(option: EngineOption): string {
     // The text ends with the target : "Play X with A on B"
     const on = option.text.lastIndexOf(' on ')
-    return option.target?.kind == 'seat' && on >= 0 ? option.text.slice(on + 4) : option.text
+    return (
+        option.target?.kind == 'seat' && on >= 0 ? option.text.slice(on + 4)
+        : !option.target ? (splitLabel(option) ?? option.text)
+        : option.text
+    )
 }
 
 // The card of the table a target is : a minion, a card in play, a vampire in the uncontrolled
@@ -178,9 +188,11 @@ export function stagingStep(options: EngineOption[]): StagingStep {
     if (actors.length > 1) {
         return { ask: 'actor', choices: actors }
     }
+    // By printed line : a line the engine splits ( by target, by effect ) is one choice of
+    // Disciplines, the target or what the mode does asked next
     const modes = group(
         options,
-        option => String(option.mode?.index ?? 'none'),
+        option => String(option.mode?.line ?? option.mode?.index ?? 'none'),
         option => ({ label: modeLabel(option) }),
     )
     if (modes.length > 1) {
@@ -194,13 +206,13 @@ export function stagingStep(options: EngineOption[]): StagingStep {
     if (targets.length > 1) {
         return { ask: 'target', choices: targets }
     }
-    // Options alike in all of this : by their text
+    // Options alike in all of this : by what sets their mode apart, else by their text
     return {
         ask: 'option',
         choices: options.map(option => ({
             key: String(option.index),
             options: [option],
-            label: option.text,
+            label: splitLabel(option) ?? option.text,
         })),
     }
 }
