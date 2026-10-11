@@ -78,7 +78,7 @@ export type Stake = {
     danger: number
     // How much stronger than the table it is
     leader: number
-    // What it does for me: it hunts my predator, and keeps it busy
+    // What it does for me: it bleeds my predator, and keeps it busy
     useful: number
 }
 
@@ -254,7 +254,7 @@ function reserveOf(
     const { recapture } = profile.bloat
     const ring = ringOf(table)
     const index = ring.indexOf(owner)
-    const hunter = ring[(index - 1 + ring.length) % ring.length]
+    const predator = ring[(index - 1 + ring.length) % ring.length]
     const prey = ring[(index + 1) % ring.length]
     const canBleed = (minion: MinionProfile) => minion.blood > 0 && minion.bleed > 0
     const order = readyMinions(owner).toSorted(
@@ -267,7 +267,7 @@ function reserveOf(
     const lungeWith = (kept: number) =>
         lunge(
             context,
-            hunter,
+            predator,
             defenceOf(table, owner, 'bleed', densities[owner.oid], order.slice(0, kept)),
             [],
         )
@@ -328,7 +328,7 @@ function lungeOnMe(
     })
 }
 
-// What the lunge of my predator does to me ( null when nobody hunts me )
+// What the lunge of my predator does to me ( null when nobody bleeds me )
 export type LungeStats = {
     chanceOfOust: number
     // Pool I lose, never more than I have. Far from an ouster it is still what a bleed costs me: it
@@ -623,14 +623,14 @@ function rescuesOf(context: Context, stakes: Record<PlayerOid, Stake>): RescueOp
     const ring = ringOf(table)
     return ring.flatMap((owner, index) => {
         const prey = ring[(index + 1) % ring.length]
-        const hunter = ring[(index - 1 + ring.length) % ring.length]
+        const predator = ring[(index - 1 + ring.length) % ring.length]
         const weight = prey.isMe ? -1 : (stakes[prey.oid]?.weight ?? 0)
         const returns = returnsOf(table, owner, profile)
         // A Methuselah about to be ousted does not use its vampires. What I do is my own decision
         const survival =
             owner.isMe || returns.length == 0 ?
                 1
-            :   1 - chanceOfLossAtLeast(bleedsOn(context, hunter, owner), owner.pool)
+            :   1 - chanceOfLossAtLeast(bleedsOn(context, predator, owner), owner.pool)
         return returns.map(back => {
             const loss = (returns: boolean) =>
                 bleedsOn(context, owner, prey, {
@@ -669,7 +669,7 @@ function stakesOf(
     const everybody = everyone(table)
     const meanPower = everybody.reduce((total, one) => total + power[one.oid], 0) / everybody.length
 
-    // The Methuselah that would be my predator, were mine ousted: the one that hunts it
+    // The Methuselah that would be my predator, were mine ousted: the one that bleeds it
     const successor =
         predator ? ring[(ring.indexOf(predator) - 1 + ring.length) % ring.length] : null
     const successorThreat =
@@ -686,7 +686,7 @@ function stakesOf(
         const danger = other.isPredator ? dangerShare - successorThreat / myPool : dangerShare
         const leader = Math.max(0, power[other.oid] / meanPower - 1)
 
-        // It hunts my predator: the better it holds it, the better for me
+        // It bleeds my predator: the better it holds it, the better for me
         const useful =
             predator && successor && successor != me && other == successor ?
                 (threat[predator.oid].total / myPool) *

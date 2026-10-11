@@ -8353,7 +8353,7 @@ const ASSESSMENT_SCENARIOS: { name: string; run: () => void }[] = [
         name: 'Lunge: a predator keeps minions unlocked against its own predator, and sends them all when that can oust me',
         run() {
             const setup = (
-                huntersOfPredator: number,
+                bleedersOfPredator: number,
                 pool: number,
                 predatorPool = 4,
                 profile: BotProfile = DEFAULT_PROFILE,
@@ -8369,7 +8369,7 @@ const ASSESSMENT_SCENARIOS: { name: string; run: () => void }[] = [
                 addMinions(
                     ring,
                     prey,
-                    Array.from({ length: huntersOfPredator }, () => ({ bleed: 3 })),
+                    Array.from({ length: bleedersOfPredator }, () => ({ bleed: 3 })),
                 )
                 predator.pool = predatorPool
                 me.pool = pool
@@ -8382,14 +8382,14 @@ const ASSESSMENT_SCENARIOS: { name: string; run: () => void }[] = [
             }
 
             const quiet = setup(0, 9)
-            expectEqual(quiet.kept, 0, 'nobody hunts it: it keeps nobody back')
+            expectEqual(quiet.kept, 0, 'nobody bleeds it: it keeps nobody back')
             expectEqual(quiet.bleed > 5, true, 'it bleeds with all three')
 
-            const hunted = setup(3, 9)
-            expectEqual(hunted.kept > 0, true, 'three hunters: it keeps some back')
-            expectEqual(hunted.bleed < quiet.bleed, true, 'what is kept back does not bleed me')
+            const pressed = setup(3, 9)
+            expectEqual(pressed.kept > 0, true, 'three bleeders: it keeps some back')
+            expectEqual(pressed.bleed < quiet.bleed, true, 'what is kept back does not bleed me')
             expectEqual(
-                chanceOfOust(hunted.assessment) < chanceOfOust(quiet.assessment),
+                chanceOfOust(pressed.assessment) < chanceOfOust(quiet.assessment),
                 true,
                 'and I am safer for it',
             )
@@ -8408,7 +8408,7 @@ const ASSESSMENT_SCENARIOS: { name: string; run: () => void }[] = [
             )
 
             // A blocker also stops the strong action that is not a bleed: with a high enough guard it stays
-            // home even when nobody hunts its Methuselah
+            // home even when nobody bleeds its Methuselah
             const guard = (value: number): BotProfile => ({
                 ...DEFAULT_PROFILE,
                 opponentPrior: {
@@ -8777,7 +8777,7 @@ const ASSESSMENT_SCENARIOS: { name: string; run: () => void }[] = [
         },
     },
     {
-        name: 'Torpor: rescuing the vampire of my predator is worth less than nothing, one that hunts a Methuselah I want drained is worth something, so is one of mine',
+        name: 'Torpor: rescuing the vampire of my predator is worth less than nothing, one that bleeds a Methuselah I want drained is worth something, so is one of mine',
         run() {
             const ring = createRing([GovernDeck, GovernDeck, GovernDeck, GovernDeck])
             const [me, , other, predator] = ring.players
@@ -8800,7 +8800,7 @@ const ASSESSMENT_SCENARIOS: { name: string; run: () => void }[] = [
                 return opening.value
             }
             expectEqual(valueOf(menace) < 0, true, 'it would bleed me')
-            // The vampire of `other` bleeds my predator, which is the Methuselah that hunts me
+            // The vampire of `other` bleeds my predator, which is the Methuselah that bleeds me
             expectEqual(valueOf(theirs) > 0, true, 'it bleeds the Methuselah that bleeds me')
             expectEqual(valueOf(mine) > 0, true, 'it would bleed my prey')
         },
@@ -8983,14 +8983,14 @@ type HelperSetup = {
     // Ready vampires of the owner, all with a bleed of 4
     ready?: number
     ownerPool?: number
-    // Vampires of the predator of the owner ( my prey ) that bleed it
-    hunters?: number
+    // Vampires of the predator of the owner ( my prey ) that bleed the owner
+    bleeders?: number
     // Vampires of my predator, which bleed me
     menace?: number
 }
 
 // Four Methuselahs: I have one minion, `other` has a torpid vampire and bleeds my predator, which is
-// the Methuselah that hunts me
+// the Methuselah that bleeds me
 function helperBoard(setup: HelperSetup = {}) {
     const ring = createRing([GovernDeck, GovernDeck, GovernDeck, GovernDeck])
     const [me, prey, other, predator] = ring.players
@@ -9012,7 +9012,7 @@ function helperBoard(setup: HelperSetup = {}) {
     addMinions(
         ring,
         prey,
-        Array.from({ length: setup.hunters ?? 0 }, () => ({ bleed: 2 })),
+        Array.from({ length: setup.bleeders ?? 0 }, () => ({ bleed: 2 })),
     )
     other.pool = setup.ownerPool ?? other.pool
     holdOnly(ring, me, [])
@@ -9345,10 +9345,10 @@ const PLAN_SCENARIOS: { name: string; run: () => void }[] = [
     {
         name: 'Rescue worth: a Methuselah that is about to be ousted, or that has many other minions, is worth helping less',
         run() {
-            const base = helperBoard({ hunters: 2 }).opening
+            const base = helperBoard({ bleeders: 2 }).opening
             expectClose(base.survival, 1, 'the pool of the owner is not at stake', 1e-9)
 
-            const doomed = helperBoard({ hunters: 2, ownerPool: 1 }).opening
+            const doomed = helperBoard({ bleeders: 2, ownerPool: 1 }).opening
             expectEqual(doomed.survival < 0.2, true, `the owner is finished ( ${doomed.survival} )`)
             expectEqual(
                 Math.abs(doomed.value) < base.value / 3,
