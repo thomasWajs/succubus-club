@@ -30,7 +30,16 @@
         @dragend="onDragEndFromStack"
         @drop="onDrop"
         @wheel="(...args: [WheelEvent]) => emit('wheel', ...args)"
-    />
+    >
+        <!-- With the rules engine : a card to choose in a search ( see engineGlow ) -->
+        <FxGlow
+            v-if="engineGlowColor"
+            :key="engineGlowColor"
+            :color="engineGlowColor"
+            :outerStrength="CARD_IN_HAND_GLOW_OUTER_STRENGTH"
+            :innerStrength="CARD_IN_HAND_GLOW_INNER_STRENGTH"
+        />
+    </Image>
 
     <Rectangle
         v-if="players.isPlayer"
@@ -141,11 +150,14 @@
 <script setup lang="ts">
 import { computed, ref, toRef } from 'vue'
 import { GameObjects } from 'phaser'
-import { Image, Rectangle, refObj } from 'phavuer'
+import { FxGlow, Image, Rectangle, refObj } from 'phavuer'
+import { engineGlow } from '@/client/engine/interaction.ts'
 
 import {
     CARD_DRAGGING_ALPHA,
     CARD_HEIGHT,
+    CARD_IN_HAND_GLOW_INNER_STRENGTH,
+    CARD_IN_HAND_GLOW_OUTER_STRENGTH,
     CARD_OUTLINE_THICKNESS,
     CARD_WIDTH,
     WIELD_CARD_DISPLAY_WIDTH,
@@ -175,6 +187,9 @@ const { card, cardRegion, displayIndex } = defineProps<{
     cardRegion: AnyCardRegion
     displayIndex: number
 }>()
+
+// With the rules engine, what the engine offers for this card ( a search's candidate )
+const engineGlowColor = computed(() => engineGlow(card))
 
 const gameBus = useGameBusStore()
 const players = usePlayersStore()

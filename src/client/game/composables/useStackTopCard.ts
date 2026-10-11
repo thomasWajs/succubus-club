@@ -8,6 +8,7 @@ import { GameType } from '@/shared/types/state.ts'
 import { positionContextMenu } from '@/client/game/utils.ts'
 import { AnyCardRegion } from '@/shared/types/model.ts'
 import { Card } from '@/shared/model/Card.ts'
+import { searchedRegions } from '@/client/engine/interaction.ts'
 import Pointer = Phaser.Input.Pointer
 
 export type StackDraw = 'crypt' | 'library'
@@ -90,7 +91,11 @@ export function useStackTopCard(options: {
 
         // Left-clicking the ash heap top card opens the wield-card-stack,
         // just like clicking the surrounding stack boundaries.
-        if (pointer.leftButtonDown() && cardRegion.is.ashHeap) {
+        // With the rules engine, a stack searched now opens too : its cards to choose glow
+        if (
+            pointer.leftButtonDown() &&
+            (cardRegion.is.ashHeap || searchedRegions.value.includes(cardRegion))
+        ) {
             gameBus.wieldCardStack.show = true
             gameBus.wieldCardStack.cardRegion = cardRegion
             return

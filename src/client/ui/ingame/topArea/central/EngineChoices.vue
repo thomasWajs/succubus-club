@@ -48,12 +48,11 @@
             >
                 {{ allocationProblem || 'Allocate' }}
             </button>
-            <EnginePassButton host="allocation" />
         </CentralPanel>
 
-        <!-- All the votes one way : a standing order for the polling ; and the pass -->
+        <!-- All the votes one way : a standing order for the polling ; the Edge's and the card's -->
         <CentralPanel
-            v-if="pending.votes || passHost == 'votes'"
+            v-if="pending.votes || methuselahVotes.length > 0"
             class="engine-choices"
         >
             <div
@@ -75,14 +74,26 @@
                     All my votes against ( {{ pending.votes.against }} )
                 </button>
             </div>
+            <!-- The votes no vampire casts : the Edge's, the political action card's -->
+            <div
+                v-if="methuselahVotes.length > 0"
+                class="engine-choices-buttons"
+            >
+                <button
+                    v-for="option in methuselahVotes"
+                    :key="option.index"
+                    class="game-button"
+                    @click="choose(option)"
+                >
+                    {{ option.text }}
+                </button>
+            </div>
             <div
                 v-if="pending.votes"
                 class="engine-choices-hint"
             >
                 Play cards first : a vampire's bonus votes count only before it votes.
             </div>
-            <!-- During a referendum : the pass, cast no more votes now -->
-            <EnginePassButton host="votes" />
         </CentralPanel>
 
         <!-- A value for X -->
@@ -114,7 +125,6 @@
                     {{ xValues[xAt]?.text }}
                 </button>
             </div>
-            <EnginePassButton host="x" />
         </CentralPanel>
 
         <!-- The steps of a combat ( and what follows a block ), the cards to play or use then -->
@@ -175,8 +185,6 @@
                 >
                     {{ choice.label }}
                 </button>
-                <!-- The combat's pass ( no press, no maneuver… ) next to its choices -->
-                <EnginePassButton host="combat" />
             </div>
             <div
                 v-if="pending.combat && cards.length == 0"
@@ -203,8 +211,32 @@
                 >
                     {{ choice.label }}
                 </button>
-                <!-- The action's pass ( no block, no reaction… ), with what can be played instead -->
-                <EnginePassButton host="cards" />
+            </div>
+        </CentralPanel>
+
+        <!-- What nothing else answers : a search, an exchange, a cost, a draw alternative… -->
+        <CentralPanel
+            v-if="leftovers.length > 0"
+            class="engine-choices"
+            :title="pending.window"
+        >
+            <div
+                v-if="pending.prompt"
+                class="engine-choices-prompt"
+            >
+                <EngineText :text="pending.prompt" />
+            </div>
+            <div class="engine-choices-buttons">
+                <button
+                    v-for="option in leftovers"
+                    :key="option.index"
+                    class="game-button small"
+                    @click="choose(option)"
+                    @mouseenter="hoverEngineCard(engineOptionCards(option)[0])"
+                    @mouseleave="hoverEngineCard(null)"
+                >
+                    {{ option.text }}
+                </button>
             </div>
         </CentralPanel>
     </template>
@@ -214,15 +246,14 @@
 /**
  * The choices of a game with the rules engine that are no card of the table,
  * in the central box : an allocation of points, all the votes one way, a value
- * for X, the steps of a combat. The rest is on the table ( see
- * engine/interaction.ts ), and every option in the console.
+ * for X, the steps of a combat, and what nothing else answers ( leftoverOptions ). The rest is
+ * on the table ( see engine/interaction.ts ), and every option in the console.
  */
 import { computed, ref, watch } from 'vue'
 import { hoverEngineCard } from '@/client/engine/cardNames.ts'
 import EngineText from '@/client/ui/ingame/EngineText.vue'
 import CentralPanel from '@/client/ui/ingame/topArea/central/CentralPanel.vue'
 import { EngineCombatSideView, useEngineStore } from '@/client/store/engine.ts'
-import EnginePassButton from '@/client/ui/ingame/topArea/central/EnginePassButton.vue'
 import {
     allocateEngine,
     chooseEngineOption,
@@ -231,8 +262,9 @@ import {
 } from '@/client/engine/driver.ts'
 import {
     cardChoices,
-    centralPass,
     combatOptions as combatOf,
+    leftoverOptions,
+    methuselahVoteOptions,
     narrowStaging,
     StagingChoice,
     xOptions,
@@ -242,6 +274,8 @@ import { EngineOption } from '@/client/engine/protocol.ts'
 const engine = useEngineStore()
 
 const pending = computed(() => engine.pending)
+const leftovers = leftoverOptions
+const methuselahVotes = methuselahVoteOptions
 
 // The allocation of points under way : the amounts per recipient, all 0 at first
 const allocation = computed(() => pending.value?.allocation)
@@ -290,9 +324,6 @@ function hoverRecipient(i: number) {
 const xValues = computed(() => xOptions(pending.value?.options ?? []))
 const xAt = ref(0)
 watch(xValues, () => (xAt.value = 0))
-
-// The pass's panel, the topmost ( see centralPass )
-const passHost = computed(() => centralPass.value?.host)
 
 const combatOptions = computed(() => combatOf(pending.value?.options ?? []))
 

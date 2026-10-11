@@ -176,9 +176,6 @@
                 >
                     {{ option.text }}
                 </button>
-
-                <!-- Here when no panel above it holds it ( see centralPass ) -->
-                <EnginePassButton host="action" />
             </div>
 
             <div
@@ -252,7 +249,6 @@ import { useGameStateStore } from '@/client/store/gameState.ts'
 import { LibraryCard } from '@/shared/model/Card.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
-import EnginePassButton from '@/client/ui/ingame/topArea/central/EnginePassButton.vue'
 import { actionButtons } from '@/client/engine/interaction.ts'
 import { chooseEngineOption } from '@/client/engine/driver.ts'
 

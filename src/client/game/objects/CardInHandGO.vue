@@ -56,36 +56,41 @@
             @pointerout="onPointerOut"
             @click="overlayClick(playCardFromHand)"
         />
-
-        <!-- Discard -->
-        <ButtonGO
-            ref="discardButton"
-            name="discardButton"
-            :x="overlays.ashHeap.x"
-            :y="overlays.ashHeap.y"
-            :width="ASH_HEAP_BUTTON_SIZE"
-            :height="ASH_HEAP_BUTTON_SIZE"
-            text="🔥"
-            @pointerover="onPointerOver"
-            @pointerout="onPointerOut"
-            @click="overlayClick(commands.MoveToAshHeap.cardAction)"
-        />
-
-        <!-- Move to Bottom of Library -->
-        <ButtonGO
-            ref="moveToBottomButton"
-            name="moveToBottomButton"
-            :x="overlays.moveToBottom.x"
-            :y="overlays.moveToBottom.y"
-            :width="80"
-            :height="25"
-            text="To Bottom"
-            :textStyle="{ fontSize: '12px' }"
-            @pointerover="onPointerOver"
-            @pointerout="onPointerOut"
-            @click="overlayClick(commands.MoveToLibBottom.cardAction)"
-        />
     </template>
+
+    <!-- Discard : on hover, or always when the engine offers to burn it for a vote ( it glows ) -->
+    <ButtonGO
+        v-if="(isHovered || offered.burnForVote) && !dragAttrs.isDragging"
+        ref="discardButton"
+        name="discardButton"
+        :x="overlays.ashHeap.x"
+        :y="overlays.ashHeap.y"
+        :width="ASH_HEAP_BUTTON_SIZE"
+        :height="ASH_HEAP_BUTTON_SIZE"
+        text="🔥"
+        :borderColor="offered.burnForVote ? Colors.CARD_GLOW : undefined"
+        @pointerover="onPointerOver"
+        @pointerout="onPointerOut"
+        @click="overlayClick(commands.MoveToAshHeap.cardAction)"
+    />
+
+    <!-- Move to Bottom of Library : on hover, or always when the engine offers it ( Heart of
+         Nizchetus ) -->
+    <ButtonGO
+        v-if="(isHovered || offered.bottom) && !dragAttrs.isDragging"
+        ref="moveToBottomButton"
+        name="moveToBottomButton"
+        :x="overlays.moveToBottom.x"
+        :y="overlays.moveToBottom.y"
+        :width="80"
+        :height="25"
+        text="To Bottom"
+        :textStyle="{ fontSize: '12px' }"
+        :borderColor="offered.bottom ? Colors.CARD_GLOW : undefined"
+        @pointerover="onPointerOver"
+        @pointerout="onPointerOut"
+        @click="overlayClick(commands.MoveToLibBottom.cardAction)"
+    />
 </template>
 
 <script setup lang="ts">
@@ -128,6 +133,8 @@ import { selfCanPlay } from '@/client/state/self.ts'
 import { useCardTexture } from '@/client/game/composables/useCardTexture.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
 import { engineGlow } from '@/client/engine/interaction.ts'
+import { engineOptionCards } from '@/client/engine/driver.ts'
+import { useEngineStore } from '@/client/store/engine.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 
 const { card, handWidth, interactive } = defineProps<{
@@ -347,6 +354,19 @@ function onDragEndFromHand(
 /**
  * Glow effect on usable card, depending on the phase of the turn.
  */
+
+// In a game with the rules engine, the engine's options for this card answered by its own buttons :
+// burnt for a vote ( 🔥 ), put on the bottom of the library ( Heart of Nizchetus )
+const engineStore = useEngineStore()
+const offered = computed(() => {
+    const options = (engineStore.pending?.options ?? []).filter(option =>
+        engineOptionCards(option).some(c => c.oid == card.oid),
+    )
+    return {
+        burnForVote: options.some(option => option.kind == 'burn_for_vote'),
+        bottom: options.some(option => option.kind == 'bottom'),
+    }
+})
 
 // In a game with the rules engine, what the engine allows ( see engineGlow )
 const engineGlowColor = computed(() => engineGlow(card))

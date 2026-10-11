@@ -54,14 +54,19 @@
                 ref="gameMenu"
                 label="Game"
             >
+                <!-- With the rules engine, its referendums and discards : not the free table's -->
                 <button
+                    v-if="!isEngine"
                     class="game-button"
                     :disabled="!!gameState.referendum"
                     @click="callReferendum"
                 >
                     Call Referendum
                 </button>
-                <CommandButton :command="commands.DiscardAtRandom">
+                <CommandButton
+                    v-if="!isEngine"
+                    :command="commands.DiscardAtRandom"
+                >
                     Discard At Random
                 </CommandButton>
                 <CommandButton :command="commands.ClearDeclaredTargets">
@@ -85,18 +90,46 @@
                 >
                     Secret Choice
                 </button>
+                <!-- The game's setup and every decision : to report a bug -->
+                <button
+                    v-if="isEngine"
+                    class="game-button"
+                    @click="exportReplay"
+                >
+                    Export Replay
+                </button>
             </PopupMenu>
         </div>
 
         <!-- Right-anchored controls, aligned under the phases block -->
         <div class="right-controls">
             <CommandButton
-                v-if="players.isPlayer"
+                v-if="players.isPlayer && !isEngine"
                 class="unlock-all-button"
                 :command="commands.UnlockAll"
             >
                 Unlock All
             </CommandButton>
+
+            <!-- With the rules engine : the pass of the decision under way, always here ( → / Space ),
+                 its text the engine's ( "Pass (no block)", "End the master phase" ) -->
+            <CommandButton
+                v-if="players.isPlayer && isEngine"
+                class="engine-fixed-pass"
+                :command="commands.AdvanceTurnPhase"
+                :title="pass?.text"
+            >
+                {{ pass?.text ?? 'Pass' }}
+            </CommandButton>
+            <button
+                v-if="players.isPlayer && isEngine"
+                class="game-button engine-opportunities"
+                :class="{ off: !engineOpportunities }"
+                title="Off : wakes only on your prey's or predator's actions or those directed at you, cards usable at any time ( The Louvre, Paris ) only when you're asked anyway"
+                @click="setEngineOpportunities(!engineOpportunities)"
+            >
+                Opp. {{ engineOpportunities ? 'on' : 'off' }}
+            </button>
 
             <!-- Cards with an effect -->
             <div
@@ -112,7 +145,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
@@ -124,6 +157,13 @@ import PopupMenu from '@/client/ui/components/PopupMenu.vue'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
 import { rollRandomResult } from '@/client/state/gameMutations.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
+import { GameType } from '@/shared/types/state.ts'
+import { useEngineStore } from '@/client/store/engine.ts'
+import {
+    engineOpportunities,
+    engineReplay,
+    setEngineOpportunities,
+} from '@/client/engine/driver.ts'
 
 const gameState = useGameStateStore()
 const gameBus = useGameBusStore()
@@ -133,6 +173,25 @@ const commands = useCommands()
 const { glowInPlayEnabled } = useUIFeatures()
 
 const gameMenu = ref<InstanceType<typeof PopupMenu> | null>(null)
+
+const isEngine = computed(() => gameState.gameType == GameType.Engine)
+const engine = useEngineStore()
+// The pass of the decision under way, if any
+const pass = computed(() => engine.pending?.options.find(option => option.kind == 'pass'))
+
+// The replay ( the game's setup and every decision ) reproduces the game in the engine
+async function exportReplay() {
+    gameMenu.value?.close()
+    const replay = await engineReplay()
+    if (!replay) {
+        return
+    }
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(new Blob([replay], { type: 'application/json' }))
+    link.download = `zero-vtes-replay-${new Date().toISOString().replace(/[:.]/g, '-')}.json`
+    link.click()
+    URL.revokeObjectURL(link.href)
+}
 
 function openSecretInterface() {
     gameMenu.value?.close()
@@ -178,6 +237,25 @@ function pingCardsDuringCurrentPhase() {
     // Match the fixed width of .phases (2 nav buttons + 5 phase boxes) so the
     // group's left edge lines up with the left edge of the phases block above.
     width: 262px;
+
+    .engine-fixed-pass {
+        // The pass fills the row, its text cut short when long ( the whole in its title )
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .engine-opportunities {
+        font-size: 11px;
+        padding: 0 6px;
+        white-space: nowrap;
+
+        &.off {
+            opacity: 0.7;
+        }
+    }
 
     .unlock-all-button {
         // Grow to fill the space left of the cards indicator, so the button's

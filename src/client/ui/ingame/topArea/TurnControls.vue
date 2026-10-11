@@ -2,7 +2,7 @@
     <div class="turn-controls">
         <div class="turn">
             <CommandButton
-                v-if="players.isPlayer"
+                v-if="players.isPlayer && !isEngine"
                 :command="commands.BackTurn"
             >
                 &lt;
@@ -17,7 +17,7 @@
             </span>
 
             <CommandButton
-                v-if="players.isPlayer"
+                v-if="players.isPlayer && !isEngine"
                 :command="commands.AdvanceTurn"
             >
                 &gt;
@@ -30,7 +30,7 @@
 
         <div class="phases">
             <CommandButton
-                v-if="players.isPlayer"
+                v-if="players.isPlayer && !isEngine"
                 :command="commands.BackTurnPhase"
             />
 
@@ -46,7 +46,8 @@
                 <span
                     v-else
                     class="phase-box"
-                    @click="gameMutations.goToTurnPhase.actSelf({ index })"
+                    :class="{ 'read-only': isEngine }"
+                    @click="!isEngine && gameMutations.goToTurnPhase.actSelf({ index })"
                 >
                     <!-- Disambiguate Master and Minion with the second letter -->
                     {{ phase.charAt(0).toUpperCase()
@@ -55,7 +56,7 @@
             </template>
 
             <CommandButton
-                v-if="players.isPlayer"
+                v-if="players.isPlayer && !isEngine"
                 :command="commands.AdvanceTurnPhase"
             />
         </div>
@@ -63,7 +64,9 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useGameStateStore } from '@/client/store/gameState.ts'
+import { GameType } from '@/shared/types/state.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
 import { TurnSequence } from '@/shared/const/model.ts'
@@ -74,6 +77,9 @@ import TimerDisplay from '@/client/ui/ingame/topArea/TimerDisplay.vue'
 const gameState = useGameStateStore()
 const players = usePlayersStore()
 const commands = useCommands()
+
+// With the rules engine the phases are a read-only indicator : the fixed Pass ends them
+const isEngine = computed(() => gameState.gameType == GameType.Engine)
 </script>
 
 <style lang="scss">
@@ -153,7 +159,7 @@ const commands = useCommands()
                 width: 70px;
                 opacity: 1;
             }
-            &:not(.active) {
+            &:not(.active):not(.read-only) {
                 cursor: pointer;
             }
         }

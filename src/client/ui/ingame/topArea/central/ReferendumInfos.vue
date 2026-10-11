@@ -21,7 +21,11 @@
             own. Its width is content-driven and stable, which is what keeps the
             tally on the right from moving as the panel changes state.
             -->
-            <div class="methuselah-votes">
+            <!-- With the rules engine : only once such a vote is cast ( the Edge, a card ) -->
+            <div
+                v-if="!isEngine || methuselahVotesCast"
+                class="methuselah-votes"
+            >
                 <span class="methuselah-votes-title">Methuselah votes</span>
 
                 <span class="methuselah-votes-header">In favour</span>
@@ -88,7 +92,11 @@
                 it, its count is highlighted and the grant it earns is spelled
                 out at the end of the line.
                 -->
-                <div class="subreferendum">
+                <!-- With the rules engine : only with a priscus at the table -->
+                <div
+                    v-if="!isEngine || prisciAtTable"
+                    class="subreferendum"
+                >
                     <span class="subreferendum-title">Priscii</span>
 
                     <span
@@ -183,6 +191,7 @@ import { GameType, ReferendumState, VoteSide } from '@/shared/types/state.ts'
 import {
     getLastCallRemainingTime,
     getPlayerVotes,
+    isBallotVampire,
     getSubReferendumWinner,
     getWinningSide,
     isLastCallOver,
@@ -275,6 +284,15 @@ const winningSide = computed(() => (outcomeReached.value ? getWinningSide(props.
  */
 
 const subTally = computed(() => tallySubReferendum(props.referendum))
+// With the rules engine, the rows and lines shown only when they hold something
+const methuselahVotesCast = computed(() =>
+    methuselahVoteRows.value.some(
+        row => row.votes[VoteSide.InFavour] > 0 || row.votes[VoteSide.Against] > 0,
+    ),
+)
+const prisciAtTable = computed(() =>
+    players.orderedPlayers.some(player => player.vampiresReady.some(isBallotVampire)),
+)
 const subWinner = computed(() => getSubReferendumWinner(props.referendum))
 
 /**

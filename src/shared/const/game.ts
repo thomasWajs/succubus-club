@@ -51,11 +51,14 @@ export const CARD_GLOW_COLOR = 'rgb(180,90,40)'
 // A game with the rules engine : a candidate of the choice under way ( the target declaration's
 // blue ), and the card that choice is about
 export const CARD_GLOW_CANDIDATE_COLOR = ACTION_DECLARATION_OUTLINE_COLOR
-export const CARD_GLOW_STAGED_COLOR = 'rgb(240,200,60)'
+// White, apart from the hover outline's yellow : the card a choice is about
+export const CARD_GLOW_STAGED_COLOR = 'rgb(255,255,255)'
 export const CARD_IN_HAND_GLOW_INNER_STRENGTH = 0
 export const CARD_IN_HAND_GLOW_OUTER_STRENGTH = 2
 export const CARD_IN_PLAY_GLOW_INNER_STRENGTH = 0
 export const CARD_IN_PLAY_GLOW_OUTER_STRENGTH = 3
+// A minion that can act : the usable orange, thinner ( a card to play glows full )
+export const CARD_IN_PLAY_GLOW_ACTOR_OUTER_STRENGTH = 1.5
 
 export const CARD_PING_DURATION = 2000 // Total duration of the ping animation in ms
 export const CARD_PING_NB_BEATS = 4 // Number of ping beats

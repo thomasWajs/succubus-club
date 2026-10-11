@@ -63,7 +63,6 @@
             >
                 {{ option.text }}
             </button>
-            <EnginePassButton host="picking" />
         </div>
     </CentralPanel>
 </template>
@@ -74,7 +73,6 @@ import { hoverEngineCard } from '@/client/engine/cardNames.ts'
 import EngineText from '@/client/ui/ingame/EngineText.vue'
 import CentralPanel from '@/client/ui/ingame/topArea/central/CentralPanel.vue'
 import DisciplineIcon from '@/client/ui/components/DisciplineIcon.vue'
-import EnginePassButton from '@/client/ui/ingame/topArea/central/EnginePassButton.vue'
 import { useEngineStore } from '@/client/store/engine.ts'
 import { chooseEngineOption, engineOptionCards } from '@/client/engine/driver.ts'
 import { EngineOption } from '@/client/engine/protocol.ts'

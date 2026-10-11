@@ -1,7 +1,14 @@
 <template>
-    <div class="central-box">
+    <!-- With the rules engine : stacked from the top, the header in one place -->
+    <div
+        class="central-box"
+        :class="{ engine: gameState.gameType == GameType.Engine }"
+    >
         <!-- The Edge Hint -->
-        <TheEdgeHint v-if="aidsEnabled && centralContent.theEdge" />
+        <!-- Not with the rules engine : the Edge glows when its pool can be gained -->
+        <TheEdgeHint
+            v-if="aidsEnabled && centralContent.theEdge && gameState.gameType != GameType.Engine"
+        />
 
         <!-- Declaration hint -->
         <DeclarationHint />
@@ -11,6 +18,9 @@
             v-if="gameBus.secretInterfaceShown"
             @close="gameBus.secretInterfaceShown = false"
         />
+
+        <!-- The phase, the bleed, whose decision ( a game with the rules engine ) -->
+        <EngineHeader v-if="gameState.gameType == GameType.Engine" />
 
         <!-- The choice under way on the table ( a game with the rules engine ) -->
         <EngineStaging v-if="gameState.gameType == GameType.Engine" />
@@ -46,6 +56,9 @@
         </div>
         -->
 
+        <!-- The game over, every option as a last resort ( a game with the rules engine ) -->
+        <EngineFallback v-if="gameState.gameType == GameType.Engine" />
+
         <!-- Timer Setup -->
         <TimerSetup v-if="centralContent.timer" />
 
@@ -76,6 +89,8 @@ import NextTurn from '@/client/ui/ingame/topArea/central/NextTurn.vue'
 import TurnNotification from '@/client/ui/ingame/topArea/central/TurnNotification.vue'
 import EngineStaging from '@/client/ui/ingame/topArea/central/EngineStaging.vue'
 import EngineChoices from '@/client/ui/ingame/topArea/central/EngineChoices.vue'
+import EngineHeader from '@/client/ui/ingame/topArea/central/EngineHeader.vue'
+import EngineFallback from '@/client/ui/ingame/topArea/central/EngineFallback.vue'
 import EnginePlayed from '@/client/ui/ingame/topArea/central/EnginePlayed.vue'
 import { GameType } from '@/shared/types/state.ts'
 import { useEngineStore } from '@/client/store/engine.ts'
@@ -164,5 +179,9 @@ const centralContent = computed(() => ({
     min-height: 0;
     overflow-y: auto;
     justify-content: safe center;
+
+    &.engine {
+        justify-content: flex-start;
+    }
 }
 </style>

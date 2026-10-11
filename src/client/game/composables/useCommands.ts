@@ -11,7 +11,7 @@ import { useHistoryStore } from '@/client/store/history.ts'
 import { useCoreStore } from '@/client/store/core.ts'
 import { ALL_PLAYERS, GameType } from '@/shared/types/state.ts'
 import { useEngineStore } from '@/client/store/engine.ts'
-import { undoEngineStep } from '@/client/engine/driver.ts'
+import { enginePassOption, passEngine, undoEngineStep } from '@/client/engine/driver.ts'
 import { startTargetDeclaration } from '@/client/game/declaration.ts'
 import { cancelMutation } from '@/client/state/gameMutations.ts'
 import { GRID_SIZE } from '@/shared/const/game.ts'
@@ -123,8 +123,9 @@ function createCommands(): Commands {
             label: `${TurnSequence[index]} Phase`,
             repr: index.toString(),
             keyCodes,
+            // With the rules engine the phases end by the pass only
             isDisabled: () => {
-                return gameState.turnPhaseIndex == index
+                return gameState.gameType == GameType.Engine || gameState.turnPhaseIndex == index
             },
             trigger: () => {
                 gameMutations.goToTurnPhase.actSelf({ index })
@@ -139,7 +140,11 @@ function createCommands(): Commands {
             repr: '↵',
             keyCodes: [KeyCodes.ENTER],
             isDisabled: () => {
-                return !!gameState.action || !!gameState.combat
+                return (
+                    gameState.gameType == GameType.Engine ||
+                    !!gameState.action ||
+                    !!gameState.combat
+                )
             },
             trigger: () => {
                 gameMutations.goToTurn.actSelf({ index: gameState.turnNumber + 1 })
@@ -147,7 +152,12 @@ function createCommands(): Commands {
         }),
         BackTurn: createCommand({
             isDisabled: () => {
-                return gameState.turnNumber == 1 || !!gameState.action || !!gameState.combat
+                return (
+                    gameState.gameType == GameType.Engine ||
+                    gameState.turnNumber == 1 ||
+                    !!gameState.action ||
+                    !!gameState.combat
+                )
             },
             trigger: () => {
                 gameMutations.goToTurn.actSelf({ index: gameState.turnNumber - 1 })
@@ -159,10 +169,10 @@ function createCommands(): Commands {
             label: 'Next Phase',
             repr: '→',
             keyCodes: [KeyCodes.RIGHT, KeyCodes.SPACE],
-            // With the rules engine, the pass ( see engine/gestures.ts ), during an action too
+            // With the rules engine, the pass of the decision under way ( the fixed Pass button )
             isDisabled: () => {
                 if (gameState.gameType == GameType.Engine) {
-                    return false
+                    return !enginePassOption()
                 }
                 return (
                     gameState.turnPhaseIndex >= TurnSequence.length - 1 ||
@@ -171,6 +181,10 @@ function createCommands(): Commands {
                 )
             },
             trigger: () => {
+                if (gameState.gameType == GameType.Engine) {
+                    passEngine()
+                    return
+                }
                 gameMutations.goToTurnPhase.actSelf({ index: gameState.turnPhaseIndex + 1 })
             },
         }),
@@ -180,7 +194,12 @@ function createCommands(): Commands {
             repr: '←',
             keyCodes: [KeyCodes.LEFT],
             isDisabled: () => {
-                return gameState.turnPhaseIndex == 0 || !!gameState.action || !!gameState.combat
+                return (
+                    gameState.gameType == GameType.Engine ||
+                    gameState.turnPhaseIndex == 0 ||
+                    !!gameState.action ||
+                    !!gameState.combat
+                )
             },
             trigger: () => {
                 gameMutations.goToTurnPhase.actSelf({ index: gameState.turnPhaseIndex - 1 })

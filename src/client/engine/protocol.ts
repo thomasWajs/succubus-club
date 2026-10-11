@@ -169,6 +169,8 @@ export type EngineOption = {
     favor?: boolean
     mode?: EngineMode // A card played : its mode
     blood?: number // The blood an ability moves onto ( + ) or off ( − ) its vampire ( minion )
+    // A card chosen by name ( a search ) : where it is taken from, and whose
+    zone?: EngineZone
 }
 
 // The mode a card is played in : its index, its printed tags ( 'dom' basic, 'DOM' superior,
@@ -182,6 +184,9 @@ export type EngineMode = {
     label?: string
     target?: string
 }
+
+// A seat's zone a search takes a card from
+export type EngineZone = { seat: number; zone: 'library' | 'ash_heap' | 'hand' | 'crypt' }
 
 // A recipient of referendum points : a Methuselah ( seat ) or a card in play
 export type EngineRecipient = {

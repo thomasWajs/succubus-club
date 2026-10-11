@@ -272,7 +272,7 @@ export function matchGesture(
 
         // The Edge burned : for a vote
         case 'changeTheEdgeControl':
-            found = kind('cast_edge')
+            found = kind('cast_edge', 'edge_pool')
             break
 
         // Pool gained : the Edge's ; pool lost : a cost
@@ -305,6 +305,12 @@ const ON_CARD: Record<string, (option: EngineOption) => string> = {
     burn_corruption_to_unlock: () => 'Unlock',
     draw_stored: option => option.text,
     burn_weapon_strike: () => 'Burn to strike',
+    // A contest, under the card or minion contested
+    pay_contest: () => 'Pay to contest',
+    yield_contest: () => 'Yield',
+    // A card in play burned to pay ( Spectral Servitor, a Blood Doll )
+    burn_in_play: () => 'Burn',
+    unlock_infernal: () => 'Unlock ( 1 pool )',
 }
 
 /**

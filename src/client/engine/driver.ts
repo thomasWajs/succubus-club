@@ -8,7 +8,14 @@
 import { ref } from 'vue'
 import { EngineHost } from '@/client/engine/host.ts'
 import { Projection } from '@/client/engine/projection.ts'
-import { EngineAllocation, EngineOption, EngineOut, EngineView } from '@/client/engine/protocol.ts'
+import {
+    EngineAllocation,
+    EngineOption,
+    EngineOut,
+    EngineView,
+    EngineZone,
+} from '@/client/engine/protocol.ts'
+import { AnyCardRegion } from '@/shared/types/model.ts'
 import { EngineCombat, useEngineStore } from '@/client/store/engine.ts'
 import { useHistoryStore } from '@/client/store/history.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
@@ -56,6 +63,19 @@ export function stopEngine() {
 // The user takes the pending decision
 export function chooseEngineOption(index: number) {
     running?.answer?.({ index })
+}
+
+// The pass of the decision under way ( "Pass (no block)", "End the master phase"… ) : one fixed
+// button in the turn controls, and → / Space
+export function enginePassOption(): EngineOption | undefined {
+    return useEngineStore().pending?.options.find(option => option.kind == 'pass')
+}
+
+export function passEngine() {
+    const pass = enginePassOption()
+    if (pass) {
+        chooseEngineOption(pass.index)
+    }
 }
 
 // The user takes back the previous step of the multi-step choice under way
@@ -164,7 +184,7 @@ export function engineGesture(gameMutation: AnyGameMutation): Validity {
     const matches = matchGesture(running.projection, pending.options, gameMutation)
 
     if (matches.length == 0) {
-        return Invalid(`Not possible now ( ${pending.window} ) : see your options in the panel`)
+        return Invalid(`Not possible now ( ${pending.window} ) : see the central box`)
     }
     // Several options that read the same are the same to the user
     if (matches.length == 1 || matches.every(option => option.text == matches[0].text)) {
@@ -176,7 +196,7 @@ export function engineGesture(gameMutation: AnyGameMutation): Validity {
         return VALID
     }
     // Several : the choice goes on as a click on the card would ( the Disciplines, the target… in
-    // the central box, the candidates glowing ), not in the panel
+    // the central box, the candidates glowing )
     engine.focus = []
     narrowStaging(matches)
     return VALID
@@ -199,6 +219,20 @@ export function engineOptionCards(option: EngineOption, seat?: number): Card[] {
         target?.kind == 'card' ? projection.cardInPlay(target.card_id) : undefined,
         target?.kind == 'uncontrolled' ? projection.uncontrolled(decider, target.slot) : undefined,
     ].filter((card): card is Card => card !== undefined)
+}
+
+// The region of the table a search's zone is ( a seat's library, ash heap or hand )
+export function engineZoneRegion(zone: EngineZone | undefined): AnyCardRegion | undefined {
+    if (!running || !zone) {
+        return undefined
+    }
+    const player = running.projection.player(zone.seat)
+    return (
+        zone.zone == 'library' ? player.library
+        : zone.zone == 'ash_heap' ? player.ashHeap
+        : zone.zone == 'crypt' ? player.crypt
+        : player.hand
+    )
 }
 
 // The cards alike to this one ( itself included ) : copies of the same card in the same hand, or

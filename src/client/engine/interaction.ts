@@ -19,7 +19,13 @@ import { computed } from 'vue'
 import { Card } from '@/shared/model/Card.ts'
 import { EngineOption, EngineTarget } from '@/client/engine/protocol.ts'
 import { useEngineStore } from '@/client/store/engine.ts'
-import { chooseEngineOption, engineAlikeCards, engineOptionCards } from '@/client/engine/driver.ts'
+import {
+    chooseEngineOption,
+    engineAlikeCards,
+    engineOptionCards,
+    engineZoneRegion,
+} from '@/client/engine/driver.ts'
+import { AnyCardRegion } from '@/shared/types/model.ts'
 import { Colors } from '@/client/colors.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { GameType } from '@/shared/types/state.ts'
@@ -43,11 +49,72 @@ export type StagingStep = {
 }
 
 // The decisions that pick a card of the table : the card glows as a candidate, a click picks it
-const PICKS = ['choose_minion', 'choose_card', 'slot', 'take_equipment', 'round_strike']
+// ( draw_stored : a card drawn from a card in play instead of the library, Shilmulo Tarot : the
+// card glows, a click lists its cards )
+const PICKS = [
+    'choose_minion',
+    'choose_card',
+    'slot',
+    'take_equipment',
+    'round_strike',
+    'draw_stored',
+]
 
 export function isPick(option: EngineOption): boolean {
-    return PICKS.includes(option.kind) && (option.kind != 'round_strike' || !!option.card)
+    return (
+        (PICKS.includes(option.kind) && (option.kind != 'round_strike' || !!option.card)) ||
+        // A card discarded from hand for an effect ( an exchange, a cost ) : not the discard
+        // phase's, answered by the 🔥 of the card
+        (option.kind == 'discard' && useEngineStore().pending?.window != 'Discard phase')
+    )
 }
+
+// The cards chosen by name in a zone ( a library or ash heap search, a vampire in the ash heap,
+// a card employed from hand ) : the zone glows, its cards of that name are candidates
+const SEARCHES = ['find_card', 'take_from', 'ash_vampire', 'employ_from_hand']
+
+export function searchCards(option: EngineOption): Card[] {
+    const id = option.card?.id
+    if (!SEARCHES.includes(option.kind) || id == null) {
+        return []
+    }
+    const region = engineZoneRegion(option.zone)
+    return region ? region.cards.filter(card => card.krcgId == String(id)) : []
+}
+
+// The stacks a draw is offered from now ( the library, the crypt ) : they glow, a click draws
+export const drawnRegions = computed((): AnyCardRegion[] => {
+    const pending = useEngineStore().pending
+    if (!pending) {
+        return []
+    }
+    const regions: AnyCardRegion[] = []
+    for (const [kind, zone] of [
+        ['draw_library', 'library'],
+        ['draw_crypt', 'crypt'],
+    ] as const) {
+        const region =
+            pending.options.some(o => o.kind == kind) ?
+                engineZoneRegion({ seat: pending.seat, zone })
+            :   undefined
+        if (region) {
+            regions.push(region)
+        }
+    }
+    return regions
+})
+
+// The regions searched now : they glow, a click on them opens them
+export const searchedRegions = computed((): AnyCardRegion[] => {
+    const regions: AnyCardRegion[] = []
+    for (const option of useEngineStore().pending?.options ?? []) {
+        const region = searchCards(option).length > 0 ? engineZoneRegion(option.zone) : undefined
+        if (region && !regions.includes(region)) {
+            regions.push(region)
+        }
+    }
+    return regions
+})
 
 // An option a click on its card starts : a card played from hand, the ability of a card in play
 // ( what it grants : an action to burn or steal it, an equip, a tap ). A vampire's own ability
@@ -276,6 +343,9 @@ const highlights = computed(() => {
         return map
     }
     for (const option of pendingOptions()) {
+        for (const found of searchCards(option)) {
+            map.set(found.oid, 'candidate')
+        }
         const card = cardOf(option)
         if (!card) {
             continue
@@ -390,7 +460,11 @@ export function engineCardClick(card: Card): boolean {
     const played = options.filter(
         o => (o.kind == 'play' || o.kind == 'use_ability') && is(actorOf(o), card),
     )
-    const picked = about.length > 0 ? about : played
+    const found = options.filter(o => searchCards(o).some(c => c.oid == card.oid))
+    const picked =
+        found.length > 0 ? found
+        : about.length > 0 ? about
+        : played
     if (picked.length == 0) {
         return false
     }
@@ -513,12 +587,26 @@ export function answeredOnTable(option: EngineOption): boolean {
             return !!pending?.allocation
         case 'set_x':
             return xOptions(options).length > 0
+        // The Edge glows : a click gains its pool or casts its vote ( see edgeOptions ) ; the votes
+        // panel holds the Edge's and the political action card's vote too
+        case 'edge_pool':
+        case 'cast_edge':
+        case 'cast_card_vote':
+            return true
+        // The hand card's own button glows ( 🔥, To Bottom : see CardInHandGO )
+        case 'burn_for_vote':
+        case 'bottom':
+            return !!cardOf(option)
         case 'draw_crypt':
         case 'pay_block_toll':
             return actionButtons.value.includes(option)
     }
     if (isUse(option) || isPick(option) || isOwnAbility(option)) {
         return !!cardOf(option)
+    }
+    // A search : in its zone ( it glows ), else a button of the central box
+    if (SEARCHES.includes(option.kind)) {
+        return searchCards(option).length > 0
     }
     // A vampire's own ability : in its menu, when it can act
     if (option.kind == 'use_ability') {
@@ -548,33 +636,42 @@ export const actionButtons = computed((): EngineOption[] => {
     return pending.options.filter(o => ACTION_BUTTONS.includes(o.kind))
 })
 
-// The panels of the central box that can hold the pass, top first ( see centralPass )
-export type PassHost = 'picking' | 'allocation' | 'votes' | 'x' | 'combat' | 'cards' | 'action'
+// The Edge, usable now : its pool in the unlock phase, its vote in a polling — it glows, a click
+// on it takes the option ( see gestures.ts changeTheEdgeControl )
+export const edgeOptions = computed((): EngineOption[] =>
+    (useEngineStore().pending?.options ?? []).filter(
+        option => option.kind == 'edge_pool' || option.kind == 'cast_edge',
+    ),
+)
+
+// The votes of a polling that are no vampire's : the Edge's, the political action card's ( buttons
+// beside "All my votes" )
+export const methuselahVoteOptions = computed((): EngineOption[] =>
+    (useEngineStore().pending?.options ?? []).filter(
+        option => option.kind == 'cast_edge' || option.kind == 'cast_card_vote',
+    ),
+)
+
+// The influence phase's transfers : SC's own moves on the table ( dragging blood )
+const TABLE_MOVES = ['transfer', 'withdraw', 'influence_out']
 
 /**
- * The pass during an action, a combat or a referendum ( "Pass (no block)", "Pass (no press)"… ),
- * and the panel of the central box it goes in : the topmost one shown, with what is happening
- * ( a choice under way excepted : its own panel is about that choice ). Null for no pass there :
- * in the side panel then.
+ * The options nothing else answers ( see answeredOnTable ), for the central box with the
+ * decision's prompt : a library search, an exchange, a cost, a draw alternative ( Shilmulo Tarot ),
+ * the political action card's vote, the Edge's pool, a contest… The influence and discard
+ * phases' own moves stay on the table, a phase's end on the turn controls.
  */
-export const centralPass = computed((): { option: EngineOption; host: PassHost } | null => {
+export const leftoverOptions = computed((): EngineOption[] => {
     const pending = useEngineStore().pending
-    const gameState = useGameStateStore()
-    if (!pending || !(gameState.action || gameState.referendum || pending.combat)) {
-        return null
+    if (!pending) {
+        return []
     }
-    const option = pending.options.find(o => o.kind == 'pass')
-    if (!option) {
-        return null
-    }
-    // In the order of the central box's panels ( EngineStaging, EngineChoices, ActionInfos )
-    const host: PassHost =
-        !staging.value && pending.options.some(isPick) ? 'picking'
-        : pending.allocation ? 'allocation'
-        : pending.votes || gameState.referendum ? 'votes'
-        : xOptions(pending.options).length > 0 ? 'x'
-        : pending.combat || combatOptions(pending.options).length > 0 ? 'combat'
-        : cardChoices(pending.options).length > 0 ? 'cards'
-        : 'action'
-    return { option, host }
+    return pending.options.filter(
+        option =>
+            option.kind != 'pass' &&
+            !TABLE_MOVES.includes(option.kind) &&
+            !(option.kind == 'discard' && pending.window == 'Discard phase') &&
+            !(option.kind == 'draw_crypt' && pending.window == 'Influence phase') &&
+            !answeredOnTable(option),
+    )
 })

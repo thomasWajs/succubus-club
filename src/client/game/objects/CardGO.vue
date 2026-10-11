@@ -47,9 +47,13 @@
         <!-- Glow effect for "isDuringCurrentPhase" -->
         <FxGlow
             v-if="showGlowEffect"
-            :key="glowColor"
+            :key="`${glowColor}-${engineActor}`"
             :color="glowColor"
-            :outerStrength="CARD_IN_PLAY_GLOW_OUTER_STRENGTH"
+            :outerStrength="
+                engineActor ?
+                    CARD_IN_PLAY_GLOW_ACTOR_OUTER_STRENGTH
+                :   CARD_IN_PLAY_GLOW_OUTER_STRENGTH
+            "
             :innerStrength="CARD_IN_PLAY_GLOW_INNER_STRENGTH"
         />
 
@@ -291,6 +295,7 @@ import {
     CARD_HEIGHT,
     CARD_IN_PLAY_BASE_SCALE,
     CARD_IN_PLAY_GLOW_INNER_STRENGTH,
+    CARD_IN_PLAY_GLOW_ACTOR_OUTER_STRENGTH,
     CARD_IN_PLAY_GLOW_OUTER_STRENGTH,
     CARD_OUTLINE_THICKNESS,
     CARD_WIDTH,
@@ -506,6 +511,8 @@ function bringToTop() {
 // A candidate of the engine's choice under way ( a target, a pick ) is outlined in its glow's blue
 // too : a frame that reads at any scale, even under the cards on it
 const engineCandidate = computed(() => engineHighlight(card) == 'candidate')
+// A minion that can act, not a card to play : a thinner glow
+const engineActor = computed(() => engineHighlight(card) == 'actor')
 const outlineColor = computed(
     () =>
         getCardOutlineColor.value ??

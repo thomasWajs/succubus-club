@@ -28,12 +28,9 @@
             @pointerdown="forwardPointerEvent"
             @pointerup="forwardPointerEvent"
         >
-            <!-- On the side in a game with the rules engine ( see EngineDecisionPanel ) -->
-            <template v-if="!trackerAside">
-                <TurnControls />
+            <TurnControls />
 
-                <GameControlsBar />
-            </template>
+            <GameControlsBar />
 
             <CentralBox />
         </div>
@@ -52,7 +49,6 @@ import { useGameStateStore } from '@/client/store/gameState.ts'
 import TurnControls from '@/client/ui/ingame/topArea/TurnControls.vue'
 import GameControlsBar from '@/client/ui/ingame/topArea/GameControlsBar.vue'
 import CentralBox from '@/client/ui/ingame/topArea/CentralBox.vue'
-import { useEngineSide } from '@/client/ui/ingame/engineSide.ts'
 
 const core = useCoreStore()
 const bus = useBusStore()
@@ -62,7 +58,6 @@ const gameState = useGameStateStore()
 const isCollapsed = ref(false)
 
 const { worldAlignment } = useUIFeatures()
-const trackerAside = useEngineSide()
 
 const style = computed(() => {
     const baseStyle = {
