@@ -25,7 +25,7 @@ import { GovernAgent } from '@/shared/bot/agents/governAgent.ts'
 import { RandomAgent } from '@/shared/bot/agents/randomAgent.ts'
 import { UtilityAgent } from '@/shared/bot/agents/utilityAgent.ts'
 import { BrujahDeck, GovernDeck, MalkavDeck, NosferatuDeck } from '@/shared/bot/decks.ts'
-import { AttachDeck, PostBlockDeck } from './attachDeck.ts'
+import { AttachDeck, PoolDeck, PostBlockDeck } from './attachDeck.ts'
 import { BOT_NAME } from '@/shared/const/bot.ts'
 import { MAX_PLAYERS } from '@/shared/const/model.ts'
 
@@ -35,6 +35,7 @@ const DECKS = {
     brujah: BrujahDeck,
     nosferatu: NosferatuDeck,
     attach: AttachDeck,
+    pool: PoolDeck,
     postblock: PostBlockDeck,
 }
 

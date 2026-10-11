@@ -136,7 +136,10 @@ function rescueValue(assessment: Assessment, candidate: Candidate): number {
     const mine = opening.owner == table.me.oid
     const bloodAfter = opening.vampire.blood - (LEAVE_TORPOR_COST - candidate.paid)
     const worth = returnWorth(opening, bloodAfter, profile) + (mine ? profile.plan.torporReturn : 0)
-    return worth * (1 - opening.chance) + bloodChange(profile, rescuer, -candidate.paid)
+    return (
+        worth * (1 - opening.chance) +
+        bloodChange(profile, rescuer, -candidate.paid, assessment.bloat[table.me.oid])
+    )
 }
 
 // What an action of a card of the hand is worth: the placeholder of the profile, raised by the best
@@ -159,7 +162,12 @@ function idleOf(assessment: Assessment, minion: MinionProfile, own: Candidate[])
             case 'hunt': {
                 // The blood a Blood Doll carries over to the pool is pool: it counts in full
                 const room = Math.max(0, Math.min(minion.hunt, minion.capacity - minion.blood))
-                const value = bloodChange(assessment.profile, minion, room)
+                const value = bloodChange(
+                    assessment.profile,
+                    minion,
+                    room,
+                    assessment.bloat[assessment.table.me.oid],
+                )
                 return [{ kind: 'hunt', value, candidate }]
             }
             case 'rescue':
@@ -190,7 +198,10 @@ function leaveTorporValue(assessment: Assessment, candidate: Candidate): number 
     const bloodAfter = vampire.blood - LEAVE_TORPOR_COST
     const worth =
         (opening ? returnWorth(opening, bloodAfter, profile) : 0) + profile.plan.torporReturn
-    return worth * (1 - (opening?.chance ?? 0)) + bloodChange(profile, vampire, -LEAVE_TORPOR_COST)
+    return (
+        worth * (1 - (opening?.chance ?? 0)) +
+        bloodChange(profile, vampire, -LEAVE_TORPOR_COST, assessment.bloat[table.me.oid])
+    )
 }
 
 // The fight a block of my prey would run my minion into, in pool: coarse, until the combat model of 3.4

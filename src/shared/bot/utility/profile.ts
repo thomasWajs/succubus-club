@@ -101,9 +101,15 @@ export type PlanWeights = {
 export type BloatWeights = {
     // The turns it looks ahead: the blood that a Blood Doll carries to the pool within them counts as pool
     horizon: number
-    // The share of what a Methuselah regains per turn that eats the bleeds on it: a drain that does not oust
-    // only lasts above the income
+    // The share of what a Methuselah regains before its next turn that eats the bleeds on it: a drain that does
+    // not oust only lasts above the income
     recapture: number
+    // What a bleed that leaves its prey alive but within reach of the same bleeds on my next turn, income
+    // counted, is worth, as a share of what an oust is worth
+    setup: number
+    // The blood a vampire keeps for itself: it pays for cards, and with none it must hunt and is a target for
+    // torpor. A Doll or a card that taps blood only takes what is above it
+    keep: number
     // What the cards a Methuselah is believed to hold give when one is played: pool for a card that gains pool,
     // blood for one that puts blood on a vampire ( one master card is played per turn )
     poolPerCard: number
@@ -175,7 +181,7 @@ export const DEFAULT_PROFILE: BotProfile = {
         baitAbove: 0.2,
         postureAt: 0.25,
     },
-    bloat: { horizon: 3, recapture: 0.5, poolPerCard: 2, bloodPerCard: 1 },
+    bloat: { horizon: 3, recapture: 0.5, setup: 0.5, keep: 2, poolPerCard: 2, bloodPerCard: 1 },
     vpValue: 10,
     combatPool: 3,
 }

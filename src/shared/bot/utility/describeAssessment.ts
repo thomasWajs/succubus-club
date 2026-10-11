@@ -79,7 +79,7 @@ export function describeTurnPlan(plan: TurnPlan): string[] {
     for (const [index, one] of plan.cases.entries()) {
         const mark = index == plan.chosen ? '>' : ' '
         lines.push(
-            `${mark} keep ${one.kept.length}: equity ${fixed(one.equity)} = bleeds ${fixed(one.bleeds.total)} - fights ${fixed(one.combat)} + other ${fixed(one.idle)} + guard ${fixed(one.guard)} - lunge ${fixed(one.lunge.total)} - cards ${fixed(one.cards)}`,
+            `${mark} keep ${one.kept.length}: equity ${fixed(one.equity)} = bleeds ${fixed(one.bleeds.total)}${one.bleeds.setup >= 0.05 ? ` ( sets up ${fixed(one.bleeds.setup)} )` : ''} - fights ${fixed(one.combat)} + other ${fixed(one.idle)} + guard ${fixed(one.guard)} - lunge ${fixed(one.lunge.total)} - cards ${fixed(one.cards)}`,
         )
     }
     return lines
@@ -105,8 +105,14 @@ export function describeAssessment(assessment: Assessment): string[] {
         )
         const bloat = assessment.bloat[snapshot.oid]
         if (bloat.pool >= 0.05 || bloat.blood >= 0.05) {
+            const turns = bloat.turns.map(
+                income => `${fixed(income.pool)} pool and ${fixed(income.blood)} blood`,
+            )
+            lines.push(`    takes back from the blood bank, turn by turn: ${turns.join(', then ')}`)
+        }
+        if (bloat.tappable > 0) {
             lines.push(
-                `    takes back ${fixed(bloat.pool)} pool and ${fixed(bloat.blood)} blood per turn from the blood bank`,
+                `    its hand turns ${Number.isFinite(bloat.tappable) ? fixed(bloat.tappable) : 'any amount of'} blood of a vampire into pool`,
             )
         }
         if (snapshot.isMe) {

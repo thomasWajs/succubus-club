@@ -32,7 +32,7 @@ import {
     unlockCardsOf,
 } from '@/shared/bot/utility/defence.ts'
 import { boardsOf, returnsOf, returnWorth } from '@/shared/bot/utility/rescue.ts'
-import { Bloat, bloatOf, lastingLoss } from '@/shared/bot/utility/bloat.ts'
+import { Bloat, bloatOf, lastingLoss, takenBack } from '@/shared/bot/utility/bloat.ts'
 
 /**
  * The table, read: what each Methuselah can do to me and what I can do to it, how my pool stands against
@@ -103,7 +103,7 @@ export type Assessment = {
     profile: BotProfile
     // What each Methuselah is believed to hold, by role
     densities: Record<PlayerOid, Densities>
-    // What each Methuselah takes back from the blood bank per turn ( bloat.ts )
+    // What each Methuselah takes back from the blood bank, turn by turn ( bloat.ts )
     bloat: Record<PlayerOid, Bloat>
     // What the minions and the cards in play are worth, in pool, plus the pool and the victory points,
     // and what the bloat adds over the turns looked ahead
@@ -274,7 +274,7 @@ function reserveOf(
     // What a loss costs, as what lasts against the income of whoever loses it. The reserve of the others
     // does not cap what a lunge takes at the pool it finds, hence the unbounded pool
     const lastingFor = (result: AttackResult, loser: MethuselahSnapshot) =>
-        lastingLoss(result, Infinity, context.bloat[loser.oid]?.pool ?? 0, recapture)
+        lastingLoss(result, Infinity, takenBack(context.bloat[loser.oid]), recapture)
     // What the minion would drain from its prey instead
     const drainOf = (minion: MinionProfile) =>
         lastingFor(
@@ -334,7 +334,7 @@ export type LungeStats = {
     // Pool I lose, never more than I have. Far from an ouster it is still what a bleed costs me: it
     // weakens me for the rest of the game.
     expectedLoss: number
-    // The same, as what lasts against what I take back from the blood bank each turn
+    // The same, as what lasts against what I take back from the blood bank before my next turn
     lastingLoss: number
     // Bleeds blocked, in expectation: each one is a block of one of my minions ( woken ones included )
     blocks: number
@@ -359,7 +359,7 @@ function lungeStats(
         lastingLoss: lastingLoss(
             result,
             pool,
-            assessment.bloat[me.oid]?.pool ?? 0,
+            takenBack(assessment.bloat[me.oid]),
             assessment.profile.bloat.recapture,
         ),
         blocks: result.blockedShare * result.attackers,
@@ -421,7 +421,7 @@ export type TurnOutcome = {
     chanceOfBeingOusted: number
     // The pool my predator takes from me, with the pool I gain from an oust counted in
     expectedLoss: number
-    // The same, as what lasts against what I take back from the blood bank each turn
+    // The same, as what lasts against what I take back from the blood bank before my next turn
     lastingLoss: number
     // The bleeds my predator makes that my defence blocks
     blocks: number

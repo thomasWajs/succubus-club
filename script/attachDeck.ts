@@ -14,6 +14,14 @@ export const AttachDeck = <DeckList>{
     '100913': 8, // Heroic Might
 }
 
+// The Govern deck with the master cards that turn blood into pool, to play them in the harness
+export const PoolDeck = <DeckList>{
+    ...GovernDeck,
+    '102121': 8, // Villein
+    '101217': 8, // Minion Tap
+    '100199': 8, // Blood Doll
+}
+
 // The Govern deck with the Animalism cards that hurt, to fight with them in the harness
 export const CrowsDeck = <DeckList>{
     ...GovernDeck,
