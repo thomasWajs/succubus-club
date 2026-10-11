@@ -71,7 +71,6 @@ import {
     EmptyParams,
     GameMutation,
     GameMutationParams,
-    PlayerMutation,
     PlayerParams,
     registerMutations,
 } from '@/shared/state/mutationBase.ts'
@@ -167,10 +166,15 @@ class AttachCard extends GameMutation<AttachCardParams> {
 }
 
 /**
- * Spend the master phase action ( played with a master card )
+ * Spend the master phase action ( played with a master card ). A trifle that gives its extra
+ * action ( the first of the master phase ) hands one back at once: the net count does not change
  */
 
-class SpendMasterPhaseAction extends PlayerMutation {
+interface SpendMasterPhaseActionParams extends PlayerParams {
+    trifle?: boolean
+}
+
+class SpendMasterPhaseAction extends GameMutation<SpendMasterPhaseActionParams> {
     _isUserCancellable = false
     readonly syncMode = MutationSyncMode.Exclusive
 
@@ -179,15 +183,26 @@ class SpendMasterPhaseAction extends PlayerMutation {
     }
 
     getValidity(gameState: GameState) {
-        return gameState.turnResources.mpa > 0 ? VALID : Invalid('No master phase action left')
+        if (gameState.turnResources.mpa <= 0) {
+            return Invalid('No master phase action left')
+        }
+        return this.params.trifle && gameState.turnResources.trifleGained ?
+                Invalid('A trifle already gave its master phase action this turn')
+            :   VALID
     }
 
     protected updateGameState(gameState: GameState) {
         gameState.turnResources.mpa -= 1
+        if (this.params.trifle) {
+            gameState.turnResources.trifleGained = true
+            gameState.turnResources.mpa += 1
+        }
     }
 
     formatForLog() {
-        return `${this.params.player.name} uses the master phase action`
+        return this.params.trifle ?
+                `${this.params.player.name} plays a trifle and gains another master phase action`
+            :   `${this.params.player.name} uses the master phase action`
     }
 }
 

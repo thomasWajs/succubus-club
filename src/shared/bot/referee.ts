@@ -817,7 +817,10 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
             playCardFromHand(player, option.card)
             check(payMasterCardCosts(player, option.card), 'card cost')
             check(
-                botMutations.spendMasterPhaseAction.act(player, { player }),
+                botMutations.spendMasterPhaseAction.act(player, {
+                    player,
+                    trifle: option.card.isTrifle && !gameState.turnResources.trifleGained,
+                }),
                 'master phase action',
             )
             if (option.target) {

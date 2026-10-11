@@ -414,6 +414,12 @@ export class LibraryCard extends Card {
         return /(^|[.:;,] )unique\b/i.test(firstLine)
     }
 
+    // A master card whose first line says it is a trifle ( "Trifle.", "Master: unique trifle." ):
+    // playing it gives back a master phase action, once per master phase
+    get isTrifle(): boolean {
+        return this.hasType(LibraryCardType.Master) && /\btrifle\b/i.test(this.text.split('\n')[0])
+    }
+
     initMinionAttrs() {
         if (!this.resource) {
             return

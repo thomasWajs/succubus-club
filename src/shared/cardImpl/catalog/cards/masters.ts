@@ -28,7 +28,6 @@ export const MASTER_CARDS = [
             abilities: [{ activate: 'lock', effects: [discardFromHand] }],
         },
     ]),
-    // The Trifle keyword is not modelled yet: played as a normal master card
     defineCard('102180', 'Wider View', [
         {
             kind: 'master',

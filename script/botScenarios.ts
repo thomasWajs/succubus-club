@@ -2710,6 +2710,49 @@ function createLifeInTheCityTurn(bloods: [number, number], cardId = LIFE_IN_THE_
     return { gameState, player, card, vampires, decision }
 }
 
+// The master phase of a player holding the two Life in the City ( trifles ) and a Minion Tap ( not
+// one ) of the Malkav deck, with two ready vampires that hold blood and can gain some
+function createTrifleTurn() {
+    const { gameState } = createHeadlessGame([MINION_TAP_DECK, MINION_TAP_DECK])
+    createdGames.push(gameState)
+    const player = gameState.activePlayer
+    if (!player) {
+        throw new ScenarioFailure('No active player')
+    }
+    emptyHand(gameState, player)
+    const trifles = player.library.cards.filter(
+        (card): card is LibraryCard =>
+            card instanceof LibraryCard && card.krcgId == LIFE_IN_THE_CITY_ID,
+    )
+    const [first, second] = trifles
+    if (!first || !second) {
+        throw new ScenarioFailure('Two Life in the City are needed')
+    }
+    const tap = findCard(player, MINION_TAP_ID)
+    for (const card of [first, second, tap]) {
+        gameState.moveCardToRegion(card, player.hand)
+        givenCards.add(card)
+    }
+    const vampires = [1, 1].map(blood => readyVampire(gameState, player, blood))
+    gameState.turnPhaseIndex = TurnSequence.indexOf(TurnPhase.Master)
+    gameState.turnResources.unlocked = true
+    return { gameState, player, library: first, trifles: [first, second], tap, vampires }
+}
+
+// Plays the card through the master phase decision, then its cleanup when it does not stay in play
+function playMasterCard(turn: MasterTurn, card: LibraryCard): void {
+    const decision = getMasterDecision(turn)
+    const play = optionsOfType(decision.options, 'playMaster').find(option => option.card == card)
+    if (!play) {
+        throw new ScenarioFailure(`${card.name} is not offered`)
+    }
+    applyOption(decision, play)
+    const next = getMasterDecision(turn)
+    if (next.kind == DecisionKind.Cleanup) {
+        applyOption(next, findOption(next.options, 'cleanup'))
+    }
+}
+
 type CatalogBleedSetup = {
     discipline: Discipline
     level: DisciplineLevel
@@ -3028,7 +3071,11 @@ const CATALOG_SCENARIOS: { name: string; run: () => void }[] = [
             applyOption(decision, options[0])
             expectEqual(first.blood, 2, 'blood of the target')
             expectEqual(second.blood, second.minionAttrs.capacity, 'blood of the other')
-            expectEqual(turn.gameState.turnResources.mpa, 0, 'master phase action')
+            expectEqual(
+                turn.gameState.turnResources.mpa,
+                1,
+                'master phase action: a trifle gives it back',
+            )
         },
     },
     {
@@ -3043,6 +3090,85 @@ const CATALOG_SCENARIOS: { name: string; run: () => void }[] = [
                 throw new ScenarioFailure('No decision point')
             }
             expectEqual(optionsOfType(decision.options, 'playMaster').length, 0, 'options')
+        },
+    },
+    {
+        name: 'Trifle: a master card is one when its first line says so, "Master: unique trifle." included',
+        run() {
+            const deck = <DeckList>{ ...MINION_TAP_DECK, '102113': 1, '100691': 1 }
+            const { gameState } = createHeadlessGame([deck, deck])
+            createdGames.push(gameState)
+            const player = gameState.activePlayer
+            if (!player) {
+                throw new ScenarioFailure('No active player')
+            }
+            const isTrifle = (krcgId: string) => findHeldCard(player, krcgId).isTrifle
+            expectEqual(isTrifle(LIFE_IN_THE_CITY_ID), true, 'Life in the City ( Trifle. )')
+            expectEqual(isTrifle(WIDER_VIEW_ID), true, 'Wider View')
+            expectEqual(isTrifle('102113'), true, 'Vessel')
+            expectEqual(isTrifle('100691'), true, 'Failsafe ( Master: unique trifle. )')
+            expectEqual(isTrifle(ELDER_LIBRARY_ID), false, 'Elder Library')
+            expectEqual(isTrifle(MINION_TAP_ID), false, 'Minion Tap')
+            expectEqual(isTrifle('100199'), false, 'Blood Doll')
+        },
+    },
+    {
+        name: 'Trifle: the first one gives its master phase action back, a second one is a regular master card',
+        run() {
+            const turn = createTrifleTurn()
+            const { gameState, trifles } = turn
+            const [first, second] = trifles
+            expectEqual(gameState.turnResources.mpa, 1, 'master phase action before')
+
+            playMasterCard(turn, first)
+            expectEqual(
+                gameState.turnResources.mpa,
+                1,
+                'master phase action after the first trifle',
+            )
+            expectEqual(gameState.turnResources.trifleGained, true, 'the extra action is taken')
+            expectEqual(countMasterOptions(turn) > 0, true, 'a master card can still be played')
+
+            playMasterCard(turn, second)
+            expectEqual(gameState.turnResources.mpa, 0, 'a second trifle uses the action')
+            expectEqual(countMasterOptions(turn), 0, 'no master card is offered any more')
+        },
+    },
+    {
+        name: 'Trifle: played after a regular master card, it needs an action that is no longer there',
+        run() {
+            const turn = createTrifleTurn()
+            const { gameState, tap } = turn
+            playMasterCard(turn, tap)
+            expectEqual(gameState.turnResources.mpa, 0, 'master phase action')
+            expectEqual(gameState.turnResources.trifleGained, false, 'no trifle played')
+            expectEqual(countMasterOptions(turn), 0, 'the trifles are not offered')
+        },
+    },
+    {
+        name: 'Trifle: a regular master card follows the first trifle, then nothing more',
+        run() {
+            const turn = createTrifleTurn()
+            const { gameState, tap, trifles } = turn
+            playMasterCard(turn, trifles[0])
+            playMasterCard(turn, tap)
+            expectEqual(gameState.turnResources.mpa, 0, 'master phase action')
+            expectEqual(countMasterOptions(turn), 0, 'no master card is offered any more')
+        },
+    },
+    {
+        name: 'Trifle: the extra action is once per master phase, refused twice and given back on the next turn',
+        run() {
+            const turn = createTrifleTurn()
+            const { gameState, player } = turn
+            playMasterCard(turn, turn.trifles[0])
+            mustRefuse(
+                botMutations.spendMasterPhaseAction.act(player, { player, trifle: true }),
+                'second extra action',
+            )
+            gameState.setNewTurnResources()
+            expectEqual(gameState.turnResources.trifleGained, false, 'next turn')
+            expectEqual(gameState.turnResources.mpa, 1, 'master phase action next turn')
         },
     },
     {

@@ -110,6 +110,7 @@ export class GameState {
     turnResources = {
         unlocked: false, // "unlock as normal" done this turn
         mpa: DEFAULT_MPA, // masterPhaseActions
+        trifleGained: false, // a trifle already gave its extra master phase action this turn
         transfers: 1,
         dpa: DEFAULT_DPA, // discardPhaseActions
         usedCards: [] as CardOid[], // cards whose once-per-turn effect was used
@@ -327,6 +328,7 @@ export class GameState {
         this.turnResources = {
             unlocked: false,
             mpa: DEFAULT_MPA,
+            trifleGained: false,
             transfers,
             dpa: DEFAULT_DPA,
             usedCards: [],
