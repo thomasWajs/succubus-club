@@ -70,8 +70,10 @@ export type InterceptEffect = { type: 'intercept'; amount: number }
 export type BleedActionEffect = { type: 'bleedAction' }
 // Blood added to the target of the play ( an action's target, an ability's target )
 export type GainBloodEffect = { type: 'gainBlood'; amount: number }
-// Any amount of blood, chosen when the card is played, moved from the target ( a vampire ) to the pool of its controller
-export type BloodToPoolEffect = { type: 'bloodToPool' }
+// An amount of blood, chosen when the card is played, moved from the target ( a vampire ) to the pool of its
+// controller: any amount up to what the vampire holds, or between `min` and `max` ( a vampire that holds
+// less than `min` gives what it has )
+export type BloodToPoolEffect = { type: 'bloodToPool'; min?: number; max?: number }
 // A maneuver moves the range. With toCloseOnly it is only worth it when the range is long. In a play
 // that also has a strike, the maneuver comes with it ( the card is played once ): the strike is
 // the one of the maneuver, or can be played alone at the strike step.
@@ -218,8 +220,12 @@ export type BleedInterceptEffect = { type: 'bleedIntercept'; amount: number }
 export type PreventDamageEffect = { type: 'preventDamage'; amount: number }
 // The card is burned as soon as the bearer is in torpor
 export type BurnInTorporEffect = { type: 'burnInTorpor' }
+// The cards with these ids cost the pool of their controller this much more to play on the bearer ( one
+// such card on the bearer: each one adds `amount` )
+export type RaisePlayCostEffect = { type: 'raisePlayCost'; cards: KrcgId[]; amount: number }
 // An intercept bonus for the bearer is an InterceptEffect
 export type AttachedEffect =
+    | RaisePlayCostEffect
     | WeaponStrikeEffect
     | LifeEffect
     | InterceptEffect
@@ -297,7 +303,7 @@ type LockAbility = {
 export type DiscardFromHandEffect = { type: 'discardFromHand' }
 
 // What a master card does once, when it is played: to a ready vampire with room for blood, or to a vampire
-// that has blood ( in torpor too )
+// that has blood ( in torpor too ). With `attachTo`, the vampire is one the card can be put on
 export type MasterOnPlay =
     | { target: 'readyVampireBelowCapacity'; effects: GainBloodEffect[] }
     | { target: 'vampireWithBlood'; effects: BloodToPoolEffect[] }

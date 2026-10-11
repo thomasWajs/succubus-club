@@ -56,6 +56,7 @@ const FACTS_WITHOUT_ROLE: EffectType[] = [
     'burnsInTorpor',
     'burnSelf',
     'mustBleedWhileMinionLocked',
+    'raisePlayCost',
 ]
 
 // What the engine cannot offer to a bot yet, as far as the catalog and the referee go. These are not

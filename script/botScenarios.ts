@@ -58,6 +58,8 @@ import {
     FAR_MASTERY_ID,
     GOVERN_ID,
     LOST_IN_CROWDS_ID,
+    MINION_TAP_ID,
+    VILLEIN_ID,
 } from '@/shared/cardImpl/cardIds.ts'
 import { MasterCardImplementation } from '@/shared/cardImpl/base.ts'
 import { getMasterImplementation, MASTER_CARD_IMPLEMENTATIONS } from '@/shared/cardImpl/index.ts'
@@ -2687,12 +2689,16 @@ function createWiderViewTurn(transfers: number) {
     return { gameState, player, card, decision }
 }
 
-const MINION_TAP_ID = '101217'
 const MINION_TAP_DECK = <DeckList>{ ...MalkavDeck, [MINION_TAP_ID]: 4 }
+const VILLEIN_DECK = <DeckList>{ ...MINION_TAP_DECK, [VILLEIN_ID]: 4 }
 
 // The master phase of a player holding Life in the City ( or another master card ), with two ready vampires
-function createLifeInTheCityTurn(bloods: [number, number], cardId = LIFE_IN_THE_CITY_ID) {
-    const { gameState } = createHeadlessGame([MINION_TAP_DECK, MINION_TAP_DECK])
+function createLifeInTheCityTurn(
+    bloods: number[],
+    cardId = LIFE_IN_THE_CITY_ID,
+    deck: DeckList = MINION_TAP_DECK,
+) {
+    const { gameState } = createHeadlessGame([deck, deck])
     createdGames.push(gameState)
     const player = gameState.activePlayer
     if (!player) {
@@ -3233,6 +3239,124 @@ const CATALOG_SCENARIOS: { name: string; run: () => void }[] = [
             expectEqual(implementation.applyPlayEffect(vampire, 0).isValid, false, 'nothing')
             expectEqual(implementation.applyPlayEffect(vampire).isValid, false, 'no amount')
             expectEqual(vampire.blood, 2, 'nothing moved')
+        },
+    },
+    {
+        name: 'Villein is offered per vampire with blood and per amount ( 2 to 5, less for a vampire that holds less ), torpor included, and is put on the vampire it drains',
+        run() {
+            const turn = createLifeInTheCityTurn([6, 1, 0], VILLEIN_ID, VILLEIN_DECK)
+            const [full, one, empty] = turn.vampires
+            const late = readyVampire(turn.gameState, turn.player, 3)
+            turn.gameState.moveCardToRegion(late, turn.player.torpor)
+            const name = (vampire: Minion | undefined) =>
+                [
+                    [full, 'full'],
+                    [one, 'one'],
+                    [late, 'late'],
+                ].find(([candidate]) => candidate == vampire)?.[1]
+            const decision = getDecisionPoint(turn.gameState, turn.player)
+            if (!decision) {
+                throw new ScenarioFailure('No decision point')
+            }
+            const options = optionsOfType(decision.options, 'playMaster')
+            expectEqual(
+                options
+                    .map(option => `${name(option.target)}${option.amount}`)
+                    .toSorted()
+                    .join(),
+                'full2,full3,full4,full5,late2,late3,one1',
+                'one option per amount, none for the empty vampire',
+            )
+            expectEqual(
+                options.some(option => option.target == empty),
+                false,
+                'the empty vampire is not a target',
+            )
+            const pool = turn.player.pool
+            const four = options.find(option => option.target == full && option.amount == 4)
+            if (!four) {
+                throw new ScenarioFailure('No option for 4')
+            }
+            applyOption(decision, four)
+            expectEqual(full.blood, 2, 'the vampire lost the blood')
+            expectEqual(turn.player.pool, pool + 4, 'the pool gained it')
+            expectEqual(turn.card.isIn.hand, false, 'the card is played')
+            expectEqual(
+                getAttachedCards(full).includes(turn.card),
+                true,
+                'the card stays on the vampire',
+            )
+        },
+    },
+    {
+        name: 'Villein costs 1 pool for each Villein already on the vampire, and so does a Minion Tap played on it',
+        run() {
+            const [tapped, plain] = [0, 1]
+            const play = (pool: number, onFirst: number, cardId: string, which: number) => {
+                const turn = createLifeInTheCityTurn([6, 6], VILLEIN_ID, VILLEIN_DECK)
+                const { gameState, player } = turn
+                const tap = giveCard(gameState, player, MINION_TAP_ID)
+                const others = [...player.library.cards, ...player.hand.cards].filter(
+                    (card): card is LibraryCard =>
+                        card instanceof LibraryCard &&
+                        card.krcgId == VILLEIN_ID &&
+                        card != turn.card,
+                )
+                for (const villein of others.slice(0, onFirst)) {
+                    attachInPlay(villein, turn.vampires[tapped])
+                }
+                player.pool = pool
+                const decision = getDecisionPoint(gameState, player)
+                if (!decision) {
+                    throw new ScenarioFailure('No decision point')
+                }
+                const card = cardId == VILLEIN_ID ? turn.card : tap
+                const option = optionsOfType(decision.options, 'playMaster').find(
+                    candidate =>
+                        candidate.card == card &&
+                        candidate.target == turn.vampires[which] &&
+                        candidate.amount == 3,
+                )
+                if (option) {
+                    applyOption(decision, option)
+                }
+                return { offered: !!option, pool: player.pool, turn }
+            }
+
+            expectEqual(play(10, 0, VILLEIN_ID, tapped).pool, 13, 'a first Villein is free')
+            const second = play(10, 1, VILLEIN_ID, tapped)
+            expectEqual(second.pool, 12, 'the second one costs 1')
+            expectEqual(
+                getAttachedCards(second.turn.vampires[tapped]).length,
+                2,
+                'and is put on the vampire',
+            )
+            expectEqual(play(10, 2, VILLEIN_ID, tapped).pool, 11, 'the third one costs 2')
+            expectEqual(play(10, 1, VILLEIN_ID, plain).pool, 13, 'a Villein on the other is free')
+            expectEqual(play(10, 0, MINION_TAP_ID, tapped).pool, 13, 'a Minion Tap is free')
+            expectEqual(
+                play(10, 1, MINION_TAP_ID, tapped).pool,
+                12,
+                'with a Villein on it it costs 1',
+            )
+            expectEqual(play(10, 2, MINION_TAP_ID, tapped).pool, 11, 'and 2 with two')
+            expectEqual(play(10, 2, MINION_TAP_ID, plain).pool, 13, 'but not on another vampire')
+
+            // The cost is paid with the pool, down to what it leaves: the card gives pool at the same time
+            const edge = play(1, 1, VILLEIN_ID, tapped)
+            expectEqual(edge.offered, true, 'one pool pays the 1 of a second Villein')
+            expectEqual(edge.pool, 3, 'and the 3 gained come with it')
+            expectEqual(
+                play(1, 2, VILLEIN_ID, tapped).offered,
+                false,
+                'a third Villein cannot be played with 1 pool',
+            )
+            expectEqual(play(2, 2, VILLEIN_ID, tapped).pool, 3, 'with 2 pool it can')
+            expectEqual(
+                play(1, 2, VILLEIN_ID, plain).offered,
+                true,
+                'on another vampire it is free',
+            )
         },
     },
     {
@@ -8125,6 +8249,23 @@ const SUMMARY_SCENARIOS: { name: string; run: () => void }[] = [
         },
     },
     {
+        name: 'Summary: Villein is pool for me, stays on a vampire, and makes the cards of the same family cost more there',
+        run() {
+            const villein = summaryOf(VILLEIN_ID).plays[0]
+            expectEqual(villein.roles.join(), 'poolGain,attachment,master', 'roles of Villein')
+            expectEqual(
+                villein.effects.map(effect => JSON.stringify(effect)).join(),
+                '{"type":"bloodToPool","min":2,"max":5}',
+                'effects of Villein',
+            )
+            expectEqual(
+                villein.attached.map(effect => effect.type).join(),
+                'raisePlayCost',
+                'what it does while attached',
+            )
+        },
+    },
+    {
         name: 'Summary: every catalogued play has a role',
         run() {
             const without = CARD_DEFS.flatMap(def =>
@@ -9787,6 +9928,21 @@ const BLOAT_SCENARIOS: { name: string; run: () => void }[] = [
                 assessAs(ring, me).bloat[me.oid].pool,
                 4 * (caution - bloodValue),
                 'the blood of the richest, less what the blood is worth',
+            )
+        },
+    },
+    {
+        name: 'Bloat: a Villein in my hand counts at most 5 blood of my richest vampire',
+        run() {
+            const ring = createRing([VILLEIN_DECK, VILLEIN_DECK, VILLEIN_DECK])
+            const [me] = ring.players
+            addMinions(ring, me, [{ blood: 8 }, { blood: 2 }])
+            holdOnly(ring, me, [VILLEIN_ID])
+            const { caution, bloodValue } = DEFAULT_PROFILE.plan
+            expectClose(
+                assessAs(ring, me).bloat[me.oid].pool,
+                5 * (caution - bloodValue),
+                'five of the eight',
             )
         },
     },

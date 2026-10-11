@@ -11,6 +11,7 @@ import {
     CannotPlayEffect,
     LifeEffect,
     PreventDamageEffect,
+    RaisePlayCostEffect,
     MasterPlay,
     MinionFilter,
     MoveBloodEffect,
@@ -243,6 +244,14 @@ export function environmentalDamage(amount: number): EnvironmentalDamageEffect {
 }
 
 export const bloodToPool: BloodToPoolEffect = { type: 'bloodToPool' }
+
+export function bloodToPoolBetween(min: number, max: number): BloodToPoolEffect {
+    return { type: 'bloodToPool', min, max }
+}
+
+export function raisePlayCost(amount: number, ...cards: KrcgId[]): RaisePlayCostEffect {
+    return { type: 'raisePlayCost', cards, amount }
+}
 
 export function gainBlood(amount: number): GainBloodEffect {
     return { type: 'gainBlood', amount }

@@ -142,8 +142,11 @@ type EffectCore =
     | { type: 'drawCrypt' }
     | { type: 'burnSelf' }
     | { type: 'gainPool'; amount: number }
-    // Any amount of the blood of a vampire of mine, chosen when played, becomes pool
-    | { type: 'bloodToPool' }
+    // An amount of the blood of a vampire of mine, chosen when played, becomes pool: any amount, or between
+    // `min` and `max`
+    | { type: 'bloodToPool'; min?: number; max?: number }
+    // The cards with these ids cost more pool to play on the minion that bears this card
+    | { type: 'raisePlayCost'; cards: KrcgId[]; amount: number }
     | { type: 'lockFailedBlocker' }
     | { type: 'unlockSelf' }
     // What happens when an event is announced: armed for the rest of the action by a played card, or
@@ -407,6 +410,8 @@ export function summarizeAttached(effects: AttachedEffect[]): Effect[] {
                 return { type: 'preventDamage', amount: effect.amount }
             case 'burnInTorpor':
                 return { type: 'burnsInTorpor' }
+            case 'raisePlayCost':
+                return { type: 'raisePlayCost', cards: effect.cards, amount: effect.amount }
             default:
                 return unreachable(effect)
         }
@@ -424,7 +429,11 @@ function summarizeMasterEffects(
             (effect): Effect =>
                 effect.type == 'gainBlood' ?
                     { type: 'gainBlood', amount: effect.amount }
-                :   { type: 'bloodToPool' },
+                :   {
+                        type: 'bloodToPool',
+                        ...(effect.min === undefined ? {} : { min: effect.min }),
+                        ...(effect.max === undefined ? {} : { max: effect.max }),
+                    },
         ),
     ]
 }
@@ -645,6 +654,7 @@ function deriveRoles(
             case 'burnsInTorpor':
             case 'burnSelf':
             case 'mustBleedWhileMinionLocked':
+            case 'raisePlayCost':
             case 'trigger':
                 break
             default:
@@ -892,7 +902,11 @@ export function describeEffect(effect: Effect): string {
             case 'gainPool':
                 return `gain ${effect.amount} pool`
             case 'bloodToPool':
-                return 'move any amount of the blood of a vampire to the pool'
+                return effect.max === undefined ?
+                        'move any amount of the blood of a vampire to the pool'
+                    :   `move ${effect.min ?? 1} to ${effect.max} blood of a vampire to the pool`
+            case 'raisePlayCost':
+                return `${effect.amount} more pool to play ${effect.cards.join(', ')} on the bearer`
             case 'lockFailedBlocker':
                 return 'lock the minion that failed to block'
             case 'unlockSelf':

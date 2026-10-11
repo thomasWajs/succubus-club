@@ -37,9 +37,14 @@ function ownCards(snapshot: MethuselahSnapshot, room: number, profile: BotProfil
             if (play.kind != 'master') {
                 continue
             }
-            // Any amount of the blood of one vampire: the blood is given up, so only what it is worth less
-            // than a point of pool is gained
-            const tapped = play.effects.some(effect => effect.type == 'bloodToPool') ? richest : 0
+            // The blood of one vampire, any amount or up to the most the card takes: the blood is given up, so
+            // only what it is worth less than a point of pool is gained
+            const tapped = Math.max(
+                0,
+                ...play.effects.flatMap(effect =>
+                    effect.type == 'bloodToPool' ? [Math.min(richest, effect.max ?? richest)] : [],
+                ),
+            )
             const pool =
                 tapped * Math.max(0, profile.plan.caution - profile.plan.bloodValue) +
                 play.effects.reduce(

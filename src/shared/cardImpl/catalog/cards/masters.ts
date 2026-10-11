@@ -1,8 +1,14 @@
-import { ASYLUM_HUNTING_GROUND_ID, ELDER_LIBRARY_ID } from '@/shared/cardImpl/cardIds.ts'
+import {
+    ASYLUM_HUNTING_GROUND_ID,
+    ELDER_LIBRARY_ID,
+    MINION_TAP_ID,
+    VILLEIN_ID,
+} from '@/shared/cardImpl/cardIds.ts'
 import {
     aVampire,
     bleedIntercept,
     bloodToPool,
+    bloodToPoolBetween,
     burnInTorpor,
     burnSelf,
     defineCard,
@@ -14,6 +20,7 @@ import {
     moveBlood,
     preventDamage,
     putOnMinion,
+    raisePlayCost,
     stealth,
 } from '@/shared/cardImpl/catalog/builders.ts'
 
@@ -73,10 +80,19 @@ export const MASTER_CARDS = [
             ],
         },
     ]),
-    // Any amount of blood of a vampire you control, in torpor too. The +1 pool that a Villein on the target
-    // costs is not modelled ( Villein is not catalogued )
-    defineCard('101217', 'Minion Tap', [
+    // Any amount of blood of a vampire you control, in torpor too. The +1 pool for each Villein on the target
+    // comes from the Villein
+    defineCard(MINION_TAP_ID, 'Minion Tap', [
         { kind: 'master', onPlay: { target: 'vampireWithBlood', effects: [bloodToPool] } },
+    ]),
+    // Put on a vampire that holds blood ( in torpor too ), 2 to 5 blood of it become pool. The cost of +1 pool
+    // is for each Villein already on the vampire, and for a Minion Tap played on it. A vampire with 0 blood
+    // is a legal target of the card but never worth it: it is not offered
+    defineCard(VILLEIN_ID, 'Villein', [
+        {
+            ...putOnMinion(aVampire(), [raisePlayCost(1, MINION_TAP_ID, VILLEIN_ID)]),
+            onPlay: { target: 'vampireWithBlood', effects: [bloodToPoolBetween(2, 5)] },
+        },
     ]),
     // Put on a vampire, in torpor too. The master phase ability is used once per turn
     defineCard('100199', 'Blood Doll', [putOnMinion(aVampire(), [moveBlood(1)])]),

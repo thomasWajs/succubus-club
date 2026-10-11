@@ -98,6 +98,19 @@ export function isPlayForbiddenToMinion(minion: Minion, card: LibraryCard): bool
         .some(effect => effect.type == 'cannotPlay' && effect.names.includes(card.name))
 }
 
+// The pool the cards attached to the minion add to the cost of playing the card on it ( Villein )
+export function getExtraPlayCost(minion: Minion, krcgId: KrcgId): number {
+    return getAttachedCards(minion)
+        .flatMap(getAttachedEffects)
+        .reduce(
+            (sum, effect) =>
+                effect.type == 'raisePlayCost' && effect.cards.includes(krcgId) ?
+                    sum + effect.amount
+                :   sum,
+            0,
+        )
+}
+
 // The minion already has a copy of the card ( "a vampire can have only one Preternatural Strength" )
 export function hasAttachedCopy(minion: Minion, krcgId: KrcgId): boolean {
     return getAttachedCards(minion).some(attached => attached.krcgId == krcgId)

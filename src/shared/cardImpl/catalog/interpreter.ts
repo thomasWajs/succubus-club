@@ -30,6 +30,7 @@ import {
     getOpposingCombatant,
     startCombat,
 } from '@/shared/state/combatState.ts'
+import { resolveCost } from '@/shared/state/cardCosts.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
 import { botMutations } from '@/shared/state/botMutations.ts'
 import { canEnterCombatWith, isBleed } from '@/shared/state/minionActions.ts'
@@ -48,6 +49,7 @@ import { findPlay, playsOfKind } from '@/shared/cardImpl/catalog/requirements.ts
 import { getCardDef } from '@/shared/cardImpl/catalog/index.ts'
 import {
     getAttachCandidates,
+    getExtraPlayCost,
     hasAttachedCopy,
     matchesMinionFilter,
 } from '@/shared/cardImpl/catalog/attached.ts'
@@ -57,6 +59,7 @@ import {
     Condition,
     GainBloodEffect,
     MasterAbility,
+    MasterOnPlay,
     ModifierEffect,
 } from '@/shared/cardImpl/catalog/types.ts'
 
@@ -813,11 +816,15 @@ class InterpretedMaster extends MasterCardImplementation {
         )
     }
 
-    getPlayTargets(): Minion[] | null {
+    // The minions the effect on play can be aimed at, before what the cards on them add to the cost
+    private playCandidates(): Minion[] | null {
         const play = this.play
         if (play?.attachTo) {
+            const { onPlay } = play
             return getAttachCandidates(this.player, play.attachTo).filter(
-                candidate => !(play.onePerMinion && hasAttachedCopy(candidate, this.def.id)),
+                candidate =>
+                    !(play.onePerMinion && hasAttachedCopy(candidate, this.def.id)) &&
+                    (!onPlay || this.onPlayFits(onPlay.target, candidate)),
             )
         }
         if (!play?.onPlay) {
@@ -828,48 +835,76 @@ class InterpretedMaster extends MasterCardImplementation {
             :   this.readyVampiresBelowCapacity()
     }
 
-    getPlayAmounts(minion: Minion): number[] | null {
-        const effects = this.play?.onPlay?.effects ?? []
-        if (!effects.some(effect => effect.type == 'bloodToPool')) {
-            return null
-        }
-        return Array.from({ length: minion.blood }, (_, index) => index + 1)
+    private onPlayFits(target: MasterOnPlay['target'], minion: Minion): boolean {
+        return target == 'vampireWithBlood' ?
+                minion.blood > 0
+            :   minion.isIn.ready && minion.blood < minion.minionAttrs.capacity
     }
 
+    // The pool that comes on top of the cost of the card when it is played on the minion
+    private extraCost(minion: Minion): number {
+        return getExtraPlayCost(minion, this.def.id)
+    }
+
+    // The cost of the card is paid by the referee, the extra cost is paid with the effect on play: a
+    // Methuselah that pays it with all it has must still be able to gain what the card gives
+    getPlayTargets(): Minion[] | null {
+        const left = this.player.pool - resolveCost(this.card.poolCost)
+        return this.playCandidates()?.filter(candidate => this.extraCost(candidate) <= left) ?? null
+    }
+
+    // The amounts are what the vampire gives: one that holds less than the least amount of the card gives
+    // what it has
+    getPlayAmounts(minion: Minion): number[] | null {
+        for (const effect of this.play?.onPlay?.effects ?? []) {
+            if (effect.type == 'bloodToPool') {
+                const least = Math.min(effect.min ?? 1, minion.blood)
+                const most = Math.min(effect.max ?? minion.blood, minion.blood)
+                return Array.from({ length: Math.max(0, most - least + 1) }, (_, i) => least + i)
+            }
+        }
+        return null
+    }
+
+    // The extra cost is paid in the same change of the pool as what the card gives: a Methuselah is not
+    // ousted in between
     applyPlayEffect(minion: Minion, amount?: number): Validity {
         const play = this.play
-        if (play?.attachTo) {
-            return this.getPlayTargets()?.includes(minion) ?
-                    botMutations.attachCard.act(this.player, { card: this.card, minion })
-                :   Invalid('The card cannot be put on this minion')
+        if (!play || !this.playCandidates()?.includes(minion)) {
+            return Invalid('The card cannot be played on this minion')
         }
-        const vampire = this.getPlayTargets()?.find(candidate => candidate == minion)
-        if (!play?.onPlay || !vampire?.isVampire()) {
+        const extra = this.extraCost(minion)
+        if (extra > this.player.pool) {
+            return Invalid('The extra cost of the card cannot be paid')
+        }
+        if (play.onPlay && !minion.isVampire()) {
             return Invalid('The card has no effect on this minion')
         }
         let validity: Validity = VALID
-        for (const effect of play.onPlay.effects) {
+        if (play.attachTo) {
+            validity = botMutations.attachCard.act(this.player, { card: this.card, minion })
+            if (!validity.isValid) {
+                return validity
+            }
+        }
+        let gained = 0
+        for (const effect of play.onPlay?.effects ?? []) {
             switch (effect.type) {
                 case 'gainBlood':
                     validity = gameMutations.changeBlood.act(this.player, {
-                        card: vampire,
+                        card: minion,
                         amount: effect.amount,
                     })
                     break
                 case 'bloodToPool': {
-                    if (!amount || !this.getPlayAmounts(vampire)?.includes(amount)) {
+                    if (!amount || !this.getPlayAmounts(minion)?.includes(amount)) {
                         return Invalid('The amount of blood cannot be moved')
                     }
                     validity = gameMutations.changeBlood.act(this.player, {
-                        card: vampire,
+                        card: minion,
                         amount: -amount,
                     })
-                    if (validity.isValid) {
-                        validity = gameMutations.changePool.act(this.player, {
-                            player: this.player,
-                            amount,
-                        })
-                    }
+                    gained += amount
                     break
                 }
             }
@@ -877,7 +912,12 @@ class InterpretedMaster extends MasterCardImplementation {
                 return validity
             }
         }
-        return validity
+        return gained == extra ? validity : (
+                gameMutations.changePool.act(this.player, {
+                    player: this.player,
+                    amount: gained - extra,
+                })
+            )
     }
 
     getUnlockEffectTargets(): Vampire[] {
