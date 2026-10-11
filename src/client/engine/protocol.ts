@@ -173,8 +173,15 @@ export type EngineOption = {
 
 // The mode a card is played in : its index, its printed tags ( 'dom' basic, 'DOM' superior,
 // 'COMBAT'... ), the printed line it is from ( a line the engine splits is several modes ) and
-// what sets it apart from the others of its line ( 'gain 3 blood' ), when its effects say
-export type EngineMode = { index: number; tags: string[]; line?: number; label?: string }
+// what sets it apart from the others of its line ( 'gain 3 blood' ), when its effects say ; what
+// its target is for, when the play chooses another minion after it ( Toreador Grand Ball )
+export type EngineMode = {
+    index: number
+    tags: string[]
+    line?: number
+    label?: string
+    target?: string
+}
 
 // A recipient of referendum points : a Methuselah ( seat ) or a card in play
 export type EngineRecipient = {

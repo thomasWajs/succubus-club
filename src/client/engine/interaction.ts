@@ -38,6 +38,8 @@ export type StagingChoice = { key: string; options: EngineOption[]; card?: Card;
 export type StagingStep = {
     ask: 'card' | 'actor' | 'mode' | 'target' | 'option'
     choices: StagingChoice[]
+    // What the target is for, when the card chooses two minions ( Toreador Grand Ball )
+    role?: string
 }
 
 // The decisions that pick a card of the table : the card glows as a candidate, a click picks it
@@ -204,7 +206,8 @@ export function stagingStep(options: EngineOption[]): StagingStep {
         option => ({ card: targetCard(option), label: targetLabel(option) }),
     )
     if (targets.length > 1) {
-        return { ask: 'target', choices: targets }
+        const role = options.find(option => option.mode?.target)?.mode?.target
+        return { ask: 'target', choices: targets, role }
     }
     // Options alike in all of this : by what sets their mode apart, else by their text
     return {

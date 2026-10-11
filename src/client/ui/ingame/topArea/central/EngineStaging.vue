@@ -4,7 +4,7 @@
         class="engine-staging"
         :title="current.card ? current.card.name : 'Your choice'"
     >
-        <div class="engine-staging-prompt">{{ PROMPTS[current.step.ask] }}</div>
+        <div class="engine-staging-prompt">{{ prompt(current.step) }}</div>
 
         <div class="engine-staging-choices">
             <button
@@ -113,6 +113,13 @@ const PROMPTS: Record<StagingStep['ask'], string> = {
 }
 
 const current = staging
+
+// The target step names what the target is for, when the card chooses two minions
+function prompt(step: StagingStep): string {
+    return step.role ?
+            `${step.role[0].toUpperCase()}${step.role.slice(1)} ? Click a glowing card`
+        :   PROMPTS[step.ask]
+}
 
 // The choices not on the table : the others are clicked there. The card to play is a button too
 // ( a card in hand among others is hard to tell )

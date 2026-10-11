@@ -97,6 +97,14 @@
             </button>
 
             <a
+                class="engine-opportunities"
+                title="Off : wakes only on your prey's or predator's actions or those directed at you, cards usable at any time ( The Louvre, Paris ) only when you're asked anyway"
+                @click="setEngineOpportunities(!engineOpportunities)"
+            >
+                Opportunities : {{ engineOpportunities ? 'on' : 'off' }}
+            </a>
+
+            <a
                 class="engine-replay"
                 @click="exportReplay()"
             >
@@ -116,7 +124,9 @@ import { usePlayersStore } from '@/client/state/players.ts'
 import {
     chooseEngineOption,
     engineOptionCards,
+    engineOpportunities,
     engineReplay,
+    setEngineOpportunities,
     undoEngineStep,
 } from '@/client/engine/driver.ts'
 import { answeredOnTable } from '@/client/engine/interaction.ts'
@@ -353,6 +363,7 @@ function choose(option: EngineOption) {
         margin-top: 4px;
     }
 
+    .engine-opportunities,
     .engine-replay {
         align-self: flex-end;
         font-size: 12px;

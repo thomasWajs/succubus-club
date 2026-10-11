@@ -21,6 +21,10 @@ export interface EngineHost {
     voteAll(decision: number, favor: boolean): Promise<EngineOut>
     // Take back the previous step of the multi-step choice under way ( when a decision says `undo` )
     undo(): Promise<void>
+    // Whether the user is asked on their opportunities ( on by default ) : off, a wake only on their
+    // prey's or predator's actions or one directed at them, an ability usable at any time only where
+    // the decision pauses anyway, and a decision left with a pass alone passes by itself
+    setOpportunities(on: boolean): Promise<void>
     // The game as a replay ( JSON ) : the spec and every decision
     replay(): Promise<string>
 }
@@ -63,6 +67,10 @@ export class LocalEngineHost implements EngineHost {
 
     async undo(): Promise<void> {
         this.game.undo()
+    }
+
+    async setOpportunities(on: boolean): Promise<void> {
+        this.game.setOpportunities(on)
     }
 
     async replay(): Promise<string> {

@@ -5,6 +5,7 @@
  * narrated ( a decision taken ) or asked to the user ( a decision to take ).
  */
 
+import { ref } from 'vue'
 import { EngineHost } from '@/client/engine/host.ts'
 import { Projection } from '@/client/engine/projection.ts'
 import { EngineAllocation, EngineOption, EngineOut, EngineView } from '@/client/engine/protocol.ts'
@@ -219,6 +220,16 @@ export function engineCardOptions(): { card: Card; option: EngineOption; label: 
     })
 }
 
+// Whether the user is asked on their opportunities ( EngineHost.setOpportunities ) : kept across games
+const OPPORTUNITIES_STORAGE_KEY = 'engine-opportunities'
+export const engineOpportunities = ref(localStorage.getItem(OPPORTUNITIES_STORAGE_KEY) != 'off')
+
+export function setEngineOpportunities(on: boolean) {
+    engineOpportunities.value = on
+    localStorage.setItem(OPPORTUNITIES_STORAGE_KEY, on ? 'on' : 'off')
+    running?.host.setOpportunities(on)
+}
+
 export async function engineReplay(): Promise<string | null> {
     return running ? running.host.replay() : null
 }
@@ -320,6 +331,7 @@ export async function runEngine(host: EngineHost, projection: Projection) {
     const current: Running = { host, projection, answer: null, repeat: null }
     running = current
     forgetCardNames()
+    await host.setOpportunities(engineOpportunities.value)
 
     try {
         while (running === current) {
@@ -348,6 +360,8 @@ export async function runEngine(host: EngineHost, projection: Projection) {
             engine.status = ''
             engine.focus = []
             engine.staging = null
+            // An undo goes back past the passes taken by themselves : the cards played since go too
+            engine.played = engine.played.filter(p => p.decision < out.decision)
             engine.pending = {
                 decision: out.decision,
                 seat: out.seat,
