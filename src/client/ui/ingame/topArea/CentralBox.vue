@@ -123,7 +123,12 @@ watch(
     () => gameState.turnNumber,
     (newTurn, oldTurn) => {
         // Only trigger when advancing to the next turn, not on rewind or resync jumps.
-        if (!turnNotificationEnabled.value || (oldTurn && newTurn !== oldTurn + 1)) {
+        // With the rules engine the turn line flashes instead ( see TurnControls )
+        if (
+            !turnNotificationEnabled.value ||
+            gameState.gameType == GameType.Engine ||
+            (oldTurn && newTurn !== oldTurn + 1)
+        ) {
             return
         }
 

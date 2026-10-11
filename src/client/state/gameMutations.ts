@@ -28,6 +28,7 @@ import {
 } from '@/client/multiplayer/communication/scs.ts'
 import { getLogger } from '@/shared/registries.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
+import { useEngineStore } from '@/client/store/engine.ts'
 import { engineGesture, isEngineProjecting } from '@/client/engine/driver.ts'
 
 /**
@@ -89,9 +90,10 @@ export function dispatchMutation(gameMutation: AnyGameMutation) {
         !isEngineProjecting() &&
         !ENGINE_USER_MUTATIONS.test(gameMutation.name)
     ) {
+        // Told beside the Pass, not over the table
         const validity = engineGesture(gameMutation)
         if (!validity.isValid) {
-            bus.alertWarning(validity.reason)
+            useEngineStore().tellNotice(validity.reason)
         }
         return validity
     }

@@ -112,28 +112,43 @@
             </CommandButton>
 
             <!-- With the rules engine : the pass of the decision under way, always here ( → / Space ),
-                 its text the engine's ( "Pass (no block)", "End the master phase" ) -->
+                 the engine's text in its title ( "Pass (no block)", "End the master phase" ) ; a
+                 pass that does something is also in the central box ( see isEffectPass ) -->
             <CommandButton
                 v-if="players.isPlayer && isEngine"
                 class="engine-fixed-pass"
                 :command="commands.AdvanceTurnPhase"
                 :title="pass?.text"
             >
-                {{ pass?.text ?? 'Pass' }}
+                Pass
             </CommandButton>
+            <!-- A switch : its knob right and teal when on -->
             <button
                 v-if="players.isPlayer && isEngine"
                 class="game-button engine-opportunities"
-                :class="{ off: !engineOpportunities }"
-                title="Off : wakes only on your prey's or predator's actions or those directed at you, cards usable at any time ( The Louvre, Paris ) only when you're asked anyway"
+                :class="{ on: engineOpportunities }"
+                role="switch"
+                :aria-checked="engineOpportunities"
+                :title="`Opportunities ${engineOpportunities ? 'on' : 'off'}. Off : wakes only on your prey's or predator's actions or those directed at you, cards usable at any time ( The Louvre, Paris ) only when you're asked anyway`"
                 @click="setEngineOpportunities(!engineOpportunities)"
             >
-                Opp. {{ engineOpportunities ? 'on' : 'off' }}
+                Opp.
+                <span class="engine-switch"><span class="engine-switch-knob" /></span>
             </button>
+
+            <!-- Why the last move on the table was no decision ( a game with the rules engine ), for a
+                 moment in place of the cards with an effect -->
+            <div
+                v-if="isEngine && engine.notice"
+                class="engine-notice"
+                :title="engine.notice"
+            >
+                {{ engine.notice }}
+            </div>
 
             <!-- Cards with an effect -->
             <div
-                v-if="glowInPlayEnabled"
+                v-else-if="glowInPlayEnabled"
                 class="cards-during-current-phase"
                 :class="{ 'has-effect': gameState.cardsDuringCurrentPhase.length > 0 }"
                 @click="pingCardsDuringCurrentPhase"
@@ -239,21 +254,53 @@ function pingCardsDuringCurrentPhase() {
     width: 262px;
 
     .engine-fixed-pass {
-        // The pass fills the row, its text cut short when long ( the whole in its title )
+        // The pass fills the row
         flex: 1;
-        min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        font-size: 15px;
+        font-weight: bold;
         white-space: nowrap;
     }
 
     .engine-opportunities {
+        display: flex;
+        align-items: center;
+        gap: 5px;
         font-size: 11px;
         padding: 0 6px;
         white-space: nowrap;
 
-        &.off {
-            opacity: 0.7;
+        .engine-switch {
+            position: relative;
+            width: 24px;
+            height: 12px;
+            border-radius: 6px;
+            background: $ash-grey;
+            transition: background 0.2s;
+        }
+
+        .engine-switch-knob {
+            position: absolute;
+            top: 1px;
+            left: 1px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: $ghost-white;
+            transition: left 0.2s;
+        }
+
+        &.on {
+            .engine-switch {
+                background: $lighter-teal;
+            }
+
+            .engine-switch-knob {
+                left: 13px;
+            }
         }
     }
 
@@ -262,6 +309,26 @@ function pingCardsDuringCurrentPhase() {
         // left edge aligns with .phases while staying adjacent to the cards.
         flex: 1;
         white-space: nowrap;
+    }
+}
+
+.engine-notice {
+    display: flex;
+    align-items: center;
+    max-width: 130px;
+    padding: 0 6px;
+    background-color: rgb(165, 25, 45);
+    color: white;
+    font-size: 11px;
+    font-weight: bold;
+    line-height: 1.1;
+    overflow: hidden;
+    animation: EngineNotice 0.3s ease-out;
+}
+
+@keyframes EngineNotice {
+    0% {
+        background-color: rgb(235, 90, 40);
     }
 }
 

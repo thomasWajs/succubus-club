@@ -40,6 +40,9 @@ export type EngineCombatSideView = {
  * State of a game played with the rules engine ( GameType.Engine ) :
  * the decision the user must take, and the end of the game.
  */
+const NOTICE_DURATION = 4000
+let noticeTimeout: ReturnType<typeof setTimeout> | undefined
+
 export const useEngineStore = defineStore('engine', {
     state: () => ({
         // The decision the user must take now, if any
@@ -58,7 +61,17 @@ export const useEngineStore = defineStore('engine', {
         played: [] as { decision: number; player: string; text: string; option: EngineOption }[],
         // A block's combat is under way ( whoever decides now )
         inCombat: false,
+        // Why the user's last move on the table was no decision, for a moment ( beside the Pass )
+        notice: '',
     }),
+    actions: {
+        // Shown a few seconds, a later one replacing it
+        tellNotice(message: string) {
+            this.notice = message
+            clearTimeout(noticeTimeout)
+            noticeTimeout = setTimeout(() => (this.notice = ''), NOTICE_DURATION)
+        },
+    },
 })
 
 if (import.meta.hot) {

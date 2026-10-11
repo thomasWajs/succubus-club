@@ -1,6 +1,11 @@
 <template>
     <div class="turn-controls">
-        <div class="turn">
+        <!-- With the rules engine, a new turn flashes here ( no notification over the table ) -->
+        <div
+            :key="isEngine ? gameState.turnNumber : 0"
+            class="turn"
+            :class="{ engine: isEngine }"
+        >
             <CommandButton
                 v-if="players.isPlayer && !isEngine"
                 :command="commands.BackTurn"
@@ -13,7 +18,10 @@
                 :style="{ backgroundColor: gameState.activePlayer?.rgbaColor }"
                 class="active-player inline-player-name"
             >
-                {{ gameState.activePlayer?.shortName }}
+                {{ gameState.activePlayer?.shortName
+                }}<template v-if="isEngine && gameState.turnPhase">
+                    · {{ gameState.turnPhase }}</template
+                >
             </span>
 
             <CommandButton
@@ -119,6 +127,17 @@ const isEngine = computed(() => gameState.gameType == GameType.Engine)
             text-overflow: ellipsis;
         }
 
+        // The phase beside the player's name : wider, the arrows hidden
+        &.engine {
+            animation: TurnStarts 1.5s ease-out;
+
+            .active-player {
+                width: auto;
+                max-width: 180px;
+                padding: 0 10px;
+            }
+        }
+
         .game-button {
             height: 35px;
             padding: 0 5px;
@@ -163,6 +182,16 @@ const isEngine = computed(() => gameState.gameType == GameType.Engine)
                 cursor: pointer;
             }
         }
+    }
+}
+
+@keyframes TurnStarts {
+    0%,
+    40% {
+        box-shadow: 0 0 12px 3px rgba($light-teal, 0.9);
+    }
+    100% {
+        box-shadow: none;
     }
 }
 </style>

@@ -666,12 +666,21 @@ export const leftoverOptions = computed((): EngineOption[] => {
     if (!pending) {
         return []
     }
-    return pending.options.filter(
-        option =>
-            option.kind != 'pass' &&
-            !TABLE_MOVES.includes(option.kind) &&
+    return pending.options.filter(option =>
+        option.kind == 'pass' ?
+            isEffectPass(option)
+        :   !TABLE_MOVES.includes(option.kind) &&
             !(option.kind == 'discard' && pending.window == 'Discard phase') &&
             !(option.kind == 'draw_crypt' && pending.window == 'Influence phase') &&
             !answeredOnTable(option),
     )
 })
+
+/**
+ * A pass that does something ( Anarch Convert's "Gain 1 pool", "Keep him in play", "Stop
+ * searching" ) : a choice like the others, in the central box beside them — the fixed Pass says
+ * only "Pass". A plain pass ( "Pass (no block)", "End the minion phase" ) stays there alone.
+ */
+export function isEffectPass(option: EngineOption): boolean {
+    return option.kind == 'pass' && !/^(Pass\b|End the )/.test(option.text)
+}

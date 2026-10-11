@@ -1,15 +1,11 @@
 <template>
     <div class="engine-header">
-        <!-- The phase, and whose turn it is -->
+        <!-- The game over ( the phase is on the turn line above ) -->
         <span
-            class="engine-header-phase"
-            :style="{ backgroundColor: gameState.activePlayer?.rgbaColor }"
+            v-if="!gameState.turnPhase"
+            class="engine-header-over"
         >
-            {{
-                gameState.turnPhase ?
-                    `${gameState.activePlayer?.shortName} · ${gameState.turnPhase} phase`
-                :   'Game over'
-            }}
+            Game over
         </span>
 
         <!-- During a bleed, its amount -->
@@ -32,9 +28,10 @@
 
 <script setup lang="ts">
 /**
- * The top line of the central box in a game with the rules engine : the phase and the active
- * player, the bleed amount during a bleed, and whether the decision is the user's ( its window )
- * or whom the engine waits for. One line, always there : the panels below change, it does not.
+ * The top line of the central box in a game with the rules engine : the bleed amount during a
+ * bleed, and whether the decision is the user's ( its window ) or whom the engine waits for ( the
+ * phase is on the turn line, beside the active player ). One line, always there : the panels below
+ * change, it does not.
  */
 import { computed } from 'vue'
 import { useGameStateStore } from '@/client/store/gameState.ts'
@@ -59,9 +56,10 @@ const bleed = computed(() => {
     min-height: 24px;
     font-size: 13px;
 
-    .engine-header-phase {
+    .engine-header-over {
         padding: 2px 8px;
-        color: black;
+        background: $lighter-teal;
+        color: white;
         font-weight: bold;
         white-space: nowrap;
     }

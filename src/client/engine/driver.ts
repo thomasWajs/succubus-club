@@ -20,7 +20,8 @@ import { EngineCombat, useEngineStore } from '@/client/store/engine.ts'
 import { useHistoryStore } from '@/client/store/history.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { getAuthorColorRgba } from '@/shared/colors.ts'
-import { Card } from '@/shared/model/Card.ts'
+import { Card, LibraryCard } from '@/shared/model/Card.ts'
+import { LibraryCardType } from '@/shared/const/model.ts'
 import * as logging from '@/client/logging.ts'
 import { AnyGameMutation } from '@/shared/state/gameMutations.ts'
 import { Invalid, VALID, Validity } from '@/shared/types/state.ts'
@@ -43,6 +44,53 @@ type Running = {
     answer: ((answer: Answer) => void) | null
     // A move worth several decisions ( influence 3 ) : the option to take again
     repeat: { kind: string; copy: number | null | undefined; left: number } | null
+    // A move a later phase answers, the phase under way passed for it ( see AUTO_PASSES ) : made
+    // again in that phase
+    deferred: { gameMutation: AnyGameMutation; window: string } | null
+}
+
+/**
+ * A move of the next phase made in this one passes this one, as at a table : a master card played
+ * in the unlock phase ( its non-mandatory effects, the Edge's pool, given up ), a card discarded or
+ * an event played in the influence phase. Never past the minion phase : it ends when the user
+ * passes it, or when no minion can act.
+ */
+const AUTO_PASSES: {
+    from: string
+    to: string
+    moves: (gameMutation: AnyGameMutation) => boolean
+}[] = [
+    {
+        from: 'Unlock phase',
+        to: 'Master phase',
+        moves: gameMutation => fromHand(gameMutation)?.type == LibraryCardType.Master,
+    },
+    {
+        from: 'Influence phase',
+        to: 'Discard phase',
+        moves: gameMutation => {
+            const card = fromHand(gameMutation)
+            return (
+                !!card &&
+                (card.type == LibraryCardType.Event ||
+                    gameMutation.name == 'discard' ||
+                    !!(gameMutation.params as { toCardRegion?: AnyCardRegion }).toCardRegion?.is
+                        .ashHeap)
+            )
+        },
+    },
+]
+
+// The hand card a move plays or discards
+function fromHand(gameMutation: AnyGameMutation): LibraryCard | undefined {
+    const card = gameMutation.card
+    return (
+            card instanceof LibraryCard &&
+                card.region.is.hand &&
+                ['moveCardToRegion', 'playFaceDown', 'discard'].includes(gameMutation.name)
+        ) ?
+            card
+        :   undefined
 }
 
 let running: Running | null = null
@@ -184,7 +232,14 @@ export function engineGesture(gameMutation: AnyGameMutation): Validity {
     const matches = matchGesture(running.projection, pending.options, gameMutation)
 
     if (matches.length == 0) {
-        return Invalid(`Not possible now ( ${pending.window} ) : see the central box`)
+        const auto = AUTO_PASSES.find(a => a.from == pending.window && a.moves(gameMutation))
+        const pass = enginePassOption()
+        if (auto && pass) {
+            running.deferred = { gameMutation, window: auto.to }
+            chooseEngineOption(pass.index)
+            return VALID
+        }
+        return Invalid(`Not possible now ( ${pending.window} )`)
     }
     // Several options that read the same are the same to the user
     if (matches.length == 1 || matches.every(option => option.text == matches[0].text)) {
@@ -362,7 +417,7 @@ function narrate(current: Running, out: EngineOut) {
 
 export async function runEngine(host: EngineHost, projection: Projection) {
     const engine = useEngineStore()
-    const current: Running = { host, projection, answer: null, repeat: null }
+    const current: Running = { host, projection, answer: null, repeat: null, deferred: null }
     running = current
     forgetCardNames()
     await host.setOpportunities(engineOpportunities.value)
@@ -415,10 +470,22 @@ export async function runEngine(host: EngineHost, projection: Projection) {
                 :   undefined
             current.repeat =
                 repeat && again && repeat.left > 1 ? { ...repeat, left: repeat.left - 1 } : null
+            // The move the phase was passed for : made again in its phase, else told to be
+            const deferred = current.deferred
+            current.deferred = null
+            if (deferred && deferred.window != out.window) {
+                engine.tellNotice(`Passed, now ${out.window} : make that move again`)
+            }
             const answer = await new Promise<Answer>(resolve => {
                 current.answer = resolve
                 if (again) {
                     resolve({ index: again.index })
+                }
+                if (deferred && deferred.window == out.window) {
+                    const validity = engineGesture(deferred.gameMutation)
+                    if (!validity.isValid) {
+                        engine.tellNotice(validity.reason)
+                    }
                 }
                 if (AUTOPLAY) {
                     sleep(0).then(() => resolve(autoplay(out)))
