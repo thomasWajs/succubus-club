@@ -88,14 +88,6 @@
                 {{ engine.status }}
             </div>
 
-            <button
-                v-if="engine.pending?.undo"
-                class="engine-option undo"
-                @click="undoEngineStep()"
-            >
-                Take back my last decision ( ⟵ )
-            </button>
-
             <a
                 class="engine-opportunities"
                 title="Off : wakes only on your prey's or predator's actions or those directed at you, cards usable at any time ( The Louvre, Paris ) only when you're asked anyway"
@@ -127,7 +119,6 @@ import {
     engineOpportunities,
     engineReplay,
     setEngineOpportunities,
-    undoEngineStep,
 } from '@/client/engine/driver.ts'
 import { answeredOnTable } from '@/client/engine/interaction.ts'
 import { display } from '@/client/game/display.ts'
@@ -381,11 +372,6 @@ function choose(option: EngineOption) {
 
         &.pass {
             @include button-grey;
-        }
-
-        &.undo {
-            @include button-grey;
-            margin-top: 6px;
         }
 
         &.elsewhere {

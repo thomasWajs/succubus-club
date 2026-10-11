@@ -5,10 +5,11 @@
             v-if="players.isPlayer"
             class="game-mutations"
         >
+            <!-- Enabled by the command : the last mutation, or with the rules engine the user's last
+                 decision when it can be taken back -->
             <CommandButton
                 class="is-danger cancel-button"
                 :command="commands.Cancel"
-                :disabled="!history.nextCancellableMutation"
             >
                 Cancel
             </CommandButton>
@@ -120,7 +121,6 @@ import { resetFreeTableCamera } from '@/client/game/camera.ts'
 import { useCommands } from '@/client/game/composables/useCommands.ts'
 import CommandButton from '@/client/ui/ingame/CommandButton.vue'
 import PopupMenu from '@/client/ui/components/PopupMenu.vue'
-import { useHistoryStore } from '@/client/store/history.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
 import { rollRandomResult } from '@/client/state/gameMutations.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
@@ -128,7 +128,6 @@ import { gameMutations } from '@/shared/state/gameMutations.ts'
 const gameState = useGameStateStore()
 const gameBus = useGameBusStore()
 const players = usePlayersStore()
-const history = useHistoryStore()
 const commands = useCommands()
 
 const { glowInPlayEnabled } = useUIFeatures()

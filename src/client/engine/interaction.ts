@@ -514,7 +514,8 @@ export function answeredOnTable(option: EngineOption): boolean {
         case 'set_x':
             return xOptions(options).length > 0
         case 'draw_crypt':
-            return actionDrawCrypt.value !== null
+        case 'pay_block_toll':
+            return actionButtons.value.includes(option)
     }
     if (isUse(option) || isPick(option) || isOwnAbility(option)) {
         return !!cardOf(option)
@@ -530,17 +531,21 @@ export function answeredOnTable(option: EngineOption): boolean {
     return isCombatOption(option)
 }
 
+// The options answered by a button beside the pass in the action's panel ( see actionButtons )
+const ACTION_BUTTONS = ['draw_crypt', 'pay_block_toll']
+
 /**
- * During an action, the acting player's crypt draw for blood ( Enthrall [OBF]/[PRE] : "this vampire
- * can burn 1 blood to draw 1 card from your crypt", after a successful bleed ) : a button beside
- * the pass in the action's panel.
+ * During an action, the options answered beside the pass in the action's panel : the acting
+ * player's crypt draw for blood ( Enthrall [OBF]/[PRE] : "this vampire can burn 1 blood to draw 1
+ * card from your crypt", after a successful bleed ), a block attempt's toll ( Where the Veil Thins
+ * [OBL] : pay it, or resign the attempt with the pass )
  */
-export const actionDrawCrypt = computed((): EngineOption | null => {
+export const actionButtons = computed((): EngineOption[] => {
     const pending = useEngineStore().pending
     if (!pending || !useGameStateStore().action) {
-        return null
+        return []
     }
-    return pending.options.find(o => o.kind == 'draw_crypt') ?? null
+    return pending.options.filter(o => ACTION_BUTTONS.includes(o.kind))
 })
 
 // The panels of the central box that can hold the pass, top first ( see centralPass )
