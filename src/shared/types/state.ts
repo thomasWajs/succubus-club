@@ -5,6 +5,7 @@ import { Discipline, DisciplineLevel } from '@/shared/const/model.ts'
 import { AnyCardRegion, CardOid, CardRegionOid, PlayerOid, Point2D } from '@/shared/types/model.ts'
 import { KrcgId } from '@/shared/types/gateway.ts'
 import { Trigger, TriggerEffect } from '@/shared/cardImpl/catalog/types.ts'
+import type { CombatantBase, CombatBase, StrikeBase } from '@/shared/state/combatRules.ts'
 
 export enum GameType {
     Unset = 'Unset',
@@ -184,23 +185,9 @@ export enum CombatRange {
 
 // What a minion does in the strike step: a hand strike, or whatever a card, a
 // weapon or an ability gives. A dodge is a strike that deals nothing.
-export type CombatStrike = {
-    name: string
+export type CombatStrike = Omit<StrikeBase, 'retainer'> & {
     // The card providing the strike, null for a hand strike
     source: Card | null
-    damage: number
-    aggravated: boolean
-    // Usable at long range ( "R" damage or a ranged strike )
-    ranged: boolean
-    dodge: boolean
-    // A strike that is a hand strike, whatever its damage ( the grapple only allows these )
-    isHand: boolean
-    // The opposing dodge does not protect from it
-    undodgeable: boolean
-    combatEnds: boolean
-    firstStrike: boolean
-    // Blood ( or life ) moved from the opposing minion to the striking one
-    stealBlood: number
     // A retainer of the opposing minion the strike is aimed at, instead of the minion
     retainer?: Card
 }
@@ -210,64 +197,21 @@ export type PendingDamage = {
     aggravated: number
 }
 
-export type CombatantMinion = {
+// The fields of a combatant and of a combat are described with the rules ( combatRules.ts ), which the
+// bot's combat model runs too: here, what the engine adds to them
+export type CombatantMinion = Omit<CombatantBase, 'strike'> & {
     minion: Minion
-    strength: number
     strike: CombatStrike | null
-    // Damage inflicted by the strikes just resolved, not yet mended
-    pendingDamage: PendingDamage
-    // Blood burned to damage this round ( the amount that Taste of Vitae gives back )
-    bloodLost: number
-    // Additional strikes gained and not used yet, and whether a limited card gave one this round
-    additionalStrikes: number
-    limitedAdditionalGained: boolean
-    // Chooses a strike in the current pair ( always in the first one )
-    strikesInPair: boolean
-    // Presses given by a card played this round and not used yet
-    pressesGranted: number
-    // A strength bonus the combatant can take before the range of the first round ( Show of Force )
-    strengthBonus: number
-    // Maneuvers the combatant can play without a card ( given by a reaction when it blocked )
-    freeManeuvers: number
-    // Regular damage the combatant takes each round from the combat cards played against it
-    // ( Carrion Crows ), on top of what the retainers of the opposing minion inflict
-    environmentalDamage: number
 }
 
-export type CombatState = {
+export type CombatState = Omit<
+    CombatBase,
+    'acting' | 'defending' | 'impulsePlayer' | 'lastPlayedBy'
+> & {
     acting: CombatantMinion
     defending: CombatantMinion
-    round: number
-    step: CombatStep
-    range: CombatRange
-    // Who may act in the current window of the current step
     impulsePlayer: Player
-    // Maneuver and press windows: who played the last maneuver / press there.
-    // A minion cannot play two in a row.
     lastPlayedBy: Player | null
-    // A press to continue is standing
-    pressed: boolean
-    // Strikes of tiers up to this one are resolved ( see combatState.ts )
-    resolvedStrikeTier: number
-    // 0 for the normal pair of strikes, then 1 for each pair of additional strikes
-    strikePair: number
-    // Only hand strikes can be used this round ( grapple )
-    handStrikesOnly: boolean
-    // The next round is at close range and skips the determine range step
-    closeNextRound: boolean
-    // The krcgIds of the combat cards each minion ( by oid ) played this round
-    playedThisRound: Record<string, string[]>
-    // Same for the whole combat
-    playedThisCombat: Record<string, string[]>
-    // The environmental damage of the round is inflicted ( once per round, with the normal strikes )
-    environmentalApplied: boolean
-    // The oids of the weapons that gave their maneuver in this combat ( once per combat, even if
-    // the bearer changes )
-    weaponManeuvers: string[]
-    // The oids of the attached cards that prevented damage in this combat ( once per combat )
-    attachedPreventions: string[]
-    // The combat ends after the end of round step
-    isOver: boolean
 }
 
 /** Minion Actions **/

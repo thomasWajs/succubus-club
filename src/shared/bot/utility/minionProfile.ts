@@ -1,4 +1,4 @@
-import { Minion } from '@/shared/model/Card.ts'
+import { Card, Minion } from '@/shared/model/Card.ts'
 import { getAttachedCards } from '@/shared/state/attachments.ts'
 import {
     getAttachedEffects,
@@ -23,6 +23,21 @@ export type StrikeKit = {
     damage: number
     ranged: boolean
     aggravated: boolean
+    // The weapon also gives a maneuver that chooses this strike, once per combat
+    maneuver: boolean
+}
+
+// What one card attached to a minion brings to a combat
+export type AttachedKit = {
+    name: string
+    retainer: boolean
+    // The life counters of a retainer
+    life: number
+    strikes: StrikeKit[]
+    // The damage that each of its effects prevents, once per combat in all
+    prevention: number[]
+    // The damage it inflicts on the opposing minion each round
+    environmental: number
 }
 
 export type MinionProfile = {
@@ -64,11 +79,40 @@ export type MinionProfile = {
     // An attached card burns if it goes to torpor
     burnsInTorpor: boolean
     attached: string[]
+    // The same, card by card
+    attachedKits: AttachedKit[]
     canEnterCombat: boolean
 }
 
 function sum(effects: Effect[], pick: (effect: Effect) => number): number {
     return effects.reduce((total, effect) => total + pick(effect), 0)
+}
+
+function kitOf(card: Card): AttachedKit {
+    const effects = summarizeAttached(getAttachedEffects(card))
+    return {
+        name: card.name,
+        retainer: isRetainer(card),
+        life: isRetainer(card) ? card.blood : 0,
+        strikes: effects.flatMap(effect =>
+            effect.type == 'weaponStrike' ?
+                [
+                    {
+                        damage: effect.damage,
+                        ranged: effect.ranged,
+                        aggravated: effect.aggravated,
+                        maneuver: effect.maneuver,
+                    },
+                ]
+            :   [],
+        ),
+        prevention: effects.flatMap(effect =>
+            effect.type == 'preventDamage' ? [effect.amount] : [],
+        ),
+        environmental: sum(effects, effect =>
+            effect.type == 'environmentalDamage' ? effect.amount : 0,
+        ),
+    }
 }
 
 export function profileMinion(minion: Minion): MinionProfile {
@@ -121,6 +165,7 @@ export function profileMinion(minion: Minion): MinionProfile {
             damage: effect.damage,
             ranged: effect.ranged,
             aggravated: effect.aggravated,
+            maneuver: effect.maneuver,
         })),
         freeManeuver: weapons.some(effect => effect.maneuver),
         environmentalDamage: sum(attached, effect =>
@@ -131,6 +176,7 @@ export function profileMinion(minion: Minion): MinionProfile {
         ),
         burnsInTorpor: attached.some(effect => effect.type == 'burnsInTorpor'),
         attached: attachedCards.map(card => card.name),
+        attachedKits: attachedCards.map(card => kitOf(card)),
         canEnterCombat: crypt.some(effect => effect.type == 'canEnterCombat'),
     }
 }

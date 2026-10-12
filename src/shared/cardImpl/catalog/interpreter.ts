@@ -2,7 +2,6 @@ import {
     ActionCardImplementation,
     ActionModifierCardImplementation,
     CardImplementation,
-    CombatCardEffect,
     CombatCardImplementation,
     CryptCardImplementation,
     MasterCardImplementation,
@@ -15,6 +14,7 @@ import type {
 } from '@/shared/cardImpl/index.ts'
 import { Card, CryptCard, LibraryCard, Minion, Vampire } from '@/shared/model/Card.ts'
 import { Player } from '@/shared/model/Player.ts'
+import { GameState } from '@/shared/state/gameState.ts'
 import { LibraryCardType } from '@/shared/const/model.ts'
 import {
     canAddIntercept,
@@ -23,28 +23,26 @@ import {
     getBlockingMinion,
     isAwake,
 } from '@/shared/state/actionState.ts'
-import {
-    createDodgeStrike,
-    createHandStrike,
-    getCombatant,
-    getOpposingCombatant,
-    startCombat,
-} from '@/shared/state/combatState.ts'
+import { getCombatant, getOpposingCombatant, startCombat } from '@/shared/state/combatState.ts'
 import { resolveCost } from '@/shared/state/cardCosts.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
 import { botMutations } from '@/shared/state/botMutations.ts'
 import { canEnterCombatWith, isBleed } from '@/shared/state/minionActions.ts'
 import {
     ActionProperty,
-    CombatRange,
-    CombatStep,
-    CombatStrike,
     Invalid,
     LibraryCardUsage,
     NO_BLOCK,
     VALID,
     Validity,
 } from '@/shared/types/state.ts'
+import {
+    CombatCardEffect,
+    CombatCondition,
+    combatConditionHolds,
+    CombatPlayContext,
+    combatPlayEffects,
+} from '@/shared/cardImpl/catalog/combatPlay.ts'
 import { findPlay, playsOfKind } from '@/shared/cardImpl/catalog/requirements.ts'
 import { getCardDef } from '@/shared/cardImpl/catalog/index.ts'
 import {
@@ -69,10 +67,29 @@ import {
  * difference. A card that the data cannot express stays a hand-written class.
  */
 
-const COMBAT_STEPS = {
-    beforeRange: CombatStep.BeforeRange,
-    beforeStrikes: CombatStep.BeforeStrikes,
-    endOfRound: CombatStep.EndOfRound,
+// The combat as the conditions of a play see it, for the minion that plays it ( null: no combat )
+function combatContextOf(
+    implementation: CardImplementation,
+    gameState: GameState,
+): CombatPlayContext | null {
+    const combat = gameState.combat
+    if (!combat) {
+        return null
+    }
+    const { minion } = implementation
+    const combatant = getCombatant(combat, minion)
+    const opposing = combatant && getOpposingCombatant(combat, combatant)
+    return {
+        round: combat.round,
+        step: combat.step,
+        range: combat.range,
+        playedThisRound: combat.playedThisRound[minion.oid] ?? [],
+        playedThisCombat: combat.playedThisCombat[minion.oid] ?? [],
+        strength: combatant?.strength ?? 0,
+        limitedAdditionalGained: !!combatant?.limitedAdditionalGained,
+        opposingBloodLost: opposing?.bloodLost ?? 0,
+        opposingIsVampire: !!opposing?.minion.isVampire(),
+    }
 }
 
 function conditionHolds(
@@ -84,6 +101,8 @@ function conditionHolds(
     // Once the block is resolved, what is about the action ( target, block attempts ) is over
     const blockResolved = !!gameState.action?.blockResolved
     const action = blockResolved ? undefined : gameState.action?.minionAction
+    const combatCondition = (narrowed: CombatCondition) =>
+        combatConditionHolds(narrowed, def.id, combatContextOf(implementation, gameState))
     switch (condition.type) {
         case 'during':
             return !!action && isBleed(action)
@@ -103,7 +122,7 @@ function conditionHolds(
         case 'afterYourBlock':
             return !gameState.combat && gameState.action?.blockResolved == implementation.minion
         case 'combatRound':
-            return gameState.combat?.round == condition.round
+            return combatCondition(condition)
         case 'reactorIs':
             return implementation.minion.isVampire()
         case 'reactorTitled':
@@ -128,22 +147,11 @@ function conditionHolds(
         case 'oncePerUnlock':
             return !gameState.playedSinceUnlock[implementation.minion.oid]?.includes(def.id)
         case 'combatStep':
-            return gameState.combat?.step == COMBAT_STEPS[condition.step]
         case 'closeRange':
-            return gameState.combat?.range == CombatRange.Close
         case 'oncePerRound':
-            return !gameState.combat?.playedThisRound[implementation.minion.oid]?.includes(def.id)
         case 'oncePerCombat':
-            return !gameState.combat?.playedThisCombat[implementation.minion.oid]?.includes(def.id)
-        case 'opposingIsVampire': {
-            const combat = gameState.combat
-            const combatant = combat && getCombatant(combat, implementation.minion)
-            return (
-                !!combat &&
-                !!combatant &&
-                getOpposingCombatant(combat, combatant).minion.isVampire()
-            )
-        }
+        case 'opposingIsVampire':
+            return combatCondition(condition)
     }
 }
 
@@ -430,77 +438,11 @@ class InterpretedCombat extends CombatCardImplementation {
             return []
         }
         const combat = this.combat
-        const combatant = combat && getCombatant(combat, this.minion)
-        if (!combat || !combatant) {
+        const context = combatContextOf(this, this.player.gameState)
+        if (!combat || !getCombatant(combat, this.minion) || !context) {
             return []
         }
-        const opposing = getOpposingCombatant(combat, combatant)
-        const hasStrike = play.effects.some(effect => effect.type == 'strike')
-        // The additional strike of a strike card comes with it, unless a limited one was gained
-        const additional = play.effects.find(effect => effect.type == 'additionalStrike')
-        const additionalWithStrike =
-            additional && !(additional.limited && combatant.limitedAdditionalGained) ?
-                { limited: additional.limited }
-            :   undefined
-
-        const strikes = play.effects.flatMap((effect): CombatStrike[] => {
-            if (effect.type != 'strike') {
-                return []
-            }
-            return [
-                effect.preset == 'dodge' ?
-                    createDodgeStrike()
-                :   {
-                        ...createHandStrike(combatant),
-                        name: `Hand strike +${effect.extraDamage}`,
-                        damage: combatant.strength + effect.extraDamage,
-                        undodgeable: !!effect.undodgeable,
-                    },
-            ]
-        })
-        // The maneuver of a card that is also a strike card chooses the strike as well
-        const effects = play.effects.flatMap((effect): CombatCardEffect[] => {
-            switch (effect.type) {
-                case 'maneuver':
-                    return effect.toCloseOnly && combat.range != CombatRange.Long ?
-                            []
-                        :   [{ type: 'maneuver', strike: strikes[0] }]
-                case 'strike':
-                    return []
-                case 'setStrength':
-                    return effect.amount > combatant.strength ?
-                            [{ type: 'setStrength', amount: effect.amount }]
-                        :   []
-                case 'additionalStrike':
-                    return hasStrike || (effect.limited && combatant.limitedAdditionalGained) ?
-                            []
-                        :   [{ type: 'additionalStrike', limited: effect.limited }]
-                case 'grapple':
-                    return [
-                        {
-                            type: 'grapple',
-                            press: effect.press,
-                            closeNextRound: effect.closeNextRound,
-                        },
-                    ]
-                case 'environmentalDamage':
-                    return [{ type: 'environmentalDamage', amount: effect.amount }]
-                case 'gainBloodFromDamage':
-                    return opposing.bloodLost > 0 ?
-                            [{ type: 'gainBlood', amount: opposing.bloodLost }]
-                        :   []
-            }
-        })
-        return [
-            ...strikes.map(
-                (strike): CombatCardEffect => ({
-                    type: 'strike',
-                    strike,
-                    additional: additionalWithStrike,
-                }),
-            ),
-            ...effects,
-        ]
+        return combatPlayEffects(play, context)
     }
 }
 

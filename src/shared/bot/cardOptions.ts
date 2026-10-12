@@ -16,7 +16,7 @@ import {
     getMasterImplementation,
     hasImplementation,
 } from '@/shared/cardImpl/index.ts'
-import { CombatCardEffect } from '@/shared/cardImpl/base.ts'
+import { CombatCardEffect } from '@/shared/cardImpl/catalog/combatPlay.ts'
 import { getCardDef } from '@/shared/cardImpl/catalog/index.ts'
 import { findPlay, getUsageOptions, playsOfKind } from '@/shared/cardImpl/catalog/requirements.ts'
 import { CardKind } from '@/shared/cardImpl/catalog/types.ts'

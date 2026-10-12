@@ -1,6 +1,7 @@
 import { CryptCard, LibraryCard, Minion, Vampire } from '@/shared/model/Card.ts'
 import { Player } from '@/shared/model/Player.ts'
-import { CombatStrike, Invalid, LibraryCardUsage, VALID, Validity } from '@/shared/types/state.ts'
+import { Invalid, LibraryCardUsage, VALID, Validity } from '@/shared/types/state.ts'
+import type { CombatCardEffect } from '@/shared/cardImpl/catalog/combatPlay.ts'
 import { DisciplineLevel } from '@/shared/const/model.ts'
 
 export type CryptCardImplementation = {
@@ -81,24 +82,6 @@ export abstract class ActionCardImplementation extends CardImplementation {
         return false
     }
 }
-
-// What a combat card gives to the minion playing it. The card itself is
-// attached by the caller ( the strike's source, the cost to pay ).
-export type CombatCardEffect =
-    // An additional strike can come with the strike card
-    | { type: 'strike'; strike: CombatStrike; additional?: { limited: boolean } }
-    // A maneuver, with the strike it also chooses when it comes from a strike card
-    | { type: 'maneuver'; strike?: CombatStrike }
-    | { type: 'press' }
-    | { type: 'prevent'; amount: number; aggravated: boolean }
-    // The strength of the minion for the rest of the combat
-    | { type: 'setStrength'; amount: number }
-    // Damage the opposing minion takes each round of the combat
-    | { type: 'environmentalDamage'; amount: number }
-    // Played in the window after a pair of strikes
-    | { type: 'additionalStrike'; limited: boolean }
-    | { type: 'grapple'; press: boolean; closeNextRound: boolean }
-    | { type: 'gainBlood'; amount: number }
 
 export abstract class CombatCardImplementation extends CardImplementation {
     get combat() {

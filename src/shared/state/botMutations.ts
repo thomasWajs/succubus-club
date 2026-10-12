@@ -30,8 +30,8 @@ import { emitEvent } from '@/shared/state/events.ts'
 import { syncAttachedCards } from '@/shared/state/attachments.ts'
 import { Trigger } from '@/shared/cardImpl/catalog/types.ts'
 import { getTriggerKey } from '@/shared/state/triggers.ts'
+import type { AdditionalStrikeGain } from '@/shared/state/combatRules.ts'
 import {
-    AdditionalStrikeGain,
     addEnvironmentalDamage,
     addStrikes,
     applyDamageNow,

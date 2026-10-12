@@ -93,6 +93,24 @@ export type PlayWindow =
 
 export type CombatStep = 'beforeRange' | 'beforeStrikes' | 'endOfRound'
 
+type WeaponStrikeEffectCore = {
+    type: 'weaponStrike'
+    damage: number
+    ranged: boolean
+    aggravated: boolean
+    maneuver: boolean
+}
+
+type TriggerEffectCore = {
+    type: 'trigger'
+    on: EventName
+    armed: boolean
+    optional: boolean
+    costBlood: number
+    oncePerTurn: boolean
+    effects: Effect[]
+}
+
 type EffectCore =
     | { type: 'stealth'; amount: number }
     // Only for the blocks against bleeds aimed at the controller, when bleedsOnly
@@ -119,13 +137,7 @@ type EffectCore =
     | { type: 'dodge' }
     // damage = the strength of the minion + extraDamage
     | { type: 'handStrike'; extraDamage: number; undodgeable: boolean }
-    | {
-          type: 'weaponStrike'
-          damage: number
-          ranged: boolean
-          aggravated: boolean
-          maneuver: boolean
-      }
+    | WeaponStrikeEffectCore
     | { type: 'setStrength'; amount: number }
     | { type: 'additionalStrike'; limited: boolean }
     | { type: 'grapple'; press: boolean; closeNextRound: boolean }
@@ -151,15 +163,7 @@ type EffectCore =
     | { type: 'unlockSelf' }
     // What happens when an event is announced: armed for the rest of the action by a played card, or
     // standing on a card in play
-    | {
-          type: 'trigger'
-          on: EventName
-          armed: boolean
-          optional: boolean
-          costBlood: number
-          oncePerTurn: boolean
-          effects: Effect[]
-      }
+    | TriggerEffectCore
     // Crypt cards
     | { type: 'undirectedStealth'; amount: number }
     | { type: 'directedIntercept'; amount: number }

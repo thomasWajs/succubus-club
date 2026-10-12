@@ -21,27 +21,30 @@ const TITLE_NAMES: Set<string> = new Set([
     ...Object.keys(TITLE_BALLOTS),
 ])
 
-type VampireTest = (vampire: Vampire) => boolean
+// What a requirement can ask of a vampire ( a MinionProfile has them too )
+export type VampireTraits = { clan: string; sect: string; title: string; capacity: number }
+
+type VampireTest = (vampire: VampireTraits) => boolean
 
 const parsedRequirements = new Map<string, VampireTest | null>()
 
 function parseRestriction(clause: string): VampireTest | null {
     if (clause == 'titled') {
-        return vampire => vampire.vampireAttrs.title != ''
+        return vampire => vampire.title != ''
     }
     if (clause == 'non-titled') {
-        return vampire => vampire.vampireAttrs.title == ''
+        return vampire => vampire.title == ''
     }
     const nonSect = /^non-(.+)$/.exec(clause)?.[1]
     if (nonSect && SECT_NAMES.has(nonSect)) {
-        return vampire => vampire.vampireAttrs.sect.toLowerCase() != nonSect
+        return vampire => vampire.sect.toLowerCase() != nonSect
     }
     const capacity = /^capacity (\d+) or (more|less)$/.exec(clause)
     if (capacity) {
         const limit = Number(capacity[1])
         return capacity[2] == 'more' ?
-                vampire => vampire.minionAttrs.capacity >= limit
-            :   vampire => vampire.minionAttrs.capacity <= limit
+                vampire => vampire.capacity >= limit
+            :   vampire => vampire.capacity <= limit
     }
     return null
 }
@@ -61,7 +64,7 @@ function parseRequirement(requirement: string): VampireTest | null {
         restrictions.push(restriction)
     }
     return vampire => {
-        const { title, sect } = vampire.vampireAttrs
+        const { title, sect } = vampire
         const identity =
             titles.length > 0 ? titles.includes(title.toLowerCase())
             : sects.length > 0 ? sects.includes(sect.toLowerCase())
@@ -70,21 +73,33 @@ function parseRequirement(requirement: string): VampireTest | null {
     }
 }
 
-function meetsRequirementText(vampire: Vampire, requirement: string): boolean {
+function meetsRequirementText(vampire: VampireTraits, requirement: string): boolean {
     if (!parsedRequirements.has(requirement)) {
         parsedRequirements.set(requirement, parseRequirement(requirement))
     }
     return parsedRequirements.get(requirement)?.(vampire) ?? false
 }
 
-function vampireMeetsRequirements(vampire: Vampire, card: LibraryCard): boolean {
+// A vampire with these traits can play the card: its clan, and what the cardbase requires
+export function traitsMeetRequirements(
+    vampire: VampireTraits,
+    card: { clan?: string; requirement?: string },
+): boolean {
     if (card.clan) {
         const clans = card.clan.split('/').map(clan => clan.toLowerCase())
-        if (!clans.includes(vampire.vampireAttrs.clan.toLowerCase())) {
+        if (!clans.includes(vampire.clan.toLowerCase())) {
             return false
         }
     }
     return !card.requirement || meetsRequirementText(vampire, card.requirement)
+}
+
+function vampireMeetsRequirements(vampire: Vampire, card: LibraryCard): boolean {
+    const { clan, sect, title } = vampire.vampireAttrs
+    return traitsMeetRequirements(
+        { clan, sect, title, capacity: vampire.minionAttrs.capacity },
+        card,
+    )
 }
 
 // A master card: the player controls a ready vampire that fits

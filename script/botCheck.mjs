@@ -36,6 +36,10 @@ const jobs =
             { name: 'catalog', args: ['script/catalogCheck.ts'] },
             { name: 'summaries', args: ['script/botSummaries.ts', '--check'] },
             {
+                name: 'combat model',
+                args: ['script/botCombat.ts', '--combats', String(full ? 3000 : 400)],
+            },
+            {
                 name: 'assessment',
                 args: ['script/botAssess.ts', '--sweep', String(full ? 40 : 10)],
             },
@@ -86,7 +90,7 @@ for (const { job, code, signal, output } of results) {
     const lines = output.trim().split('\n')
     if (code == 0) {
         console.log(
-            `ok   ${job.name}: ${lines.findLast(line => /scenarios|games of|cards checked/.test(line))}`,
+            `ok   ${job.name}: ${lines.findLast(line => /scenarios|games of|cards checked|combats,/.test(line))}`,
         )
     } else {
         failed = true
