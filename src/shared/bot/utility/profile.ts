@@ -137,6 +137,8 @@ export type CombatWeights = {
     caution: number
     // How many levels of its own moves the plan of a combat plans inside its rollouts: 0 lets the policy play them
     planDepth: number
+    // What a combat that an action starts must bring me at least, in pool, for the action to be made ( enterCombat.ts )
+    enterMargin: number
 }
 
 export type BotProfile = {
@@ -214,5 +216,6 @@ export const DEFAULT_PROFILE: BotProfile = {
         cardCost: 0.2,
         caution: 0.25,
         planDepth: 1,
+        enterMargin: 0.5,
     },
 }

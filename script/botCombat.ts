@@ -6,21 +6,29 @@
 // played in both, and the two states are equal ( step, range, impulse, blood, pending damage, strikes, state
 // of the minions, life of the retainers, pool, cards played ). The first difference stops the run and prints
 // the moves of the combat. Every random pick is seeded ( combat k is drawn from the seed N + k ).
-import { Card, Minion } from '@/shared/model/Card.ts'
+import { LibraryCard, Minion } from '@/shared/model/Card.ts'
 import { GameState } from '@/shared/state/gameState.ts'
 import { deleteGameState } from '@/shared/registries.ts'
 import { isRetainer } from '@/shared/cardImpl/catalog/attached.ts'
-import { CombatStrike } from '@/shared/types/state.ts'
 import { applyOption, getDecidingPlayer, getDecisionPoint } from '@/shared/bot/referee.ts'
 import { BotOption, DecisionKind } from '@/shared/bot/types.ts'
 import {
     applyMove,
     CombatSim,
     legalMoves,
-    Move,
     Side,
     SimCombatant,
 } from '@/shared/bot/utility/combatModel.ts'
+import {
+    combatCardsOf,
+    simStrikeKey,
+    strikeKey,
+    moveKey,
+    optionKey,
+    optionOfMove,
+    simOfCombat,
+} from '@/shared/bot/utility/combatBridge.ts'
+import { cardFactsOf } from '@/shared/bot/utility/combatSetup.ts'
 import { chooseMove } from '@/shared/bot/utility/combatPolicy.ts'
 import { planCombat } from '@/shared/bot/utility/combatPlan.ts'
 import { profileMinion } from '@/shared/bot/utility/minionProfile.ts'
@@ -30,7 +38,6 @@ import {
     Combat,
     createCombat,
     Difference,
-    Fighter,
     initCombatFixtures,
     pick,
     seededRandom,
@@ -42,103 +49,6 @@ const BELIEVED_DENSITIES = { strike: 0.3, dodge: 0.2, maneuver: 0.2, additionalS
 // What the combats went through, to see that the rules were exercised
 const coverage = new Map<string, number>()
 const count = (what: string) => coverage.set(what, (coverage.get(what) ?? 0) + 1)
-
-/**
- * Keys of the moves, to tell whether the two offer the same
- */
-
-function strikeKey(strike: CombatStrike, opposing: Fighter): string {
-    const retainer = strike.retainer ? opposing.attached.indexOf(strike.retainer) : -1
-    return [
-        strike.name,
-        strike.damage,
-        +strike.aggravated,
-        +strike.ranged,
-        +strike.dodge,
-        +strike.isHand,
-        +strike.undodgeable,
-        +strike.combatEnds,
-        +strike.firstStrike,
-        strike.stealBlood,
-        retainer,
-    ].join(',')
-}
-
-function optionKey(option: BotOption, mine: Fighter, opposing: Fighter): string {
-    const card = 'card' in option && option.card ? option.card.krcgId : ''
-    const index = (attached?: Card) => (attached ? mine.attached.indexOf(attached) : -1)
-    switch (option.type) {
-        case 'combatPass':
-            return 'pass'
-        case 'combatStrike':
-            return `strike|${strikeKey(option.strike, opposing)}|${option.additional?.limited ?? '-'}|${card}`
-        case 'combatManeuver':
-            return `maneuver|${option.strike ? strikeKey(option.strike, opposing) : '-'}|${index(option.weapon)}|${!!option.free}|${card}`
-        case 'combatPress':
-            return `press|${!!option.granted}|${card}`
-        case 'combatAdditionalStrike':
-            return `additionalStrike|${option.limited}|${card}`
-        case 'combatGrapple':
-            return `grapple|${option.press}|${option.closeNextRound}|${card}`
-        case 'combatGainBlood':
-            return `gainBlood|${option.amount}|${card}`
-        case 'combatStrengthBonus':
-            return 'strengthBonus'
-        case 'combatStrength':
-            return `strength|${option.amount}|${card}`
-        case 'combatEnvironmentalDamage':
-            return `environmentalDamage|${option.amount}|${card}`
-        case 'combatPrevent':
-            return `prevent|${option.amount}|${option.aggravated}|${index(option.source)}|${card}`
-        default:
-            throw new Difference(`The referee offers ${option.type} in a combat`)
-    }
-}
-
-function simStrikeKey(strike: NonNullable<Extract<Move, { type: 'strike' }>['strike']>): string {
-    return [
-        strike.name,
-        strike.damage,
-        +strike.aggravated,
-        +strike.ranged,
-        +strike.dodge,
-        +strike.isHand,
-        +strike.undodgeable,
-        +strike.combatEnds,
-        +strike.firstStrike,
-        strike.stealBlood,
-        strike.retainer ?? -1,
-    ].join(',')
-}
-
-function moveKey(move: Move, me: SimCombatant): string {
-    const card = move.card === undefined ? '' : me.cards[move.card].cardId
-    const index = (key?: string) => (key === undefined ? -1 : Number(key.split(':')[1]))
-    switch (move.type) {
-        case 'pass':
-            return 'pass'
-        case 'strike':
-            return `strike|${simStrikeKey(move.strike)}|${move.additional?.limited ?? '-'}|${card}`
-        case 'maneuver':
-            return `maneuver|${move.strike ? simStrikeKey(move.strike) : '-'}|${index(move.weaponKey)}|${!!move.free}|${card}`
-        case 'press':
-            return `press|${!!move.granted}|${card}`
-        case 'additionalStrike':
-            return `additionalStrike|${move.limited}|${card}`
-        case 'grapple':
-            return `grapple|${move.press}|${move.closeNextRound}|${card}`
-        case 'gainBlood':
-            return `gainBlood|${move.amount}|${card}`
-        case 'strengthBonus':
-            return 'strengthBonus'
-        case 'strength':
-            return `strength|${move.amount}|${card}`
-        case 'environmentalDamage':
-            return `environmentalDamage|${move.amount}|${card}`
-        case 'prevent':
-            return `prevent|${move.amount}|${move.aggravated}|${index(move.sourceKey)}|${card}`
-    }
-}
 
 /**
  * Comparing the states
@@ -169,7 +79,7 @@ function engineSnapshot(combat: Combat, side: Side): object {
             combatant ?
                 {
                     strength: combatant.strength,
-                    strike: strike ? strikeKey(strike, opposing) : null,
+                    strike: strike ? strikeKey(strike, opposing.attached) : null,
                     pending: [combatant.pendingDamage.regular, combatant.pendingDamage.aggravated],
                     bloodLost: combatant.bloodLost,
                     additionalStrikes: combatant.additionalStrikes,
@@ -286,6 +196,93 @@ function compare(combat: Combat, history: string[]): void {
 }
 
 /**
+ * The combat read from the engine: the model built from the state of the engine at any point of the combat
+ * ( what the agent does ) must be the model that was played from its start
+ */
+
+function projection(sim: CombatSim) {
+    const side = (combatant: SimCombatant) => ({
+        strength: combatant.strength,
+        blood: combatant.blood,
+        state: combatant.state,
+        pool: combatant.pool,
+        strike: combatant.strike?.name ?? null,
+        pending: [combatant.pendingDamage.regular, combatant.pendingDamage.aggravated],
+        bloodLost: combatant.bloodLost,
+        additionalStrikes: combatant.additionalStrikes,
+        limited: combatant.limitedAdditionalGained,
+        inPair: combatant.strikesInPair,
+        presses: combatant.pressesGranted,
+        bonus: combatant.strengthBonus,
+        free: combatant.freeManeuvers,
+        environmental: combatant.environmentalDamage,
+        life: combatant.attached.reduce(
+            (total, card) => total + (card.retainer ? Math.max(0, card.life) : 0),
+            0,
+        ),
+    })
+    return {
+        round: sim.round,
+        step: sim.step,
+        range: sim.range,
+        impulse: sim.impulsePlayer,
+        last: sim.lastPlayedBy,
+        pressed: sim.pressed,
+        tier: sim.resolvedStrikeTier,
+        pair: sim.strikePair,
+        handOnly: sim.handStrikesOnly,
+        closeNext: sim.closeNextRound,
+        environmentalApplied: sim.environmentalApplied,
+        isOver: sim.isOver,
+        weaponManeuvers: sim.weaponManeuvers.length,
+        preventions: sim.attachedPreventions.length,
+        played: [sim.playedThisRound, sim.playedThisCombat].map(record => [
+            record.acting ?? [],
+            record.defending ?? [],
+        ]),
+        acting: side(sim.acting),
+        defending: side(sim.defending),
+    }
+}
+
+// The model read from the engine, with the real hands of both sides: it must hold what the model played from
+// the start holds, and offer the moves that the referee offers
+function readCheck(combat: Combat, options: BotOption[], history: string[]) {
+    const engine = combat.gameState.combat
+    if (!engine) {
+        throw new Difference('No combat to read')
+    }
+    const sim = simOfCombat(engine, player =>
+        player.hand.cards.flatMap(card => (card instanceof LibraryCard ? [cardFactsOf(card)] : [])),
+    )
+    const cards = combatCardsOf(engine)
+    const problems: string[] = []
+    if (JSON.stringify(projection(sim)) != JSON.stringify(projection(combat.sim))) {
+        problems.push(
+            `the model read\n    read   ${JSON.stringify(projection(sim))}\n    played ${JSON.stringify(projection(combat.sim))}`,
+        )
+    }
+    const me = sim.impulsePlayer
+    const opposing = me == 'acting' ? 'defending' : 'acting'
+    const readKeys = [...new Set(legalMoves(sim).map(move => moveKey(move, sim[me])))].sort()
+    const referee = [
+        ...new Set(options.map(option => optionKey(option, cards[me], cards[opposing]))),
+    ].sort()
+    if (JSON.stringify(readKeys) != JSON.stringify(referee)) {
+        problems.push(
+            `the moves of the model read differ\n    only the engine: ${referee.filter(key => !readKeys.includes(key)).join(' ; ')}\n    only the model: ${readKeys.filter(key => !referee.includes(key)).join(' ; ')}`,
+        )
+    }
+    if (problems.length > 0) {
+        throw new Difference(
+            `${problems.join('\n  ')}\n  moves so far:\n    ${history.join('\n    ')}`,
+        )
+    }
+    count('read')
+    return { sim, cards }
+}
+
+/**
  * Playing a combat
  */
 
@@ -310,7 +307,7 @@ function playCombat(combat: Combat, trace: boolean): number {
         const opposing = combat.fighters[side == 'acting' ? 'defending' : 'acting']
         const options = decision.options.map(option => ({
             option,
-            key: optionKey(option, mine, opposing),
+            key: optionKey(option, mine.attached, opposing.attached),
         }))
         const me = combat.sim[combat.sim.impulsePlayer]
         const modelMoves = legalMoves(combat.sim).map(move => ({ move, key: moveKey(move, me) }))
@@ -324,6 +321,7 @@ function playCombat(combat: Combat, trace: boolean): number {
                     `  moves so far:\n    ${history.join('\n    ')}`,
             )
         }
+        const read = readCheck(combat, decision.options, history)
         // A third of the time the default policy of the position evaluator chooses, which must be a move of the
         // referee; the rest, mostly something else than a pass, or the combats would stay at their first round
         const active = options.filter(({ key }) => key != 'pass')
@@ -341,15 +339,16 @@ function playCombat(combat: Combat, trace: boolean): number {
         }
         // And a fifth of the time the plan of 3.4c, against a believed hand: also a move of the referee
         if (Math.random() < 0.2) {
-            const other = combat.sim[combat.sim.impulsePlayer == 'acting' ? 'defending' : 'acting']
-            const plan = planCombat(DEFAULT_PROFILE, combat.sim, {
+            const plan = planCombat(DEFAULT_PROFILE, read.sim, {
                 minion: profileMinion(opposing.minion),
-                hand: { size: other.cards.length, densities: BELIEVED_DENSITIES },
+                hand: { size: opposing.player.hand.length, densities: BELIEVED_DENSITIES },
             })
-            const planKey = moveKey(plan.move, me)
-            const planned = options.find(({ key }) => key == planKey)
+            const option = optionOfMove(decision.options, plan.move, read.sim, read.cards)
+            const planned = options.find(candidate => candidate.option == option)
             if (!planned) {
-                throw new Difference(`The plan chose ${planKey}, which the referee does not offer`)
+                throw new Difference(
+                    `The plan chose ${moveKey(plan.move, read.sim[read.sim.impulsePlayer])}, which the referee does not offer`,
+                )
             }
             chosen = planned
             count('plan')

@@ -189,6 +189,11 @@ import { gainOfBleeds, setupChance } from '@/shared/bot/utility/equity.ts'
 import { describeAssessment, describeTurnPlan } from '@/shared/bot/utility/describeAssessment.ts'
 import { returnWorth } from '@/shared/bot/utility/rescue.ts'
 import { candidateOf, combatRisk, planTurn, TurnPlan } from '@/shared/bot/utility/turnPlan.ts'
+import {
+    combatStartAllowed,
+    combatStartGain,
+    combatStartOf,
+} from '@/shared/bot/utility/enterCombat.ts'
 import { serializeGameState } from '@/shared/serialization.ts'
 import {
     BotAgent,
@@ -11336,6 +11341,28 @@ function answeringStrike(
     }).sim
 }
 
+// A combat played to its end: the sides in `planning` choose by the plan, the other by the policy. The line is what
+// each side did that was not a pass, in order.
+function playPlanned(sim: CombatSim, planning: Side[]): { sim: CombatSim; line: string[] } {
+    const line: string[] = []
+    let current = sim
+    for (let i = 0; i < 200 && !current.closed; i++) {
+        const side = current.impulsePlayer
+        const move =
+            planning.includes(side) ?
+                planMove(PLAN_WEIGHTS, current, []).move
+            :   chooseMove(PLAN_WEIGHTS.policy, current)
+        if (move.type != 'pass') {
+            line.push(`${side}: ${describeMove(current, move)}`)
+        }
+        current = applyMove(current, move).sim
+    }
+    if (!current.closed) {
+        throw new ScenarioFailure('The combat did not end')
+    }
+    return { sim: current, line }
+}
+
 const COMBAT_PLAN_SCENARIOS: { name: string; run: () => void }[] = [
     {
         name: 'Combat plan: a move the rules force is played as it is, and two cards that make the same move are one choice',
@@ -11540,6 +11567,247 @@ const COMBAT_PLAN_SCENARIOS: { name: string; run: () => void }[] = [
             expectEqual(JSON.stringify(sim), before, 'the same combat after the plan')
         },
     },
+    {
+        name: 'Combat plan: the cards of a whole combat are played in their order: strength, range, Immortal Grapple, the strike, Taste of Vitae',
+        run() {
+            const potence = { [Discipline.Potence]: DisciplineLevel.INFERIOR }
+            const signpost = testCard('signpost', {
+                kind: 'combat',
+                when: [beforeRangeCondition],
+                effects: [setStrengthEffect(3)],
+            })
+            const knife: AttachedKit = {
+                ...MAGNUM_KIT,
+                name: 'Knife',
+                strikes: [{ damage: 2, ranged: false, aggravated: false, maneuver: false }],
+            }
+            const cards = [
+                signpost,
+                MANEUVER_CARD,
+                ...combatCards({ ...CARD_USER, disciplines: potence }, [
+                    factsOfCard('100959', 'Immortal Grapple'),
+                    factsOfCard('101945', 'Taste of Vitae'),
+                ]),
+            ]
+            const fight = (held: AttachedKit[]) =>
+                playPlanned(
+                    simFight(
+                        { strength: 1, blood: 6, cards },
+                        { strength: 1, blood: 6, attached: held },
+                    ),
+                    ['acting', 'defending'],
+                )
+            // A knife at close range: the grapple leaves it nothing but a hand strike
+            const knifed = fight([knife])
+            expectEqual(
+                knifed.line.join(' | '),
+                'acting: strength 3 (signpost) | acting: grapple (Immortal Grapple) | acting: strike Hand strike | defending: strike Hand strike | acting: gainBlood 3 (Taste of Vitae)',
+                'strength, grapple, strike, blood',
+            )
+            // A Magnum: the other goes to long range, the answer brings the fight back to close range
+            const shot = fight([MAGNUM_KIT])
+            expectEqual(
+                shot.line.join(' | '),
+                'acting: strength 3 (signpost) | defending: maneuver | acting: maneuver (maneuver) | acting: strike Hand strike | acting: gainBlood 3 (Taste of Vitae)',
+                'strength, range, strike, blood',
+            )
+            for (const { sim } of [knifed, shot]) {
+                expectEqual(sim.defending.bloodLost > 0, true, 'the other side was hurt')
+            }
+        },
+    },
+    {
+        name: 'Combat plan: the rulebook examples of aggravated damage, played by the plan: Nassir and Tamoszius go to torpor, a vampire that cannot pay is burned',
+        run() {
+            const claws = (damage: number): AttachedKit => ({
+                ...MAGNUM_KIT,
+                name: 'Claws',
+                strikes: [{ damage, ranged: false, aggravated: true, maneuver: false }],
+            })
+            const played = (
+                acting: Partial<SimCombatant>,
+                blood: number,
+            ): { sim: CombatSim; line: string[] } =>
+                playPlanned(simFight(acting, { strength: 1, blood }), ['acting'])
+            // Nassir: 1 blood, 1 aggravated damage: wounded, torpor with 1 blood
+            const nassir = played({ attached: [claws(1)] }, 1)
+            expectEqual(nassir.sim.defending.state, 'torpor', 'Nassir: torpor')
+            expectEqual(nassir.sim.defending.blood, 1, 'Nassir: with 1 blood')
+            // Tamoszius: 2 blood, 3 aggravated damage: wounded by 1, burns 2 blood for the others, torpor with 0
+            const tamoszius = played({ attached: [claws(3)] }, 2)
+            expectEqual(tamoszius.sim.defending.state, 'torpor', 'Tamoszius: torpor')
+            expectEqual(tamoszius.sim.defending.blood, 0, 'Tamoszius: with 0 blood')
+            // Ryan's example, as far as one strike goes: aggravated damage that a vampire has no blood to pay for burns it,
+            // and the plan prefers the claws to the hand strike that only sends it to torpor
+            const ryan = played({ strength: 2, attached: [claws(2)] }, 0)
+            expectEqual(ryan.sim.defending.state, 'burned', 'Ryan: burned')
+            for (const { line } of [nassir, tamoszius, ryan]) {
+                expectEqual(
+                    line.some(move => move.startsWith('acting: strike Claws')),
+                    true,
+                    'the plan chose the claws',
+                )
+            }
+        },
+    },
+]
+
+/**
+ * The plan of a combat played from the engine, and the gate before an action that starts one ( step 3.4d ): the
+ * agent reads the combat it is in, plans it with the cards it holds, and a minion enters combat only when the
+ * fight it forecasts is worth it.
+ */
+
+// The combats an action of a card in the decision starts
+function startsOf(decision: DecisionPoint) {
+    return optionsOfType(decision.options, 'declareAction').flatMap(option => {
+        const candidate = candidateOf(option)
+        const start = combatStartOf(candidate)
+        return start && option.action.type == MinionActionType.ActionCardFromHand ?
+                [{ candidate, start }]
+            :   []
+    })
+}
+
+// What the minion of Line Brawl is expected to gain from entering combat with the minion of its prey
+function brawlGate(turn: ReturnType<typeof createLineBrawlTurn>) {
+    const view = createPlayerView(turn.gameState, turn.player)
+    try {
+        const decision = getDecisionPoint(view.gameState, view.player)
+        if (!decision) {
+            throw new ScenarioFailure('No decision point')
+        }
+        const starts = startsOf(decision)
+        if (starts.length != 1) {
+            throw new ScenarioFailure(`${starts.length} combats are started, not one`)
+        }
+        const assessment = assess(view.gameState, view.player, DEFAULT_PROFILE)
+        const [{ candidate, start }] = starts
+        return {
+            allowed: combatStartAllowed(assessment, candidate),
+            gain: combatStartGain(assessment, candidate, start),
+        }
+    } finally {
+        view.dispose()
+    }
+}
+
+function setBrawlers(
+    turn: ReturnType<typeof createLineBrawlTurn>,
+    mine: { strength: number; blood: number },
+    theirs: { strength: number; blood: number },
+) {
+    for (const [minion, side] of [
+        [turn.ready, mine],
+        [turn.target, theirs],
+    ] as const) {
+        minion.minionAttrs.strength = side.strength
+        minion.minionAttrs.capacity = 10
+        minion.blood = side.blood
+    }
+}
+
+const LIVE_COMBAT_SCENARIOS: { name: string; run: () => void }[] = [
+    {
+        name: 'Live combat: the agent reads the engine combat and plays the strike card that sends the other to torpor',
+        run() {
+            const fight = createBrujahFight(ROUNDHOUSE_ID, DisciplineLevel.SUPERIOR)
+            passUntil(fight, CombatStep.Strike)
+            const decision = getCombatDecision(fight, fight.actingPlayer)
+            const option = chooseThroughView(decision, new UtilityAgent(BrujahDeck))
+            if (option.type != 'combatStrike' || option.card != fight.card) {
+                throw new ScenarioFailure(`The agent chose ${option.type}, not the Roundhouse`)
+            }
+            expectEqual(option.strike.damage >= 3, true, 'a strike that reaches the blood')
+        },
+    },
+    {
+        name: 'Live combat: two agents play an engine combat to its end, the one with the strike card sends the other to torpor',
+        run() {
+            const fight = createBrujahFight(ROUNDHOUSE_ID, DisciplineLevel.SUPERIOR)
+            const agent = new UtilityAgent(BrujahDeck)
+            for (let moves = 0; fight.gameState.combat; moves++) {
+                if (moves > 100) {
+                    throw new ScenarioFailure('The combat does not end')
+                }
+                const player = getDecidingPlayer(fight.gameState)
+                const decision = player && getDecisionPoint(fight.gameState, player)
+                if (!decision || decision.kind != DecisionKind.Combat) {
+                    throw new ScenarioFailure('The combat is stuck')
+                }
+                applyOption(decision, chooseThroughView(decision, agent))
+            }
+            expectRegion(fight.defending, 'torpor')
+            expectRegion(fight.acting, 'ready')
+        },
+    },
+    {
+        name: 'Enter combat gate: Line Brawl into a minion that my minion beats is allowed, into one that beats it is not',
+        run() {
+            const weak = createLineBrawlTurn()
+            setBrawlers(weak, { strength: 3, blood: 8 }, { strength: 1, blood: 2 })
+            const allowed = brawlGate(weak)
+            expectEqual(allowed.allowed, true, 'a fight won')
+            expectEqual(allowed.gain > 0.5, true, 'it gains more than the margin')
+
+            const strong = createLineBrawlTurn()
+            setBrawlers(strong, { strength: 1, blood: 3 }, { strength: 6, blood: 8 })
+            const refused = brawlGate(strong)
+            expectEqual(refused.allowed, false, 'a fight lost')
+            expectEqual(refused.gain < 0, true, 'it costs')
+        },
+    },
+    {
+        name: 'Enter combat gate: the kit I hold counts, a Roundhouse makes the same fight worth more',
+        run() {
+            const gain = (kit: boolean) => {
+                const turn = createLineBrawlTurn()
+                turn.ready.minionAttrs.disciplines[Discipline.Potence] = DisciplineLevel.SUPERIOR
+                setBrawlers(turn, { strength: 2, blood: 5 }, { strength: 2, blood: 5 })
+                // The other hand is empty: nothing is drawn from a belief, so the two fights are compared exactly
+                emptyHand(turn.gameState, turn.victim)
+                if (kit) {
+                    giveCard(turn.gameState, turn.player, ROUNDHOUSE_ID)
+                }
+                return brawlGate(turn).gain
+            }
+            expectEqual(gain(true) > gain(false), true, 'the Roundhouse is in the fight')
+        },
+    },
+    {
+        name: 'Enter combat gate: the agent does not offer the base rules a combat that the position refuses, and offers one it allows',
+        run() {
+            const offered = (mine: { strength: number; blood: number }, theirs: typeof mine) => {
+                const turn = createLineBrawlTurn()
+                setBrawlers(turn, mine, theirs)
+                let starts = 0
+                const spy: BotAgent = {
+                    choose(viewDecision) {
+                        starts += startsOf(viewDecision).length
+                        return (
+                            viewDecision.options.find(option => option.type == 'endPhase') ??
+                            viewDecision.options[0]
+                        )
+                    },
+                }
+                const decision = getDecisionPoint(turn.gameState, turn.player)
+                if (!decision) {
+                    throw new ScenarioFailure('No decision point')
+                }
+                chooseThroughView(
+                    decision,
+                    new UtilityAgent(BrujahDeck, DEFAULT_PROFILE, undefined, spy),
+                )
+                return starts
+            }
+            expectEqual(
+                offered({ strength: 3, blood: 8 }, { strength: 1, blood: 2 }) > 0,
+                true,
+                'allowed',
+            )
+            expectEqual(offered({ strength: 1, blood: 3 }, { strength: 6, blood: 8 }), 0, 'refused')
+        },
+    },
 ]
 
 function runScenarios(filters: string[]): ScenarioResult[] {
@@ -11578,6 +11846,7 @@ function runScenarios(filters: string[]): ScenarioResult[] {
         ...COMBAT_MODEL_SCENARIOS,
         ...COMBAT_POSITION_SCENARIOS,
         ...COMBAT_PLAN_SCENARIOS,
+        ...LIVE_COMBAT_SCENARIOS,
     ]
         .filter(({ name }) => filters.some(filter => name.toLowerCase().includes(filter)))
         .map(({ name, run }) => {

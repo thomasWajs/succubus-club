@@ -17,6 +17,8 @@ import { unlockCardsOf } from '@/shared/bot/utility/defence.ts'
 import { readyMinions } from '@/shared/bot/utility/snapshot.ts'
 import { Candidate, candidateOf, planTurn, TurnPlan } from '@/shared/bot/utility/turnPlan.ts'
 import { describeTurnPlan } from '@/shared/bot/utility/describeAssessment.ts'
+import { chooseLiveCombat } from '@/shared/bot/utility/liveCombat.ts'
+import { combatStartAllowed } from '@/shared/bot/utility/enterCombat.ts'
 
 // Everything a decision may read, and nothing else: the view of the game ( in the decision ), what the
 // table did, and what the bot knows of itself. Plans are functions of this, no state is kept between
@@ -43,7 +45,8 @@ type Choice = {
  * kind by decision kind; the kinds it does not handle yet go to the fallback agent ( the Govern rules
  * by default: the base agent never plays, so no game would end ). The minion phase is the turn plan's:
  * who stays unlocked to defend, who bleeds, hunts or rescues. The action cards of the hand still go
- * through the fallback until step 3.5 reads them.
+ * through the fallback until step 3.5 reads them, except the ones that start a combat, which the position
+ * of the fight must allow ( enterCombat.ts ). The windows of a combat are the plan's ( combatPlan.ts ).
  */
 export class UtilityAgent implements BotAgent {
     constructor(
@@ -75,6 +78,12 @@ export class UtilityAgent implements BotAgent {
         if (context.decision.kind == DecisionKind.Minion) {
             return this.minionPhase(context)
         }
+        if (context.decision.kind == DecisionKind.Combat) {
+            const live = chooseLiveCombat(context.decision, context.assessment)
+            if (live) {
+                return live
+            }
+        }
         return { option: this.fallback.choose(context.decision), note: 'fallback rules' }
     }
 
@@ -101,7 +110,9 @@ export class UtilityAgent implements BotAgent {
         const { decision, assessment } = context
         const { me } = assessment.table
         const candidates = optionsOfType(decision.options, 'declareAction').map(candidateOf)
-        const cards = candidates.filter(candidate => candidate.kind == 'other')
+        const cards = candidates.filter(
+            candidate => candidate.kind == 'other' && combatStartAllowed(assessment, candidate),
+        )
         const plain = candidates.filter(candidate => candidate.kind != 'other')
         const endPhase = decision.options.find(option => option.type == 'endPhase')
         const unlockCards =
