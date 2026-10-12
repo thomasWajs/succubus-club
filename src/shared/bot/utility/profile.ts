@@ -141,6 +141,13 @@ export type CombatWeights = {
     enterMargin: number
 }
 
+// How a block attempt is judged ( blockDecision.ts ). Draft numbers
+export type BlockWeights = {
+    // What a block must bring me at least, in pool, to be attempted: the fight it runs my minion into and
+    // the minion it locks are paid for in estimates
+    margin: number
+}
+
 export type BotProfile = {
     name: string
     // Temperature of the softmax pick among the scored options, 0 = always the best one
@@ -157,6 +164,7 @@ export type BotProfile = {
     // A victory point, in pool
     vpValue: number
     combat: CombatWeights
+    block: BlockWeights
 }
 
 export const DEFAULT_PROFILE: BotProfile = {
@@ -218,4 +226,5 @@ export const DEFAULT_PROFILE: BotProfile = {
         planDepth: 1,
         enterMargin: 0.5,
     },
+    block: { margin: 0.25 },
 }

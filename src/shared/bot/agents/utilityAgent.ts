@@ -19,6 +19,7 @@ import { Candidate, candidateOf, planTurn, TurnPlan } from '@/shared/bot/utility
 import { describeTurnPlan } from '@/shared/bot/utility/describeAssessment.ts'
 import { chooseLiveCombat } from '@/shared/bot/utility/liveCombat.ts'
 import { combatStartAllowed } from '@/shared/bot/utility/enterCombat.ts'
+import { judgeBlock } from '@/shared/bot/utility/blockDecision.ts'
 
 // Everything a decision may read, and nothing else: the view of the game ( in the decision ), what the
 // table did, and what the bot knows of itself. Plans are functions of this, no state is kept between
@@ -46,7 +47,8 @@ type Choice = {
  * by default: the base agent never plays, so no game would end ). The minion phase is the turn plan's:
  * who stays unlocked to defend, who bleeds, hunts or rescues. The action cards of the hand still go
  * through the fallback, except the ones that start a combat, which the position
- * of the fight must allow ( enterCombat.ts ). The windows of a combat are the plan's ( combatPlan.ts ).
+ * of the fight must allow ( enterCombat.ts ). The windows of a combat are the plan's ( combatPlan.ts ),
+ * and the block attempts are a judgement of what they save and cost ( blockDecision.ts ).
  */
 export class UtilityAgent implements BotAgent {
     constructor(
@@ -82,6 +84,22 @@ export class UtilityAgent implements BotAgent {
             const live = chooseLiveCombat(context.decision, context.assessment)
             if (live) {
                 return live
+            }
+        }
+        if (context.decision.kind == DecisionKind.ReactionImpulse) {
+            const judged = judgeBlock(context.decision, context.assessment)
+            if (judged?.block) {
+                return { option: judged.block, note: judged.note, candidates: judged.candidates }
+            }
+            if (judged) {
+                // The block is refused: the base rules play the rest of the window without it
+                const { decision } = context
+                const options = decision.options.filter(option => option.type != 'block')
+                return {
+                    option: this.fallback.choose({ ...decision, options }),
+                    note: judged.note,
+                    candidates: judged.candidates,
+                }
             }
         }
         return { option: this.fallback.choose(context.decision), note: 'fallback rules' }

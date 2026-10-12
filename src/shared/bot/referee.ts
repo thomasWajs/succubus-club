@@ -408,7 +408,11 @@ function reactionImpulseDecision(gameState: GameState, player: Player): Decision
     const blockStands = getBlockingMinion(gameState) !== null
     const windowClosed = blockStands && (!standing || standing.block === NO_BLOCK)
 
-    if (!blockStands) {
+    // A Methuselah that declined to block cannot attempt one again until the target of the action
+    // changes, which clears the decisions
+    const declined = standing?.block === NO_BLOCK
+
+    if (!blockStands && !declined) {
         // A minion tries to block at most once per action (the rules allow
         // retrying, but it is pointless and would let a bot loop forever)
         const attempted = gameState.action?.blockAttempters ?? []
@@ -422,7 +426,7 @@ function reactionImpulseDecision(gameState: GameState, player: Player): Decision
     // "No block" gives the impulse back to the acting player (who may then play
     // modifiers), unlike "no reaction" which passes it on. Pointless when
     // "no block" is already declared, or when the window is closed.
-    if (!windowClosed && (!standing || standing.block !== NO_BLOCK)) {
+    if (!windowClosed && !declined) {
         options.push({ type: 'noBlock' })
     }
 
