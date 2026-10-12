@@ -1,6 +1,6 @@
 // Runs the bot scenarios and several harness configurations in parallel. Run from the repo root:
-//   npm run bot:check            quick tier (after each step): scenarios + 15 games at 2 to 5 players
-//   npm run bot:check -- --full  full tier (end of a phase): scenarios + 100 games at 2 to 5 players
+//   npm run bot:check            quick tier (after each change): scenarios + 15 games at 2 to 5 players
+//   npm run bot:check -- --full  full tier (before closing a body of work): scenarios + 100 games at 2 to 5 players
 //   npm run bot:check -- --filter text   only the scenarios whose name contains the text, no harness
 // Exits with code 1 if any job fails.
 import { spawn } from 'node:child_process'

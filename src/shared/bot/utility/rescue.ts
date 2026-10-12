@@ -15,7 +15,7 @@ import {
  * temporary helper, and may rescue its vampires: the rescue is directed at their Methuselah, who has no
  * reason to block it, and the vampire is ready at its next turn, able to act. So a Methuselah with all its
  * vampires in torpor can still be a menace, and a vampire of a helper is worth rescuing. Everything here
- * only reads the table snapshot ( .claude/docs/bot-ai-phase3.md, section 3b ).
+ * only reads the table snapshot.
  */
 
 // A torpid vampire a helper may bring back before its Methuselah plays again

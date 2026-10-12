@@ -5,7 +5,7 @@ import { lastingLoss, takenBack } from '@/shared/bot/utility/bloat.ts'
 import { bounceTargetOf } from '@/shared/bot/utility/snapshot.ts'
 
 /**
- * The currency of the plans ( .claude/docs/bot-ai-phase3.md, section 3 "One currency" ): everything a
+ * The currency of the plans: everything a
  * turn does is worth some pool. Pool taken from a Methuselah counts at its stake, my own pool at
  * `caution`, and two terms are not linear: ousting my prey ( a victory point and 6 pool, or the game when
  * it is the last one ) and being ousted ( the rest of the game ).

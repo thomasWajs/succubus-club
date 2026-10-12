@@ -18,7 +18,7 @@ import * as rules from '@/shared/state/combatRules.ts'
 import type { Actor, AdditionalStrikeGain, CombatHost } from '@/shared/state/combatRules.ts'
 
 /**
- * Combat in the game ( see .claude/docs/combat-rules.md )
+ * Combat in the game
  *
  * The rules themselves ( the seven steps, strikes, damage ) are in combatRules.ts. This is what ties
  * them to the game: the combatants are minions of a GameState, whose blood, region and attached cards

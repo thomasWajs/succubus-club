@@ -2,8 +2,8 @@ import type { Role } from '@/shared/bot/utility/summaries.ts'
 
 /**
  * The personality of a utility bot: every number the scorer reads that is not a rule of the game.
- * Two bots with the same deck and different profiles are the A/B test of Phase 3. Only the
- * fields the planners already use are here: the rest comes with the step that needs it.
+ * Two bots with the same deck and different profiles are an A/B test. Only the fields the
+ * planners already use are here: the rest comes with the feature that needs it.
  */
 
 // What a Methuselah is assumed to hold when the table shows nothing ( the neutral prior of the risk model )
@@ -58,11 +58,11 @@ export type StakesWeights = {
 // How the Methuselahs that are neither the prey nor the predator of a Methuselah treat it ( rescue.ts )
 export type HelpersPrior = {
     // The chance, each turn, that one of them with a minion able to pay rescues a given torpid vampire
-    // of that Methuselah. Its prey and its predator never do. Draft number, the ledger replaces it in 3.7
+    // of that Methuselah. Its prey and its predator never do. Draft number, to be replaced by what the ledger shows
     rescueChance: number
     // What a vampire back from torpor is worth, on top of its drain, as a share of it: a full vampire
     // ( blood over capacity ) adds `bloodStay`, each card attached to it ( up to `equipmentMax` ) adds
-    // `equipmentStay` ( flat, until the combat model of 3.4 prices weapons ). Draft numbers
+    // `equipmentStay` ( flat ). Draft numbers
     bloodStay: number
     equipmentStay: number
     equipmentMax: number
@@ -77,7 +77,7 @@ export type PlanWeights = {
     // What a minion kept unlocked is worth per turn against the actions that are not bleeds
     guard: number
     // What an action of a minion that is not a bleed, a hunt or a rescue is worth ( an equipment, a
-    // recruit... ): a placeholder until step 3.5 values the cards themselves. The action card of the
+    // recruit... ): a placeholder: the cards themselves are not valued one by one. The action card of the
     // hand is worth the best of this and of the roles it has in `cardActionByRole`: a recruit brings a
     // vampire in play, which is worth far more than the average action
     cardAction: number

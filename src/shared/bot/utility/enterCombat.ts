@@ -12,7 +12,7 @@ import { profileMinion } from '@/shared/bot/utility/minionProfile.ts'
 import { summarizeCard } from '@/shared/bot/utility/summaries.ts'
 
 /**
- * The gate before an action that starts a combat ( step 3.4d of .claude/docs/bot-ai-phase3.md ): a minion
+ * The gate before an action that starts a combat: a minion
  * that enters combat with a minion of another Methuselah, or plays a card that makes it do so. The fight
  * is forecast with my hand and my blood as they are now ( combatPosition.ts ), and the action is made only
  * if what it is expected to take from the other side, less what it is expected to cost mine, is worth

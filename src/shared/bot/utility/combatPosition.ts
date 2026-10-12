@@ -16,7 +16,7 @@ import {
 } from '@/shared/bot/utility/combatBelief.ts'
 
 /**
- * The position of a combat ( step 3.4b of .claude/docs/bot-ai-phase3.md ): what a fight between two minions
+ * The position of a combat: what a fight between two minions
  * costs each side, in pool, on average, when both play it out with the default policy ( combatPolicy.ts ).
  * The cards of a side are its hand when it is known ( mine ), or hands drawn from what is believed of it
  * ( combatBelief.ts ), a few of them, each played out with the real rules of the combat. A fight is

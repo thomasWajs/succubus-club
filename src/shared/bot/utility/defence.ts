@@ -18,8 +18,7 @@ import {
 } from '@/shared/bot/utility/attack.ts'
 
 /**
- * The defence profile and the attack kit of a Methuselah ( .claude/docs/bot-ai-phase3.md, section 3b
- * points 5 and 6 ): what stands between its pool and the actions of another, and what its actions can
+ * The defence profile and the attack kit of a Methuselah: what stands between its pool and the actions of another, and what its actions can
  * count on. For the player itself everything is exact, it knows its hand. For the others the board is
  * exact ( minions, equipment, permanents are public ) and the hand is an estimate from the cards that
  * the table showed ( capabilities.ts ).

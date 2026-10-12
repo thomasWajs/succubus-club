@@ -14,14 +14,14 @@ import {
 import { LossWeights, lossOf, lossSoFar } from '@/shared/bot/utility/combatValue.ts'
 
 /**
- * How a side plays a combat when nothing better is known ( step 3.4b of .claude/docs/bot-ai-phase3.md ):
+ * How a side plays a combat when nothing better is known:
  * the default policy of the playouts, for both sides. It is zero-sum ( what one side's opponent loses is
  * what it gains ) and looks one move ahead on a potential: what has been lost so far, the damage pending
  * counted, plus what the strikes of the round are worth at the range there is, each side answering the
  * other's strike with its best one ( the acting minion strikes first and the other sees it, as in the
  * engine ). Nothing here is a rule of the game: the playout runs the rules of combatRules.ts, this only
  * chooses among the moves they allow. Short-sighted on purpose: it plays a card when it pays for itself in
- * the round, and does not plan a sequence of them ( the plan of step 3.4c does ).
+ * the round, and does not plan a sequence of them ( combatPlan.ts does ).
  */
 
 export type PolicyWeights = {

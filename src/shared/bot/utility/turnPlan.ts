@@ -17,7 +17,7 @@ import { unlockedMinions } from '@/shared/bot/utility/snapshot.ts'
 import { summarizeCard } from '@/shared/bot/utility/summaries.ts'
 
 /**
- * The turn plan ( .claude/docs/bot-ai-phase3.md, step 3.3 ): at the start of the minion phase, and again
+ * The turn plan: at the start of the minion phase, and again
  * after each action that resolves, who stays unlocked to defend, who acts and with what. The unit of power
  * is the minion-turn: an unlocked minion at the end of my turn is a block ( or a bounce ) during the turn
  * of my predator, a locked one is not, unless a wake card brings it back. So every candidate reserve is
@@ -59,7 +59,7 @@ export function candidateOf(option: BotOptionOf<'declareAction'>): Candidate {
                 paid: action.bloodPaidByActingMinion ?? 0,
             }
         default:
-            // The cards of the hand, entering combat, diablerie...: valued when step 3.5 reads the cards
+            // The cards of the hand, entering combat, diablerie...: not valued one by one
             return { kind: 'other', option, actor, paid: 0 }
     }
 }
@@ -143,7 +143,7 @@ function rescueValue(assessment: Assessment, candidate: Candidate): number {
 }
 
 // What an action of a card of the hand is worth: the placeholder of the profile, raised by the best
-// role of the card ( step 3.5 values the cards themselves )
+// role of the card
 function cardActionValue(assessment: Assessment, candidate: Candidate): number {
     const { plan } = assessment.profile
     const { action } = candidate.option

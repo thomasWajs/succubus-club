@@ -47,11 +47,8 @@ import {
 import { BotOptionOf, CombatCardOption } from '@/shared/bot/types.ts'
 
 /**
- * Card-specific legality for the bot.
- *
- * Phase 1 stopgap: backed by the hand-written TS implementations, so only
- * implemented cards are ever offered. Phase 2b replaces the body of these
- * functions with the effect-data interpreter; the signatures stay.
+ * Card-specific legality for the bot, read from the card catalog: only cards the catalog
+ * describes are ever offered.
  */
 
 // The minion fits the clan, sect... the card requires, and no card attached to it forbids the card

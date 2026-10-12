@@ -8,7 +8,7 @@ import {
 } from '@/shared/types/state.ts'
 
 /**
- * The rules of a combat ( see .claude/docs/combat-rules.md ), apart from the game they are played in.
+ * The rules of a combat, apart from the game they are played in.
  * Two things run them: the engine ( combatState.ts, on the minions and cards of a GameState ) and the
  * bot's combat model ( utility/combatModel.ts, on plain numbers, to look ahead ). Each tells the rules
  * what it needs through a CombatHost: who owns a combatant, its blood, what happens when it goes to

@@ -207,7 +207,7 @@ import {
 } from '@/shared/bot/types.ts'
 
 /**
- * Hand-built combats checked against the rulebook (combat.md). The harness only
+ * Hand-built combats checked against the rulebook. The harness only
  * ever plays hand strikes, so everything a card could add (dodge, first strike,
  * aggravated damage, steal blood, maneuvers, presses, damage prevention...) is
  * checked here by driving the combat mutations directly.
@@ -5718,7 +5718,7 @@ const ALINE_SCENARIOS: { name: string; run: () => void }[] = [
 ]
 
 /**
- * A human acts, the bots block (Phase 2.5)
+ * A human acts, the bots block
  */
 
 type HumanTable = {
@@ -7852,7 +7852,7 @@ const CROWS_SCENARIOS: { name: string; run: () => void }[] = [
 ]
 
 /**
- * Phase 3, step 3.0: what the utility agent stands on. The ledger of what the table did is folded live
+ * What the utility agent stands on. The ledger of what the table did is folded live
  * and rebuilt from the mutation history ( both must agree ), a player view can be played on without
  * touching the game, and the facts the defence reading counts on ( influenced vampires are
  * unlocked blockers ).
@@ -8077,7 +8077,7 @@ const UTILITY_SCENARIOS: { name: string; run: () => void }[] = [
 ]
 
 /**
- * Play summaries ( step 3.1 of the utility bot ): what the scorer reads of a card, from the catalog.
+ * Play summaries: what the scorer reads of a card, from the catalog.
  */
 
 function summaryOf(id: string): CardSummary {
@@ -8325,7 +8325,7 @@ const SUMMARY_SCENARIOS: { name: string; run: () => void }[] = [
 ]
 
 /**
- * Table assessment ( step 3.2 of the utility bot ): the effective minion, the snapshot of the table as a
+ * Table assessment: the effective minion, the snapshot of the table as a
  * player sees it, the lunge of the predator on a pool, the opportunity on the prey, the stakes of each
  * Methuselah. The vampires of these scenarios have no discipline, so the table shows no evidence and
  * what the others hold is the neutral prior: the numbers can be worked out by hand.
@@ -9223,7 +9223,7 @@ const ASSESSMENT_SCENARIOS: { name: string; run: () => void }[] = [
 ]
 
 /**
- * Turn plan ( step 3.3 of the utility bot ): who stays unlocked to defend, who acts and with what. The
+ * Turn plan: who stays unlocked to defend, who acts and with what. The
  * boards are small and the hands controlled, so the choice reads off the numbers of the plan.
  */
 
@@ -9766,7 +9766,7 @@ const PLAN_SCENARIOS: { name: string; run: () => void }[] = [
 ]
 
 /**
- * Bloat ( step 3.3 of the utility bot ): what each Methuselah takes back from the blood bank, and what it
+ * Bloat: what each Methuselah takes back from the blood bank, and what it
  * changes in the plan. The prey and the others hold no card in hand, so the believed income is 0 and the
  * numbers can be worked out by hand.
  */
@@ -10819,7 +10819,7 @@ const COMBAT_MODEL_SCENARIOS: { name: string; run: () => void }[] = [
 ]
 
 /**
- * The position of a combat ( step 3.4b ): the default policy of the playouts, the hands believed of the others, and
+ * The position of a combat: the default policy of the playouts, the hands believed of the others, and
  * the forecast of a fight in pool, which the threat and the plan read.
  */
 
@@ -11317,7 +11317,7 @@ const COMBAT_POSITION_SCENARIOS: { name: string; run: () => void }[] = [
 ]
 
 /**
- * The plan of a combat ( step 3.4c ): the move chosen by playing out what follows, against the hands that the other
+ * The plan of a combat: the move chosen by playing out what follows, against the hands that the other
  * side may hold.
  */
 
@@ -11653,7 +11653,7 @@ const COMBAT_PLAN_SCENARIOS: { name: string; run: () => void }[] = [
 ]
 
 /**
- * The plan of a combat played from the engine, and the gate before an action that starts one ( step 3.4d ): the
+ * The plan of a combat played from the engine, and the gate before an action that starts one: the
  * agent reads the combat it is in, plans it with the cards it holds, and a minion enters combat only when the
  * fight it forecasts is worth it.
  */

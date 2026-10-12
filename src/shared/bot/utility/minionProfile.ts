@@ -14,7 +14,7 @@ import { Effect, summarizeAttached, summarizeCard } from '@/shared/bot/utility/s
  * The effective minion: its crypt card plus what is attached to it ( equipment, retainers ). One
  * function read by the table assessment, the defence profile, the combat model and the block gate, so
  * they all use the same numbers. Everything here is public: a minion in play is face up and so are the
- * cards attached to it, whoever the controller is ( .claude/docs/bot-ai-phase3.md, section 3b point 8 ).
+ * cards attached to it, whoever the controller is.
  */
 
 export type MinionState = 'unlocked' | 'locked' | 'torpor'

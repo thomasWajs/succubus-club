@@ -4,13 +4,13 @@ import { OpponentPrior } from '@/shared/bot/utility/profile.ts'
 import { Role } from '@/shared/bot/utility/summaries.ts'
 
 /**
- * Disciplines as evidence of what a Methuselah can hold ( .claude/docs/bot-ai-phase3.md, section 3b
- * point 4 ). A vampire in play with a discipline says which cards its deck plausibly has: a few rows
- * of hand-written data, not a tag per card. A row gives, for a deck that has a vampire with the
- * discipline at that level, the share of its library that carries each role.
+ * Disciplines as evidence of what a Methuselah can hold. A vampire in play with a discipline says
+ * which cards its deck plausibly has: a few rows of hand-written data, not a tag per card. A row
+ * gives, for a deck that has a vampire with the discipline at that level, the share of its library
+ * that carries each role.
  *
- * THE NUMBERS ARE A DRAFT for the author to check ( then validated against the cardbase and the TWDA,
- * step 3.7 ): they are orders of magnitude from the strategy primers, not measures.
+ * THE NUMBERS ARE A DRAFT for the author to check ( then validated against the cardbase and the
+ * TWDA ): they are orders of magnitude from the strategy primers, not measures.
  */
 
 type CapabilityRow = {

@@ -1,4 +1,4 @@
-// The table assessment of the utility bot ( step 3.2 ), as a dev tool. Run from the repo root:
+// The table assessment of the utility bot, as a dev tool. Run from the repo root:
 //   npm run bot:assess -- [--players N] [--deck NAME] [--deck-of 2=malkav,3=brujah] [--turn N] [--seed N]
 //     plays a headless game with the Govern rules up to a turn, then prints what each player makes of
 //     the table, through its player view. The decks: govern, malkav, brujah, nosferatu. Defaults: 3

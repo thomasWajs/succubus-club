@@ -14,7 +14,7 @@ import { Densities } from '@/shared/bot/utility/defence.ts'
 import { CombatWeights } from '@/shared/bot/utility/profile.ts'
 
 /**
- * The combat cards of a hand that is not seen ( step 3.4b of .claude/docs/bot-ai-phase3.md ). The hand of
+ * The combat cards of a hand that is not seen. The hand of
  * another Methuselah has a size and the roles of its library ( capabilities.ts, from the disciplines of its
  * minions ): each card of it is taken to be a card of a role, or no combat card, with the share of that
  * role, and only a role the minion that fights can play counts. A card of a role is a generic one: it does

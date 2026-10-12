@@ -337,7 +337,7 @@ function playCombat(combat: Combat, trace: boolean): number {
             chosen = policy
             count('policy')
         }
-        // And a fifth of the time the plan of 3.4c, against a believed hand: also a move of the referee
+        // And a fifth of the time the plan, against a believed hand: also a move of the referee
         if (Math.random() < 0.2) {
             const plan = planCombat(DEFAULT_PROFILE, read.sim, {
                 minion: profileMinion(opposing.minion),

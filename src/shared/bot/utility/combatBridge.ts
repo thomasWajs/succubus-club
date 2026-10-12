@@ -9,7 +9,7 @@ import { CardFacts, combatantOf } from '@/shared/bot/utility/combatSetup.ts'
 import { profileMinion } from '@/shared/bot/utility/minionProfile.ts'
 
 /**
- * The combat of the engine and the combat of the model ( step 3.4d of .claude/docs/bot-ai-phase3.md ): an
+ * The combat of the engine and the combat of the model: an
  * engine combat read into a model one at any point of it, and the moves of the model told from the options
  * of the referee ( a move and an option are the same when they have the same key ).
  */

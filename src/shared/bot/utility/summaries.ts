@@ -33,7 +33,7 @@ import {
  */
 
 // What a play is FOR, derived from its effects ( never listed by card ). A card can have several: the
-// hand is judged by the mix of roles ( .claude/docs/bot-ai-phase3.md, section 3b point 7 )
+// hand is judged by the mix of roles
 export const ROLES = [
     // The action bleeds a Methuselah
     'bleed',

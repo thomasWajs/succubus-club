@@ -19,7 +19,7 @@ import { MinionProfile } from '@/shared/bot/utility/minionProfile.ts'
 import { BotProfile } from '@/shared/bot/utility/profile.ts'
 
 /**
- * The plan of a combat ( step 3.4c of .claude/docs/bot-ai-phase3.md ): the move to make now, chosen by
+ * The plan of a combat: the move to make now, chosen by
  * playing out what follows. This is the rollout algorithm over the default policy of combatPolicy.ts: each
  * move the rules allow is tried, the combat goes on with both sides playing the policy, and the move with
  * the best result is the one made. It is never worse than the policy it improves ( on the hands it was

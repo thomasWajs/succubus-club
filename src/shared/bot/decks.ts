@@ -30,7 +30,7 @@ export const GovernDeck = <DeckList>{
     '201533': 1,
 }
 
-// The Malkavian precon of reference ( .claude/docs/precon_malkav_v5.txt ) without the cards the
+// The Malkavian precon of reference without the cards the
 // bot decks drop for now: Spying Mission, Revelations, Dreams of the Sphinx ( replacements to find )
 export const MalkavDeck = <DeckList>{
     '100108': 1, // Asylum Hunting Ground
@@ -63,7 +63,7 @@ export const MalkavDeck = <DeckList>{
     '201569': 1, // Sully
 }
 
-// The Brujah precon of reference ( .claude/docs/precon_brujah_v5 ) without the cards the bot decks
+// The Brujah precon of reference without the cards the bot decks
 // drop for now: Delaying Tactics, Heroic Might, Fame, Guardian Angel, Haven Uncovered, Carver's Meat
 // Packing and Storage, Frontal Assault, 47th Street Royals, The Anarch Free Press ( replacements to
 // find ). The cards the engine cannot play yet stay in the deck: a bot never plays them.
@@ -99,7 +99,7 @@ export const BrujahDeck = <DeckList>{
     '201614': 1, // Valeriya Zinovieva
 }
 
-// The Nosferatu precon of reference ( .claude/cards/precon/nosfe_v5.txt ) restricted to the cards
+// The Nosferatu precon of reference restricted to the cards
 // the catalog describes. Dropped: Creeping Sabotage, Fame, Guardian Angel, Haven Uncovered, The Labyrinth,
 // Protected District, Rebel, Smiling Jack, Underbridge Stray, Vessel, Warsaw Station, Larissa Moreira
 export const NosferatuDeck = <DeckList>{

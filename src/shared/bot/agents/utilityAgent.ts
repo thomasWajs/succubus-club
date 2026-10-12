@@ -41,11 +41,11 @@ type Choice = {
 }
 
 /**
- * The utility bot of Phase 3 ( see .claude/docs/bot-ai-phase3.md ). The scorer takes over decision
+ * The utility bot. The scorer takes over decision
  * kind by decision kind; the kinds it does not handle yet go to the fallback agent ( the Govern rules
  * by default: the base agent never plays, so no game would end ). The minion phase is the turn plan's:
  * who stays unlocked to defend, who bleeds, hunts or rescues. The action cards of the hand still go
- * through the fallback until step 3.5 reads them, except the ones that start a combat, which the position
+ * through the fallback, except the ones that start a combat, which the position
  * of the fight must allow ( enterCombat.ts ). The windows of a combat are the plan's ( combatPlan.ts ).
  */
 export class UtilityAgent implements BotAgent {
@@ -88,7 +88,7 @@ export class UtilityAgent implements BotAgent {
     }
 
     // The action card that the base rules would play, among the actions of the minions that are not in
-    // `excluded` ( the plan keeps them home ): until step 3.5 values the cards themselves
+    // `excluded` ( the plan keeps them home )
     private suggestCard(
         decision: DecisionPoint,
         cards: Candidate[],

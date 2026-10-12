@@ -19,9 +19,9 @@ import { traitsMeetRequirements } from '@/shared/state/cardRequirements.ts'
 import { waysUsableBy } from '@/shared/bot/utility/summaries.ts'
 
 /**
- * A combat of the model from what is on the table: the minions as MinionProfiles ( step 3.2 ) and the
+ * A combat of the model from what is on the table: the minions as MinionProfiles and the
  * combat cards a side holds. What a side holds is given by the caller: my hand, as it is, or what I
- * believe of another one ( step 3.4b ).
+ * believe of another one.
  */
 
 // What of a library card decides whether and how it is played in a combat ( a LibraryCard has them )

@@ -2,7 +2,7 @@ import { BotProfile } from '@/shared/bot/utility/profile.ts'
 import { CombatSim, SimCombatant, settled } from '@/shared/bot/utility/combatModel.ts'
 
 /**
- * What a combat costs a side, in pool ( step 3.4b of .claude/docs/bot-ai-phase3.md ): the blood it lost,
+ * What a combat costs a side, in pool: the blood it lost,
  * its worth if it goes to torpor or burns ( the same worth as in assessment.ts: its capacity and the cards
  * attached to it ), and the retainers it lost.
  */

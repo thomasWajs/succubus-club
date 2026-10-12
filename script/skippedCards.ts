@@ -1,5 +1,5 @@
 // The cards analysed and rejected for the bot catalog ( class 4 of the /add-card triage ), kept in
-// .claude/cards/skipped.json so they are not read and judged again. `npm run card` flags them.
+// a JSON file so they are not read and judged again. `npm run card` flags them.
 //
 // CLI:  npm run card:skip -- <category> "<name or id>" "<reason>"    record a card
 //       npm run card:skip -- --remove "<name or id>"                 forget it ( the card was done after all )

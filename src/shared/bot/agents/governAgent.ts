@@ -248,7 +248,7 @@ export class GovernAgent extends BaseAgent {
         return super.combat(decision)
     }
 
-    // First rule-based block (the Phase 3 scorer refines it): attempt it when it would succeed against
+    // First rule-based block (the utility agent refines it): attempt it when it would succeed against
     // the current stealth and the blocker is not weaker than the acting minion, so the combat that
     // follows is not a losing one. The strongest, then the fullest, minion blocks.
     private chooseBlock(decision: DecisionPoint): BotOptionOf<'block'> | null {

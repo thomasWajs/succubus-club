@@ -44,7 +44,7 @@ import { CombatStep, Invalid, VALID, Validity } from '@/shared/types/state.ts'
 import type { AttachedKit } from '@/shared/bot/utility/minionProfile.ts'
 
 /**
- * The combat as a plain simulation ( step 3.4a of .claude/docs/bot-ai-phase3.md ). The rules are the
+ * The combat as a plain simulation. The rules are the
  * ones of the engine ( state/combatRules.ts, run here through a host that keeps blood, state and
  * retainers as numbers ), and a combat card is turned into moves by the same function ( the catalog's
  * combatPlay.ts ): what this file adds is the list of the moves a side may make and the application

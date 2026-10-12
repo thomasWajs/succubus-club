@@ -8,7 +8,7 @@ import { cardFactsOf } from '@/shared/bot/utility/combatSetup.ts'
 import { profileMinion } from '@/shared/bot/utility/minionProfile.ts'
 
 /**
- * A combat of the engine played by the plan ( step 3.4d of .claude/docs/bot-ai-phase3.md ): the combat is
+ * A combat of the engine played by the plan: the combat is
  * read into the model with the cards I hold, the other hand is the one believed of its Methuselah, and the
  * move of the plan is told back as the option of the referee that makes it.
  */

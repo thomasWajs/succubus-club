@@ -37,14 +37,12 @@ import { fightRisk } from '@/shared/bot/utility/combatPosition.ts'
 
 /**
  * The table, read: what each Methuselah can do to me and what I can do to it, how my pool stands against
- * my predator, and what a point of each Methuselah's pool is worth to me ( .claude/docs/bot-ai-phase3.md,
- * sections 2, 3 and 3b ). A pure function of the player view: it reads nothing the player does not see.
+ * my predator, and what a point of each Methuselah's pool is worth to me. A pure function of the player view: it reads nothing the player does not see.
  * Numbers are pool-equivalents per turn unless said otherwise.
  */
 
 // What a Methuselah can take from me next turn, by axis. Only the axes the board can already show: the
-// others ( ranged, combat ends, aggravated, torpor, block denial ) come with the combat model of step
-// 3.4 and the risk vector of step 3.7.
+// others ( ranged, combat ends, aggravated, torpor, block denial ) are not read yet.
 export type Threat = {
     // Pool it bleeds me for ( only my predator can )
     bleed: number
@@ -126,8 +124,8 @@ export type Assessment = {
  */
 
 // What the minions of `owner` would take from mine in the fights my actions run into, in pool: for each of
-// mine, the fight it loses most against one of theirs ( the combat model of 3.4b, played out with the
-// cards I hold and the cards it is believed to hold ), averaged
+// mine, the fight it loses most against one of theirs ( played out with the cards I hold and the
+// cards it is believed to hold ), averaged
 function combatPressure(context: Context, owner: MethuselahSnapshot): number {
     const { table, profile, densities } = context
     const mine = readyMinions(table.me)
@@ -650,7 +648,7 @@ function rescuesOf(context: Context, stakes: Record<PlayerOid, Stake>): RescueOp
 }
 
 // The weight of each Methuselah's fate for me. Starts from where it stands in the ring and moves with
-// how dangerous it is, how strong it is and what it does for me ( section 3 of the roadmap ).
+// how dangerous it is, how strong it is and what it does for me.
 function stakesOf(
     context: Context,
     power: Record<PlayerOid, number>,

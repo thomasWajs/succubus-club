@@ -1,6 +1,6 @@
 /**
  * One turn of bleeds against a defence: the model behind the lunge of my predator on me and my own
- * opportunity on my prey ( .claude/docs/bot-ai-phase3.md, section 3b points 2, 3 and 5 ). Exact for
+ * opportunity on my prey. Exact for
  * what is public or known ( the minions, their intercept, the cards I hold ), and a small distribution
  * for what is hidden ( the cards in an opponent's hand ). No randomness: the distribution is
  * enumerated, so the same table always gives the same numbers.
