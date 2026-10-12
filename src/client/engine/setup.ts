@@ -26,8 +26,10 @@ import { Projection } from '@/client/engine/projection.ts'
 import { runEngine } from '@/client/engine/driver.ts'
 
 const ENGINE_NB_BOTS = 3
-// The bots' decks are drawn among the first decks of the engine's catalog : the preconstructed ones
-const ENGINE_NB_BOT_DECKS = 14
+// The bots' decks are drawn among the engine's full preconstructed decks : the Fifth Edition
+// ones, the anniversary decks and the Sabbat V5 ones — not the New Blood minis ( half decks ),
+// nor the tournament winners
+const ENGINE_BOT_DECK = /\((Fifth Edition\b.*|.*Anniversary|Sabbat V5)\)$/
 // Without the trained network's weights, the engine's scripted bots play
 const ENGINE_SCRIPTED_STYLES = ['aggro_bleed', 'wall']
 const ENGINE_NETWORK_STYLE = 'network'
@@ -71,9 +73,9 @@ export async function setupEngineGame(): Promise<() => void> {
     // Not the user's own deck, when it is one of the preconstructed decks
     const selfCards = core.selfDeck.cards
     const botDecks = shuffleArray(
-        (await engineCatalog())
-            .slice(0, ENGINE_NB_BOT_DECKS)
-            .filter(([, deck]) => !sameDeck(deck, selfCards)),
+        (await engineCatalog()).filter(
+            ([name, deck]) => ENGINE_BOT_DECK.test(name) && !sameDeck(deck, selfCards),
+        ),
     )
     const policy = await loadEnginePolicy()
 
