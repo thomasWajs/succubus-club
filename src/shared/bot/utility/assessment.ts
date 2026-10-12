@@ -33,6 +33,7 @@ import {
 } from '@/shared/bot/utility/defence.ts'
 import { boardsOf, returnsOf, returnWorth } from '@/shared/bot/utility/rescue.ts'
 import { Bloat, bloatOf, lastingLoss, takenBack } from '@/shared/bot/utility/bloat.ts'
+import { fightRisk } from '@/shared/bot/utility/combatPosition.ts'
 
 /**
  * The table, read: what each Methuselah can do to me and what I can do to it, how my pool stands against
@@ -47,7 +48,7 @@ import { Bloat, bloatOf, lastingLoss, takenBack } from '@/shared/bot/utility/blo
 export type Threat = {
     // Pool it bleeds me for ( only my predator can )
     bleed: number
-    // What its minions would win in the fights my actions run into ( PROVISIONAL, see combatEdge )
+    // What its minions would take from mine in the fights my actions run into ( combatPosition.ts )
     combat: number
     total: number
     // My predator only: the chance that its next turn ousts me, with my minions as they are
@@ -124,28 +125,26 @@ export type Assessment = {
  * Fights
  */
 
-// How much of its blood a minion loses each round to the other, from -1 to 1 ( positive: the first is
-// ahead ). PROVISIONAL: a first-order race of damage against blood, standing in for the combat model of
-// step 3.4, which replaces it and takes ranges, maneuvers and cards into account.
-export function combatEdge(first: MinionProfile, second: MinionProfile): number {
-    const lossOf = (from: MinionProfile, to: MinionProfile) => {
-        const damage = Math.max(from.strength, ...from.weaponStrikes.map(strike => strike.damage))
-        const prevented = Math.max(0, ...to.prevention)
-        return Math.min(1, Math.max(0, damage - prevented) / Math.max(1, to.blood + to.life))
-    }
-    return lossOf(first, second) - lossOf(second, first)
-}
-
-// How badly the minions of one side beat those of the other: for each of mine, the best fighter they
-// have against it, averaged
-function combatPressure(theirs: MinionProfile[], mine: MinionProfile[]): number {
+// What the minions of `owner` would take from mine in the fights my actions run into, in pool: for each of
+// mine, the fight it loses most against one of theirs ( the combat model of 3.4b, played out with the
+// cards I hold and the cards it is believed to hold ), averaged
+function combatPressure(context: Context, owner: MethuselahSnapshot): number {
+    const { table, profile, densities } = context
+    const mine = readyMinions(table.me)
+    const theirs = readyMinions(owner)
     if (theirs.length == 0 || mine.length == 0) {
         return 0
     }
     return (
         mine.reduce(
             (total, minion) =>
-                total + Math.max(0, ...theirs.map(fighter => combatEdge(fighter, minion))),
+                total +
+                Math.max(
+                    0,
+                    ...theirs.map(fighter =>
+                        fightRisk(table, profile, minion, owner, densities[owner.oid], fighter),
+                    ),
+                ),
             0,
         ) / mine.length
     )
@@ -501,10 +500,7 @@ function threatFrom(
     const { me } = context.table
     const bleeds = asPredator ? bleedsOn(context, attacker, me) : null
     const bleed = bleeds?.expectedLoss ?? 0
-    const combat =
-        exposure *
-        context.profile.combatPool *
-        combatPressure(readyMinions(attacker), readyMinions(me))
+    const combat = exposure * combatPressure(context, attacker)
     return {
         bleed,
         combat,

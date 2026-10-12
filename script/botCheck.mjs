@@ -40,6 +40,10 @@ const jobs =
                 args: ['script/botCombat.ts', '--combats', String(full ? 3000 : 400)],
             },
             {
+                name: 'combat arena',
+                args: ['script/botArena.ts', '--combats', String(full ? 600 : 150), '--check'],
+            },
+            {
                 name: 'assessment',
                 args: ['script/botAssess.ts', '--sweep', String(full ? 40 : 10)],
             },

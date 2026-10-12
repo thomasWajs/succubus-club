@@ -1,3 +1,4 @@
+import { LibraryCard } from '@/shared/model/Card.ts'
 import { MinionProfile } from '@/shared/bot/utility/minionProfile.ts'
 import {
     CombatSim,
@@ -93,11 +94,25 @@ export function combatCards(profile: CardUser, hand: CardFacts[]): SimCard[] {
     })
 }
 
+export function cardFactsOf(card: LibraryCard): CardFacts {
+    return {
+        krcgId: card.krcgId,
+        name: card.name,
+        type: card.type,
+        clan: card.clan,
+        requirement: card.requirement,
+        bloodCost: card.bloodCost,
+        poolCost: card.poolCost,
+    }
+}
+
 export type CombatantSetup = {
     profile: MinionProfile
     // The pool of its Methuselah
     pool: number
     hand: CardFacts[]
+    // Combat cards it holds that are not cards of the library ( what a hand is believed to hold )
+    extraCards?: SimCard[]
     // The strength bonus it can take before the range of the first round ( an action that gives it if blocked )
     strengthBonus?: number
     // The maneuvers it plays without a card ( a reaction played when it blocked )
@@ -119,7 +134,7 @@ export function combatantOf(setup: CombatantSetup, side: Side): SimCombatant {
         capacity: profile.capacity,
         pool: setup.pool,
         attached: profile.attachedKits.map(kit => ({ ...kit })),
-        cards: combatCards(profile, setup.hand),
+        cards: [...combatCards(profile, setup.hand), ...(setup.extraCards ?? [])],
         spent: 0,
     }
 }

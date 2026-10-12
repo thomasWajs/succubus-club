@@ -149,54 +149,105 @@ function isAlive(card: AttachedKit): boolean {
     return !card.retainer || card.life > 0
 }
 
+// A class, not an object of closures: a host is made for every move of every playout
+class SimHost implements CombatHost {
+    constructor(private readonly sim: CombatSim) {}
+
+    name(combatant: SimCombatant): string {
+        return combatant.name
+    }
+
+    owner(combatant: SimCombatant): Side {
+        return combatant.side
+    }
+
+    ready(combatant: SimCombatant): boolean {
+        return combatant.state == 'ready'
+    }
+
+    isVampire(combatant: SimCombatant): boolean {
+        return combatant.isVampire
+    }
+
+    blood(combatant: SimCombatant): number {
+        return combatant.blood
+    }
+
+    setBlood(combatant: SimCombatant, blood: number): void {
+        combatant.blood = blood
+    }
+
+    capacity(combatant: SimCombatant): number {
+        return combatant.capacity
+    }
+
+    environmentalFrom(source: SimCombatant): number {
+        return source.attached.reduce(
+            (total, card) => total + (isAlive(card) ? card.environmental : 0),
+            0,
+        )
+    }
+
+    sendToTorpor(combatant: SimCombatant): void {
+        combatant.state = 'torpor'
+    }
+
+    burn(combatant: SimCombatant): void {
+        combatant.state = 'burned'
+    }
+
+    retainerValidity(opposing: SimCombatant, strike: SimStrike): Validity {
+        const card = strike.retainer === undefined ? null : opposing.attached[strike.retainer]
+        return card?.retainer && card.life > 0 ?
+                VALID
+            :   Invalid('Not a retainer of the opposing minion')
+    }
+
+    hitRetainer(target: SimCombatant, strike: SimStrike, who: string, log: string[]): void {
+        const card = strike.retainer === undefined ? null : target.attached[strike.retainer]
+        if (!card?.retainer || card.life <= 0) {
+            log.push(`${who} has no target: the retainer is gone`)
+            return
+        }
+        const lost = Math.min(strike.damage, card.life)
+        card.life -= lost
+        log.push(`${who} deals ${lost} damage to ${card.name}`)
+        if (card.life <= 0) {
+            log.push(`${card.name} is burned`)
+        }
+    }
+
+    settleDamage(combatant: SimCombatant, log: string[]): void {
+        resolveDamage(this, combatant, log)
+    }
+
+    close(): void {
+        this.sim.closed = true
+    }
+}
+
 function simHost(sim: CombatSim): CombatHost {
-    const host: CombatHost = {
-        name: (combatant: SimCombatant) => combatant.name,
-        owner: (combatant: SimCombatant) => combatant.side,
-        ready: (combatant: SimCombatant) => combatant.state == 'ready',
-        isVampire: (combatant: SimCombatant) => combatant.isVampire,
-        blood: (combatant: SimCombatant) => combatant.blood,
-        setBlood: (combatant: SimCombatant, blood: number) => {
-            combatant.blood = blood
-        },
-        capacity: (combatant: SimCombatant) => combatant.capacity,
-        environmentalFrom: (source: SimCombatant) =>
-            source.attached.reduce(
-                (total, card) => total + (isAlive(card) ? card.environmental : 0),
-                0,
-            ),
-        sendToTorpor: (combatant: SimCombatant) => {
-            combatant.state = 'torpor'
-        },
-        burn: (combatant: SimCombatant) => {
-            combatant.state = 'burned'
-        },
-        retainerValidity: (opposing: SimCombatant, strike: SimStrike): Validity => {
-            const card = strike.retainer === undefined ? null : opposing.attached[strike.retainer]
-            return card?.retainer && card.life > 0 ?
-                    VALID
-                :   Invalid('Not a retainer of the opposing minion')
-        },
-        hitRetainer: (target: SimCombatant, strike: SimStrike, who: string, log: string[]) => {
-            const card = strike.retainer === undefined ? null : target.attached[strike.retainer]
-            if (!card?.retainer || card.life <= 0) {
-                log.push(`${who} has no target: the retainer is gone`)
-                return
-            }
-            const lost = Math.min(strike.damage, card.life)
-            card.life -= lost
-            log.push(`${who} deals ${lost} damage to ${card.name}`)
-            if (card.life <= 0) {
-                log.push(`${card.name} is burned`)
-            }
-        },
-        settleDamage: (combatant: SimCombatant, log: string[]) =>
-            resolveDamage(host, combatant, log),
-        close: () => {
-            sim.closed = true
+    return new SimHost(sim)
+}
+
+// The combatant as it would be once its pending damage, and `extra` more, were settled: a copy, the
+// combat is left alone ( blood lost, torpor or burning, by the rules of the combat )
+export function settled(
+    sim: CombatSim,
+    combatant: SimCombatant,
+    extra: { regular: number; aggravated: number } = { regular: 0, aggravated: 0 },
+): SimCombatant {
+    const copy = {
+        ...combatant,
+        pendingDamage: {
+            regular: combatant.pendingDamage.regular + extra.regular,
+            aggravated: combatant.pendingDamage.aggravated + extra.aggravated,
         },
     }
-    return host
+    if (copy.pendingDamage.regular > 0 || copy.pendingDamage.aggravated > 0) {
+        resolveDamage(simHost(sim), copy, [])
+    }
+    return copy
 }
 
 /**

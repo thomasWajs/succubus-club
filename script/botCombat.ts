@@ -6,24 +6,13 @@
 // played in both, and the two states are equal ( step, range, impulse, blood, pending damage, strikes, state
 // of the minions, life of the retainers, pool, cards played ). The first difference stops the run and prints
 // the moves of the combat. Every random pick is seeded ( combat k is drawn from the seed N + k ).
-import { readFileSync } from 'node:fs'
-import { Card, LibraryCard, Minion, Vampire } from '@/shared/model/Card.ts'
-import { Player } from '@/shared/model/Player.ts'
+import { Card, Minion } from '@/shared/model/Card.ts'
 import { GameState } from '@/shared/state/gameState.ts'
-import { botMutations } from '@/shared/state/botMutations.ts'
-import { deleteGameState, registerLogger, setGameResources } from '@/shared/registries.ts'
-import { initWasmHasher } from '@/shared/hashing.ts'
-import { createCombatState } from '@/shared/state/combatState.ts'
-import { getAttachedCards } from '@/shared/state/attachments.ts'
-import { getAttachedEffects, isRetainer } from '@/shared/cardImpl/catalog/attached.ts'
-import { BrujahDeck } from '@/shared/bot/decks.ts'
-import { DeckList } from '@/shared/types/gateway.ts'
-import { Disciplines } from '@/shared/types/resources.ts'
-import { CombatStrike, DisciplineUse } from '@/shared/types/state.ts'
-import { Discipline } from '@/shared/const/model.ts'
+import { deleteGameState } from '@/shared/registries.ts'
+import { isRetainer } from '@/shared/cardImpl/catalog/attached.ts'
+import { CombatStrike } from '@/shared/types/state.ts'
 import { applyOption, getDecidingPlayer, getDecisionPoint } from '@/shared/bot/referee.ts'
 import { BotOption, DecisionKind } from '@/shared/bot/types.ts'
-import { profileMinion } from '@/shared/bot/utility/minionProfile.ts'
 import {
     applyMove,
     CombatSim,
@@ -32,211 +21,27 @@ import {
     Side,
     SimCombatant,
 } from '@/shared/bot/utility/combatModel.ts'
-import { CardFacts, combatOf } from '@/shared/bot/utility/combatSetup.ts'
-import { BEHIND_YOU_ID } from '@/shared/cardImpl/cardIds.ts'
-import { createHeadlessGame, registerSyncMutationTrigger } from './harness.ts'
+import { chooseMove } from '@/shared/bot/utility/combatPolicy.ts'
+import { planCombat } from '@/shared/bot/utility/combatPlan.ts'
+import { profileMinion } from '@/shared/bot/utility/minionProfile.ts'
+import { policyWeightsOf } from '@/shared/bot/utility/combatPosition.ts'
+import { DEFAULT_PROFILE } from '@/shared/bot/utility/profile.ts'
+import {
+    Combat,
+    createCombat,
+    Difference,
+    Fighter,
+    initCombatFixtures,
+    pick,
+    seededRandom,
+} from './combatFixtures.ts'
 
-const COMBAT_CARDS = [
-    '100301', // Carrion Crows
-    '100597', // Dust Up
-    '100959', // Immortal Grapple
-    '101523', // Pursuit
-    '101532', // Quickness
-    '101798', // Slam
-    '101945', // Taste of Vitae
-    '101993', // Torn Signpost
-    '102215', // Roundhouse
-]
-
-const MAGNUM = '100001'
-const RAVEN_SPY = '101550'
-const MURDER_OF_CROWS = '101254'
-const GUARDIAN_ANGEL = '100866'
-const HEROIC_MIGHT = '100913'
-
-const CombatDeck = <DeckList>{
-    ...BrujahDeck,
-    [BEHIND_YOU_ID]: 4,
-    [MAGNUM]: 4,
-    [RAVEN_SPY]: 4,
-    [MURDER_OF_CROWS]: 4,
-    [GUARDIAN_ANGEL]: 4,
-    [HEROIC_MIGHT]: 4,
-    '100301': 4,
-}
-
-class Difference extends Error {}
+const POLICY_WEIGHTS = policyWeightsOf(DEFAULT_PROFILE)
+const BELIEVED_DENSITIES = { strike: 0.3, dodge: 0.2, maneuver: 0.2, additionalStrike: 0.1 }
 
 // What the combats went through, to see that the rules were exercised
 const coverage = new Map<string, number>()
 const count = (what: string) => coverage.set(what, (coverage.get(what) ?? 0) + 1)
-
-// mulberry32: a small seeded generator, replaces Math.random so a failing combat can be replayed
-function seededRandom(seed: number): () => number {
-    let state = seed >>> 0
-    return () => {
-        state = (state + 0x6d2b79f5) >>> 0
-        let t = state
-        t = Math.imul(t ^ (t >>> 15), t | 1)
-        t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
-        return ((t ^ (t >>> 14)) >>> 0) / 4294967296
-    }
-}
-
-const pick = <T>(items: T[]): T => items[Math.floor(Math.random() * items.length)]
-const between = (low: number, high: number) => low + Math.floor(Math.random() * (high - low + 1))
-
-/**
- * Building a combat
- */
-
-type Fighter = {
-    side: Side
-    player: Player
-    minion: Vampire
-    // The attached cards at the start, in the order the model knows them
-    attached: Card[]
-    handAtStart: number
-}
-
-function takeCard(player: Player, krcgId: string): LibraryCard {
-    const card = [...player.library.cards, ...player.hand.cards].find(
-        candidate => candidate.krcgId == krcgId,
-    )
-    if (!(card instanceof LibraryCard)) {
-        throw new Difference(`The card ${krcgId} is not in the deck`)
-    }
-    return card
-}
-
-function randomDisciplines(): Disciplines {
-    const disciplines = {} as Disciplines
-    for (const discipline of [
-        Discipline.Potence,
-        Discipline.Celerity,
-        Discipline.Animalism,
-        Discipline.Obfuscate,
-    ]) {
-        const level = between(0, 2)
-        if (level > 0) {
-            disciplines[discipline] = level
-        }
-    }
-    return disciplines
-}
-
-function attach(card: LibraryCard, minion: Minion, disciplines?: DisciplineUse[]): void {
-    const player = minion.controller
-    player.gameState.moveCardToRegion(card, player.ready)
-    const validity = botMutations.attachCard.act(player, { card, minion, disciplines })
-    if (!validity.isValid) {
-        throw new Difference(`Cannot attach ${card.name}: ${validity.reason}`)
-    }
-    // The life counters come with the action that attaches the card
-    card.blood = getAttachedEffects(card).reduce(
-        (total, effect) => total + (effect.type == 'life' ? effect.amount : 0),
-        0,
-    )
-}
-
-function equip(minion: Vampire): void {
-    const player = minion.controller
-    const level = (discipline: Discipline) => minion.minionAttrs.disciplines[discipline] ?? 0
-    if (Math.random() < 0.4) {
-        attach(takeCard(player, MAGNUM), minion)
-    }
-    if (Math.random() < 0.3) {
-        attach(takeCard(player, GUARDIAN_ANGEL), minion)
-    }
-    for (const id of [RAVEN_SPY, MURDER_OF_CROWS]) {
-        const animalism = level(Discipline.Animalism)
-        if (animalism > 0 && Math.random() < 0.4) {
-            const card = takeCard(player, id)
-            attach(card, minion, [{ discipline: Discipline.Animalism, level: animalism }])
-        }
-    }
-    const potence = level(Discipline.Potence)
-    if (potence > 0 && Math.random() < 0.3) {
-        attach(takeCard(player, HEROIC_MIGHT), minion, [
-            { discipline: Discipline.Potence, level: potence },
-        ])
-    }
-}
-
-function emptyHand(gameState: GameState, player: Player): void {
-    for (const card of [...player.hand.cards]) {
-        gameState.moveCardToRegion(card, player.library)
-    }
-}
-
-// The library is out of reach: a bot draws back up to its hand size after each card it plays
-function sealLibrary(gameState: GameState, player: Player): void {
-    for (const card of [...player.library.cards]) {
-        gameState.moveCardToRegion(card, player.removed)
-    }
-}
-
-function setUpFighter(gameState: GameState, player: Player, side: Side): Fighter {
-    const minion = player.vampiresInUncontrolled[0]
-    gameState.moveCardToRegion(minion, player.ready)
-    minion.blood = between(1, 8)
-    minion.minionAttrs.capacity = 10
-    minion.minionAttrs.strength = between(1, 2)
-    minion.minionAttrs.disciplines = randomDisciplines()
-    equip(minion)
-    emptyHand(gameState, player)
-    for (let i = between(1, 6); i > 0; i--) {
-        const id = Math.random() < 0.2 ? BEHIND_YOU_ID : pick(COMBAT_CARDS)
-        const card = [...player.library.cards].find(candidate => candidate.krcgId == id)
-        if (card) {
-            gameState.moveCardToRegion(card, player.hand)
-        }
-    }
-    sealLibrary(gameState, player)
-    player.pool = between(2, 12)
-    return {
-        side,
-        player,
-        minion,
-        attached: getAttachedCards(minion),
-        handAtStart: player.hand.length,
-    }
-}
-
-function factsOf(card: LibraryCard): CardFacts {
-    return {
-        krcgId: card.krcgId,
-        name: card.name,
-        type: card.type,
-        clan: card.clan,
-        requirement: card.requirement,
-        bloodCost: card.bloodCost,
-        poolCost: card.poolCost,
-    }
-}
-
-type Combat = { gameState: GameState; fighters: Record<Side, Fighter>; sim: CombatSim }
-
-function createCombat(): Combat {
-    const { gameState, players } = createHeadlessGame([CombatDeck, CombatDeck])
-    const acting = setUpFighter(gameState, players[0], 'acting')
-    const defending = setUpFighter(gameState, players[1], 'defending')
-    gameState.combat = createCombatState(acting.minion, defending.minion)
-    const strengthBonus = between(0, 2)
-    const freeManeuvers = between(0, 1)
-    gameState.combat.acting.strengthBonus = strengthBonus
-    gameState.combat.defending.freeManeuvers = freeManeuvers
-    const setupOf = (fighter: Fighter, extra: object) => ({
-        profile: profileMinion(fighter.minion),
-        pool: fighter.player.pool,
-        hand: fighter.player.hand.cards.flatMap(card =>
-            card instanceof LibraryCard ? [factsOf(card)] : [],
-        ),
-        ...extra,
-    })
-    const sim = combatOf(setupOf(acting, { strengthBonus }), setupOf(defending, { freeManeuvers }))
-    return { gameState, fighters: { acting, defending }, sim }
-}
 
 /**
  * Keys of the moves, to tell whether the two offer the same
@@ -519,9 +324,36 @@ function playCombat(combat: Combat, trace: boolean): number {
                     `  moves so far:\n    ${history.join('\n    ')}`,
             )
         }
-        // Mostly something else than a pass, or the combats would stay at their first round
+        // A third of the time the default policy of the position evaluator chooses, which must be a move of the
+        // referee; the rest, mostly something else than a pass, or the combats would stay at their first round
         const active = options.filter(({ key }) => key != 'pass')
-        const chosen = pick(active.length > 0 && Math.random() < 0.8 ? active : options)
+        let chosen = pick(active.length > 0 && Math.random() < 0.8 ? active : options)
+        if (Math.random() < 0.34) {
+            const policyKey = moveKey(chooseMove(POLICY_WEIGHTS, combat.sim), me)
+            const policy = options.find(({ key }) => key == policyKey)
+            if (!policy) {
+                throw new Difference(
+                    `The policy chose ${policyKey}, which the referee does not offer`,
+                )
+            }
+            chosen = policy
+            count('policy')
+        }
+        // And a fifth of the time the plan of 3.4c, against a believed hand: also a move of the referee
+        if (Math.random() < 0.2) {
+            const other = combat.sim[combat.sim.impulsePlayer == 'acting' ? 'defending' : 'acting']
+            const plan = planCombat(DEFAULT_PROFILE, combat.sim, {
+                minion: profileMinion(opposing.minion),
+                hand: { size: other.cards.length, densities: BELIEVED_DENSITIES },
+            })
+            const planKey = moveKey(plan.move, me)
+            const planned = options.find(({ key }) => key == planKey)
+            if (!planned) {
+                throw new Difference(`The plan chose ${planKey}, which the referee does not offer`)
+            }
+            chosen = planned
+            count('plan')
+        }
         history.push(`${side}: ${chosen.key}`)
         count(chosen.key.split('|')[0])
         if (chosen.key.includes(' at ')) {
@@ -563,13 +395,7 @@ function parseArgs(argv: string[]) {
     return args
 }
 
-registerLogger({
-    captureException: error => console.error(error),
-    captureMessage: message => console.warn(message),
-})
-await initWasmHasher()
-setGameResources('cardbase', JSON.parse(readFileSync('public/assets/cardbase.json', 'utf-8')))
-registerSyncMutationTrigger()
+await initCombatFixtures()
 
 const args = parseArgs(process.argv.slice(2))
 const failures: string[] = []

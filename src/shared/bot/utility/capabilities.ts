@@ -111,6 +111,17 @@ export function capabilitiesOf(
     return result
 }
 
+// The best level at which the disciplines can play a card of the role ( 0 when they cannot )
+export function levelFor(disciplines: Partial<Disciplines>, role: Role): number {
+    return CAPABILITY_TABLE.reduce(
+        (best, row) =>
+            (row.density[role] ?? 0) > 0 && (disciplines[row.discipline] ?? 0) >= row.level ?
+                Math.max(best, row.level)
+            :   best,
+        0,
+    )
+}
+
 // Can a minion with these disciplines ( and this title ) plausibly use a card of the role
 export function mayUseRole(disciplines: Partial<Disciplines>, role: Role, title = ''): boolean {
     return (capabilitiesOf(disciplines, title)[role] ?? 0) > 0

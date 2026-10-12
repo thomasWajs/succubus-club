@@ -5,11 +5,11 @@ import { BotOptionOf } from '@/shared/bot/types.ts'
 import {
     Assessment,
     bleedOnPrey,
-    combatEdge,
     outcomeOfTurn,
     TurnOutcome,
 } from '@/shared/bot/utility/assessment.ts'
 import { bloodChange } from '@/shared/bot/utility/bloat.ts'
+import { fightRisk } from '@/shared/bot/utility/combatPosition.ts'
 import { BleedGain, costOfLunge, gainOfBleeds, LungeCost } from '@/shared/bot/utility/equity.ts'
 import { MinionProfile } from '@/shared/bot/utility/minionProfile.ts'
 import { returnWorth } from '@/shared/bot/utility/rescue.ts'
@@ -90,7 +90,7 @@ export type ReserveCase = {
     // What each bleeder adds, in pool, when it joins the ones before it ( the biggest bleed first )
     marginals: Map<CardOid, number>
     bleeds: BleedGain
-    // The blocks of my prey that my bleeders may run into: their fights, a coarse risk until step 3.4
+    // The blocks of my prey that my bleeders may run into: the fights they would lose, in pool ( combatPosition.ts )
     combat: number
     // What the minions that do something else than bleed bring
     idle: number
@@ -204,14 +204,19 @@ function leaveTorporValue(assessment: Assessment, candidate: Candidate): number 
     )
 }
 
-// The fight a block of my prey would run my minion into, in pool: coarse, until the combat model of 3.4
-function combatRisk(assessment: Assessment, minion: MinionProfile): number {
-    const { prey } = assessment.table
+// The fight a block of my prey would run my minion into, in pool: the worst of the blockers it has unlocked
+export function combatRisk(assessment: Assessment, minion: MinionProfile): number {
+    const { table, profile, densities } = assessment
+    const { prey } = table
     const blockers = prey ? unlockedMinions(prey) : []
-    return (
-        assessment.profile.combatPool *
-        Math.max(0, ...blockers.map(blocker => combatEdge(blocker, minion)))
-    )
+    return prey ?
+            Math.max(
+                0,
+                ...blockers.map(blocker =>
+                    fightRisk(table, profile, minion, prey, densities[prey.oid], blocker),
+                ),
+            )
+        :   0
 }
 
 function wakeCardsOf(assessment: Assessment): number {

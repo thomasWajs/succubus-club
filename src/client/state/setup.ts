@@ -1,7 +1,7 @@
 import { ORDERED_PLAYER_COLORS } from '@/shared/const/game.ts'
 import { BotRunner } from '@/client/bot/botRunner.ts'
 import { GovernAgent } from '@/shared/bot/agents/governAgent.ts'
-import { GovernDeck, NosferatuDeck } from '@/shared/bot/decks.ts'
+import { BrujahDeck, GovernDeck, MalkavDeck, NosferatuDeck } from '@/shared/bot/decks.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { useCoreStore } from '@/client/store/core.ts'
 import { EMPTY_SEATING, GameRoom } from '@/shared/types/multiplayer.ts'
@@ -72,8 +72,8 @@ export function setupTrainGame() {
 
     const bots = [
         { Agent: RandomAgent, deck: NosferatuDeck },
-        { Agent: RandomAgent, deck: NosferatuDeck },
-        { Agent: RandomAgent, deck: NosferatuDeck },
+        { Agent: RandomAgent, deck: MalkavDeck },
+        { Agent: RandomAgent, deck: BrujahDeck },
     ]
     for (let i = 0; i < NB_BOTS; i++) {
         const botPlayer = gameState.createPlayer(

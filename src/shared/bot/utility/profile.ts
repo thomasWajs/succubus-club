@@ -116,6 +116,29 @@ export type BloatWeights = {
     bloodPerCard: number
 }
 
+// How a fight is judged ( combatPosition.ts ): the hands of an opponent are guessed and the fight is played out.
+// Draft numbers
+export type CombatWeights = {
+    // The hands of an opponent whose cards are unknown that are played out for one fight
+    samples: number
+    // The damage a hand strike card adds to the strength, at an inferior and at a superior discipline
+    strikeBonus: { inferior: number; superior: number }
+    // The share of what the opposing minion loses that counts for me ( what hurts it helps me less than what
+    // hurts mine costs me )
+    credit: number
+    // The share of its worth ( its capacity ) that a minion loses by going to torpor; burned, it loses all
+    torporShare: number
+    // What a retainer burned is worth
+    retainerValue: number
+    // What a card played in a combat costs, in pool: it is not played for nothing
+    cardCost: number
+    // How much the plan of a combat fears the worst hand it was played against ( combatPlan.ts ): 0 judges a
+    // move by the average of the hands, 1 by the worst
+    caution: number
+    // How many levels of its own moves the plan of a combat plans inside its rollouts: 0 lets the policy play them
+    planDepth: number
+}
+
 export type BotProfile = {
     name: string
     // Temperature of the softmax pick among the scored options, 0 = always the best one
@@ -131,8 +154,7 @@ export type BotProfile = {
     bloat: BloatWeights
     // A victory point, in pool
     vpValue: number
-    // The pool a combat that is fully lost on every axis costs per turn ( the combat axis of the threat )
-    combatPool: number
+    combat: CombatWeights
 }
 
 export const DEFAULT_PROFILE: BotProfile = {
@@ -183,5 +205,14 @@ export const DEFAULT_PROFILE: BotProfile = {
     },
     bloat: { horizon: 3, recapture: 0.5, setup: 0.5, keep: 2, poolPerCard: 2, bloodPerCard: 1 },
     vpValue: 10,
-    combatPool: 3,
+    combat: {
+        samples: 6,
+        strikeBonus: { inferior: 2, superior: 3 },
+        credit: 0.5,
+        torporShare: 0.5,
+        retainerValue: 1,
+        cardCost: 0.2,
+        caution: 0.25,
+        planDepth: 1,
+    },
 }
