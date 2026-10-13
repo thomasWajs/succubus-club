@@ -70,6 +70,7 @@ import {
     getCombatCardOptions,
     getLockEffectOptions,
     getLockForActionOptions,
+    getLockForReactionOptions,
     getMasterCardOptions,
     getMoveBloodOptions,
     getReactionCardOptions,
@@ -441,6 +442,13 @@ function reactionImpulseDecision(gameState: GameState, player: Player): Decision
         }
     }
 
+    // The cards in play locked for the block attempt that stands ( the engine says whether it needs the
+    // intercept, rule of the stealth and intercept raised only when needed )
+    const blocker = getBlockingMinion(gameState)
+    if (blocker) {
+        options.push(...getLockForReactionOptions(player, blocker))
+    }
+
     // Passing the impulse comes second: the block is decided first ( a block attempt, or "no block"
     // that lets the acting player play modifiers ), only then may the player pass without reacting
     if (standing || blockStands) {
@@ -682,6 +690,19 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
                 'declare lock for action',
             )
             check(implementation.applyLockForAction(actingMinion), 'lock for action')
+            break
+        }
+
+        case 'lockForReaction': {
+            const implementation = getMasterImplementation(option.card, player)
+            if (!implementation) {
+                throw new InvalidBotMove(`${option.card.name} cannot be locked for a reaction`)
+            }
+            check(
+                botMutations.ACTION_declareReaction.act(player, { reaction: option.card }),
+                'declare lock for reaction',
+            )
+            check(implementation.applyLockForReaction(option.minion), 'lock for reaction')
             break
         }
 

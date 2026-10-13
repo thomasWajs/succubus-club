@@ -5,6 +5,7 @@ import {
     VILLEIN_ID,
 } from '@/shared/cardImpl/cardIds.ts'
 import {
+    aMinion,
     aVampire,
     bleedIntercept,
     bloodToPool,
@@ -17,6 +18,7 @@ import {
     gainPool,
     gainBlood,
     handSize,
+    intercept,
     moveBlood,
     preventDamage,
     putOnMinion,
@@ -110,6 +112,17 @@ export const MASTER_CARDS = [
                     minion: aVampire({ clan: 'Nosferatu' }),
                     effects: [stealth(1)],
                 },
+            ],
+        },
+    ]),
+    // Only the first ability is modelled: the minion is one of the Methuselah's own. The second one ( lock
+    // and burn 1 pool to give a minion of another Methuselah +1 intercept ) is not
+    defineCard('101067', 'KRCG News Radio', [
+        {
+            kind: 'master',
+            staysInPlay: 'standalone',
+            abilities: [
+                { activate: 'lockForReaction', minion: aMinion(), effects: [intercept(1)] },
             ],
         },
     ]),

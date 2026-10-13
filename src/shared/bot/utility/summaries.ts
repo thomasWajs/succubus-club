@@ -180,6 +180,8 @@ export type AbilityWindow =
     | 'discardPhase'
     | 'influencePhase'
     | 'ownAction'
+    // The block attempt of one of my minions stands
+    | 'blockAttemptStands'
 
 // What a card in play lets its controller do ( "you can lock this card to ..." )
 export type AbilitySummary = {
@@ -189,7 +191,7 @@ export type AbilitySummary = {
     locks: boolean
     // Transfers it costs ( influence phase )
     transfers: number
-    // The minions of the controller that can use it, when it is for one of them ( 'lockForAction' )
+    // The minions of the controller that can use it, when it is for one of them ( 'lockForAction', 'lockForReaction' )
     minion: MinionFilter | null
     effects: Effect[]
     roles: Role[]
@@ -488,6 +490,21 @@ export function summarizeAbility(ability: MasterAbility): AbilitySummary {
                 ability.minion,
                 ability.effects.map(
                     (effect): Effect => ({ type: 'stealth', amount: effect.amount }),
+                ),
+            )
+        case 'lockForReaction':
+            return abilitySummary(
+                ability.activate,
+                ['blockAttemptStands'],
+                true,
+                0,
+                ability.minion,
+                ability.effects.map(
+                    (effect): Effect => ({
+                        type: 'intercept',
+                        amount: effect.amount,
+                        bleedsOnly: false,
+                    }),
                 ),
             )
         default:

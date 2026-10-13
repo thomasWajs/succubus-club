@@ -62,7 +62,6 @@ const FACTS_WITHOUT_ROLE: EffectType[] = [
 // What the engine cannot offer to a bot yet, as far as the catalog and the referee go. These are not
 // derived: they are the gaps the author is told about
 const ENGINE_GAPS = [
-    'A standing ability usable in a reaction window ( +1 intercept for a block attempt that stands, as KRCG News Radio ): no ability kind in the catalog, no option in the referee',
     'Combat ends ( "the combat ends" ): no combat effect in the catalog, so no dodge-or-end card of that kind is valued',
     'Damage prevention as a combat card ( Fortitude ): only attached preventDamage exists',
     'Aggravated damage from a hand strike, press other than grapple, burning or stealing equipment: no effect in the catalog',

@@ -192,6 +192,18 @@ export abstract class MasterCardImplementation {
         return Invalid('The card has no ability to lock for an action')
     }
 
+    // "You can lock this card to give a minion you control +1 intercept": whether the card can be
+    // locked now for the block attempt of the minion ( it is unlocked, the minion fits, and the
+    // block attempt stands and needs the intercept )
+    canLockForReaction(_blocker: Minion): boolean {
+        return false
+    }
+
+    // Locks the card and gives the block attempt what the ability says
+    applyLockForReaction(_blocker: Minion): Validity {
+        return Invalid('The card has no ability to lock for a reaction')
+    }
+
     // The ways to use the abilities paid with transfers ( influence phase ): the index of the
     // ability, and the uncontrolled card removed from the game when the ability does that
     getTransferOptions(): { ability: number; removed?: CryptCard }[] {

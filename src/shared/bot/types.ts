@@ -90,6 +90,9 @@ export type BotOption =
     // Locks a master card in play for the action in progress, which gives it its bonus ( The
     // Labyrinth ). Played like an action modifier: the acting player keeps the impulse.
     | { type: 'lockForAction'; card: LibraryCard }
+    // Locks a master card in play for the block attempt of one of its controller's minions, which gives
+    // it its intercept ( KRCG News Radio ). Played like a reaction card: the acting player regains the impulse.
+    | { type: 'lockForReaction'; card: LibraryCard; minion: Minion }
     // Uses an ability of a master card in play that is paid with transfers ( the ability is an
     // index of the card's abilities ). Some remove a card of the uncontrolled region.
     | { type: 'transferEffect'; card: LibraryCard; ability: number; removed?: CryptCard }

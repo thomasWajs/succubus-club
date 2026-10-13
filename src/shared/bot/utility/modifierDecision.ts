@@ -14,7 +14,7 @@ import {
     netLoss,
     theirFighter,
 } from '@/shared/bot/utility/combatPosition.ts'
-import { attackKitOf, defenceOf } from '@/shared/bot/utility/defence.ts'
+import { attackKitOf, defenceOf, interceptReserve } from '@/shared/bot/utility/defence.ts'
 import { gainOfBleeds } from '@/shared/bot/utility/equity.ts'
 import { ExplainCandidate } from '@/shared/bot/utility/explain.ts'
 import { MinionProfile } from '@/shared/bot/utility/minionProfile.ts'
@@ -24,7 +24,9 @@ import { candidateOf, idleOf } from '@/shared/bot/utility/turnPlan.ts'
  * The cards and the abilities that raise the stealth or the bleed of one of my actions, while it is in
  * progress. Stealth is only worth playing when a block attempt stands that the cards flip: the cheapest
  * set that does is weighed against the fight the block runs my minion into, and the action it lets
- * through. A bleed bonus is played once my prey has declined to block, for what it adds to the bleed,
+ * through. The other side may raise its intercept back ( a card in play, an intercept card in a hand a
+ * blocker may play from ): the race goes on with the cards left, and what a lost one costs is counted.
+ * A bleed bonus is played once my prey has declined to block, for what it adds to the bleed,
  * the chance that my prey bounces it counted.
  */
 
@@ -174,10 +176,8 @@ function playStealth(context: Context, blocker: CardOid): ModifierJudgement {
     const { table, profile, densities } = assessment
     const { minionAction } = action
     const needed = action.intercept - action.stealth + 1
-    const sets = flippingSets(
-        sources.filter(source => source.stealth > 0),
-        needed,
-    )
+    const stealthSources = sources.filter(source => source.stealth > 0)
+    const sets = flippingSets(stealthSources, needed)
     const owner = table.others.find(other => other.minions.some(minion => minion.oid == blocker))
     const blocking = owner?.minions.find(minion => minion.oid == blocker)
     if (needed <= 0 || sets.length == 0 || !owner || !blocking) {
@@ -202,23 +202,26 @@ function playStealth(context: Context, blocker: CardOid): ModifierJudgement {
             ])?.value ?? 0)
         )
     const kit = attackKitOf(table.me, [actor], densities[table.me.oid], profile)
-    const defence = defenceAgainst(assessment, minionAction)
+    // The standing intercept of the cards in play is part of the reserve, not of this defence
+    const defence = { ...defenceAgainst(assessment, minionAction), standingIntercept: 0 }
+    const reserve = interceptReserve(owner, blocking, densities[owner.oid], profile)
 
-    const candidates = sets.map(set => {
-        const cards = sum(set, source => (source.inPlay ? 0 : source.stealth))
+    // What the action is worth once the stealth of `played` beats the block, the others still to get past
+    const rewardOf = (played: Source[]) => {
+        const cards = sum(played, source => (source.inPlay ? 0 : source.stealth))
         const left: AttackKit = {
             stealth: exact(Math.max(0, (kit.stealth[0]?.value ?? 0) - cards)),
             bonus: exact(0),
             standingStealth: Math.max(
                 0,
-                kit.standingStealth - sum(set, source => (source.inPlay ? source.stealth : 0)),
+                kit.standingStealth - sum(played, source => (source.inPlay ? source.stealth : 0)),
             ),
         }
         const result = resolveAttack(
             [
                 {
-                    bleed: onPrey ? action.bleed + sum(set, source => source.bleed) : 0,
-                    stealth: action.stealth + sum(set, source => source.stealth),
+                    bleed: onPrey ? action.bleed + sum(played, source => source.bleed) : 0,
+                    stealth: action.stealth + sum(played, source => source.stealth),
                 },
             ],
             defence,
@@ -226,13 +229,42 @@ function playStealth(context: Context, blocker: CardOid): ModifierJudgement {
         )
         const success =
             onPrey ? gainOfBleeds(assessment, result).total : (1 - result.blockedShare) * worth
+        return { success, avoided: fight * (1 - result.blockedShare), blocked: result.blockedShare }
+    }
+
+    const candidates = sets.map(set => {
         const cost = sum(set, source => source.cost)
-        const avoided = fight * (1 - result.blockedShare)
+        const spare = sum(set, source => source.stealth) - needed
+        const now = rewardOf(set)
+        const unused = stealthSources.filter(source => !set.some(used => used.key == source.key))
+        // The other side may raise its intercept to match the stealth: it can with `extra` points to spare
+        // over what the set leaves. Then the race goes on with the cards that are left, as long as it pays;
+        // what the set cost is spent for good.
+        let score = -cost
+        let reblocked = 0
+        for (const { value: extra, p } of reserve) {
+            if (extra <= spare) {
+                score += p * (now.success + now.avoided)
+                continue
+            }
+            reblocked += p
+            const follow = flippingSets(unused, extra - spare).map(more => {
+                const result = rewardOf([...set, ...more])
+                return result.success + result.avoided - sum(more, source => source.cost)
+            })
+            score += p * Math.max(0, ...follow)
+        }
         const first = set.toSorted((a, b) => a.cost - b.cost)[0]
         return {
             option: first.option,
-            score: success + avoided - cost,
-            parts: { success, fight: avoided, cost, blocked: result.blockedShare },
+            score,
+            parts: {
+                success: now.success,
+                fight: now.avoided,
+                cost,
+                blocked: now.blocked,
+                reblocked,
+            },
         }
     })
     const ranked = candidates.toSorted((a, b) => b.score - a.score)

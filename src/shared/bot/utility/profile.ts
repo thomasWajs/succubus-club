@@ -17,6 +17,8 @@ export type OpponentPrior = {
     // Stealth points a stealth card adds to an action, bleed points a bleed modifier adds
     stealthPerCard: number
     bonusPerCard: number
+    // Intercept points an intercept card adds to a block attempt
+    interceptPerCard: number
     reserve: ReservePrior
 }
 
@@ -156,6 +158,12 @@ export type ModifierWeights = {
     abilityUse: number
 }
 
+// How the reaction cards, the cards in play and the triggers of my own are judged ( reactionDecision.ts ). Draft numbers
+export type ReactionWeights = {
+    // What a play must bring me at least, in pool, to be made
+    margin: number
+}
+
 export type BotProfile = {
     name: string
     // Temperature of the softmax pick among the scored options, 0 = always the best one
@@ -174,6 +182,7 @@ export type BotProfile = {
     combat: CombatWeights
     block: BlockWeights
     modifier: ModifierWeights
+    reaction: ReactionWeights
 }
 
 export const DEFAULT_PROFILE: BotProfile = {
@@ -193,6 +202,7 @@ export const DEFAULT_PROFILE: BotProfile = {
         budget: 0.7,
         stealthPerCard: 1,
         bonusPerCard: 1.5,
+        interceptPerCard: 1,
         reserve: {
             caution: 1,
             guard: 0.3,
@@ -237,4 +247,5 @@ export const DEFAULT_PROFILE: BotProfile = {
     },
     block: { margin: 0.25 },
     modifier: { margin: 0.25, abilityUse: 0.1 },
+    reaction: { margin: 0.25 },
 }

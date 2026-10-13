@@ -181,6 +181,43 @@ export function defenceOf(
     }
 }
 
+// A hand rarely holds more intercept cards that count ( the tail is folded into this )
+const MOST_INTERCEPT_CARDS = 2
+
+/**
+ * The intercept the Methuselah can still raise on the block attempt of one of its minions, once the stealth
+ * beats it ( an intercept is only raised when it is needed to match the stealth ). What its cards in play
+ * give that minion is exact; the cards of its hand are a distribution, from the intercept cards a minion
+ * with these disciplines may play.
+ */
+export function interceptReserve(
+    snapshot: MethuselahSnapshot,
+    blocker: MinionProfile,
+    densities: Densities,
+    profile: BotProfile,
+): Dist {
+    const standing = snapshot.permanents
+        .filter(permanent => permanent.available)
+        .flatMap(permanent => permanent.abilities)
+        .filter(
+            ability =>
+                ability.activate == 'lockForReaction' &&
+                (!ability.minion || profileMatches(blocker, ability.minion)),
+        )
+        .flatMap(ability => ability.effects)
+        .reduce((total, effect) => total + (effect.type == 'intercept' ? effect.amount : 0), 0)
+    const hidden =
+        mayUseRole(blocker.disciplines, 'intercept', blocker.title) ?
+            binomial(
+                snapshot.handSize,
+                density(densities, 'intercept'),
+                MOST_INTERCEPT_CARDS,
+                profile.opponentPrior.interceptPerCard,
+            )
+        :   exact(0)
+    return hidden.map(({ value, p }) => ({ value: value + standing, p }))
+}
+
 // The minions that can bleed now ( unlocked ), or on the next turn of the Methuselah ( all the ready
 // ones ). A vampire without blood must hunt first.
 export function attackersOf(

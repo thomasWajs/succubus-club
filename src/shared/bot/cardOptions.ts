@@ -530,6 +530,23 @@ export function getLockForActionOptions(
     )
 }
 
+// The master cards in play that the player controls and can lock for the block attempt of the minion
+// ( "You can lock this card to give a minion you control +1 intercept" )
+export function getLockForReactionOptions(
+    player: Player,
+    blocker: Minion,
+): BotOptionOf<'lockForReaction'>[] {
+    return player.controlledReadyCards.flatMap(card =>
+        (
+            card instanceof LibraryCard &&
+            card.type == LibraryCardType.Master &&
+            getMasterImplementation(card, player)?.canLockForReaction(blocker)
+        ) ?
+            [{ type: 'lockForReaction' as const, card, minion: blocker }]
+        :   [],
+    )
+}
+
 // The abilities paid with transfers of the master cards in play that the player controls
 export function getTransferEffectOptions(player: Player): BotOptionOf<'transferEffect'>[] {
     return player.controlledReadyCards.flatMap(card =>

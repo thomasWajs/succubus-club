@@ -21,6 +21,7 @@ import { chooseLiveCombat } from '@/shared/bot/utility/liveCombat.ts'
 import { combatStartAllowed } from '@/shared/bot/utility/enterCombat.ts'
 import { judgeBlock } from '@/shared/bot/utility/blockDecision.ts'
 import { judgeModifier } from '@/shared/bot/utility/modifierDecision.ts'
+import { judgeReaction, judgeTrigger } from '@/shared/bot/utility/reactionDecision.ts'
 
 // Everything a decision may read, and nothing else: the view of the game ( in the decision ), what the
 // table did, and what the bot knows of itself. Plans are functions of this, no state is kept between
@@ -50,7 +51,8 @@ type Choice = {
  * through the fallback, except the ones that start a combat, which the position
  * of the fight must allow ( enterCombat.ts ). The windows of a combat are the plan's ( combatPlan.ts ),
  * the block attempts are a judgement of what they save and cost ( blockDecision.ts ), and the stealth
- * and bleed cards of my own actions are played when they pay ( modifierDecision.ts ).
+ * and bleed cards of my own actions are played when they pay ( modifierDecision.ts ), and so are the
+ * reaction cards, the cards in play, the window after a block and the triggers ( reactionDecision.ts ).
  */
 export class UtilityAgent implements BotAgent {
     constructor(
@@ -92,6 +94,21 @@ export class UtilityAgent implements BotAgent {
             const judged = judgeModifier(context.decision, context.assessment)
             if (judged) {
                 return judged
+            }
+        }
+        if (context.decision.kind == DecisionKind.Trigger) {
+            const judged = judgeTrigger(context.decision, context.assessment)
+            if (judged) {
+                return judged
+            }
+        }
+        if (
+            context.decision.kind == DecisionKind.ReactionImpulse ||
+            context.decision.kind == DecisionKind.PostBlock
+        ) {
+            const reaction = judgeReaction(context.decision, context.assessment)
+            if (reaction) {
+                return reaction
             }
         }
         if (context.decision.kind == DecisionKind.ReactionImpulse) {

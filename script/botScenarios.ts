@@ -67,6 +67,7 @@ import {
     getAttachedCombatOptions,
     getCombatCardOptions,
     getLockForActionOptions,
+    getLockForReactionOptions,
     getUnlockEffectOptions,
 } from '@/shared/bot/cardOptions.ts'
 import {
@@ -196,6 +197,7 @@ import {
 } from '@/shared/bot/utility/enterCombat.ts'
 import { BlockJudgement, judgeBlock } from '@/shared/bot/utility/blockDecision.ts'
 import { judgeModifier, ModifierJudgement } from '@/shared/bot/utility/modifierDecision.ts'
+import { ExplainCandidate } from '@/shared/bot/utility/explain.ts'
 import { serializeGameState } from '@/shared/serialization.ts'
 import {
     BotAgent,
@@ -7676,6 +7678,130 @@ const LABYRINTH_SCENARIOS: { name: string; run: () => void }[] = [
     },
 ]
 
+const KRCG_ID = '101067'
+const KRCG_DECK = <DeckList>{ ...MalkavDeck, [KRCG_ID]: 2 }
+
+// A bleed against a prey that has KRCG News Radio in play, unlocked
+function createKrcgBleed() {
+    const game = createCatalogBleed({
+        deck: KRCG_DECK,
+        discipline: Discipline.Presence,
+        level: DisciplineLevel.SUPERIOR,
+        cards: [],
+    })
+    const krcg = findAnyCard(game.bled, KRCG_ID)
+    game.gameState.moveCardToRegion(krcg, game.bled.ready)
+    return { ...game, krcg }
+}
+
+// The prey decides, once the acting player passed the impulse
+const krcgOptions = (game: ReturnType<typeof createKrcgBleed>) =>
+    optionsOfType(passUntilDecides(game.gameState, game.bled).options, 'lockForReaction')
+
+const KRCG_SCENARIOS: { name: string; run: () => void }[] = [
+    {
+        name: 'KRCG News Radio flips a failing block: +1 intercept once, the card is locked, the acting player regains the impulse',
+        run() {
+            const game = createKrcgBleed()
+            attemptBlock(game, false)
+            const action = game.gameState.action
+            const decision = passUntilDecides(game.gameState, game.bled)
+            const options = optionsOfType(decision.options, 'lockForReaction')
+            expectEqual(decision.kind, DecisionKind.ReactionImpulse, 'a reaction window')
+            expectEqual(options.length, 1, 'options')
+            expectEqual(options[0].card, game.krcg, 'card')
+            expectEqual(options[0].minion, game.blocker, 'the blocker')
+
+            const intercept = action?.intercept ?? 0
+            applyOption(decision, options[0])
+            expectEqual(action?.intercept, intercept + 1, 'intercept')
+            expectEqual(
+                (action?.intercept ?? 0) >= (action?.stealth ?? 1),
+                true,
+                'the block stands',
+            )
+            expectEqual(game.krcg.isLocked, true, 'locked')
+            expectEqual(
+                getDecidingPlayer(game.gameState),
+                game.bleeder,
+                'the acting player decides',
+            )
+            const next = passUntilDecides(game.gameState, game.bled)
+            expectEqual(optionsOfType(next.options, 'lockForReaction').length, 0, 'once')
+        },
+    },
+    {
+        name: 'KRCG News Radio is only offered when the intercept is needed: a block attempt stands and fails, the card is unlocked and in play',
+        run() {
+            const before = createKrcgBleed()
+            expectEqual(krcgOptions(before).length, 0, 'no block attempt yet')
+
+            const succeeding = createKrcgBleed()
+            attemptBlock(succeeding, true)
+            expectEqual(krcgOptions(succeeding).length, 0, 'the block already succeeds')
+
+            const locked = createKrcgBleed()
+            attemptBlock(locked, false)
+            locked.krcg.lock()
+            expectEqual(krcgOptions(locked).length, 0, 'locked')
+
+            const held = createKrcgBleed()
+            held.gameState.moveCardToRegion(held.krcg, held.bled.hand)
+            attemptBlock(held, false)
+            expectEqual(krcgOptions(held).length, 0, 'in hand')
+
+            const failing = createKrcgBleed()
+            attemptBlock(failing, false)
+            expectEqual(krcgOptions(failing).length, 1, 'a failing block attempt stands')
+        },
+    },
+    {
+        name: 'KRCG News Radio only gives its intercept to a minion of its controller, never to the acting minion',
+        run() {
+            const game = createKrcgBleed()
+            attemptBlock(game, false)
+            expectEqual(getLockForReactionOptions(game.bled, game.blocker).length, 1, 'the blocker')
+            expectEqual(
+                getLockForReactionOptions(game.bled, game.bleeding).length,
+                0,
+                'a minion of another Methuselah',
+            )
+            const other = createKrcgBleed()
+            other.gameState.moveCardToRegion(
+                findAnyCard(other.bleeder, KRCG_ID),
+                other.bleeder.ready,
+            )
+            attemptBlock(other, false)
+            expectEqual(
+                getLockForReactionOptions(other.bleeder, other.blocker).length,
+                0,
+                'not the Methuselah of the blocker',
+            )
+        },
+    },
+    {
+        name: 'KRCG News Radio: the Govern agent passes with it, it never plays a reaction by itself',
+        run() {
+            const game = createKrcgBleed()
+            attemptBlock(game, false)
+            passUntilDecides(game.gameState, game.bled)
+            const step = stepBot(game.bled, new GovernAgent())
+            expectEqual(step?.option.type, 'noReaction', 'passes')
+            expectEqual(game.krcg.isLocked, false, 'not locked')
+        },
+    },
+    {
+        name: 'Summary: KRCG News Radio is an intercept ability in the window of a standing block attempt, and it locks the card',
+        run() {
+            const ability = summaryOf(KRCG_ID).plays[0].abilities[0]
+            expectEqual(ability.activate, 'lockForReaction', 'activate')
+            expectEqual(ability.windows.join(), 'blockAttemptStands', 'window')
+            expectEqual(ability.locks, true, 'locks the card')
+            expectEqual(ability.roles.join(), 'intercept', 'an intercept source')
+        },
+    },
+]
+
 const CARRION_CROWS_ID = '100301'
 const DEEP_SONG_ID = '100515'
 const MURDER_OF_CROWS_ID = '101254'
@@ -8855,6 +8981,27 @@ const ASSESSMENT_SCENARIOS: { name: string; run: () => void }[] = [
             const asleep = chance(true, [ORGANIZED_RESISTANCE_ID])
             expectClose(chance(false, [ORGANIZED_RESISTANCE_ID]), asleep, 'locked or not', 1e-9)
             expectEqual(asleep < chance(false, []), true, 'the intercept needs more stealth')
+        },
+    },
+    {
+        name: 'Defence: KRCG News Radio in play, unlocked, counts as an intercept charge, locked it does not',
+        run() {
+            const chance = (state: 'absent' | 'ready' | 'locked') => {
+                const ring = createRing([KRCG_DECK, KRCG_DECK])
+                const [me, predator] = ring.players
+                addMinions(ring, me, [{}])
+                addMinions(ring, predator, [{ bleed: 6 }])
+                me.pool = 5
+                holdOnly(ring, me, [])
+                if (state != 'absent') {
+                    const krcg = findAnyCard(me, KRCG_ID)
+                    ring.gameState.moveCardToRegion(krcg, me.ready)
+                    krcg.isLocked = state == 'locked'
+                }
+                return chanceOfOust(assessAs(ring, me))
+            }
+            expectEqual(chance('ready') < chance('absent'), true, 'the charge helps')
+            expectEqual(chance('locked'), chance('absent'), 'a locked card does not')
         },
     },
     {
@@ -11868,10 +12015,12 @@ type BlockSetup = {
     action?: MinionActionType
     // The stealth of the action once declared, when the scenario sets it
     stealth?: number
+    // My deck, the cards I hold come from it
+    deck?: DeckList
 }
 
 function blockBoard(setup: BlockSetup) {
-    const ring = createRing([GovernDeck, GovernDeck, GovernDeck])
+    const ring = createRing([setup.deck ?? GovernDeck, GovernDeck, GovernDeck])
     const [me, , predator] = ring.players
     const [actor] = addMinions(ring, predator, [{ bleed: 2, blood: 5, ...setup.actor }])
     if (setup.second) {
@@ -12139,6 +12288,283 @@ const BLOCK_SCENARIOS: { name: string; run: () => void }[] = [
 ]
 
 /**
+ * Reaction decision: my predator declares an action against me and I decide what to play in the windows: the
+ * cards that reach a block, wake a minion, bounce the bleed, flip a block that fails, or unlock the blocker.
+ */
+
+const REACTION_DECK = <DeckList>{
+    ...MalkavDeck,
+    [EYES_OF_ARGUS_ID]: 3,
+    [KRCG_ID]: 2,
+    [CATS_GUIDANCE_ID]: 2,
+    [ORGANIZED_RESISTANCE_ID]: 2,
+}
+const AUSPEX_INFERIOR: Partial<Disciplines> = { [Discipline.Auspex]: DisciplineLevel.INFERIOR }
+const DOMINATE_INFERIOR: Partial<Disciplines> = { [Discipline.Dominate]: DisciplineLevel.INFERIOR }
+
+const reactionBoard = (setup: BlockSetup) => blockBoard({ deck: REACTION_DECK, ...setup })
+
+const agentOf = (deck: DeckList = REACTION_DECK) => new UtilityAgent(deck)
+
+// What the agent does at my next decision, and the decision it was made at
+function nextChoice(board: BlockBoard, deck?: DeckList) {
+    const decision = passUntilDecides(board.ring.gameState, board.me)
+    const option = chooseThroughView(decision, agentOf(deck))
+    return { decision, option }
+}
+
+// My first blocker attempts the block by hand, then my next decision comes
+function blockByHand(board: BlockBoard): DecisionPoint {
+    const first = passUntilDecides(board.ring.gameState, board.me)
+    applyOption(
+        first,
+        optionsOfType(first.options, 'block').find(option => option.minion == board.blockers[0]) ??
+            findOption(first.options, 'block'),
+    )
+    return passUntilDecides(board.ring.gameState, board.me)
+}
+
+const playedCard = (option: BotOption) => (option.type == 'playReaction' ? option.card.krcgId : '')
+
+const REACTION_SCENARIOS: { name: string; run: () => void }[] = [
+    {
+        name: 'Reaction decision: an intercept card that reaches the stealth makes the block worth attempting, then it is played to flip it',
+        run() {
+            const setup: BlockSetup = {
+                actor: { strength: 1, bleed: 4 },
+                blockers: [{ strength: 4, intercept: 0, disciplines: AUSPEX_INFERIOR }],
+                stealth: 1,
+            }
+            const without = reactionBoard({ ...setup, hand: [] })
+            expectEqual(nextChoice(without).option.type, 'noBlock', 'nothing reaches it')
+
+            const board = reactionBoard({ ...setup, hand: [EYES_OF_ARGUS_ID] })
+            const first = nextChoice(board)
+            expectEqual(first.option.type, 'block', 'the card reaches the stealth')
+            applyOption(first.decision, first.option)
+
+            const second = nextChoice(board)
+            expectEqual(second.decision.kind, DecisionKind.ReactionImpulse, 'the window')
+            expectEqual(playedCard(second.option), EYES_OF_ARGUS_ID, 'Eyes of Argus')
+            applyOption(second.decision, second.option)
+            const action = board.ring.gameState.action
+            expectEqual(
+                (action?.intercept ?? 0) >= (action?.stealth ?? 9),
+                true,
+                'the block stands',
+            )
+        },
+    },
+    {
+        name: 'Reaction decision: a flip that is not worth the fight it runs my blocker into is not played',
+        run() {
+            const board = reactionBoard({
+                actor: { strength: 5, bleed: 1 },
+                blockers: [{ strength: 1, intercept: 0, blood: 3, disciplines: AUSPEX_INFERIOR }],
+                stealth: 1,
+                hand: [EYES_OF_ARGUS_ID],
+            })
+            expectEqual(nextChoice(board).option.type, 'noBlock', 'not blocked')
+            const window = blockByHand(board)
+            expectEqual(window.kind, DecisionKind.ReactionImpulse, 'the window')
+            expectEqual(
+                optionsOfType(window.options, 'playReaction').length > 0,
+                true,
+                'the card is offered',
+            )
+            expectEqual(chooseThroughView(window, agentOf()).type, 'noReaction', 'passes')
+        },
+    },
+    {
+        name: 'Reaction decision: the card in play that costs nothing is used before the card of the hand',
+        run() {
+            const board = reactionBoard({
+                actor: { strength: 1, bleed: 4 },
+                blockers: [{ strength: 4, intercept: 0, disciplines: AUSPEX_INFERIOR }],
+                stealth: 1,
+                hand: [EYES_OF_ARGUS_ID],
+            })
+            const krcg = findAnyCard(board.me, KRCG_ID)
+            board.ring.gameState.moveCardToRegion(krcg, board.me.ready)
+            const window = blockByHand(board)
+            expectEqual(optionsOfType(window.options, 'playReaction').length > 0, true, 'a card')
+            const option = chooseThroughView(window, agentOf())
+            expectEqual(option.type, 'lockForReaction', 'the permanent first')
+            applyOption(window, option)
+            expectEqual(krcg.isLocked, true, 'locked')
+
+            // The block stands and succeeds: nothing is left to play
+            const next = passUntilDecides(board.ring.gameState, board.me)
+            expectEqual(chooseThroughView(next, agentOf()).type, 'noReaction', 'passes')
+        },
+    },
+    {
+        name: 'Reaction decision: two sources that are both needed are played one after the other, the cheaper one first',
+        run() {
+            const board = reactionBoard({
+                actor: { strength: 1, bleed: 4 },
+                blockers: [{ strength: 4, intercept: 0, disciplines: AUSPEX_INFERIOR }],
+                stealth: 3,
+                hand: [EYES_OF_ARGUS_ID],
+            })
+            const krcg = findAnyCard(board.me, KRCG_ID)
+            board.ring.gameState.moveCardToRegion(krcg, board.me.ready)
+            const window = blockByHand(board)
+            const first = chooseThroughView(window, agentOf())
+            expectEqual(first.type, 'lockForReaction', 'the permanent first')
+            applyOption(window, first)
+            const next = passUntilDecides(board.ring.gameState, board.me)
+            const second = chooseThroughView(next, agentOf())
+            expectEqual(playedCard(second), EYES_OF_ARGUS_ID, 'then the card')
+            applyOption(next, second)
+            const action = board.ring.gameState.action
+            expectEqual(
+                (action?.intercept ?? 0) >= (action?.stealth ?? 9),
+                true,
+                'the block stands',
+            )
+        },
+    },
+    {
+        name: 'Reaction decision: a bounce card is preferred to a block that runs my blocker into a fight, not without the card',
+        run() {
+            const setup: BlockSetup = {
+                actor: { strength: 3, bleed: 4 },
+                blockers: [{ strength: 3, intercept: 1, disciplines: DOMINATE_INFERIOR }],
+            }
+            expectEqual(
+                nextChoice(reactionBoard({ ...setup, hand: [] })).option.type,
+                'block',
+                'a block without the card',
+            )
+            expectEqual(
+                nextChoice(reactionBoard({ ...setup, hand: [DEFLECTION_ID] })).option.type,
+                'noBlock',
+                'a bounce with it',
+            )
+        },
+    },
+    {
+        name: 'Reaction decision: an inferior bounce locks the reacting minion, which counts when it is my last defender against the attackers to come',
+        run() {
+            const bounceScore = (second: boolean) => {
+                const board = reactionBoard({
+                    actor: { strength: 5, bleed: 4 },
+                    second: second ? { bleed: 4, blood: 5 } : undefined,
+                    blockers: [
+                        { strength: 1, intercept: 1, blood: 3, disciplines: DOMINATE_INFERIOR },
+                    ],
+                    hand: [DEFLECTION_ID],
+                })
+                const first = passUntilDecides(board.ring.gameState, board.me)
+                applyOption(first, findOption(first.options, 'noBlock'))
+                const window = passUntilDecides(board.ring.gameState, board.me)
+                const trace: ExplainCandidate[] = []
+                const agent = new UtilityAgent(REACTION_DECK, undefined, entry =>
+                    trace.push(...entry.candidates),
+                )
+                chooseThroughView(window, agent)
+                return trace[0]?.parts.lock ?? 0
+            }
+            expectEqual(bounceScore(false), 0, 'nobody else to send')
+            expectEqual(bounceScore(true) > 0, true, 'a second attacker is waiting')
+        },
+    },
+    {
+        name: 'Reaction decision: a locked minion is woken by the card when its block is worth it, not without the card',
+        run() {
+            const setup: BlockSetup = {
+                actor: { strength: 1, bleed: 6 },
+                blockers: [{ strength: 4, intercept: 1, locked: true }],
+                pool: 5,
+            }
+            expectEqual(
+                nextChoice(reactionBoard({ ...setup, hand: [] })).option.type,
+                'noBlock',
+                'no card',
+            )
+            const board = reactionBoard({ ...setup, hand: [QUI_VIVE_ID] })
+            const woken = nextChoice(board)
+            expectEqual(playedCard(woken.option), QUI_VIVE_ID, 'On the Qui Vive')
+            applyOption(woken.decision, woken.option)
+            const after = nextChoice(board)
+            expectEqual(after.option.type, 'block', 'the woken minion blocks')
+        },
+    },
+    {
+        name: 'Reaction decision: a card that unlocks a vampire and blocks with it is played against a bleed that would oust me',
+        run() {
+            const board = reactionBoard({
+                actor: { strength: 1, bleed: 6 },
+                blockers: [{ strength: 4, intercept: 1, locked: true }],
+                pool: 5,
+                hand: [ORGANIZED_RESISTANCE_ID],
+            })
+            board.blockers[0].vampireAttrs.sect = Sect.Anarch
+            board.blockers[0].vampireAttrs.title = 'baron'
+            const choice = nextChoice(board)
+            expectEqual(playedCard(choice.option), ORGANIZED_RESISTANCE_ID, 'Organized Resistance')
+            if (choice.option.type == 'playReaction') {
+                expectEqual(choice.option.effect.type, 'unlockBlock', 'unlocks and blocks')
+            }
+        },
+    },
+    {
+        name: 'Reaction decision: a bleed that is not worth a fight is bounced with the card, in the next window',
+        run() {
+            const setup: BlockSetup = {
+                actor: { strength: 5, bleed: 4 },
+                blockers: [{ strength: 1, intercept: 1, blood: 3, disciplines: DOMINATE_INFERIOR }],
+            }
+            const without = reactionBoard({ ...setup, hand: [] })
+            const window = passUntilDecides(without.ring.gameState, without.me)
+            applyOption(window, findOption(window.options, 'noBlock'))
+            expectEqual(nextChoice(without).option.type, 'noReaction', 'nothing to bounce with')
+
+            const board = reactionBoard({ ...setup, hand: [DEFLECTION_ID] })
+            const first = nextChoice(board)
+            expectEqual(first.option.type, 'noBlock', 'the block is left to the bounce')
+            applyOption(first.decision, first.option)
+            const second = nextChoice(board)
+            expectEqual(playedCard(second.option), DEFLECTION_ID, 'Deflection')
+            if (second.option.type == 'playReaction') {
+                expectEqual(second.option.effect.type, 'changeTarget', 'a bounce')
+            }
+        },
+    },
+    {
+        name: "Reaction decision: Cats' Guidance unlocks the blocker once the combat is over when my predator has attackers left",
+        run() {
+            const unlockChoice = (extraAttacker: boolean) => {
+                const game = createBlockCombat(DisciplineLevel.INFERIOR)
+                if (extraAttacker) {
+                    const second = readyVampire(game.gameState, game.bleeder, 5)
+                    second.minionAttrs.bleed = 4
+                }
+                game.bled.pool = 3
+                endCombatByHand(game)
+                const decision = getPostBlockDecision(game)
+                return chooseThroughView(decision, agentOf(MalkavDeck)).type
+            }
+            expectEqual(unlockChoice(false), 'noReaction', 'nobody left to stop')
+            expectEqual(unlockChoice(true), 'playReaction', 'a defender is worth the card')
+        },
+    },
+    {
+        name: 'Reaction decision: the trigger that unlocks a minion for a blood is used while the minion has the blood to act',
+        run() {
+            const choose = (blood: number) => {
+                const game = createAlineGame({ alineBlood: blood })
+                passUntilActionOver(game.gameState)
+                return chooseThroughView(getTriggerDecision(game), agentOf(BrujahDeck)).type
+            }
+            expectEqual(choose(3), 'useTrigger', 'blood to spare')
+            expectEqual(choose(1), 'skipTrigger', 'her last blood')
+        },
+    },
+]
+
+/**
  * Modifier decision: my minion bleeds my prey and I decide the stealth and bleed cards. Three Methuselahs,
  * the hands are controlled and the vampires have no discipline but the ones the cards need.
  */
@@ -12155,6 +12581,10 @@ type ModifierSetup = {
     stealth?: number
     // A card put in play under my control, for a Nosferatu actor
     permanent?: string
+    // A card put in play, unlocked, under the control of my prey
+    preyPermanent?: string
+    // The cards in the hand of my prey ( I do not see them )
+    preyHand?: string[]
     action?: MinionActionType
 }
 
@@ -12165,7 +12595,7 @@ const OBFUSCATE_INFERIOR: Partial<Disciplines> = {
 function modifierBoard(setup: ModifierSetup) {
     const ring = createRing([
         setup.permanent ? <DeckList>{ ...MalkavDeck, [setup.permanent]: 2 } : MalkavDeck,
-        MalkavDeck,
+        setup.preyPermanent ? <DeckList>{ ...MalkavDeck, [setup.preyPermanent]: 2 } : MalkavDeck,
         MalkavDeck,
     ])
     const [me, prey] = ring.players
@@ -12176,8 +12606,11 @@ function modifierBoard(setup: ModifierSetup) {
         actor.vampireAttrs.clan = 'Nosferatu'
         ring.gameState.moveCardToRegion(findAnyCard(me, setup.permanent), me.ready)
     }
+    if (setup.preyPermanent) {
+        ring.gameState.moveCardToRegion(findAnyCard(prey, setup.preyPermanent), prey.ready)
+    }
     holdOnly(ring, me, setup.hand)
-    holdOnly(ring, prey, [])
+    holdOnly(ring, prey, setup.preyHand ?? [])
     for (const player of ring.players) {
         sealLibrary(ring.gameState, player)
     }
@@ -12303,6 +12736,103 @@ const MODIFIER_SCENARIOS: { name: string; run: () => void }[] = [
                 prey: 'blocks',
             })
             expectEqual(modifierCard(chosenModifier(board)), 'noModifier', 'the pass')
+        },
+    },
+    {
+        name: 'Modifier decision: a flip that the intercept in play of my prey raises back is not played, with a second card it is',
+        run() {
+            const setup = {
+                actor: { strength: 1, disciplines: OBFUSCATE_INFERIOR },
+                blockers: [{ strength: 4, intercept: 0 }],
+                preyPermanent: KRCG_ID,
+                prey: 'blocks' as const,
+            }
+            const alone = modifierBoard({ ...setup, hand: [LOST_IN_CROWDS_ID] })
+            const judged = modifierJudgement(alone)
+            expectEqual(judged.option.type, 'noModifier', 'one card is raised back')
+            expectEqual(judged.candidates[0].parts.reblocked, 1, 'the radio raises it')
+            expectEqual(judged.candidates[0].score < 0, true, 'the card is lost for nothing')
+
+            const both = modifierBoard({ ...setup, hand: [LOST_IN_CROWDS_ID, FACELESS_NIGHT_ID] })
+            expectEqual(modifierCard(chosenModifier(both)), LOST_IN_CROWDS_ID, 'the race is won')
+        },
+    },
+    {
+        name: 'Modifier decision: the intercept in play of my prey counts only while it is unlocked',
+        run() {
+            const board = modifierBoard({
+                actor: { strength: 1, disciplines: OBFUSCATE_INFERIOR },
+                blockers: [{ strength: 4, intercept: 0 }],
+                hand: [LOST_IN_CROWDS_ID],
+                preyPermanent: KRCG_ID,
+                prey: 'blocks',
+            })
+            const radio = board.prey.ready.cards.find(card => card.krcgId == KRCG_ID)
+            if (!radio) {
+                throw new ScenarioFailure('The radio is not in play')
+            }
+            radio.isLocked = true
+            const judged = modifierJudgement(board)
+            expectEqual(judged.candidates[0].parts.reblocked, 0, 'nothing to raise')
+            expectEqual(modifierCard(chosenModifier(board)), LOST_IN_CROWDS_ID, 'the card')
+        },
+    },
+    {
+        name: 'Modifier decision: the intercept cards my prey may hold weigh on the flip when its blocker has Auspex',
+        run() {
+            const hand = [LOST_IN_CROWDS_ID, FACELESS_NIGHT_ID]
+            const withAuspex = { strength: 4, intercept: 0, disciplines: AUSPEX_INFERIOR }
+            const without = { strength: 4, intercept: 0 }
+            // The same two minions, the one that blocks is the other
+            const board = (blockers: MinionSetup[]) =>
+                modifierBoard({
+                    actor: { strength: 1, disciplines: OBFUSCATE_INFERIOR },
+                    blockers,
+                    hand: [LOST_IN_CROWDS_ID],
+                    preyHand: hand,
+                    prey: 'blocks',
+                })
+            const auspex = board([withAuspex, without])
+            const density =
+                assessAs(auspex.ring, auspex.me).densities[auspex.prey.oid].intercept ?? 0
+            expectEqual(density > 0, true, 'Auspex is the evidence')
+            const risky = modifierJudgement(auspex).candidates[0]
+            expectClose(
+                risky.parts.reblocked,
+                1 - (1 - density) ** hand.length,
+                'a card among two is intercept',
+                0.001,
+            )
+            const plain = modifierJudgement(board([without, withAuspex])).candidates[0]
+            expectEqual(plain.parts.reblocked, 0, 'the blocker has no discipline to play it')
+            expectEqual(risky.score < plain.score, true, 'the doubt costs')
+        },
+    },
+    {
+        name: 'Modifier decision: a flip that the intercept cards of my prey would very likely raise back is not played',
+        run() {
+            const board = () =>
+                modifierBoard({
+                    actor: { strength: 1, disciplines: OBFUSCATE_INFERIOR },
+                    blockers: [{ strength: 4, intercept: 0, disciplines: AUSPEX_INFERIOR }],
+                    hand: [LOST_IN_CROWDS_ID],
+                    preyHand: [LOST_IN_CROWDS_ID, FACELESS_NIGHT_ID],
+                    prey: 'blocks',
+                })
+            const parts = modifierJudgement(board()).candidates[0].parts
+            const plan = { ...DEFAULT_PROFILE.plan, spentCard: (parts.success + parts.fight) / 2 }
+            const prior = DEFAULT_PROFILE.opponentPrior
+            const unlikely = { ...DEFAULT_PROFILE, plan }
+            const likely = {
+                ...unlikely,
+                opponentPrior: { ...prior, density: { ...prior.density, intercept: 1 } },
+            }
+            expectEqual(
+                modifierCard(chosenModifier(board(), unlikely)),
+                LOST_IN_CROWDS_ID,
+                'the card',
+            )
+            expectEqual(modifierCard(chosenModifier(board(), likely)), 'noModifier', 'raised back')
         },
     },
     {
@@ -12555,6 +13085,7 @@ function runScenarios(filters: string[]): ScenarioResult[] {
         ...ALINE_SCENARIOS,
         ...NOSFERATU_SCENARIOS,
         ...LABYRINTH_SCENARIOS,
+        ...KRCG_SCENARIOS,
         ...CROWS_SCENARIOS,
         ...ATTACHMENT_SCENARIOS,
         ...PUT_ON_SCENARIOS,
@@ -12569,6 +13100,7 @@ function runScenarios(filters: string[]): ScenarioResult[] {
         ...COMBAT_PLAN_SCENARIOS,
         ...LIVE_COMBAT_SCENARIOS,
         ...BLOCK_SCENARIOS,
+        ...REACTION_SCENARIOS,
         ...MODIFIER_SCENARIOS,
     ]
         .filter(({ name }) => filters.some(filter => name.toLowerCase().includes(filter)))

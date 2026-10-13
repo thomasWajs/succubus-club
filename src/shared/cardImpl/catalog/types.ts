@@ -261,7 +261,12 @@ type AttachFields = {
 export type StaysInPlay = 'discard' | 'onMinion' | 'standalone'
 
 // Something a card in play does when the player chooses to
-export type MasterAbility = UnlockAbility | LockAbility | TransferAbility | LockForActionAbility
+export type MasterAbility =
+    | UnlockAbility
+    | LockAbility
+    | TransferAbility
+    | LockForActionAbility
+    | LockForReactionAbility
 
 // "You can lock this card to give a Nosferatu you control +1 stealth": usable while the card is
 // unlocked, in the action of a minion of the player that fits the filter, like an action modifier
@@ -269,6 +274,15 @@ type LockForActionAbility = {
     activate: 'lockForAction'
     minion: MinionFilter
     effects: StealthEffect[]
+}
+
+// "You can lock this card to give a minion you control +1 intercept": usable while the card is
+// unlocked, in the action of another Methuselah, by the minion that fits the filter and whose block
+// attempt stands, like a reaction card
+type LockForReactionAbility = {
+    activate: 'lockForReaction'
+    minion: MinionFilter
+    effects: InterceptEffect[]
 }
 
 // "You can use N transfers to ...": usable in the influence phase while the transfers last

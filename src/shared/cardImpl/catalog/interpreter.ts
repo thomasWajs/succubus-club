@@ -588,6 +588,13 @@ class InterpretedMaster extends MasterCardImplementation {
         )
     }
 
+    private get lockForReactionAbility() {
+        return this.play?.abilities?.find(
+            (ability): ability is Extract<MasterAbility, { activate: 'lockForReaction' }> =>
+                ability.activate == 'lockForReaction',
+        )
+    }
+
     private get transferAbilities() {
         return (this.play?.abilities ?? []).flatMap((ability, index) =>
             ability.activate == 'transfer' ? [{ ability, index }] : [],
@@ -725,6 +732,38 @@ class InterpretedMaster extends MasterCardImplementation {
             }
             validity = gameMutations.ACTION_changeProperty.act(this.player, {
                 propertyName: ActionProperty.Stealth,
+                amount: effect.amount,
+            })
+        }
+        return validity
+    }
+
+    canLockForReaction(blocker: Minion): boolean {
+        const ability = this.lockForReactionAbility
+        return (
+            !!ability &&
+            !this.card.isLocked &&
+            blocker.controller == this.player &&
+            matchesMinionFilter(blocker, ability.minion) &&
+            canAddIntercept(this.player.gameState, blocker).isValid
+        )
+    }
+
+    applyLockForReaction(blocker: Minion): Validity {
+        const ability = this.lockForReactionAbility
+        if (!ability || !this.canLockForReaction(blocker)) {
+            return Invalid('The card cannot be locked for this block attempt')
+        }
+        let validity: Validity = gameMutations.setLock.act(this.player, {
+            card: this.card,
+            newValue: true,
+        })
+        for (const effect of ability.effects) {
+            if (!validity.isValid) {
+                break
+            }
+            validity = gameMutations.ACTION_changeProperty.act(this.player, {
+                propertyName: ActionProperty.Intercept,
                 amount: effect.amount,
             })
         }
