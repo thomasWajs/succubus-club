@@ -20,6 +20,7 @@ import { describeTurnPlan } from '@/shared/bot/utility/describeAssessment.ts'
 import { chooseLiveCombat } from '@/shared/bot/utility/liveCombat.ts'
 import { combatStartAllowed } from '@/shared/bot/utility/enterCombat.ts'
 import { judgeBlock } from '@/shared/bot/utility/blockDecision.ts'
+import { judgeModifier } from '@/shared/bot/utility/modifierDecision.ts'
 
 // Everything a decision may read, and nothing else: the view of the game ( in the decision ), what the
 // table did, and what the bot knows of itself. Plans are functions of this, no state is kept between
@@ -48,7 +49,8 @@ type Choice = {
  * who stays unlocked to defend, who bleeds, hunts or rescues. The action cards of the hand still go
  * through the fallback, except the ones that start a combat, which the position
  * of the fight must allow ( enterCombat.ts ). The windows of a combat are the plan's ( combatPlan.ts ),
- * and the block attempts are a judgement of what they save and cost ( blockDecision.ts ).
+ * the block attempts are a judgement of what they save and cost ( blockDecision.ts ), and the stealth
+ * and bleed cards of my own actions are played when they pay ( modifierDecision.ts ).
  */
 export class UtilityAgent implements BotAgent {
     constructor(
@@ -86,19 +88,25 @@ export class UtilityAgent implements BotAgent {
                 return live
             }
         }
+        if (context.decision.kind == DecisionKind.ActionImpulse) {
+            const judged = judgeModifier(context.decision, context.assessment)
+            if (judged) {
+                return judged
+            }
+        }
         if (context.decision.kind == DecisionKind.ReactionImpulse) {
             const judged = judgeBlock(context.decision, context.assessment)
             if (judged?.block) {
                 return { option: judged.block, note: judged.note, candidates: judged.candidates }
             }
-            if (judged) {
-                // The block is refused: the base rules play the rest of the window without it
-                const { decision } = context
-                const options = decision.options.filter(option => option.type != 'block')
+            // A block that is not attempted is declined out loud: the acting player then has the
+            // impulse back, to play what it holds before the action is resolved
+            const noBlock = context.decision.options.find(option => option.type == 'noBlock')
+            if (noBlock) {
                 return {
-                    option: this.fallback.choose({ ...decision, options }),
-                    note: judged.note,
-                    candidates: judged.candidates,
+                    option: noBlock,
+                    note: judged?.note ?? 'no block to attempt',
+                    candidates: judged?.candidates,
                 }
             }
         }

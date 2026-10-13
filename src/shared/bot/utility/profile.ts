@@ -148,6 +148,14 @@ export type BlockWeights = {
     margin: number
 }
 
+// How the modifiers of my own actions are judged ( modifierDecision.ts ). Draft numbers
+export type ModifierWeights = {
+    // What a card must bring me at least, in pool, to be played
+    margin: number
+    // What it costs to lock a card in play for an action ( The Labyrinth ): it is not there for the next one
+    abilityUse: number
+}
+
 export type BotProfile = {
     name: string
     // Temperature of the softmax pick among the scored options, 0 = always the best one
@@ -165,6 +173,7 @@ export type BotProfile = {
     vpValue: number
     combat: CombatWeights
     block: BlockWeights
+    modifier: ModifierWeights
 }
 
 export const DEFAULT_PROFILE: BotProfile = {
@@ -227,4 +236,5 @@ export const DEFAULT_PROFILE: BotProfile = {
         enterMargin: 0.5,
     },
     block: { margin: 0.25 },
+    modifier: { margin: 0.25, abilityUse: 0.1 },
 }

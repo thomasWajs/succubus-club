@@ -154,9 +154,13 @@ function cardActionValue(assessment: Assessment, candidate: Candidate): number {
 }
 
 // What a minion does when it does not bleed: hunt, rescue, or the card the base rules would play
-type Idle = { kind: ActionKind; value: number; candidate: Candidate }
+export type Idle = { kind: ActionKind; value: number; candidate: Candidate }
 
-function idleOf(assessment: Assessment, minion: MinionProfile, own: Candidate[]): Idle | null {
+export function idleOf(
+    assessment: Assessment,
+    minion: MinionProfile,
+    own: Candidate[],
+): Idle | null {
     const options = own.flatMap((candidate): Idle[] => {
         switch (candidate.kind) {
             case 'hunt': {

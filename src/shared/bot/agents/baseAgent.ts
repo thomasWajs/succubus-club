@@ -80,8 +80,12 @@ export abstract class BaseAgent implements BotAgent {
         return findOption(decision.options, 'noModifier')
     }
 
+    // Passes, which takes a "no block" first while the block is undecided
     protected reactionImpulse(decision: DecisionPoint): BotOption {
-        return findOption(decision.options, 'noReaction')
+        return (
+            decision.options.find(option => option.type == 'noReaction') ??
+            findOption(decision.options, 'noBlock')
+        )
     }
 
     // Plays what is offered ( the reactions of this window only unlock the blocker ), else passes

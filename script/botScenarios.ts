@@ -195,6 +195,7 @@ import {
     combatStartOf,
 } from '@/shared/bot/utility/enterCombat.ts'
 import { BlockJudgement, judgeBlock } from '@/shared/bot/utility/blockDecision.ts'
+import { judgeModifier, ModifierJudgement } from '@/shared/bot/utility/modifierDecision.ts'
 import { serializeGameState } from '@/shared/serialization.ts'
 import {
     BotAgent,
@@ -1795,10 +1796,14 @@ const BOUNCE_SCENARIOS: { name: string; run: () => void }[] = [
                 true,
                 'new target can block',
             )
-            applyOption(
-                thirdDecision as DecisionPoint,
-                findOption((thirdDecision as DecisionPoint).options, 'noReaction'),
+            expectEqual(
+                optionsOfType(thirdDecision?.options ?? [], 'noReaction').length,
+                0,
+                'no pass before the block is decided',
             )
+            decideWith(gameState, third, 'noBlock')
+            decideWith(gameState, bleeder, 'noModifier')
+            decideWith(gameState, third, 'noReaction')
 
             expectEqual(gameState.action, null, 'action in progress')
             expectEqual(third.pool < pools.third, true, 'the new target is bled')
@@ -1929,8 +1934,10 @@ const BOUNCE_SCENARIOS: { name: string; run: () => void }[] = [
             decideWith(gameState, bleeder, 'noModifier')
             expectEqual(getDecidingPlayer(gameState), bled, 'the bot holds the impulse')
 
-            const step = stepBot(bled, new GovernAgent())
-            expectEqual(step?.option.type, 'noReaction', 'the bot passes')
+            const agent = new GovernAgent()
+            expectEqual(stepBot(bled, agent)?.option.type, 'noBlock', 'the bot declines to block')
+            decideWith(gameState, bleeder, 'noModifier')
+            expectEqual(stepBot(bled, agent)?.option.type, 'noReaction', 'the bot passes')
             expectEqual(getDecidingPlayer(gameState), bleeder, 'the human holds the impulse again')
             expectEqual(gameState.action !== null, true, 'the human ends the action by hand')
             expectEqual(bled.pool, pool, 'the bleed is not applied for the human')
@@ -5774,6 +5781,15 @@ function humanDeclares(table: HumanTable, minionAction: MinionAction): void {
     )
 }
 
+// The bot declines to block, which gives the impulse back to the human, who passes it again: the bot
+// then has its second window and passes with no reaction
+function botPassesBothWindows(table: HumanTable, bot: Player, agent: GovernAgent) {
+    expectEqual(stepBot(bot, agent)?.option.type, 'noBlock', 'the bot declines to block')
+    expectEqual(getDecidingPlayer(table.gameState), table.human, 'the human may play modifiers')
+    decideWith(table.gameState, table.human, 'noModifier')
+    expectEqual(stepBot(bot, agent)?.option.type, 'noReaction', 'the bot passes')
+}
+
 function inTorpor(gameState: GameState, vampire: Vampire, blood: number): void {
     gameState.moveCardToRegion(vampire, vampire.controller.torpor)
     vampire.blood = blood
@@ -5797,8 +5813,30 @@ const HUMAN_ACTION_SCENARIOS: { name: string; run: () => void }[] = [
             expectEqual(getDecidingPlayer(table.gameState), prey, 'the prey decides first')
             // Its vampire does not intercept enough: the prey passes without a block
             table.blockers[0].minionAttrs.intercept = 0
-            expectEqual(stepBot(prey, new GovernAgent())?.option.type, 'noReaction', 'prey passes')
+            botPassesBothWindows(table, prey, new GovernAgent())
             expectEqual(getDecidingPlayer(table.gameState), predator, 'the predator decides')
+        },
+    },
+    {
+        name: 'the target of an action cannot pass before its block is decided, then it can only pass or react',
+        run() {
+            const table = createHumanTable(2)
+            const [prey] = table.others
+            humanDeclares(table, createBleedAction(table.acting, prey))
+            const first = getDecisionPoint(table.gameState, prey)
+            const types = (decision: DecisionPoint | null) =>
+                (decision?.options ?? []).map(option => option.type)
+            expectEqual(types(first).includes('noReaction'), false, 'no pass in the block window')
+            expectEqual(types(first).includes('noBlock'), true, 'noBlock is offered')
+
+            applyOption(
+                first as DecisionPoint,
+                findOption((first as DecisionPoint).options, 'noBlock'),
+            )
+            decideWith(table.gameState, table.human, 'noModifier')
+            const second = types(getDecisionPoint(table.gameState, prey))
+            expectEqual(second.includes('noReaction'), true, 'the pass is offered once declined')
+            expectEqual(second.includes('noBlock') || second.includes('block'), false, 'no block')
         },
     },
     {
@@ -5879,7 +5917,7 @@ const HUMAN_ACTION_SCENARIOS: { name: string; run: () => void }[] = [
             table.acting.minionAttrs.strength = table.blockers[0].minionAttrs.strength + 1
             humanDeclares(table, createActionCardAction(table.acting, table.card, {}))
             must(botMutations.ACTION_completeDeclaration.act(table.human, {}), 'declare')
-            stepBot(prey, new GovernAgent())
+            botPassesBothWindows(table, prey, new GovernAgent())
             expectEqual(table.gameState.action?.reactionsPassed, true, 'all passed')
             must(gameMutations.ACTION_updateUsage.act(table.human, { usage: { x: 1 } }), 'usage')
             expectEqual(table.gameState.action?.reactionsPassed, false, 'new reason to react')
@@ -5933,7 +5971,7 @@ const HUMAN_ACTION_SCENARIOS: { name: string; run: () => void }[] = [
                 throw new ScenarioFailure('No action')
             }
             table.gameState.action.stealth = 2
-            expectEqual(stepBot(prey, new GovernAgent())?.option.type, 'noReaction', 'no block')
+            expectEqual(stepBot(prey, new GovernAgent())?.option.type, 'noBlock', 'no block')
         },
     },
     {
@@ -5943,7 +5981,7 @@ const HUMAN_ACTION_SCENARIOS: { name: string; run: () => void }[] = [
             const [prey] = table.others
             table.acting.minionAttrs.strength = table.blockers[0].minionAttrs.strength + 1
             humanDeclares(table, createBleedAction(table.acting, prey))
-            expectEqual(stepBot(prey, new GovernAgent())?.option.type, 'noReaction', 'no block')
+            expectEqual(stepBot(prey, new GovernAgent())?.option.type, 'noBlock', 'no block')
         },
     },
     {
@@ -6011,6 +6049,8 @@ const HUMAN_ACTION_SCENARIOS: { name: string; run: () => void }[] = [
             const decision = declineBlock(bounce)
             applyOption(decision, getBounceOption(decision, DisciplineLevel.SUPERIOR))
             decideWith(gameState, bleeder, 'noModifier')
+            decideWith(gameState, third, 'noBlock')
+            decideWith(gameState, bleeder, 'noModifier')
             decideWith(gameState, third, 'noReaction')
             expectEqual(gameState.action !== null, true, 'the human ends the action')
             expectEqual(deflection.isIn.ready, true, 'Deflection stays while the action goes on')
@@ -6054,7 +6094,7 @@ const HUMAN_ACTION_SCENARIOS: { name: string; run: () => void }[] = [
             table.acting.minionAttrs.strength = table.blockers[0].minionAttrs.strength + 1
             humanDeclares(table, createBleedAction(table.acting, prey))
             expectEqual(table.gameState.action?.reactionsPassed, false, 'passed at declaration')
-            stepBot(prey, new GovernAgent())
+            botPassesBothWindows(table, prey, new GovernAgent())
             expectEqual(getDecidingPlayer(table.gameState), table.human, 'back to the human')
             expectEqual(table.gameState.action?.reactionsPassed, true, 'all passed')
 
@@ -12098,6 +12138,399 @@ const BLOCK_SCENARIOS: { name: string; run: () => void }[] = [
     },
 ]
 
+/**
+ * Modifier decision: my minion bleeds my prey and I decide the stealth and bleed cards. Three Methuselahs,
+ * the hands are controlled and the vampires have no discipline but the ones the cards need.
+ */
+
+type ModifierSetup = {
+    actor?: MinionSetup
+    blockers?: MinionSetup[]
+    // The pool of my prey
+    pool?: number
+    hand: string[]
+    // What my prey does when the window is open: attempts the first block, declines, or is not asked yet
+    prey: 'blocks' | 'declines' | 'waiting'
+    // The stealth of the action once the block stands, when the scenario sets it
+    stealth?: number
+    // A card put in play under my control, for a Nosferatu actor
+    permanent?: string
+    action?: MinionActionType
+}
+
+const OBFUSCATE_INFERIOR: Partial<Disciplines> = {
+    [Discipline.Obfuscate]: DisciplineLevel.INFERIOR,
+}
+
+function modifierBoard(setup: ModifierSetup) {
+    const ring = createRing([
+        setup.permanent ? <DeckList>{ ...MalkavDeck, [setup.permanent]: 2 } : MalkavDeck,
+        MalkavDeck,
+        MalkavDeck,
+    ])
+    const [me, prey] = ring.players
+    const [actor] = addMinions(ring, me, [{ bleed: 3, blood: 5, ...setup.actor }])
+    const blockers = addMinions(ring, prey, setup.blockers ?? [])
+    prey.pool = setup.pool ?? 10
+    if (setup.permanent) {
+        actor.vampireAttrs.clan = 'Nosferatu'
+        ring.gameState.moveCardToRegion(findAnyCard(me, setup.permanent), me.ready)
+    }
+    holdOnly(ring, me, setup.hand)
+    holdOnly(ring, prey, [])
+    for (const player of ring.players) {
+        sealLibrary(ring.gameState, player)
+    }
+    const decision = minionDecisionOf(ring, me)
+    const declare = decision.options.find(
+        option =>
+            option.type == 'declareAction' &&
+            option.action.type == (setup.action ?? MinionActionType.Bleed) &&
+            option.action.actingMinion == actor,
+    )
+    if (!declare) {
+        throw new ScenarioFailure('The action is not offered')
+    }
+    applyOption(decision, declare)
+    const { gameState } = ring
+    if (setup.prey != 'waiting') {
+        const window = passUntilDecides(gameState, prey)
+        applyOption(
+            window,
+            setup.prey == 'blocks' ?
+                (optionsOfType(window.options, 'block').find(
+                    option => option.minion == blockers[0],
+                ) ?? findOption(window.options, 'block'))
+            :   findOption(window.options, 'noBlock'),
+        )
+        if (setup.stealth !== undefined && gameState.action) {
+            gameState.action.stealth = setup.stealth
+        }
+    }
+    return { ring, me, prey, actor, blockers }
+}
+
+type ModifierBoard = ReturnType<typeof modifierBoard>
+
+function modifierWindow(board: ModifierBoard, profile: BotProfile = DEFAULT_PROFILE) {
+    const decision = passUntilDecides(board.ring.gameState, board.me)
+    const view = createPlayerView(board.ring.gameState, board.me)
+    try {
+        const viewDecision = getDecisionPoint(view.gameState, view.player)
+        if (!viewDecision) {
+            throw new ScenarioFailure('No decision in the view')
+        }
+        const judged = judgeModifier(viewDecision, assess(view.gameState, view.player, profile))
+        return { decision, judged }
+    } finally {
+        view.dispose()
+    }
+}
+
+function modifierJudgement(board: ModifierBoard): ModifierJudgement {
+    const { judged } = modifierWindow(board)
+    if (!judged) {
+        throw new ScenarioFailure('The modifier is not judged')
+    }
+    return judged
+}
+
+const chosenModifier = (board: ModifierBoard, profile: BotProfile = DEFAULT_PROFILE): BotOption =>
+    chooseThroughView(
+        modifierWindow(board, profile).decision,
+        new UtilityAgent(MalkavDeck, profile),
+    )
+
+const modifierCard = (option: BotOption) =>
+    option.type == 'playModifier' ? option.modifier.card.krcgId : option.type
+
+const MODIFIER_SCENARIOS: { name: string; run: () => void }[] = [
+    {
+        name: 'Modifier decision: the stealth that flips a block that would cost me the fight is played',
+        run() {
+            const board = modifierBoard({
+                actor: { strength: 1, disciplines: OBFUSCATE_INFERIOR },
+                blockers: [{ strength: 4, intercept: 0 }],
+                hand: [LOST_IN_CROWDS_ID],
+                prey: 'blocks',
+            })
+            expectEqual(modifierCard(chosenModifier(board)), LOST_IN_CROWDS_ID, 'the card')
+            const dear = { ...DEFAULT_PROFILE, plan: { ...DEFAULT_PROFILE.plan, spentCard: 10 } }
+            expectEqual(
+                modifierCard(chosenModifier(board, dear)),
+                'noModifier',
+                'kept at a dear price',
+            )
+        },
+    },
+    {
+        name: 'Modifier decision: the stealth is not played when it cannot flip the block alone ( a card wasted )',
+        run() {
+            const board = modifierBoard({
+                actor: { strength: 1, disciplines: OBFUSCATE_INFERIOR },
+                blockers: [{ strength: 4, intercept: 1 }],
+                hand: [LOST_IN_CROWDS_ID],
+                prey: 'blocks',
+            })
+            expectEqual(modifierCard(chosenModifier(board)), 'noModifier', 'the pass')
+        },
+    },
+    {
+        name: 'Modifier decision: two cards that flip the block together are both played, one then the other',
+        run() {
+            const board = modifierBoard({
+                actor: { strength: 1, disciplines: OBFUSCATE_INFERIOR },
+                blockers: [{ strength: 4, intercept: 1 }],
+                hand: [LOST_IN_CROWDS_ID, FACELESS_NIGHT_ID],
+                prey: 'blocks',
+            })
+            const agent = new UtilityAgent(MalkavDeck)
+            const window = modifierWindow(board).decision
+            const first = chooseThroughView(window, agent)
+            expectEqual(first.type, 'playModifier', 'the first card')
+            applyOption(window, first)
+            const second = chooseThroughView(modifierWindow(board).decision, agent)
+            expectEqual(second.type, 'playModifier', 'the second card')
+        },
+    },
+    {
+        name: 'Modifier decision: a block I would win is left standing when the action is worth less than the fight',
+        run() {
+            const board = modifierBoard({
+                actor: { strength: 6, blood: 8, bleed: 1, disciplines: OBFUSCATE_INFERIOR },
+                blockers: [{ strength: 1, intercept: 0, blood: 2 }],
+                hand: [LOST_IN_CROWDS_ID],
+                prey: 'blocks',
+            })
+            expectEqual(modifierCard(chosenModifier(board)), 'noModifier', 'the pass')
+        },
+    },
+    {
+        name: 'Modifier decision: a bleed bonus waits for the block window of my prey',
+        run() {
+            const board = modifierBoard({
+                actor: { disciplines: { [Discipline.Dominate]: DisciplineLevel.INFERIOR } },
+                hand: [CONDITIONING_ID],
+                prey: 'waiting',
+            })
+            const judged = modifierJudgement(board)
+            expectEqual(judged.option.type, 'noModifier', 'the pass')
+        },
+    },
+    {
+        name: 'Modifier decision: a bleed bonus is played once my prey declined to block',
+        run() {
+            const board = modifierBoard({
+                actor: { disciplines: { [Discipline.Dominate]: DisciplineLevel.INFERIOR } },
+                hand: [CONDITIONING_ID],
+                prey: 'declines',
+            })
+            expectEqual(modifierCard(chosenModifier(board)), CONDITIONING_ID, 'the card')
+        },
+    },
+    {
+        name: 'Modifier decision: a bleed bonus that adds nothing is kept ( the bleed already ousts my prey )',
+        run() {
+            const board = modifierBoard({
+                actor: { disciplines: { [Discipline.Dominate]: DisciplineLevel.INFERIOR } },
+                hand: [CONDITIONING_ID],
+                prey: 'declines',
+                pool: 2,
+            })
+            expectEqual(modifierCard(chosenModifier(board)), 'noModifier', 'the pass')
+        },
+    },
+    {
+        name: 'Modifier decision: a card in play that gives the stealth for free is used before a card of the hand',
+        run() {
+            const board = modifierBoard({
+                actor: { strength: 1, disciplines: OBFUSCATE_INFERIOR },
+                blockers: [{ strength: 4, intercept: 0 }],
+                hand: [LOST_IN_CROWDS_ID],
+                permanent: LABYRINTH_ID,
+                prey: 'blocks',
+            })
+            const judged = modifierJudgement(board)
+            expectEqual(judged.candidates.length, 2, 'the card and the permanent')
+            expectEqual(chosenModifier(board).type, 'lockForAction', 'the permanent')
+        },
+    },
+    {
+        name: 'Modifier decision: a flip that only draws the next blocker is not played ( no stealth left for it )',
+        run() {
+            const board = modifierBoard({
+                actor: { strength: 1, disciplines: OBFUSCATE_INFERIOR },
+                blockers: [
+                    { strength: 4, intercept: 0 },
+                    { strength: 4, intercept: 1 },
+                ],
+                hand: [LOST_IN_CROWDS_ID],
+                prey: 'blocks',
+            })
+            const judged = modifierJudgement(board)
+            expectEqual(judged.option.type, 'noModifier', 'the pass')
+            expectEqual(judged.candidates[0].parts.blocked, 1, 'the next blocker stops it')
+        },
+    },
+    {
+        name: 'Modifier decision: a hunt that a block would stop is flipped when the blood is worth the card',
+        run() {
+            const board = modifierBoard({
+                actor: { strength: 1, blood: 1, disciplines: OBFUSCATE_INFERIOR },
+                blockers: [{ strength: 4, intercept: 1 }],
+                hand: [LOST_IN_CROWDS_ID],
+                action: MinionActionType.Hunt,
+                prey: 'blocks',
+                stealth: 0,
+            })
+            expectEqual(modifierCard(chosenModifier(board)), 'noModifier', 'the pass: needs two')
+            const flip = modifierBoard({
+                actor: { strength: 1, blood: 1, disciplines: OBFUSCATE_INFERIOR },
+                blockers: [{ strength: 4, intercept: 0 }],
+                hand: [LOST_IN_CROWDS_ID],
+                action: MinionActionType.Hunt,
+                prey: 'blocks',
+                stealth: 0,
+            })
+            expectEqual(modifierCard(chosenModifier(flip)), LOST_IN_CROWDS_ID, 'the card')
+        },
+    },
+    {
+        name: 'Modifier decision: the whole action through the agent: the block window is declined, the bonus played, the bleed lands with it',
+        run() {
+            const board = modifierBoard({
+                actor: { disciplines: { [Discipline.Dominate]: DisciplineLevel.INFERIOR } },
+                hand: [CONDITIONING_ID],
+                prey: 'waiting',
+            })
+            const { gameState } = board.ring
+            const agent = new UtilityAgent(MalkavDeck)
+            for (let step = 0; step < 12 && gameState.action; step++) {
+                const decider = getDecidingPlayer(gameState)
+                const decision = decider && getDecisionPoint(gameState, decider)
+                if (!decision) {
+                    throw new ScenarioFailure('Nobody has a decision')
+                }
+                applyOption(decision, chooseThroughView(decision, agent))
+            }
+            expectEqual(gameState.action, null, 'the action is over')
+            expectEqual(board.prey.pool, 5, 'the bleed of 3 and the bonus of 2 landed')
+        },
+    },
+    {
+        name: 'Modifier decision: a block I would win is still flipped when the bleed is worth more than the fight',
+        run() {
+            const board = modifierBoard({
+                actor: { strength: 6, blood: 8, bleed: 5, disciplines: OBFUSCATE_INFERIOR },
+                blockers: [{ strength: 1, intercept: 0, blood: 2 }],
+                hand: [LOST_IN_CROWDS_ID],
+                prey: 'blocks',
+            })
+            const judged = modifierJudgement(board)
+            expectEqual(judged.candidates[0].parts.fight < 0, true, 'the fight is won')
+            expectEqual(modifierCard(chosenModifier(board)), LOST_IN_CROWDS_ID, 'the card')
+        },
+    },
+    {
+        name: 'Modifier decision: a flip that also gets past the next blocker is played',
+        run() {
+            const board = modifierBoard({
+                actor: { strength: 1, disciplines: OBFUSCATE_INFERIOR },
+                blockers: [
+                    { strength: 4, intercept: 0 },
+                    { strength: 4, intercept: 0 },
+                ],
+                hand: [LOST_IN_CROWDS_ID],
+                prey: 'blocks',
+            })
+            const judged = modifierJudgement(board)
+            expectEqual(judged.candidates[0].parts.blocked, 0, 'nobody blocks again')
+            expectEqual(judged.option.type, 'playModifier', 'the card')
+        },
+    },
+    {
+        name: 'Modifier decision: a card that costs more than it brings is kept ( the card has a price )',
+        run() {
+            const board = () =>
+                modifierBoard({
+                    actor: {
+                        bleed: 1,
+                        disciplines: { [Discipline.Dominate]: DisciplineLevel.INFERIOR },
+                    },
+                    hand: [BONDING_ID],
+                    prey: 'declines',
+                    pool: 30,
+                })
+            expectEqual(
+                modifierCard(chosenModifier(board())),
+                BONDING_ID,
+                'played at the default price',
+            )
+            const dear = { ...DEFAULT_PROFILE, plan: { ...DEFAULT_PROFILE.plan, spentCard: 2 } }
+            expectEqual(
+                modifierCard(chosenModifier(board(), dear)),
+                'noModifier',
+                'kept at a dear price',
+            )
+        },
+    },
+    {
+        name: 'Modifier decision: the best level of a card that costs a blood is played, and none when the blood is dear',
+        run() {
+            const board = () =>
+                modifierBoard({
+                    actor: {
+                        bleed: 1,
+                        disciplines: { [Discipline.Dominate]: DisciplineLevel.SUPERIOR },
+                    },
+                    hand: [CONDITIONING_ID],
+                    prey: 'declines',
+                    pool: 30,
+                })
+            const level = (profile: BotProfile) => {
+                const option = chosenModifier(board(), profile)
+                return option.type == 'playModifier' ? modifierLevel(option) : option.type
+            }
+            expectEqual(
+                level(DEFAULT_PROFILE),
+                DisciplineLevel.SUPERIOR,
+                'superior at the default price',
+            )
+            const dear = { ...DEFAULT_PROFILE, plan: { ...DEFAULT_PROFILE.plan, bloodValue: 4 } }
+            expectEqual(level(dear), 'noModifier', 'kept when the blood is dear')
+        },
+    },
+    {
+        name: 'Block window: a Methuselah that does not block says so, and the acting player has the impulse back',
+        run() {
+            const board = blockBoard({
+                actor: { strength: 5, bleed: 1 },
+                blockers: [{ strength: 1, intercept: 1, blood: 3 }],
+            })
+            const window = blockWindow(board).decision
+            const option = chooseThroughView(window, new UtilityAgent(GovernDeck))
+            expectEqual(option.type, 'noBlock', 'declined out loud')
+            applyOption(window, option)
+            expectEqual(
+                getDecidingPlayer(board.ring.gameState),
+                board.predator,
+                'the acting player',
+            )
+        },
+    },
+    {
+        name: 'Block window: with no minion able to block the window is still declined out loud',
+        run() {
+            const board = blockBoard({ actor: { strength: 1, bleed: 3 }, blockers: [] })
+            const option = chooseThroughView(
+                blockWindow(board).decision,
+                new UtilityAgent(GovernDeck),
+            )
+            expectEqual(option.type, 'noBlock', 'declined out loud')
+        },
+    },
+]
+
 function runScenarios(filters: string[]): ScenarioResult[] {
     return [
         ...SCENARIOS,
@@ -12136,6 +12569,7 @@ function runScenarios(filters: string[]): ScenarioResult[] {
         ...COMBAT_PLAN_SCENARIOS,
         ...LIVE_COMBAT_SCENARIOS,
         ...BLOCK_SCENARIOS,
+        ...MODIFIER_SCENARIOS,
     ]
         .filter(({ name }) => filters.some(filter => name.toLowerCase().includes(filter)))
         .map(({ name, run }) => {

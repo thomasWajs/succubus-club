@@ -441,7 +441,11 @@ function reactionImpulseDecision(gameState: GameState, player: Player): Decision
         }
     }
 
-    options.push({ type: 'noReaction' })
+    // Passing the impulse comes second: the block is decided first ( a block attempt, or "no block"
+    // that lets the acting player play modifiers ), only then may the player pass without reacting
+    if (standing || blockStands) {
+        options.push({ type: 'noReaction' })
+    }
     return decision(DecisionKind.ReactionImpulse, player, options)
 }
 
