@@ -23,7 +23,8 @@ import {
 } from '@/client/engine/host.ts'
 import { EngineDeckError, EngineSeatSpec } from '@/client/engine/protocol.ts'
 import { Projection } from '@/client/engine/projection.ts'
-import { runEngine } from '@/client/engine/driver.ts'
+import { engineOpportunities, runEngine } from '@/client/engine/driver.ts'
+import { RemoteEngineHost } from '@/client/engine/remote.ts'
 
 const ENGINE_NB_BOTS = 3
 // The bots' decks are drawn among the engine's full preconstructed decks : the Fifth Edition
@@ -33,6 +34,8 @@ const ENGINE_BOT_DECK = /\((Fifth Edition\b.*|.*Anniversary|Sabbat V5)\)$/
 // Without the trained network's weights, the engine's scripted bots play
 const ENGINE_SCRIPTED_STYLES = ['aggro_bleed', 'wall']
 const ENGINE_NETWORK_STYLE = 'network'
+// The engine server the game is played on ( https://engine.krcg.org ) ; absent, in the browser
+const ENGINE_SERVER = import.meta.env.VITE_ENGINE_SERVER as string | undefined
 
 // Same cards in the same numbers ( a card at 0 copies counts as absent )
 function sameDeck(a: DeckList, b: DeckList): boolean {
@@ -77,7 +80,8 @@ export async function setupEngineGame(): Promise<() => void> {
             ([name, deck]) => ENGINE_BOT_DECK.test(name) && !sameDeck(deck, selfCards),
         ),
     )
-    const policy = await loadEnginePolicy()
+    // On a server, its bots play the network
+    const policy = ENGINE_SERVER ? undefined : await loadEnginePolicy()
 
     resetState()
 
@@ -109,7 +113,7 @@ export async function setupEngineGame(): Promise<() => void> {
         } else {
             const [deckName, deck] = botDecks[botIndex]
             const style =
-                policy ? ENGINE_NETWORK_STYLE : (
+                policy || ENGINE_SERVER ? ENGINE_NETWORK_STYLE : (
                     ENGINE_SCRIPTED_STYLES[botIndex % ENGINE_SCRIPTED_STYLES.length]
                 )
             botIndex++
@@ -123,13 +127,11 @@ export async function setupEngineGame(): Promise<() => void> {
         }
     }
 
-    const host = await LocalEngineHost.create(
-        {
-            seed: Math.floor(Math.random() * 2 ** 32),
-            seats,
-        },
-        policy,
-    )
+    const spec = { seed: Math.floor(Math.random() * 2 ** 32), seats }
+    const host =
+        ENGINE_SERVER ?
+            await RemoteEngineHost.create(spec, ENGINE_SERVER, engineOpportunities.value)
+        :   await LocalEngineHost.create(spec, policy)
     const projection = new Projection(gameState, playersOid)
 
     core.gameStateIsReady = true
