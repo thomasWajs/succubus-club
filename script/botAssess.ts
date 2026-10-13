@@ -250,9 +250,9 @@ if (args.sweep > 0) {
                         if (decision?.kind == DecisionKind.Minion) {
                             const plan = planTurn({
                                 assessment,
-                                candidates: optionsOfType(decision.options, 'declareAction')
-                                    .map(candidateOf)
-                                    .filter(candidate => candidate.kind != 'other'),
+                                candidates: optionsOfType(decision.options, 'declareAction').map(
+                                    candidateOf,
+                                ),
                                 mandatory: !decision.options.some(
                                     option => option.type == 'endPhase',
                                 ),
