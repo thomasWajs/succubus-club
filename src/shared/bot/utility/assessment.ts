@@ -28,6 +28,9 @@ import {
     defenceOf,
     Densities,
     densitiesOf,
+    IdleActor,
+    idleActorsOf,
+    interceptShare,
     toAttackers,
     unlockCardsOf,
 } from '@/shared/bot/utility/defence.ts'
@@ -117,6 +120,9 @@ export type Assessment = {
     held: Record<PlayerOid, CardOid[]>
     // The unlock cards each other Methuselah may hold: a minion that bled can unlock and still defend
     unlocks: Record<PlayerOid, Dist>
+    // For each Methuselah, the minions that may take an action that is not directed on a turn where it can
+    // block it: those of its prey and of its predator. What a minion's guard is read from
+    idle: Record<PlayerOid, IdleActor[]>
 }
 
 /**
@@ -159,6 +165,7 @@ type Context = {
     bloat: Record<PlayerOid, Bloat>
     held: Record<PlayerOid, CardOid[]>
     unlocks: Record<PlayerOid, Dist>
+    idle: Record<PlayerOid, IdleActor[]>
 }
 
 type Forced = { oid: CardOid; returns: boolean }
@@ -237,7 +244,8 @@ function bleedsOn(
 // The minions a Methuselah keeps unlocked on its turn against its own predator, best blockers first. The
 // ones that cannot bleed are kept for free. Each next one is kept while it is worth more at home than
 // out bleeding: the pool it saves ( the lunge it stops, more than the pool it would drain, see
-// `caution` ) plus its guard against the actions that are not bleeds; or, when an ouster is at hand,
+// `caution` ) plus its guard against the actions that are not bleeds ( the share of them its intercept
+// stops ); or, when an ouster is at hand,
 // while it lowers that chance enough. Far from an ouster it still defends: a bleed that lands weakens
 // it for the rest of the game. The predator is assumed to send everything ( no reserve of its own: the
 // recursion stops here, which makes the reserve a little larger than it would be ).
@@ -288,7 +296,8 @@ function reserveOf(
     while (kept < order.length) {
         const next = lungeWith(kept + 1)
         const saved = lastingFor(result, owner) - lastingFor(next, owner)
-        const worth = saved * caution + guard >= Math.max(drainOf(order[kept]), action)
+        const stops = interceptShare(order[kept].intercept.general, context.idle[owner.oid] ?? [])
+        const worth = saved * caution + guard * stops >= Math.max(drainOf(order[kept]), action)
         const urgent =
             chanceOfLossAtLeast(result, owner.pool) > tolerance &&
             chanceOfLossAtLeast(result, owner.pool) - chanceOfLossAtLeast(next, owner.pool) >=
@@ -464,6 +473,7 @@ function contextOf(assessment: Assessment): Context {
         bloat: assessment.bloat,
         held: assessment.held,
         unlocks: assessment.unlocks,
+        idle: assessment.idle,
     }
 }
 
@@ -513,6 +523,26 @@ function ringOf(table: TableSnapshot): MethuselahSnapshot[] {
     return [table.me, ...table.others]
 }
 
+// The minions of the prey and of the predator of each Methuselah: the ones whose actions it may block
+function idleOf(
+    table: TableSnapshot,
+    densities: Record<PlayerOid, Densities>,
+    profile: BotProfile,
+): Record<PlayerOid, IdleActor[]> {
+    const ring = ringOf(table)
+    const actors = ring.map(methuselah =>
+        idleActorsOf(methuselah, densities[methuselah.oid], profile),
+    )
+    const idle: Record<PlayerOid, IdleActor[]> = {}
+    for (let index = 0; index < ring.length; index++) {
+        const prey = (index + 1) % ring.length
+        const predator = (index - 1 + ring.length) % ring.length
+        const neighbours = [...new Set([prey, predator])]
+        idle[ring[index].oid] = neighbours.flatMap(other => actors[other])
+    }
+    return idle
+}
+
 export function assessSnapshot(table: TableSnapshot, profile: BotProfile): Assessment {
     const { me } = table
     const densities: Record<PlayerOid, Densities> = {}
@@ -523,7 +553,8 @@ export function assessSnapshot(table: TableSnapshot, profile: BotProfile): Asses
         bloat[methuselah.oid] = bloatOf(methuselah, densities[methuselah.oid], profile)
         power[methuselah.oid] = powerOf(methuselah, profile, bloat[methuselah.oid])
     }
-    const context: Context = { table, profile, densities, bloat, held: {}, unlocks: {} }
+    const idle = idleOf(table, densities, profile)
+    const context: Context = { table, profile, densities, bloat, held: {}, unlocks: {}, idle }
     // Who keeps what back, read from the lunge of each one's predator before the rest uses it
     const held: Record<PlayerOid, CardOid[]> = {}
     const unlocks: Record<PlayerOid, Dist> = {}
@@ -606,6 +637,7 @@ export function assessSnapshot(table: TableSnapshot, profile: BotProfile): Asses
         rescues,
         held,
         unlocks,
+        idle,
     }
 }
 

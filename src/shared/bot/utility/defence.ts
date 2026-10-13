@@ -1,3 +1,4 @@
+import { UNDIRECTED_STEALTH } from '@/shared/state/minionActions.ts'
 import { Effect, PlaySummary, Role, waysUsableBy } from '@/shared/bot/utility/summaries.ts'
 import { MinionProfile, profileMatches } from '@/shared/bot/utility/minionProfile.ts'
 import {
@@ -216,6 +217,42 @@ export function interceptReserve(
             )
         :   exact(0)
     return hidden.map(({ value, p }) => ({ value: value + standing, p }))
+}
+
+// A minion that may take an action that is not directed ( a hunt, a recruit, an equip ): the stealth it
+// starts with, and the stealth points its Methuselah may add with cards and permanents
+export type IdleActor = { stealth: number; points: Dist }
+
+export function idleActorsOf(
+    owner: MethuselahSnapshot,
+    densities: Densities,
+    profile: BotProfile,
+): IdleActor[] {
+    return readyMinions(owner).map(minion => {
+        const kit = attackKitOf(owner, [minion], densities, profile)
+        return {
+            stealth: Math.max(0, UNDIRECTED_STEALTH + minion.undirectedStealth),
+            points: kit.stealth.map(({ value, p }) => ({ value: value + kit.standingStealth, p })),
+        }
+    })
+}
+
+// The share of those actions that a block at this intercept stops: it needs to match the stealth, which
+// the cards of the acting side may raise past it
+export function interceptShare(intercept: number, actors: IdleActor[]): number {
+    if (actors.length == 0) {
+        return 0
+    }
+    let total = 0
+    for (const actor of actors) {
+        const margin = intercept - actor.stealth
+        for (const { value, p } of actor.points) {
+            if (value <= margin) {
+                total += p
+            }
+        }
+    }
+    return total / actors.length
 }
 
 // The minions that can bleed now ( unlocked ), or on the next turn of the Methuselah ( all the ready

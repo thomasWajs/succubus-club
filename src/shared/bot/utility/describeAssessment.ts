@@ -1,3 +1,4 @@
+import { MinionActionType } from '@/shared/types/state.ts'
 import { Assessment, survivalCurve } from '@/shared/bot/utility/assessment.ts'
 import { MinionProfile } from '@/shared/bot/utility/minionProfile.ts'
 import { everyone, MethuselahSnapshot } from '@/shared/bot/utility/snapshot.ts'
@@ -86,7 +87,9 @@ export function describeTurnPlan(plan: TurnPlan): string[] {
 }
 
 function describeAction(action: PlannedAction): string {
-    return `${action.actor.name} ${action.kind} ( ${fixed(action.value)} )`
+    const { action: played } = action.option
+    const card = played.type == MinionActionType.ActionCardFromHand ? ` ${played.card.name}` : ''
+    return `${action.actor.name} ${action.kind}${card} ( ${fixed(action.value)} )`
 }
 
 export function describeAssessment(assessment: Assessment): string[] {

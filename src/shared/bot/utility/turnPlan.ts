@@ -9,12 +9,13 @@ import {
     TurnOutcome,
 } from '@/shared/bot/utility/assessment.ts'
 import { bloodChange } from '@/shared/bot/utility/bloat.ts'
+import { CardPlay, cardPlayOf, PlayValues } from '@/shared/bot/utility/cardActions.ts'
 import { fightRisk } from '@/shared/bot/utility/combatPosition.ts'
+import { interceptShare } from '@/shared/bot/utility/defence.ts'
 import { BleedGain, costOfLunge, gainOfBleeds, LungeCost } from '@/shared/bot/utility/equity.ts'
 import { MinionProfile } from '@/shared/bot/utility/minionProfile.ts'
 import { returnWorth } from '@/shared/bot/utility/rescue.ts'
 import { unlockedMinions } from '@/shared/bot/utility/snapshot.ts'
-import { summarizeCard } from '@/shared/bot/utility/summaries.ts'
 
 /**
  * The turn plan: at the start of the minion phase, and again
@@ -38,12 +39,19 @@ export type Candidate = {
     target?: CardOid
     // The blood the acting minion pays for a rescue
     paid: number
+    // The card of the hand it plays, and what the catalog says of that play ( none for a card it does not describe )
+    card?: CardOid
+    play?: CardPlay
 }
 
 export function candidateOf(option: BotOptionOf<'declareAction'>): Candidate {
     const { action } = option
     const actor = action.actingMinion.oid
     switch (action.type) {
+        case MinionActionType.ActionCardFromHand: {
+            const play = cardPlayOf(action) ?? undefined
+            return { kind: 'other', option, actor, paid: 0, card: action.card.oid, play }
+        }
         case MinionActionType.Bleed:
             return { kind: 'bleed', option, actor, paid: 0 }
         case MinionActionType.Hunt:
@@ -81,6 +89,16 @@ export type PlannedAction = {
     option: BotOptionOf<'declareAction'>
 }
 
+// What a play uses up: its card, and the vampire it puts blood on ( two minions do not fill the same one )
+function claimsOf(candidate: Candidate): string[] {
+    const { card, play } = candidate
+    const recruit = play?.summary.roles.includes('recruit') ? play.target : undefined
+    return [card, recruit].filter(claim => claim !== undefined)
+}
+
+// A minion that does something else than bleed
+export type Doing = { minion: MinionProfile; idle: Idle }
+
 // One way to keep the turn: these minions stay unlocked, the others act
 export type ReserveCase = {
     kept: MinionProfile[]
@@ -94,6 +112,7 @@ export type ReserveCase = {
     combat: number
     // What the minions that do something else than bleed bring
     idle: number
+    doing: Doing[]
     // What the kept minions are worth against the actions that are not bleeds
     guard: number
     lunge: LungeCost
@@ -142,24 +161,15 @@ function rescueValue(assessment: Assessment, candidate: Candidate): number {
     )
 }
 
-// What an action of a card of the hand is worth: the placeholder of the profile, raised by the best
-// role of the card
-function cardActionValue(assessment: Assessment, candidate: Candidate): number {
-    const { plan } = assessment.profile
-    const { action } = candidate.option
-    const summary =
-        action.type == MinionActionType.ActionCardFromHand ? summarizeCard(action.card) : undefined
-    const roles = summary?.plays.flatMap(play => play.roles) ?? []
-    return Math.max(plan.cardAction, ...roles.map(role => plan.cardActionByRole[role] ?? 0))
-}
-
-// What a minion does when it does not bleed: hunt, rescue, or the card the base rules would play
-export type Idle = { kind: ActionKind; value: number; candidate: Candidate }
+// What a minion does when it does not bleed: hunt, rescue, or play a card. `unblocked` is the value if no
+// one blocks the action ( a hunt or a rescue is not weighed against the blocks )
+export type Idle = { kind: ActionKind; value: number; unblocked: number; candidate: Candidate }
 
 export function idleOf(
     assessment: Assessment,
     minion: MinionProfile,
     own: Candidate[],
+    values: PlayValues,
 ): Idle | null {
     const options = own.flatMap((candidate): Idle[] => {
         switch (candidate.kind) {
@@ -172,12 +182,14 @@ export function idleOf(
                     room,
                     assessment.bloat[assessment.table.me.oid],
                 )
-                return [{ kind: 'hunt', value, candidate }]
+                return [{ kind: 'hunt', value, unblocked: value, candidate }]
             }
-            case 'rescue':
-                return [{ kind: 'rescue', value: rescueValue(assessment, candidate), candidate }]
+            case 'rescue': {
+                const value = rescueValue(assessment, candidate)
+                return [{ kind: 'rescue', value, unblocked: value, candidate }]
+            }
             case 'other':
-                return [{ kind: 'other', value: cardActionValue(assessment, candidate), candidate }]
+                return [{ kind: 'other', ...values.valueOf(candidate), candidate }]
             default:
                 return []
         }
@@ -266,10 +278,12 @@ export function planTurn(input: PlanInput): TurnPlan {
     const acting = unlocked.filter(minion => byActor.has(minion.oid))
     // A minion with nothing to do is home whatever the plan says
     const stuck = unlocked.filter(minion => !byActor.has(minion.oid))
+    const prey = table.prey
+    const values = new PlayValues(assessment)
     const idles = new Map(
         acting.map(minion => [
             minion.oid,
-            idleOf(assessment, minion, byActor.get(minion.oid) ?? []),
+            idleOf(assessment, minion, byActor.get(minion.oid) ?? [], values),
         ]),
     )
     const idleValue = (minion: MinionProfile) => Math.max(0, idles.get(minion.oid)?.value ?? 0)
@@ -278,7 +292,6 @@ export function planTurn(input: PlanInput): TurnPlan {
     const canBleed = (minion: MinionProfile) =>
         !!bleedCandidate(minion) && minion.bleed > 0 && minion.blood > 0
 
-    const prey = table.prey
     const bounceRisk = prey ? (assessment.opportunity[prey.oid]?.chanceOfBounce ?? 0) : 0
     // The best blockers are kept first ( intercept against bleeds, then strength for the fight that
     // follows ), the cheapest to idle before the others
@@ -329,10 +342,26 @@ export function planTurn(input: PlanInput): TurnPlan {
             }
         }
 
-        // The others do their idle action when it is worth something, else they stay home
-        const doers = actors.filter(minion => !bleeders.includes(minion) && idleValue(minion) > 0)
-        const idle = doers.reduce((total, minion) => total + idleValue(minion), 0)
-        const home = actors.filter(minion => !bleeders.includes(minion) && !doers.includes(minion))
+        // The others do their idle action when it is worth something, else they stay home. Two minions do not
+        // play the same card
+        const taken = new Set<string>()
+        const doing: Doing[] = []
+        for (const minion of actors
+            .filter(minion => !bleeders.includes(minion))
+            .toSorted((a, b) => idleValue(b) - idleValue(a))) {
+            const own = (byActor.get(minion.oid) ?? []).filter(
+                candidate => !claimsOf(candidate).some(claim => taken.has(claim)),
+            )
+            const idle = idleOf(assessment, minion, own, values)
+            if (idle && idle.value > 0) {
+                doing.push({ minion, idle })
+                claimsOf(idle.candidate).forEach(claim => taken.add(claim))
+            }
+        }
+        const idle = doing.reduce((total, one) => total + one.idle.value, 0)
+        const home = actors.filter(
+            minion => !bleeders.includes(minion) && !doing.some(one => one.minion == minion),
+        )
         const stay = bleeders.toSorted(blocker).slice(0, unlockCards)
         const defence = [...stuck, ...kept, ...home, ...stay]
         const outcome: TurnOutcome = outcomeOfTurn(assessment, {
@@ -345,7 +374,12 @@ export function planTurn(input: PlanInput): TurnPlan {
         const woken = Math.min(wakeCards, asleep, Math.max(0, outcome.blocks - defence.length))
         const cards = (woken + stay.length) * weights.spentCard
         const lunge = costOfLunge(assessment, outcome)
-        const guard = weights.guard * kept.length
+        let guard = 0
+        for (const minion of kept) {
+            guard +=
+                weights.guard *
+                interceptShare(minion.intercept.general, assessment.idle[me.oid] ?? [])
+        }
         return {
             kept,
             unlocked: stay,
@@ -354,6 +388,7 @@ export function planTurn(input: PlanInput): TurnPlan {
             bleeds,
             combat,
             idle,
+            doing,
             guard,
             lunge,
             cards,
@@ -395,12 +430,8 @@ export function planTurn(input: PlanInput): TurnPlan {
                 const candidate = bleedCandidate(minion)
                 return candidate ? planned(candidate, best.marginals.get(minion.oid) ?? 0) : []
             }),
-        ...order
-            .filter(minion => !best.kept.includes(minion) && !best.bleeders.includes(minion))
-            .flatMap(minion => {
-                const idle = idles.get(minion.oid)
-                return idle && idle.value > 0 ? planned(idle.candidate, idle.value) : []
-            })
+        ...best.doing
+            .flatMap(one => planned(one.idle.candidate, one.idle.value))
             .toSorted((a, b) => b.value - a.value),
     ]
     const threshold = weights.postureAt

@@ -60,12 +60,3 @@ export function combatStartGain(
         :   forecastFight(mine, theirs, profile)
     return -netLoss(forecast, start.targetActs ? 'defending' : 'acting', profile)
 }
-
-// Is the action, if it starts a combat, one that the position allows
-export function combatStartAllowed(assessment: Assessment, candidate: Candidate): boolean {
-    const start = combatStartOf(candidate)
-    return (
-        !start ||
-        combatStartGain(assessment, candidate, start) >= assessment.profile.combat.enterMargin
-    )
-}

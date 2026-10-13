@@ -43,7 +43,7 @@ export const ROLES = [
     'stealth',
     'poolSteal',
     'combatStarter',
-    // Brings a younger vampire out of the uncontrolled region
+    // Puts blood on a younger vampire of the uncontrolled region
     'recruit',
     // Blood or pool back for me
     'sustain',

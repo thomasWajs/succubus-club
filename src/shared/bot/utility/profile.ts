@@ -31,7 +31,8 @@ export type ReservePrior = {
     // How many points of its own pool are worth a point it drains from its prey: what it loses defends
     // more than what it takes attacks ( it plays for the whole game )
     caution: number
-    // What a minion kept unlocked is worth per turn against the actions that are not bleeds, in pool
+    // What a minion kept unlocked is worth per turn against the actions that are not bleeds, in pool, if its
+    // intercept stops all of them: it counts for the share of them it does stop
     guard: number
     // What a minion does with its turn if it does not bleed ( hunts, equips ), in pool: a minion stays
     // home only when that is worth more than this and than the bleed it would do
@@ -76,14 +77,12 @@ export type HelpersPrior = {
 export type PlanWeights = {
     // A point of my own pool that I lose counts this many points of pool taken from my prey
     caution: number
-    // What a minion kept unlocked is worth per turn against the actions that are not bleeds
+    // What a minion kept unlocked is worth per turn against the actions that are not bleeds, if its intercept
+    // stops all of them: it counts for the share of them it does stop
     guard: number
-    // What an action of a minion that is not a bleed, a hunt or a rescue is worth ( an equipment, a
-    // recruit... ): a placeholder: the cards themselves are not valued one by one. The action card of the
-    // hand is worth the best of this and of the roles it has in `cardActionByRole`: a recruit brings a
-    // vampire in play, which is worth far more than the average action
+    // What a further action of a minion is worth: the action card that nothing describes ( cardActions.ts ),
+    // or the unlock of a minion that acted
     cardAction: number
-    cardActionByRole: Partial<Record<Role, number>>
     // A point of blood, in pool
     bloodValue: number
     // What being ousted costs, in pool: the rest of the game. Also the worth of winning the game when my
@@ -164,6 +163,28 @@ export type ReactionWeights = {
     margin: number
 }
 
+// How the action cards of my hand are judged ( cardActions.ts ). Draft numbers
+export type CardWeights = {
+    // A point that a card adds to the bleed of its minion, in pool: the card is played as an action of its own
+    perBleedPoint: number
+    // A point of blood put on a vampire of the uncontrolled region: it will cost that much less to influence it,
+    // worth `bloodOnUncontrolled` for the vampire with the most capacity, less for a smaller one
+    bloodOnUncontrolled: number
+    // ... less `crowd` of that for each minion I already control beyond the first, down to `crowdFloor`
+    crowd: number
+    crowdFloor: number
+    // The turns an equipment or a retainer is expected to serve before its bearer is lost
+    stay: number
+    // What a point of each bonus it gives is worth per turn, as often as the bearer fights. The intercept has no
+    // number: it is read from the blocks it makes ( cardActions.ts )
+    perStrength: number
+    perDamage: number
+    perPrevention: number
+    perWeaponDamage: number
+    // What a life counter of a retainer is worth, once: the damage it soaks is blood saved
+    perLife: number
+}
+
 export type BotProfile = {
     name: string
     // Temperature of the softmax pick among the scored options, 0 = always the best one
@@ -183,6 +204,7 @@ export type BotProfile = {
     block: BlockWeights
     modifier: ModifierWeights
     reaction: ReactionWeights
+    cards: CardWeights
 }
 
 export const DEFAULT_PROFILE: BotProfile = {
@@ -224,7 +246,6 @@ export const DEFAULT_PROFILE: BotProfile = {
         caution: 1,
         guard: 0.3,
         cardAction: 1.5,
-        cardActionByRole: { recruit: 5 },
         bloodValue: 0.5,
         oustedCost: 15,
         spentCard: 0.5,
@@ -248,4 +269,16 @@ export const DEFAULT_PROFILE: BotProfile = {
     block: { margin: 0.25 },
     modifier: { margin: 0.25, abilityUse: 0.1 },
     reaction: { margin: 0.25 },
+    cards: {
+        perBleedPoint: 2.5,
+        bloodOnUncontrolled: 3,
+        crowd: 0.15,
+        crowdFloor: 0.3,
+        stay: 3,
+        perStrength: 0.3,
+        perDamage: 0.3,
+        perPrevention: 0.15,
+        perWeaponDamage: 0.15,
+        perLife: 0.35,
+    },
 }

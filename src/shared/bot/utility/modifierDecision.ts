@@ -18,6 +18,7 @@ import { attackKitOf, defenceOf, interceptReserve } from '@/shared/bot/utility/d
 import { gainOfBleeds } from '@/shared/bot/utility/equity.ts'
 import { ExplainCandidate } from '@/shared/bot/utility/explain.ts'
 import { MinionProfile } from '@/shared/bot/utility/minionProfile.ts'
+import { PlayValues } from '@/shared/bot/utility/cardActions.ts'
 import { candidateOf, idleOf } from '@/shared/bot/utility/turnPlan.ts'
 
 /**
@@ -197,9 +198,12 @@ function playStealth(context: Context, blocker: CardOid): ModifierJudgement {
     const onPrey = isBleed(minionAction) && minionAction.target?.oid == table.prey?.oid
     const worth =
         onPrey ? 0 : (
-            (idleOf(assessment, actor, [
-                candidateOf({ type: 'declareAction', action: minionAction }),
-            ])?.value ?? 0)
+            (idleOf(
+                assessment,
+                actor,
+                [candidateOf({ type: 'declareAction', action: minionAction })],
+                new PlayValues(assessment),
+            )?.unblocked ?? 0)
         )
     const kit = attackKitOf(table.me, [actor], densities[table.me.oid], profile)
     // The standing intercept of the cards in play is part of the reserve, not of this defence

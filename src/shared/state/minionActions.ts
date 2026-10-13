@@ -112,6 +112,9 @@ export function isDirected(action: MinionAction): boolean {
     return !isUndirected(action)
 }
 
+// The stealth of an action that is not directed at anyone: a hunt, a recruit, an equip, a political action
+export const UNDIRECTED_STEALTH = 1
+
 // A vampire can have a stealth of its own for the actions that are not directed
 export function getDefaultStealth(action: MinionAction): number {
     const own =
@@ -141,7 +144,7 @@ function baseStealth(action: MinionAction): number {
             return textStealth
         }
     }
-    return isUndirected(action) ? 1 : 0
+    return isUndirected(action) ? UNDIRECTED_STEALTH : 0
 }
 
 export function isBleed(action: MinionAction): boolean {

@@ -8,17 +8,15 @@ import {
     optionsOfType,
 } from '@/shared/bot/types.ts'
 import { DeckList } from '@/shared/types/gateway.ts'
-import { CardOid } from '@/shared/types/model.ts'
 import { BotProfile, DEFAULT_PROFILE } from '@/shared/bot/utility/profile.ts'
 import { createLedger, TableLedger } from '@/shared/bot/utility/ledger.ts'
 import { ExplainCandidate, ExplainSink } from '@/shared/bot/utility/explain.ts'
 import { Assessment, assess } from '@/shared/bot/utility/assessment.ts'
 import { unlockCardsOf } from '@/shared/bot/utility/defence.ts'
 import { readyMinions } from '@/shared/bot/utility/snapshot.ts'
-import { Candidate, candidateOf, planTurn, TurnPlan } from '@/shared/bot/utility/turnPlan.ts'
+import { candidateOf, planTurn } from '@/shared/bot/utility/turnPlan.ts'
 import { describeTurnPlan } from '@/shared/bot/utility/describeAssessment.ts'
 import { chooseLiveCombat } from '@/shared/bot/utility/liveCombat.ts'
-import { combatStartAllowed } from '@/shared/bot/utility/enterCombat.ts'
 import { judgeBlock } from '@/shared/bot/utility/blockDecision.ts'
 import { judgeModifier } from '@/shared/bot/utility/modifierDecision.ts'
 import { judgeReaction, judgeTrigger } from '@/shared/bot/utility/reactionDecision.ts'
@@ -47,9 +45,8 @@ type Choice = {
  * The utility bot. The scorer takes over decision
  * kind by decision kind; the kinds it does not handle yet go to the fallback agent ( the Govern rules
  * by default: the base agent never plays, so no game would end ). The minion phase is the turn plan's:
- * who stays unlocked to defend, who bleeds, hunts or rescues. The action cards of the hand still go
- * through the fallback, except the ones that start a combat, which the position
- * of the fight must allow ( enterCombat.ts ). The windows of a combat are the plan's ( combatPlan.ts ),
+ * who stays unlocked to defend, who bleeds, hunts, rescues or plays an action card, each valued in pool
+ * ( cardActions.ts ), a combat starter only when the position of the fight allows it ( enterCombat.ts ). The windows of a combat are the plan's ( combatPlan.ts ),
  * the block attempts are a judgement of what they save and cost ( blockDecision.ts ), and the stealth
  * and bleed cards of my own actions are played when they pay ( modifierDecision.ts ), and so are the
  * reaction cards, the cards in play, the window after a block and the triggers ( reactionDecision.ts ).
@@ -130,54 +127,15 @@ export class UtilityAgent implements BotAgent {
         return { option: this.fallback.choose(context.decision), note: 'fallback rules' }
     }
 
-    // The action card that the base rules would play, among the actions of the minions that are not in
-    // `excluded` ( the plan keeps them home )
-    private suggestCard(
-        decision: DecisionPoint,
-        cards: Candidate[],
-        excluded: Set<CardOid>,
-    ): Candidate | null {
-        const endPhase = decision.options.find(option => option.type == 'endPhase')
-        const open = cards.filter(card => !excluded.has(card.actor))
-        if (!endPhase || open.length == 0) {
-            return null
-        }
-        const pick = this.fallback.choose({
-            ...decision,
-            options: [...open.map(card => card.option), endPhase],
-        })
-        return open.find(card => card.option == pick) ?? null
-    }
-
     private minionPhase(context: DecisionContext): Choice {
         const { decision, assessment } = context
         const { me } = assessment.table
         const candidates = optionsOfType(decision.options, 'declareAction').map(candidateOf)
-        const cards = candidates.filter(
-            candidate => candidate.kind == 'other' && combatStartAllowed(assessment, candidate),
-        )
-        const plain = candidates.filter(candidate => candidate.kind != 'other')
         const endPhase = decision.options.find(option => option.type == 'endPhase')
         const unlockCards =
             unlockCardsOf(me, readyMinions(me), assessment.densities[me.oid])[0]?.value ?? 0
 
-        // The card action goes to a minion the plan does not keep home: ask again without the ones it keeps
-        const excluded = new Set<CardOid>()
-        let plan: TurnPlan
-        for (;;) {
-            const suggestion = this.suggestCard(decision, cards, excluded)
-            plan = planTurn({
-                assessment,
-                candidates: suggestion ? [...plain, suggestion] : plain,
-                mandatory: !endPhase,
-                unlockCards,
-            })
-            const kept = plan.reserved.find(minion => minion.oid == suggestion?.actor)
-            if (!suggestion || !kept) {
-                break
-            }
-            excluded.add(kept.oid)
-        }
+        const plan = planTurn({ assessment, candidates, mandatory: !endPhase, unlockCards })
 
         const next = plan.actions[0]
         return {
