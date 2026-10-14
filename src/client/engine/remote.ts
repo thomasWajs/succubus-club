@@ -8,6 +8,7 @@
 
 import type {
     Card as ApiCard,
+    CardRef,
     Decision,
     Event,
     GameSpec,
@@ -329,6 +330,25 @@ export class RemoteEngineHost implements EngineHost {
         return undefined
     }
 
+    // A card the option names by its id only ( copies alike in hand are one option ) : the first
+    // copy of it in the user's hand, or stored on the card it is played from
+    private copyOf(c: CardRef): number | null {
+        if (c.copy != null) {
+            return c.copy
+        }
+        const seats = this.view?.seats ?? []
+        if (c.from != null) {
+            const all = seats.flatMap(s => [
+                ...s.in_play,
+                ...[...s.ready, ...s.torpor].flatMap(m => m.cards),
+            ])
+            const on = all.find(p => p.card.copy == c.from)
+            return on?.stored?.find(x => x.id == c.id)?.copy ?? null
+        }
+        const mine = seats.find(s => s.seat == this.view?.viewer)
+        return mine?.hand.find(x => x.id == c.id)?.copy ?? null
+    }
+
     private target(t: Target): EngineTarget {
         if (t.kind == 'seat') {
             return { kind: 'seat', seat: t.seat }
@@ -346,11 +366,8 @@ export class RemoteEngineHost implements EngineHost {
         const k = o
         const out: EngineOption = { index: o.index, kind: k.kind, text: o.text ?? '' }
         if (k.card) {
-            out.card = {
-                id: k.card.id ?? null,
-                copy: k.card.copy ?? null,
-                card_id: k.card.copy ?? null,
-            }
+            const copy = this.copyOf(k.card)
+            out.card = { id: k.card.id ?? null, copy, card_id: copy }
         }
         if (k.minion != null) {
             out.minion = k.minion
