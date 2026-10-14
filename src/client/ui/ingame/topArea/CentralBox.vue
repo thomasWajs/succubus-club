@@ -159,7 +159,11 @@ const centralContent = computed(() => ({
         multiplayer.selfIsHost &&
         !timer.timerChosen.value &&
         gameState.timerStartTime === null,
-    nextTurn: gameState.turnPhase == TurnPhase.Discard && players.selfIsActive,
+    // Not with the rules engine : its Pass ends the discard phase
+    nextTurn:
+        gameState.turnPhase == TurnPhase.Discard &&
+        players.selfIsActive &&
+        gameState.gameType != GameType.Engine,
     theEdge:
         !turnNotificationVisible.value &&
         gameState.turnPhase == TurnPhase.Unlock &&

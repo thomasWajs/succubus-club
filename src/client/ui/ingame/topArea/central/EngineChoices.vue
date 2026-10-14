@@ -96,12 +96,18 @@
             </div>
         </CentralPanel>
 
-        <!-- A value for X -->
+        <!-- A value for X, or what the card asks an amount of ( its prompt : Villein's blood ) -->
         <CentralPanel
             v-if="xValues.length > 0"
             class="engine-choices"
-            title="Choose X"
+            :title="pending.prompt ? pending.window : 'Choose X'"
         >
+            <div
+                v-if="pending.prompt"
+                class="engine-choices-prompt"
+            >
+                <EngineText :text="pending.prompt" />
+            </div>
             <div class="engine-choices-row">
                 <button
                     class="game-button small"

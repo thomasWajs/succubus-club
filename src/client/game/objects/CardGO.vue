@@ -31,7 +31,11 @@
         "
         :texture="displayedTexture.textureName"
         :frame="displayedTexture.frameName"
-        :alpha="dragAttrs.isDragging ? CARD_DRAGGING_ALPHA : 1"
+        :alpha="
+            dragAttrs.isDragging ? CARD_DRAGGING_ALPHA
+            : inLimbo ? LIMBO_ALPHA
+            : 1
+        "
         :scale="dragAttrs.isDragging ? dragAttrs.cardScale : cardAttrs.scale"
         :rotation="cardAttrs.rotation"
         :tween="rotationTween"
@@ -78,7 +82,7 @@
     />
 
     <!-- Blood Counter -->
-    <template v-if="card.blood > 0 || (card.isMinion() && !isTweening)">
+    <template v-if="card.blood > 0 || (card.isMinion() && !isTweening && !inLimbo)">
         <!-- Red Circle -->
         <Circle
             ref="bloodCounterCircle"
@@ -333,6 +337,7 @@ import FxCardCost from './FxCardCost.vue'
 import { useCardTexture } from '@/client/game/composables/useCardTexture.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
 import { engineClaims, engineGlow, engineHighlight } from '@/client/engine/interaction.ts'
+import { useEngineStore } from '@/client/store/engine.ts'
 import Pointer = Phaser.Input.Pointer
 
 const { card, regionName } = defineProps<{
@@ -451,6 +456,9 @@ function startRotationTween(newAttrs: CardAttrs, oldAttrs: CardAttrs) {
 
 // In a game with the rules engine, what the engine allows ( see engineGlow )
 const engineGlowColor = computed(() => engineGlow(card))
+// A card on its way to play ( an engine's limbo ) : faded, no counter, until it resolves
+const LIMBO_ALPHA = 0.6
+const inLimbo = computed(() => useEngineStore().limbo.includes(card.oid))
 
 const showGlowEffect = computed(
     () =>

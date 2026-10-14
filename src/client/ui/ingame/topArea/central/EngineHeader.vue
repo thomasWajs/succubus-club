@@ -16,6 +16,14 @@
             Bleed {{ bleed }}
         </span>
 
+        <!-- During an influence phase, the transfers left -->
+        <span
+            v-if="engine.transfers !== null"
+            class="engine-header-bleed"
+        >
+            {{ engine.transfers }} {{ engine.transfers == 1 ? 'transfer' : 'transfers' }} left
+        </span>
+
         <!-- The user's decision, or who the engine waits for -->
         <span
             class="engine-header-state"

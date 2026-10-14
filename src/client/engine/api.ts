@@ -1230,6 +1230,8 @@ export type TableView = {
     phase: Phase
     referendum?: ReferendumView | null
     seats: SeatView[]
+    /** The active seat's transfers left, during its influence phase. */
+    transfers?: number | null
     /** Game turn, from 1. */
     turn: number
     /** The viewing seat; absent: every card shown (records, tests). */

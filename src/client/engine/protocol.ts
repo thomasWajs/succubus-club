@@ -100,6 +100,7 @@ export type EngineView = {
     active: number
     phase: EnginePhase
     seats: EngineSeat[]
+    transfers?: number // The active seat's transfers left, during its influence phase
     action: {
         seat: number
         acting: number

@@ -524,6 +524,7 @@ export class RemoteEngineHost implements EngineHost {
                         x: v.action.x ?? undefined,
                     }
                 :   null,
+            transfers: v.transfers ?? undefined,
             combat:
                 v.combat ?
                     {

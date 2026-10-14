@@ -163,6 +163,10 @@ export function matchGesture(
             const amount = params.amount as number
             if (card?.isIn.uncontrolled) {
                 found = kind(amount > 0 ? 'transfer' : 'withdraw').filter(n => is(n.card, card))
+                // Its "Influence" button with no transfer left to make : bring it out, if it can
+                if (found.length == 0 && gameMutation.name == 'influence' && amount > 0) {
+                    found = kind('influence_out').filter(n => is(n.card, card))
+                }
             } else if (card) {
                 found = all.filter(n => names(n, card))
                 // Blood moved onto or off a vampire : the ability moving it that way, if any

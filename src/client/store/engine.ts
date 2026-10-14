@@ -57,10 +57,16 @@ export const useEngineStore = defineStore('engine', {
         result: null as number[] | null,
         // The referendum under way : its card and the terms chosen, as lines
         terms: [] as string[],
+        // The referendum card's text : what passing does
+        referendumText: '',
         // The cards played during the action under way, by whom ( the log's line ), until it is over
         played: [] as { decision: number; player: string; text: string; option: EngineOption }[],
+        // The cards on their way to play ( limbo ), by oid : not in play yet
+        limbo: [] as string[],
         // During a bleed, its amount ( the engine's, a card's bleed too )
         bleed: null as number | null,
+        // During an influence phase, the active seat's transfers left
+        transfers: null as number | null,
         // A block's combat is under way ( whoever decides now )
         inCombat: false,
         // Why the user's last move on the table was no decision, for a moment ( beside the Pass )

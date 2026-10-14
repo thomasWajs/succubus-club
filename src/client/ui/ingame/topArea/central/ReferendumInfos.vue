@@ -13,6 +13,12 @@
             >
                 <EngineText :text="line" />
             </div>
+            <div
+                v-if="engine.referendumText"
+                class="referendum-card-text"
+            >
+                {{ engine.referendumText }}
+            </div>
         </div>
         <div class="referendum-body">
             <!--
@@ -317,6 +323,14 @@ function changePlayerVotes(player: Player, side: VoteSide, amount: number) {
 
 <style lang="scss">
 .central-panel.referendum-infos {
+    // What passing does, under the card's name
+    .referendum-card-text {
+        font-size: 12px;
+        font-style: italic;
+        opacity: 0.85;
+        max-width: 32rem;
+    }
+
     // The panel's own dark text, a little larger than its dense table
     .referendum-terms {
         font-size: 14px;

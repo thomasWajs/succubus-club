@@ -205,6 +205,10 @@ export class Projection {
         this.order()
         this.setProperties(placements)
         this.setMinions(placements)
+        // The cards on their way to play : shown apart, not in play yet
+        useEngineStore().limbo = [...placements]
+            .filter(([, placement]) => placement.spot == Spot.Limbo)
+            .flatMap(([copy]) => this.card(copy)?.oid ?? [])
         this.setSeats(view)
         this.setTurn(view)
         this.setAction(view)
@@ -726,8 +730,9 @@ export class Projection {
      */
     private setAction(view: EngineView) {
         const action = view.action
-        // The bleed's amount, whatever bleeds ( a minion, an action card )
+        // The bleed's amount, whatever bleeds ( a minion, an action card ) ; the transfers left
         useEngineStore().bleed = action?.bleed ?? null
+        useEngineStore().transfers = view.transfers ?? null
         const acting = action ? this.minion(action.acting) : undefined
         if (!action || !acting?.isMinion()) {
             this.gameState.action = null
@@ -827,13 +832,7 @@ export class Projection {
             return []
         }
         const lines: string[] = []
-        const action = view.action
-        const played =
-            action?.card != null ?
-                view.seats[action.seat].limbo.find(card => card.id == action.card)
-            :   undefined
-        const card =
-            (played ? this.card(played.copy) : undefined) ?? this.cardInPlay(action?.source)
+        const card = this.referendumCard(view)
         const calling = this.minion(referendum.calling ?? undefined)
         if (card || calling) {
             lines.push(
@@ -869,9 +868,21 @@ export class Projection {
         return lines
     }
 
+    // The card calling the referendum : the action card played, or the card in play granting it
+    private referendumCard(view: EngineView): Card | undefined {
+        const action = view.action
+        const played =
+            action?.card != null ?
+                view.seats[action.seat].limbo.find(card => card.id == action.card)
+            :   undefined
+        return (played ? this.card(played.copy) : undefined) ?? this.cardInPlay(action?.source)
+    }
+
     private setReferendum(view: EngineView) {
         const referendum = view.referendum
         useEngineStore().terms = this.referendumTerms(view)
+        // What passing does : the card's text
+        useEngineStore().referendumText = referendum ? (this.referendumCard(view)?.text ?? '') : ''
         if (!referendum) {
             this.gameState.referendum = null
             return

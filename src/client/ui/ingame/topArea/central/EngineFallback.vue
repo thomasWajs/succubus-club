@@ -59,11 +59,16 @@ import CentralPanel from '@/client/ui/ingame/topArea/central/CentralPanel.vue'
 const engine = useEngineStore()
 const players = usePlayersStore()
 
-// Folded again at each decision
+// Kept open through the decisions of a window ( transfers one after the other ), folded again
+// once another window asks
 const showAll = ref(false)
 watch(
-    () => engine.pending?.decision,
-    () => (showAll.value = false),
+    () => engine.pending?.window,
+    (window, before) => {
+        if (window && before && window != before) {
+            showAll.value = false
+        }
+    },
 )
 
 function choose(option: EngineOption) {

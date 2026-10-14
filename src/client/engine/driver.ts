@@ -250,6 +250,20 @@ export function engineGesture(gameMutation: AnyGameMutation): Validity {
     if (matches.length == 1 || matches.every(option => option.text == matches[0].text)) {
         const amount = Math.abs((gameMutation.params.amount as number | undefined) ?? 1)
         const option = matches[0]
+        // Blood past an uncontrolled vampire's capacity : legal, the excess drains as it comes in
+        const card = gameMutation.card
+        const attrs = card?.minionAttrs
+        if (
+            option.kind == 'transfer' &&
+            card &&
+            typeof attrs == 'object' &&
+            attrs.capacity > 0 &&
+            card.blood + amount > attrs.capacity
+        ) {
+            engine.tellNotice(
+                `Past its capacity ( ${attrs.capacity} ) : the excess drains as it is influenced out`,
+            )
+        }
         running.repeat =
             amount > 1 ? { kind: option.kind, copy: option.card?.copy, left: amount - 1 } : null
         chooseEngineOption(option.index)
