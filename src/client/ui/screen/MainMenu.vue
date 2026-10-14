@@ -61,6 +61,13 @@
 
             <button
                 class="main-menu-button"
+                @click="startEngineGame()"
+            >
+                Play against Bots (rules engine)
+            </button>
+
+            <button
+                class="main-menu-button"
                 @click="bus.isSavedGamesPanelOpen = true"
             >
                 Load a saved game
@@ -92,6 +99,7 @@
     <ChangelogModal />
     <WelcomeModal />
     <TrainBotDisclaimer ref="trainBotDisclaimerRef" />
+    <EngineNotice ref="engineNoticeRef" />
     <PuppeteerModal ref="puppeteerModalRef" />
 </template>
 
@@ -104,6 +112,7 @@ import {
     setupTrainGame,
     startGame,
 } from '@/client/state/setup.ts'
+import { setupEngineGame } from '@/client/engine/setup.ts'
 import { useRouter } from 'vue-router'
 import TopBar from '@/client/ui/components/TopBar.vue'
 import { waitUntil } from '@/shared/utils.ts'
@@ -112,6 +121,7 @@ import { ROUTES } from '@/client/ui/router.ts'
 import WelcomeModal from '@/client/ui/components/WelcomeModal.vue'
 import ChangelogModal from '@/client/ui/components/ChangelogModal.vue'
 import TrainBotDisclaimer from '@/client/ui/components/TrainBotDisclaimer.vue'
+import EngineNotice from '@/client/ui/components/EngineNotice.vue'
 import PuppeteerModal from '@/client/ui/components/PuppeteerModal.vue'
 import IdleModal from '@/client/ui/components/IdleModal.vue'
 import { computed, ref } from 'vue'
@@ -125,6 +135,7 @@ const core = useCoreStore()
 const bus = useBusStore()
 const router = useRouter()
 const trainBotDisclaimerRef = ref<InstanceType<typeof TrainBotDisclaimer> | null>(null)
+const engineNoticeRef = ref<InstanceType<typeof EngineNotice> | null>(null)
 const puppeteerModalRef = ref<InstanceType<typeof PuppeteerModal> | null>(null)
 
 const ENABLE_DEV_FREE_TABLE = import.meta.env.VITE_ENABLE_DEV_FREE_TABLE
@@ -186,6 +197,37 @@ async function startTrainGame() {
     }
 }
 
+async function startEngineGame() {
+    if (core.gameIsStarted) {
+        throw new Error(`Game is already started`)
+    }
+
+    if (!core.selfDeck) {
+        bus.alertWarning('You must select a deck before starting a game')
+        return
+    }
+
+    // Where the game runs, and that it is recorded
+    if (engineNoticeRef.value) {
+        await engineNoticeRef.value.showNotice()
+    }
+
+    try {
+        const runEngine = await setupEngineGame()
+        startGame()
+        runEngine()
+    } catch (error) {
+        let message = 'An error occurred while starting the game'
+        if (error instanceof Error) {
+            message = `${message} : ${error.message}`
+        }
+        bus.alertError(message)
+        if (!(error instanceof InvalidDeck)) {
+            logging.captureException(error)
+        }
+    }
+}
+
 async function startDevFreeTableGame() {
     if (core.gameIsStarted) {
         throw new Error(`Game is already started`)
@@ -234,6 +276,12 @@ async function startPuppeteerGame() {
             logging.captureException(error)
         }
     }
+}
+
+if (import.meta.env.VITE_FAST_TRACK_ENGINE_GAME) {
+    waitUntil(() => core.resourcesAreReady, 500).then(() => {
+        startEngineGame()
+    })
 }
 
 if (import.meta.env.VITE_FAST_TRACK_TRAIN_GAME) {
