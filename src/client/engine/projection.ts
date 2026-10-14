@@ -726,6 +726,8 @@ export class Projection {
      */
     private setAction(view: EngineView) {
         const action = view.action
+        // The bleed's amount, whatever bleeds ( a minion, an action card )
+        useEngineStore().bleed = action?.bleed ?? null
         const acting = action ? this.minion(action.acting) : undefined
         if (!action || !acting?.isMinion()) {
             this.gameState.action = null

@@ -59,6 +59,8 @@ export const useEngineStore = defineStore('engine', {
         terms: [] as string[],
         // The cards played during the action under way, by whom ( the log's line ), until it is over
         played: [] as { decision: number; player: string; text: string; option: EngineOption }[],
+        // During a bleed, its amount ( the engine's, a card's bleed too )
+        bleed: null as number | null,
         // A block's combat is under way ( whoever decides now )
         inCombat: false,
         // Why the user's last move on the table was no decision, for a moment ( beside the Pass )

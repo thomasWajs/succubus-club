@@ -669,13 +669,16 @@ export const leftoverOptions = computed((): EngineOption[] => {
     // A pass that does something is one answer of a yes / no : the other ( a card's button,
     // Priority Contract's "Burn: gain 3 pool" on a minion across the table ) beside it
     const effectPass = pending.options.some(isEffectPass)
+    // The terms of a card played are its question : beside its prompt, even those a button on a
+    // card answers ( Vessel's "burn a Blood Doll", on a vampire across the table )
+    const terms = pending.window == 'Terms of the play'
     return pending.options.filter(option =>
         option.kind == 'pass' ?
             isEffectPass(option)
         :   !TABLE_MOVES.includes(option.kind) &&
             !(option.kind == 'discard' && pending.window == 'Discard phase') &&
             !(option.kind == 'draw_crypt' && pending.window == 'Influence phase') &&
-            (!answeredOnTable(option) || (effectPass && onCardLabel(option) !== null)),
+            (!answeredOnTable(option) || ((effectPass || terms) && onCardLabel(option) !== null)),
     )
 })
 

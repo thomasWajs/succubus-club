@@ -86,5 +86,12 @@ function choose(option: EngineOption) {
         cursor: pointer;
         text-decoration: underline;
     }
+
+    .engine-choices-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 6px;
+    }
 }
 </style>

@@ -370,21 +370,38 @@ export class RemoteEngineHost implements EngineHost {
             out.card = { id: k.card.id ?? null, copy, card_id: copy }
         }
         if (k.minion != null) {
-            out.minion = k.minion
+            // A minion chosen : the option's target
+            if (k.kind == 'choose_minion') {
+                out.target = this.target({ kind: 'card', copy: k.minion })
+            } else {
+                out.minion = k.minion
+            }
         }
         if (k.actor != null) {
-            out.actor = k.actor
+            // A minion taking an action : the option's minion ( SC's menu of its actions )
+            if (k.kind == 'take_action') {
+                out.minion = k.actor
+            } else {
+                out.actor = k.actor
+            }
         }
         if (k.target) {
-            // An uncontrolled vampire influenced, transferred to : the option's card
+            // An uncontrolled vampire influenced, transferred to : the option's card ; a card
+            // given points : the option's card
             if (
                 k.target.kind == 'card' &&
                 ['transfer', 'withdraw', 'influence_out', 'merge'].includes(k.kind)
             ) {
                 out.card = { id: null, copy: k.target.copy, card_id: null }
+            } else if (k.target.kind == 'card' && k.kind == 'allocate_to_card') {
+                out.card = { id: null, copy: k.target.copy, card_id: k.target.copy }
             } else {
                 out.target = this.target(k.target)
             }
+        }
+        // A card chosen : the option's target too
+        if (k.kind == 'choose_card' && k.card?.copy != null) {
+            out.target = this.target({ kind: 'card', copy: k.card.copy })
         }
         if (k.action) {
             out.action = actionName(k.action)

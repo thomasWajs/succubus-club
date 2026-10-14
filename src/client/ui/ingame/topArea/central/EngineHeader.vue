@@ -36,15 +36,12 @@
 import { computed } from 'vue'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { useEngineStore } from '@/client/store/engine.ts'
-import * as actions from '@/shared/state/minionActions.ts'
 
 const gameState = useGameStateStore()
 const engine = useEngineStore()
 
-const bleed = computed(() => {
-    const action = gameState.action
-    return action && actions.isBleed(action.minionAction) ? action.bleed : null
-})
+// The engine's bleed amount, through the whole bleed : a minion's, an action card's too
+const bleed = computed(() => engine.bleed)
 </script>
 
 <style lang="scss">
