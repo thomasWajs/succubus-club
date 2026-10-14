@@ -276,22 +276,19 @@ export function engineGesture(gameMutation: AnyGameMutation): Validity {
     return VALID
 }
 
-// The cards an option is about, to show them on the table. `seat` : the seat deciding ( the
-// user's pending decision by default ), whose uncontrolled region a slot target is in
-export function engineOptionCards(option: EngineOption, seat?: number): Card[] {
+// The cards an option is about, to show them on the table
+export function engineOptionCards(option: EngineOption): Card[] {
     if (!running) {
         return []
     }
     const { projection } = running
     const target = option.target
-    const decider = seat ?? useEngineStore().pending?.seat
     return [
-        projection.card(option.card?.copy) ?? projection.cardInPlay(option.card?.card_id),
+        projection.card(option.card?.copy),
         projection.minion(option.minion),
         projection.minion(option.actor),
         target?.kind == 'minion' ? projection.minion(target.minion) : undefined,
-        target?.kind == 'card' ? projection.cardInPlay(target.card_id) : undefined,
-        target?.kind == 'uncontrolled' ? projection.uncontrolled(decider, target.slot) : undefined,
+        target?.kind == 'card' ? projection.card(target.copy) : undefined,
     ].filter((card): card is Card => card !== undefined)
 }
 
@@ -428,7 +425,7 @@ function narrate(current: Running, out: EngineOut) {
             option: out.choice,
         })
     }
-    const cards = engineOptionCards(out.choice, out.seat)
+    const cards = engineOptionCards(out.choice)
     if (cards.length > 0 && out.choice.kind != 'pass') {
         useGameBusStore().pingCard(cards[0].oid)
     }

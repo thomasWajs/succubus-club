@@ -224,7 +224,7 @@ function targetLabel(option: EngineOption): string {
 // region ( Govern the Unaligned, Enchant Kindred at superior )
 function targetCard(option: EngineOption): Card | undefined {
     const target = option.target
-    if (target?.kind != 'minion' && target?.kind != 'card' && target?.kind != 'uncontrolled') {
+    if (target?.kind != 'minion' && target?.kind != 'card') {
         return undefined
     }
     return engineOptionCards({ index: -1, kind: 'target', text: '', target })[0]

@@ -15,27 +15,18 @@ import { InvalidDeck } from '@/shared/types/errors.ts'
 import { shuffleArray } from '@/shared/utils.ts'
 import { PlayerOid } from '@/shared/types/model.ts'
 import { DeckList } from '@/shared/types/gateway.ts'
-import {
-    checkEngineDeck,
-    engineCatalog,
-    loadEnginePolicy,
-    LocalEngineHost,
-} from '@/client/engine/host.ts'
-import { EngineDeckError, EngineSeatSpec } from '@/client/engine/protocol.ts'
+import { GameSpec, SpecError } from '@/client/engine/api.ts'
+import { EngineHost, engineCatalog, EngineRefused } from '@/client/engine/host.ts'
 import { Projection } from '@/client/engine/projection.ts'
 import { engineOpportunities, runEngine } from '@/client/engine/driver.ts'
-import { RemoteEngineHost } from '@/client/engine/remote.ts'
 
 const ENGINE_NB_BOTS = 3
 // The bots' decks are drawn among the engine's full preconstructed decks : the Fifth Edition
 // ones, the anniversary decks and the Sabbat V5 ones — not the New Blood minis ( half decks ),
 // nor the tournament winners
 const ENGINE_BOT_DECK = /\((Fifth Edition\b.*|.*Anniversary|Sabbat V5)\)$/
-// Without the trained network's weights, the engine's scripted bots play
-const ENGINE_SCRIPTED_STYLES = ['aggro_bleed', 'wall']
-const ENGINE_NETWORK_STYLE = 'network'
-// The engine server the game is played on ( https://engine.krcg.org ) ; absent, in the browser
-const ENGINE_SERVER = import.meta.env.VITE_ENGINE_SERVER as string | undefined
+// The server's bots play the trained network
+const ENGINE_BOT_PROFILE = 'network'
 
 // Same cards in the same numbers ( a card at 0 copies counts as absent )
 function sameDeck(a: DeckList, b: DeckList): boolean {
@@ -48,14 +39,22 @@ function sameDeck(a: DeckList, b: DeckList): boolean {
     return cards(a) == cards(b)
 }
 
-function deckErrorMessage(error: EngineDeckError): string {
-    if (error.error == 'too_small') {
-        return `The deck is too small ( ${error.crypt} crypt cards, ${error.library} library cards )`
+// The user's deck refused by the server, or null ( another refusal )
+function deckErrorMessage(error: SpecError): string | null {
+    switch (error.error) {
+        case 'deck_size':
+            return `The deck is too small ( ${error.crypt} crypt cards, ${error.library} library cards )`
+        case 'unknown_card':
+            return `The rules engine doesn't know the card ${error.id}`
+        case 'unsupported': {
+            const names = error.cards.map(id => gameResources.cardbase[id]?.name ?? id)
+            const shown = names.slice(0, 8).join(', ')
+            const more = names.length > 8 ? ` and ${names.length - 8} more` : ''
+            return `The rules engine doesn't know ${names.length} card(s) of this deck : ${shown}${more}`
+        }
+        default:
+            return null
     }
-    const names = error.ids.map(id => gameResources.cardbase[id]?.name ?? id)
-    const shown = names.slice(0, 8).join(', ')
-    const more = names.length > 8 ? ` and ${names.length - 8} more` : ''
-    return `The rules engine doesn't know ${names.length} card(s) of this deck : ${shown}${more}`
 }
 
 /**
@@ -69,10 +68,6 @@ export async function setupEngineGame(): Promise<() => void> {
         throw new Error(`No deck list`)
     }
 
-    const deckError = await checkEngineDeck(core.selfDeck.cards)
-    if (deckError) {
-        throw new InvalidDeck(deckErrorMessage(deckError))
-    }
     // Not the user's own deck, when it is one of the preconstructed decks
     const selfCards = core.selfDeck.cards
     const botDecks = shuffleArray(
@@ -80,8 +75,49 @@ export async function setupEngineGame(): Promise<() => void> {
             ([name, deck]) => ENGINE_BOT_DECK.test(name) && !sameDeck(deck, selfCards),
         ),
     )
-    // On a server, its bots play the network
-    const policy = ENGINE_SERVER ? undefined : await loadEnginePolicy()
+
+    // Seats are in turn order : the engine's seat 0 plays first
+    const nbSeats = ENGINE_NB_BOTS + 1
+    const selfSeat = Math.floor(Math.random() * nbSeats)
+    // The bots by seat, from 1
+    const botOf = (seat: number) => (seat < selfSeat ? seat + 1 : seat)
+    const spec: GameSpec = {
+        seed: Math.floor(Math.random() * 2 ** 32),
+        time_limit: null,
+        client: 'succubus-club',
+        seats: Array.from({ length: nbSeats }, (_, seat) =>
+            seat == selfSeat ?
+                {
+                    name: core.userProfile.playerName,
+                    deck: selfCards,
+                    player: {
+                        type: 'human',
+                        settings: {
+                            views: 'steps',
+                            text: true,
+                            opportunities: engineOpportunities.value,
+                        },
+                    },
+                }
+            :   {
+                    name: `${BOT_NAME}${botOf(seat)} - ${botDecks[botOf(seat) - 1][0].split(' (')[0]}`,
+                    deck: botDecks[botOf(seat) - 1][1],
+                    player: { type: 'bot', profile: ENGINE_BOT_PROFILE },
+                },
+        ),
+    }
+    // The server checks the decks : the game state is only set up once it has the game
+    let host: EngineHost
+    try {
+        host = await EngineHost.create(spec)
+    } catch (e) {
+        const refusal = e instanceof EngineRefused ? e.refusal : null
+        const message =
+            refusal && 'seat' in refusal && refusal.seat == selfSeat ?
+                deckErrorMessage(refusal)
+            :   null
+        throw message ? new InvalidDeck(message) : e
+    }
 
     resetState()
 
@@ -90,48 +126,20 @@ export async function setupEngineGame(): Promise<() => void> {
     gameState.gameType = GameType.Engine
     registerGameState(gameState.gameId, gameState)
 
-    // Seats are in turn order : the engine's seat 0 plays first
-    const nbSeats = ENGINE_NB_BOTS + 1
-    const selfSeat = Math.floor(Math.random() * nbSeats)
-    const seats: EngineSeatSpec[] = []
-    const playersOid: PlayerOid[] = []
-    let botIndex = 0
-    for (let seat = 0; seat < nbSeats; seat++) {
-        if (seat == selfSeat) {
+    const playersOid: PlayerOid[] = spec.seats.map((seat, i) => {
+        if (i == selfSeat) {
             const selfPlayer = gameState.createPlayer(
-                core.userProfile.playerName,
+                seat.name,
                 ORDERED_PLAYER_COLORS[0],
                 core.userProfile.permanentId,
             )
             gameState.usersToPlayer[core.userProfile.permanentId] = selfPlayer.oid
-            playersOid.push(selfPlayer.oid)
-            seats.push({
-                name: selfPlayer.name,
-                deck: core.selfDeck.cards,
-                player: { kind: 'human' },
-            })
-        } else {
-            const [deckName, deck] = botDecks[botIndex]
-            const style =
-                policy || ENGINE_SERVER ? ENGINE_NETWORK_STYLE : (
-                    ENGINE_SCRIPTED_STYLES[botIndex % ENGINE_SCRIPTED_STYLES.length]
-                )
-            botIndex++
-            const botPlayer = gameState.createPlayer(
-                `${BOT_NAME}${botIndex} - ${deckName.split(' (')[0]}`,
-                ORDERED_PLAYER_COLORS[botIndex],
-                `${BOT_PERM_ID}${botIndex}`,
-            )
-            playersOid.push(botPlayer.oid)
-            seats.push({ name: botPlayer.name, deck, player: { kind: 'bot', style } })
+            return selfPlayer.oid
         }
-    }
-
-    const spec = { seed: Math.floor(Math.random() * 2 ** 32), seats }
-    const host =
-        ENGINE_SERVER ?
-            await RemoteEngineHost.create(spec, ENGINE_SERVER, engineOpportunities.value)
-        :   await LocalEngineHost.create(spec, policy)
+        const bot = botOf(i)
+        return gameState.createPlayer(seat.name, ORDERED_PLAYER_COLORS[bot], `${BOT_PERM_ID}${bot}`)
+            .oid
+    })
     const projection = new Projection(gameState, playersOid)
 
     core.gameStateIsReady = true

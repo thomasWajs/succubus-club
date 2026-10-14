@@ -1,23 +1,7 @@
 /**
- * The zero-vtes protocol : the JSON messages of the rules engine ( zvtes-wasm ).
- * The same messages are spoken in-process ( LocalEngineHost ) and, later, by a server.
+ * The rules engine's messages as the driver reads them : the server's ( ./api.ts ) translated by
+ * EngineHost ( ./host.ts ) — minions, cards in play and options in the table's terms.
  */
-
-import { DeckList } from '@/shared/types/gateway.ts'
-
-export type EnginePlayer = { kind: 'human' } | { kind: 'bot'; style: string }
-
-export type EngineSeatSpec = {
-    name: string
-    deck: DeckList
-    player: EnginePlayer
-}
-
-export type EngineGameSpec = {
-    seed: number
-    time_limit?: number
-    seats: EngineSeatSpec[]
-}
 
 // A physical card : `copy` is stable across views, `id` is the KRCG id when the viewer may know it
 export type EngineCard = {
@@ -27,7 +11,6 @@ export type EngineCard = {
 }
 
 export type EngineInPlay = {
-    card_id: number
     card: EngineCard
     controller: number
     locked: boolean
@@ -81,8 +64,7 @@ export type EngineSeat = {
 export type EngineTarget =
     | { kind: 'minion'; minion: number }
     | { kind: 'seat'; seat: number }
-    | { kind: 'uncontrolled'; slot: number }
-    | { kind: 'card'; card_id: number }
+    | { kind: 'card'; copy: number } // A card in play, a vampire in an uncontrolled region
 
 export type EngineCombatSide = {
     minion: number
@@ -151,7 +133,7 @@ export type EngineVote = {
     seat: number
     source: 'vampire' | 'printed' | 'edge' | 'card' | 'in_play'
     minion?: number
-    card_id?: number
+    copy?: number // The card in play's
     favor: boolean
     n: number
     canceled: boolean
@@ -161,7 +143,7 @@ export type EngineOption = {
     index: number
     kind: string
     text: string
-    card?: { id: number | null; copy: number | null; card_id: number | null }
+    card?: { id: number | null; copy: number | null }
     minion?: number
     actor?: number
     target?: EngineTarget
@@ -193,7 +175,7 @@ export type EngineZone = { seat: number; zone: 'library' | 'ash_heap' | 'hand' |
 export type EngineRecipient = {
     name: string
     seat?: number
-    card?: { id: number | null; copy: number | null; card_id: number | null }
+    card?: { id: number | null; copy: number | null }
     cap?: number // At most this many ( a shortfall : what the terms gave )
 }
 
@@ -231,7 +213,3 @@ export type EngineOut =
           view: EngineView
       }
     | { type: 'over'; vps: number[]; events?: string[]; view: EngineView }
-
-export type EngineDeckError =
-    | { error: 'unsupported'; ids: string[] }
-    | { error: 'too_small'; crypt: number; library: number }

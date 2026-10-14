@@ -97,11 +97,8 @@ export class Projection {
     private cards = new Map<number, CardOid>()
     // The order of the stacks, as the view shows them
     private stacks: { region: AnyCardRegion; copies: number[] }[] = []
-    // Copy of each minion, by the engine's minion id, and of each card in play
+    // The minions' copies ( the engine's minion id is its card's copy )
     private minions = new Map<number, number>()
-    private inPlay = new Map<number, number>()
-    // Copies in each seat's uncontrolled region, by slot
-    private uncontrolledSlots = new Map<number, number[]>()
     // Where each copy was in the previous view ( spot and host ) : a card that
     // changes spot without changing region is moved too ( played, then attached )
     private spots = new Map<number, string>()
@@ -129,18 +126,6 @@ export class Projection {
     // The card of a minion, by the engine's minion id
     minion(minion: number | undefined): Card | undefined {
         return minion === undefined ? undefined : this.card(this.minions.get(minion))
-    }
-
-    // The card of a card in play, by the engine's card id
-    cardInPlay(cardId: number | null | undefined): Card | undefined {
-        return cardId === null || cardId === undefined ?
-                undefined
-            :   this.card(this.inPlay.get(cardId))
-    }
-
-    // The card in a seat's uncontrolled region, by the engine's slot
-    uncontrolled(seat: number | undefined, slot: number): Card | undefined {
-        return seat === undefined ? undefined : this.card(this.uncontrolledSlots.get(seat)?.[slot])
     }
 
     /**
@@ -295,8 +280,6 @@ export class Projection {
         const placements = new Map<number, Placement>()
         this.stacks = []
         this.minions.clear()
-        this.inPlay.clear()
-        this.uncontrolledSlots.clear()
 
         for (const seat of view.seats) {
             const player = this.player(seat.seat)
@@ -324,10 +307,6 @@ export class Projection {
             stack(player.ashHeap, [...seat.ash_heap].reverse())
             stack(player.removed, [...seat.removed].reverse())
 
-            this.uncontrolledSlots.set(
-                seat.seat,
-                seat.uncontrolled.map(slot => slot.card.copy),
-            )
             seat.uncontrolled.forEach((slot, rank) =>
                 placements.set(slot.card.copy, {
                     card: slot.card,
@@ -348,7 +327,6 @@ export class Projection {
                 rank: number,
                 host?: number,
             ) => {
-                this.inPlay.set(inPlayCard.card_id, inPlayCard.card.copy)
                 placements.set(inPlayCard.card.copy, {
                     card: inPlayCard.card,
                     player,
@@ -740,7 +718,7 @@ export class Projection {
         }
         const target =
             action.target?.kind == 'minion' ? this.minion(action.target.minion)
-            : action.target?.kind == 'card' ? this.cardInPlay(action.target.card_id)
+            : action.target?.kind == 'card' ? this.card(action.target.copy)
             : action.target?.kind == 'seat' ? this.player(action.target.seat)
             : undefined
         const minionAction = this.minionAction(view, action, acting, target)
@@ -812,7 +790,7 @@ export class Projection {
         return {
             ...base,
             type: MinionActionType.ActionInPlay,
-            card: this.cardInPlay(action.source) ?? acting,
+            card: this.card(action.source) ?? acting,
         } as MinionAction
     }
 
@@ -854,13 +832,13 @@ export class Projection {
         if (referendum.clan) {
             lines.push(`Clan : ${referendum.clan}`)
         }
-        const cards = referendum.cards.map(c => this.cardInPlay(c)?.name ?? '?')
+        const cards = referendum.cards.map(c => this.card(c)?.name ?? '?')
         if (cards.length > 0) {
             lines.push(`Card${cards.length > 1 ? 's' : ''} : ${cards.join(', ')}`)
         }
         const points = [
             ...referendum.allocated.map(([s, n]) => `${seat(s)} ${n}`),
-            ...referendum.card_allocated.map(([c, n]) => `${this.cardInPlay(c)?.name ?? '?'} ${n}`),
+            ...referendum.card_allocated.map(([c, n]) => `${this.card(c)?.name ?? '?'} ${n}`),
         ]
         if (points.length > 0) {
             lines.push(`Points : ${points.join(', ')}`)
@@ -875,7 +853,7 @@ export class Projection {
             action?.card != null ?
                 view.seats[action.seat].limbo.find(card => card.id == action.card)
             :   undefined
-        return (played ? this.card(played.copy) : undefined) ?? this.cardInPlay(action?.source)
+        return (played ? this.card(played.copy) : undefined) ?? this.card(action?.source)
     }
 
     private setReferendum(view: EngineView) {

@@ -83,7 +83,7 @@ export type GameSpec = {
     time_limit?: number | null
 }
 
-/** Why a game spec is refused (`POST /games`, a wasm game's creation). */
+/** Why a game spec is refused (`POST /games`). */
 export type SpecError =
     | {
           error: 'seats'

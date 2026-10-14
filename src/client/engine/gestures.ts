@@ -41,12 +41,12 @@ function named(projection: Projection, option: EngineOption): Named {
     const target = option.target
     return {
         option,
-        card: projection.card(option.card?.copy) ?? projection.cardInPlay(option.card?.card_id),
+        card: projection.card(option.card?.copy),
         minion: projection.minion(option.minion),
         actor: projection.minion(option.actor),
         target:
             target?.kind == 'minion' ? projection.minion(target.minion)
-            : target?.kind == 'card' ? projection.cardInPlay(target.card_id)
+            : target?.kind == 'card' ? projection.card(target.copy)
             : undefined,
         targetPlayer: target?.kind == 'seat' ? projection.player(target.seat) : undefined,
     }
