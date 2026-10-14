@@ -1,0 +1,476 @@
+import { Player } from '@/shared/model/Player.ts'
+import { Vampire } from '@/shared/model/Card.ts'
+import { TurnPhase, TurnSequence } from '@/shared/const/model.ts'
+import { DeckList } from '@/shared/types/gateway.ts'
+import {
+    ASYLUM_HUNTING_GROUND_ID,
+    BLOOD_DOLL_ID,
+    ELDER_LIBRARY_ID,
+    MINION_TAP_ID,
+    VILLEIN_ID,
+} from '@/shared/cardImpl/cardIds.ts'
+import { chooseThroughView } from '@/shared/bot/playerView.ts'
+import { applyOption, getDecisionPoint } from '@/shared/bot/referee.ts'
+import { UtilityAgent } from '@/shared/bot/agents/utilityAgent.ts'
+import { BotOption, DecisionKind, DecisionPoint, optionsOfType } from '@/shared/bot/types.ts'
+import { BotProfile, DEFAULT_PROFILE } from '@/shared/bot/utility/profile.ts'
+import { judgeMaster } from '@/shared/bot/utility/masterPhase.ts'
+import {
+    Ring,
+    MinionSetup,
+    addMinions,
+    assessAs,
+    createRing,
+    expectClose,
+    holdOnly,
+} from './assessment.ts'
+import { sealLibrary } from './bounce.ts'
+import { BARRENS_ID, LIFE_IN_THE_CITY_ID, WIDER_VIEW_ID } from './catalog.ts'
+import { GUARDIAN_ANGEL_ID } from './guardianAngel.ts'
+import { KRCG_ID } from './krcg.ts'
+import { LABYRINTH_ID } from './labyrinth.ts'
+import { LENNY_ID, NOSFERATU_DECK } from './nosferatu.ts'
+import {
+    Scenario,
+    ScenarioFailure,
+    attachInPlay,
+    expectEqual,
+    findCard,
+    readySpecific,
+} from './helpers.ts'
+
+/**
+ * The master phase and the unlock phase of the utility agent: which master card is played and on which vampire,
+ * which blood is moved to the pool, which vampire a hunting ground feeds. Four Methuselahs with no minion for
+ * the others, so the numbers can be read.
+ */
+
+const VESSEL_ID = '102113'
+const WARZONE_ID = '102150'
+const THEO_BELL_ID = '201613'
+const ALINE_ID = '201576'
+
+const MASTER_DECK = <DeckList>{
+    ...NOSFERATU_DECK,
+    [LIFE_IN_THE_CITY_ID]: 2,
+    [VILLEIN_ID]: 2,
+    [MINION_TAP_ID]: 2,
+    [ELDER_LIBRARY_ID]: 1,
+    [ASYLUM_HUNTING_GROUND_ID]: 1,
+    [BARRENS_ID]: 1,
+    [WIDER_VIEW_ID]: 1,
+    [LABYRINTH_ID]: 1,
+    [KRCG_ID]: 1,
+    [GUARDIAN_ANGEL_ID]: 1,
+    [VESSEL_ID]: 1,
+}
+
+type Ready = {
+    blood: number
+    capacity?: number
+    // A vampire of the crypt, by id ( for a clan )
+    id?: string
+}
+
+type MasterSetup = {
+    phase?: 'master' | 'unlock'
+    hand?: string[]
+    ready: Ready[]
+    // Cards in play, not on a vampire
+    inPlay?: string[]
+    // Cards put on the vampire of this index ( in the order of `ready` )
+    attached?: [number, string][]
+    pool?: number
+    predator?: MinionSetup[]
+}
+
+type MasterTurn = { ring: Ring; me: Player; vampires: Vampire[] }
+
+function masterTurn(setup: MasterSetup): MasterTurn {
+    const players = 4
+    const ring = createRing(Array.from({ length: players }, () => MASTER_DECK))
+    const { gameState } = ring
+    const me = ring.players[0]
+    const vampires = setup.ready.map(ready =>
+        ready.id ?
+            readySpecific(gameState, me, ready.id, ready.blood)
+        :   addMinions(ring, me, [{ blood: ready.blood }])[0],
+    )
+    for (const [index, ready] of setup.ready.entries()) {
+        vampires[index].minionAttrs.capacity = ready.capacity ?? 8
+    }
+    addMinions(ring, ring.players[players - 1], setup.predator ?? [])
+    for (const player of ring.players) {
+        holdOnly(ring, player, player == me ? (setup.hand ?? []) : [])
+    }
+    for (const id of setup.inPlay ?? []) {
+        gameState.moveCardToRegion(findCard(me, id), me.ready)
+    }
+    for (const [index, id] of setup.attached ?? []) {
+        attachInPlay(findCard(me, id), vampires[index])
+    }
+    for (const player of ring.players) {
+        sealLibrary(gameState, player)
+    }
+    me.pool = setup.pool ?? 30
+    gameState.turnNumber = 5
+    gameState.turnPhaseIndex = TurnSequence.indexOf(
+        setup.phase == 'unlock' ? TurnPhase.Unlock : TurnPhase.Master,
+    )
+    gameState.turnResources.unlocked = true
+    gameState.turnResources.mpa = 1
+    gameState.activePlayerIndex = gameState.competingPlayers.indexOf(me)
+    return { ring, me, vampires }
+}
+
+function decisionOf(turn: MasterTurn): DecisionPoint {
+    const decision = getDecisionPoint(turn.ring.gameState, turn.me)
+    if (!decision) {
+        throw new ScenarioFailure('No decision point')
+    }
+    return decision
+}
+
+// Plays the phase with the utility agent until it ends it: what it did
+function playPhase(
+    turn: MasterTurn,
+    kind: DecisionKind = DecisionKind.Master,
+    profile: BotProfile = DEFAULT_PROFILE,
+): BotOption[] {
+    const agent = new UtilityAgent(MASTER_DECK, profile)
+    const done: BotOption[] = []
+    for (let step = 0; step < 12; step++) {
+        const decision = decisionOf(turn)
+        // A card played is put away before the phase goes on
+        if (decision.kind == DecisionKind.Cleanup) {
+            applyOption(decision, decision.options[0])
+            continue
+        }
+        if (decision.kind != kind) {
+            throw new ScenarioFailure(`Expected ${kind}, got ${decision.kind}`)
+        }
+        const option = chooseThroughView(decision, agent)
+        if (option.type == 'endPhase') {
+            return done
+        }
+        done.push(option)
+        applyOption(decision, option)
+    }
+    throw new ScenarioFailure('The phase does not end')
+}
+
+// The top candidate of the master phase, through the view of the agent, and its terms
+function best(turn: MasterTurn, profile: BotProfile = DEFAULT_PROFILE) {
+    const { candidates } = judgeMaster(decisionOf(turn), assessAs(turn.ring, turn.me, profile))
+    return candidates[0]?.parts ?? {}
+}
+
+function played(done: BotOption[]): string {
+    return done
+        .map(option =>
+            option.type == 'playMaster' ? option.card.name
+            : option.type == 'moveBlood' ? 'move'
+            : option.type,
+        )
+        .join()
+}
+
+function expectPlay(done: BotOption[], card: string, vampire?: Vampire, amount?: number): void {
+    const option = done[0]
+    if (option?.type != 'playMaster' || option.card.name != card) {
+        throw new ScenarioFailure(`Expected ${card} first, got ${played(done)}`)
+    }
+    if (vampire) {
+        expectEqual(option.target?.oid, vampire.oid, `the vampire of ${card}`)
+    }
+    if (amount !== undefined) {
+        expectEqual(option.amount, amount, `the blood of ${card}`)
+    }
+}
+
+export const MASTER_PHASE_SCENARIOS: Scenario[] = [
+    {
+        name: 'Master: a Life in the City goes on the vampire with no blood, which is spared a hunt',
+        run() {
+            const turn = masterTurn({
+                hand: [LIFE_IN_THE_CITY_ID],
+                ready: [{ blood: 0 }, { blood: 3 }],
+            })
+            expectClose(
+                best(turn).blood,
+                0.5 + DEFAULT_PROFILE.plan.cardAction,
+                'the blood and the hunt spared',
+            )
+            const done = playPhase(turn)
+            expectEqual(done.length, 1, 'plays')
+            expectPlay(done, 'Life in the City', turn.vampires[0])
+            expectEqual(turn.vampires[0].blood, 1, 'its blood')
+        },
+    },
+    {
+        name: 'Master: a Life in the City for a vampire that holds blood is kept for the one that does not',
+        run() {
+            const turn = masterTurn({
+                hand: [LIFE_IN_THE_CITY_ID],
+                ready: [{ blood: 3 }, { blood: 4 }],
+            })
+            expectEqual(played(playPhase(turn)), '', 'a blood is worth less than the card')
+        },
+    },
+    {
+        name: 'Master: a Villein takes the most blood a vampire can give, from the richest one, and the blood it keeps stays',
+        run() {
+            const turn = masterTurn({ hand: [VILLEIN_ID], ready: [{ blood: 8 }, { blood: 4 }] })
+            const { plan } = DEFAULT_PROFILE
+            expectClose(best(turn).pool, 5 * (plan.caution - plan.bloodValue), 'the pool gained')
+            const pool = turn.me.pool
+            const done = playPhase(turn)
+            expectEqual(done.length, 1, 'plays')
+            expectPlay(done, 'Villein', turn.vampires[0], 5)
+            expectEqual(turn.me.pool, pool + 5, 'pool')
+            expectEqual(turn.vampires[0].blood, 3, 'blood kept')
+        },
+    },
+    {
+        name: 'Master: a vampire keeps the blood it needs: no Villein on a vampire that would drop under it',
+        run() {
+            const turn = masterTurn({ hand: [VILLEIN_ID], ready: [{ blood: 3 }] })
+            expectEqual(played(playPhase(turn)), '', 'plays')
+        },
+    },
+    {
+        name: 'Master: a second Villein on the same vampire costs a pool more, which comes off its worth',
+        run() {
+            const turn = masterTurn({
+                hand: [VILLEIN_ID],
+                ready: [{ blood: 8 }],
+                attached: [[0, VILLEIN_ID]],
+            })
+            const { plan } = DEFAULT_PROFILE
+            expectClose(
+                best(turn).cost,
+                -(plan.spentCard + plan.caution),
+                'the card and the pool of the second one',
+            )
+        },
+    },
+    {
+        name: 'Master: a Minion Tap takes any amount down to the blood kept',
+        run() {
+            const turn = masterTurn({ hand: [MINION_TAP_ID], ready: [{ blood: 6 }] })
+            expectPlay(playPhase(turn), 'Minion Tap', turn.vampires[0], 4)
+        },
+    },
+    {
+        name: 'Master: a Blood Doll goes on the vampire that holds the most above the blood kept',
+        run() {
+            const turn = masterTurn({ hand: [BLOOD_DOLL_ID], ready: [{ blood: 3 }, { blood: 7 }] })
+            const { plan, cards } = DEFAULT_PROFILE
+            expectClose(
+                best(turn).carry,
+                cards.stay * (plan.caution - plan.bloodValue),
+                'a blood a turn over the turns it serves',
+            )
+            expectPlay(playPhase(turn), 'Blood Doll', turn.vampires[1])
+        },
+    },
+    {
+        name: 'Master: no Blood Doll on a vampire that holds nothing above the blood kept',
+        run() {
+            const turn = masterTurn({ hand: [BLOOD_DOLL_ID], ready: [{ blood: 2 }] })
+            expectEqual(played(playPhase(turn)), '', 'plays')
+        },
+    },
+    {
+        name: 'Master: the blood the Dolls already move is spoken for, a second Doll on the same blood is not worth it',
+        run() {
+            const alone = masterTurn({ hand: [BLOOD_DOLL_ID], ready: [{ blood: 4 }] })
+            expectPlay(playPhase(alone), 'Blood Doll', alone.vampires[0])
+            const second = masterTurn({
+                hand: [BLOOD_DOLL_ID],
+                ready: [{ blood: 4 }],
+                attached: [[0, BLOOD_DOLL_ID]],
+            })
+            expectEqual(played(playPhase(second)), 'move', 'no second Doll, the one in play moves')
+        },
+    },
+    {
+        name: 'Master: the Doll moves a blood to the pool, down to the blood kept and never back',
+        run() {
+            const turn = masterTurn({ ready: [{ blood: 5 }], attached: [[0, BLOOD_DOLL_ID]] })
+            const pool = turn.me.pool
+            expectEqual(played(playPhase(turn)), 'move', 'moves')
+            expectEqual(turn.me.pool, pool + 1, 'pool')
+            expectEqual(turn.vampires[0].blood, 4, 'blood')
+            const kept = masterTurn({ ready: [{ blood: 2 }], attached: [[0, BLOOD_DOLL_ID]] })
+            expectEqual(played(playPhase(kept)), '', 'the blood kept stays')
+        },
+    },
+    {
+        name: 'Master: a trifle goes first, it gives back the master phase action for the other card',
+        run() {
+            const turn = masterTurn({ hand: [ELDER_LIBRARY_ID, VILLEIN_ID], ready: [{ blood: 4 }] })
+            expectEqual(played(playPhase(turn)), 'Villein,Elder Library', 'order')
+        },
+    },
+    {
+        name: 'Master: an Elder Library is worth the hand it adds over the turns, less the card and its pool',
+        run() {
+            const turn = masterTurn({ hand: [ELDER_LIBRARY_ID], ready: [{ blood: 8 }] })
+            const { master, plan } = DEFAULT_PROFILE
+            const parts = best(turn)
+            expectClose(parts.hand, master.handSize * master.stay, 'the hand size')
+            expectClose(parts.cost, -(plan.spentCard + plan.caution), 'the card and the pool')
+            expectPlay(playPhase(turn), 'Elder Library')
+        },
+    },
+    {
+        name: 'Master: the Barrens and Wider View are not played, their abilities are not used',
+        run() {
+            const turn = masterTurn({ hand: [BARRENS_ID, WIDER_VIEW_ID], ready: [{ blood: 8 }] })
+            expectEqual(played(playPhase(turn)), '', 'plays')
+        },
+    },
+    {
+        name: 'Master: a hunting ground is played for a vampire that has room, not when all are full',
+        run() {
+            const room = masterTurn({ hand: [WARZONE_ID], ready: [{ id: THEO_BELL_ID, blood: 5 }] })
+            expectPlay(playPhase(room), 'Warzone Hunting Ground')
+            const full = masterTurn({ hand: [WARZONE_ID], ready: [{ id: THEO_BELL_ID, blood: 8 }] })
+            expectEqual(played(playPhase(full)), '', 'no room')
+        },
+    },
+    {
+        name: 'Master: a second hunting ground serves another vampire, a vampire gains from one a turn',
+        run() {
+            const one = masterTurn({
+                hand: [WARZONE_ID],
+                inPlay: [ASYLUM_HUNTING_GROUND_ID],
+                ready: [
+                    { id: THEO_BELL_ID, blood: 5 },
+                    { id: ALINE_ID, blood: 8 },
+                ],
+            })
+            expectEqual(played(playPhase(one)), '', 'only one vampire has room')
+            const two = masterTurn({
+                hand: [WARZONE_ID],
+                inPlay: [ASYLUM_HUNTING_GROUND_ID],
+                ready: [
+                    { id: THEO_BELL_ID, blood: 5 },
+                    { id: ALINE_ID, blood: 5 },
+                ],
+            })
+            expectPlay(playPhase(two), 'Warzone Hunting Ground')
+        },
+    },
+    {
+        name: 'Master: The Labyrinth is played for the stealth it gives a Nosferatu over the turns',
+        run() {
+            const { master, plan } = DEFAULT_PROFILE
+            const turn = masterTurn({ hand: [LABYRINTH_ID], ready: [{ id: LENNY_ID, blood: 5 }] })
+            const parts = best(turn)
+            expectClose(parts.standing, master.charge * master.stay, 'the stealth over the turns')
+            expectClose(parts.cost, -(plan.spentCard + plan.caution), 'the card and the pool')
+            expectPlay(playPhase(turn), 'Labyrinth, The')
+        },
+    },
+    {
+        name: 'Master: the intercept of KRCG News Radio and of a Guardian Angel is worth something, not the 2 pool they cost here',
+        run() {
+            const turn = masterTurn({
+                hand: [KRCG_ID, GUARDIAN_ANGEL_ID],
+                ready: [{ blood: 5 }, { blood: 5 }],
+                predator: [{ bleed: 3 }, { bleed: 3 }, { bleed: 3 }],
+            })
+            const { candidates } = judgeMaster(decisionOf(turn), assessAs(turn.ring, turn.me))
+            const parts = (name: string) =>
+                candidates.find(
+                    ({ option }) => option.type == 'playMaster' && option.card.name == name,
+                )?.parts
+            expectEqual((parts('KRCG News Radio')?.standing ?? 0) > 0, true, 'the charge of KRCG')
+            expectEqual((parts('Guardian Angel')?.attached ?? 0) > 0, true, 'the angel')
+            expectEqual(played(playPhase(turn)), '', 'plays')
+        },
+    },
+    {
+        name: 'Master: a card that costs pool is held back when the pool left lets my predator oust me',
+        run() {
+            const threat = masterTurn({
+                hand: [ELDER_LIBRARY_ID],
+                ready: [{ blood: 8 }],
+                pool: 3,
+                predator: [{ bleed: 2 }],
+            })
+            for (const vampire of threat.vampires) {
+                vampire.isLocked = true
+            }
+            expectEqual(played(playPhase(threat)), '', 'plays under the threat')
+            const calm = masterTurn({ hand: [ELDER_LIBRARY_ID], ready: [{ blood: 8 }], pool: 3 })
+            expectPlay(playPhase(calm), 'Elder Library')
+        },
+    },
+    {
+        name: 'Unlock: a hunting ground feeds the vampire with no blood, the one it spares a hunt',
+        run() {
+            const turn = masterTurn({
+                phase: 'unlock',
+                inPlay: [ASYLUM_HUNTING_GROUND_ID],
+                ready: [{ blood: 4 }, { blood: 0 }],
+            })
+            const done = playPhase(turn, DecisionKind.Unlock)
+            expectEqual(done.length, 1, 'effects')
+            const [effect] = optionsOfType(done, 'unlockEffect')
+            expectEqual(effect?.vampire.oid, turn.vampires[1].oid, 'the vampire fed')
+            expectEqual(turn.vampires[1].blood, 1, 'its blood')
+        },
+    },
+    {
+        name: 'Unlock: of two vampires that gain the same, the emptier one is fed',
+        run() {
+            for (const bloods of [
+                [5, 3],
+                [3, 5],
+            ]) {
+                const turn = masterTurn({
+                    phase: 'unlock',
+                    inPlay: [ASYLUM_HUNTING_GROUND_ID],
+                    ready: bloods.map(blood => ({ blood })),
+                })
+                const [effect] = optionsOfType(playPhase(turn, DecisionKind.Unlock), 'unlockEffect')
+                expectEqual(
+                    effect?.vampire.blood,
+                    4,
+                    `the emptier of ${bloods.join(' and ')} is fed`,
+                )
+            }
+        },
+    },
+    {
+        name: 'Unlock: a Vessel moves a blood to the pool in the unlock phase, not in the master phase',
+        run() {
+            const turn = masterTurn({
+                phase: 'unlock',
+                ready: [{ blood: 5 }],
+                attached: [[0, VESSEL_ID]],
+            })
+            const pool = turn.me.pool
+            expectEqual(played(playPhase(turn, DecisionKind.Unlock)), 'move', 'moves')
+            expectEqual(turn.me.pool, pool + 1, 'pool')
+            const master = masterTurn({ ready: [{ blood: 5 }], attached: [[0, VESSEL_ID]] })
+            expectEqual(played(playPhase(master)), '', 'the master phase leaves it')
+        },
+    },
+    {
+        name: 'Unlock: unlocking as normal comes first',
+        run() {
+            const turn = masterTurn({ phase: 'unlock', ready: [{ blood: 5 }] })
+            turn.ring.gameState.turnResources.unlocked = false
+            const agent = new UtilityAgent(MASTER_DECK)
+            expectEqual(
+                chooseThroughView(decisionOf(turn), agent).type,
+                'unlockAll',
+                'first option',
+            )
+        },
+    },
+]

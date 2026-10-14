@@ -191,7 +191,8 @@ export type AbilitySummary = {
     locks: boolean
     // Transfers it costs ( influence phase )
     transfers: number
-    // The minions of the controller that can use it, when it is for one of them ( 'lockForAction', 'lockForReaction' )
+    // The minions of the controller that can use it, when it is for some of them ( 'lockForAction', 'lockForReaction', an
+    // 'unlock' limited to a sect )
     minion: MinionFilter | null
     effects: Effect[]
     roles: Role[]
@@ -450,7 +451,8 @@ export function summarizeAbility(ability: MasterAbility): AbilitySummary {
             const effects = ability.effects.map(
                 (effect): Effect => ({ type: 'gainBlood', amount: effect.amount }),
             )
-            return abilitySummary(ability.activate, ['unlockPhase'], false, 0, null, effects)
+            const sect = ability.sect ? { of: 'vampire' as const, sect: ability.sect } : null
+            return abilitySummary(ability.activate, ['unlockPhase'], false, 0, sect, effects)
         }
         case 'lock':
             return abilitySummary(

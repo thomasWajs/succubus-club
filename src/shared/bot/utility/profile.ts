@@ -207,6 +207,18 @@ export type InfluenceWeights = {
     lookahead: number
 }
 
+// How the master phase and the blood are judged ( masterPhase.ts ). Draft numbers
+export type MasterWeights = {
+    // The turns of mine that a location in play is counted serving over
+    stay: number
+    // What a point of hand size is worth each turn, in pool: a plain number until the hand is judged as a whole
+    handSize: number
+    // What a point of stealth that a card in play gives to my actions is worth each turn
+    charge: number
+    // What a play or a move of blood must bring me at least, in pool, to be made
+    margin: number
+}
+
 export type BotProfile = {
     name: string
     // Temperature of the softmax pick among the scored options, 0 = always the best one
@@ -228,6 +240,7 @@ export type BotProfile = {
     reaction: ReactionWeights
     cards: CardWeights
     influence: InfluenceWeights
+    master: MasterWeights
 }
 
 export const DEFAULT_PROFILE: BotProfile = {
@@ -316,4 +329,5 @@ export const DEFAULT_PROFILE: BotProfile = {
         margin: 0.5,
         lookahead: 10,
     },
+    master: { stay: 6, handSize: 0.4, charge: 0.4, margin: 0.25 },
 }

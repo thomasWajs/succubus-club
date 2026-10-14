@@ -19,6 +19,7 @@ import { describeTurnPlan } from '@/shared/bot/utility/describeAssessment.ts'
 import { chooseLiveCombat } from '@/shared/bot/utility/liveCombat.ts'
 import { judgeBlock } from '@/shared/bot/utility/blockDecision.ts'
 import { judgeInfluence } from '@/shared/bot/utility/influence.ts'
+import { judgeMaster, judgeUnlock } from '@/shared/bot/utility/masterPhase.ts'
 import { judgeModifier } from '@/shared/bot/utility/modifierDecision.ts'
 import { judgeReaction, judgeTrigger } from '@/shared/bot/utility/reactionDecision.ts'
 
@@ -50,7 +51,9 @@ type Choice = {
  * ( cardActions.ts ), a combat starter only when the position of the fight allows it ( enterCombat.ts ). The windows of a combat are the plan's ( combatPlan.ts ),
  * the block attempts are a judgement of what they save and cost ( blockDecision.ts ), and the stealth
  * and bleed cards of my own actions are played when they pay ( modifierDecision.ts ), and so are the
- * reaction cards, the cards in play, the window after a block and the triggers ( reactionDecision.ts ).
+ * reaction cards, the cards in play, the window after a block and the triggers ( reactionDecision.ts ). The
+ * vampires come out by a plan over the transfers to come ( influence.ts ), and the master phase and the unlock
+ * phase play the master cards and move the blood by their worth ( masterPhase.ts ).
  */
 export class UtilityAgent implements BotAgent {
     constructor(
@@ -81,6 +84,17 @@ export class UtilityAgent implements BotAgent {
     private decide(context: DecisionContext): Choice {
         if (context.decision.kind == DecisionKind.Minion) {
             return this.minionPhase(context)
+        }
+        if (context.decision.kind == DecisionKind.Unlock) {
+            // Unlocking as normal is mandatory and first, the effects of the cards in play follow
+            const unlockAll = context.decision.options.find(option => option.type == 'unlockAll')
+            if (unlockAll) {
+                return { option: unlockAll, note: 'unlock as normal' }
+            }
+            return judgeUnlock(context.decision, context.assessment)
+        }
+        if (context.decision.kind == DecisionKind.Master) {
+            return judgeMaster(context.decision, context.assessment)
         }
         if (context.decision.kind == DecisionKind.Combat) {
             const live = chooseLiveCombat(context.decision, context.assessment)
