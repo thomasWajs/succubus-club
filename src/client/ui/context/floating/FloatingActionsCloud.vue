@@ -453,7 +453,7 @@ function withEngineOptions(minion: Minion, actions: FloatingActionData[]): Float
     if (other.length > 0) {
         engineActions.push({
             // A lone one is taken at the click : named by what it does ( Lenelle's Become Anarch )
-            label: other.length == 1 ? other[0].text : 'Other Actions',
+            label: other.length == 1 ? (other[0].text ?? 'Other Actions') : 'Other Actions',
             left: positionning.x,
             translate: 'translateX(-50%)',
             top: positionning.southActionsTop,

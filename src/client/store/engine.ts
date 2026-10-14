@@ -1,19 +1,19 @@
 import { acceptHMRUpdate, defineStore } from 'pinia'
-import { EngineAllocation, EngineOption, EngineVotes } from '@/client/engine/protocol.ts'
+import type { Allocation, OptionView, VoteTotals, Window } from '@/client/engine/api.ts'
 
 export type EngineDecision = {
     decision: number
     seat: number // The user's seat
-    window: string
-    options: EngineOption[]
+    window: Window
+    options: OptionView[]
     // What the choice is for, when the options alone do not say ( a referendum's terms )
-    prompt?: string
+    prompt?: string | null
     // The previous step of this multi-step choice can be taken back
     undo: boolean
     // An allocation of points under way : answered whole in the panel
-    allocation?: EngineAllocation
+    allocation?: Allocation | null
     // The votes the user can cast all at once, each way
-    votes?: EngineVotes
+    votes?: VoteTotals | null
     // The combat under way, if any
     combat: EngineCombat | null
 }
@@ -60,7 +60,7 @@ export const useEngineStore = defineStore('engine', {
         // The referendum card's text : what passing does
         referendumText: '',
         // The cards played during the action under way, by whom ( the log's line ), until it is over
-        played: [] as { decision: number; player: string; text: string; option: EngineOption }[],
+        played: [] as { decision: number; player: string; text: string; option: OptionView }[],
         // The cards on their way to play ( limbo ), by oid : not in play yet
         limbo: [] as string[],
         // During a bleed, its amount ( the engine's, a card's bleed too )

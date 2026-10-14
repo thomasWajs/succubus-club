@@ -53,7 +53,7 @@ import { useEngineStore } from '@/client/store/engine.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
 import { chooseEngineOption, engineOptionCards } from '@/client/engine/driver.ts'
 import { hoverEngineCard } from '@/client/engine/cardNames.ts'
-import { EngineOption } from '@/client/engine/protocol.ts'
+import type { OptionView } from '@/client/engine/api.ts'
 import CentralPanel from '@/client/ui/ingame/topArea/central/CentralPanel.vue'
 
 const engine = useEngineStore()
@@ -71,7 +71,7 @@ watch(
     },
 )
 
-function choose(option: EngineOption) {
+function choose(option: OptionView) {
     hoverEngineCard(null)
     chooseEngineOption(option.index)
 }

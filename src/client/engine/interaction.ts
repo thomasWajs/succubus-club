@@ -17,12 +17,15 @@
 
 import { computed } from 'vue'
 import { Card } from '@/shared/model/Card.ts'
-import { EngineOption, EngineTarget } from '@/client/engine/protocol.ts'
+import type { ActionKind, OptionView, Target } from '@/client/engine/api.ts'
+import { modeTags } from '@/client/engine/labels.ts'
 import { useEngineStore } from '@/client/store/engine.ts'
 import {
     chooseEngineOption,
     engineAlikeCards,
+    engineCard,
     engineOptionCards,
+    engineRoles,
     engineZoneRegion,
 } from '@/client/engine/driver.ts'
 import { AnyCardRegion } from '@/shared/types/model.ts'
@@ -38,14 +41,12 @@ import { getOverlappingCards } from '@/client/game/utils.ts'
 export type Highlight = 'usable' | 'actor' | 'candidate' | 'staged'
 
 // One way to narrow the choice under way : its options, and the card that stands for it
-export type StagingChoice = { key: string; options: EngineOption[]; card?: Card; label: string }
+export type StagingChoice = { key: string; options: OptionView[]; card?: Card; label: string }
 
 // What the choice under way asks next
 export type StagingStep = {
     ask: 'card' | 'actor' | 'mode' | 'target' | 'option'
     choices: StagingChoice[]
-    // What the target is for, when the card chooses two minions ( Toreador Grand Ball )
-    role?: string
 }
 
 // The decisions that pick a card of the table : the card glows as a candidate, a click picks it
@@ -60,12 +61,12 @@ const PICKS = [
     'draw_stored',
 ]
 
-export function isPick(option: EngineOption): boolean {
+export function isPick(option: OptionView): boolean {
     return (
         (PICKS.includes(option.kind) && (option.kind != 'round_strike' || !!option.card)) ||
         // A card discarded from hand for an effect ( an exchange, a cost ) : not the discard
         // phase's, answered by the 🔥 of the card
-        (option.kind == 'discard' && useEngineStore().pending?.window != 'Discard phase')
+        (option.kind == 'discard' && useEngineStore().pending?.window != 'discard_phase')
     )
 }
 
@@ -73,7 +74,7 @@ export function isPick(option: EngineOption): boolean {
 // a card employed from hand ) : the zone glows, its cards of that name are candidates
 const SEARCHES = ['find_card', 'take_from', 'ash_vampire', 'employ_from_hand']
 
-export function searchCards(option: EngineOption): Card[] {
+export function searchCards(option: OptionView): Card[] {
     const id = option.card?.id
     if (!SEARCHES.includes(option.kind) || id == null) {
         return []
@@ -119,14 +120,14 @@ export const searchedRegions = computed((): AnyCardRegion[] => {
 // An option a click on its card starts : a card played from hand, the ability of a card in play
 // ( what it grants : an action to burn or steal it, an equip, a tap ). A vampire's own ability
 // is the vampire's, which acts ( see minionMenuOptions )
-function isUse(option: EngineOption): boolean {
+function isUse(option: OptionView): boolean {
     return option.kind == 'play' || (option.kind == 'use_ability' && !!option.card)
 }
 
 // A vampire's own ability ( its card text ), during a combat or an action : a card of the
 // central box, as a card in play's is ( Flávio Gonçalves's dodge, Abaddon's maneuver ). Out of
 // them, the minion's menu holds it
-function isOwnAbility(option: EngineOption): boolean {
+function isOwnAbility(option: OptionView): boolean {
     return (
         option.kind == 'use_ability' &&
         !option.card &&
@@ -136,20 +137,14 @@ function isOwnAbility(option: EngineOption): boolean {
 
 // The card of the table an option is about : the card played or used, the minion acting, the
 // card picked
-function cardOf(option: EngineOption): Card | undefined {
+function cardOf(option: OptionView): Card | undefined {
     return engineOptionCards(option)[0]
 }
 
-function minionCard(minion: number | undefined): Card | undefined {
-    return minion === undefined ? undefined : (
-            engineOptionCards({ index: -1, kind: 'minion', text: '', minion })[0]
-        )
-}
-
 // The minion playing a card or using an ability
-function actorOf(option: EngineOption): Card | undefined {
+function actorOf(option: OptionView): Card | undefined {
     return option.kind == 'play' || option.kind == 'use_ability' ?
-            minionCard(option.actor)
+            engineRoles(option).actor
         :   undefined
 }
 
@@ -168,23 +163,23 @@ function isAlike(a: Card | undefined, b: Card | undefined) {
     return !!a && !!b && (a.oid == b.oid || alike(a).some(card => card.oid == b.oid))
 }
 
-function targetKey(target: EngineTarget | undefined): string {
+function targetKey(target: Target | null | undefined): string {
     return target ? JSON.stringify(target) : 'none'
 }
 
-function pendingOptions(): EngineOption[] {
+function pendingOptions(): OptionView[] {
     return useEngineStore().pending?.options ?? []
 }
 
-function stagedOptions(): EngineOption[] {
+function stagedOptions(): OptionView[] {
     const indexes = new Set(useEngineStore().staging ?? [])
     return pendingOptions().filter(option => indexes.has(option.index))
 }
 
 function group(
-    options: EngineOption[],
-    keyOf: (option: EngineOption) => string,
-    describe: (option: EngineOption) => { card?: Card; label: string },
+    options: OptionView[],
+    keyOf: (option: OptionView) => string,
+    describe: (option: OptionView) => { card?: Card; label: string },
 ): StagingChoice[] {
     const choices = new Map<string, StagingChoice>()
     for (const option of options) {
@@ -199,48 +194,36 @@ function group(
     return [...choices.values()]
 }
 
-function modeLabel(option: EngineOption): string {
-    const tags = option.mode?.tags ?? []
-    return tags.length > 0 ? tags.map(tag => `[${tag}]`).join('') : option.text
+function modeLabel(option: OptionView): string {
+    const tags = modeTags(option.mode)
+    return tags.length > 0 ? tags.map(tag => `[${tag}]`).join('') : (option.text ?? '')
 }
 
-// What sets a mode apart from the others of its printed line ( "gain 3 blood" ), capitalized
-function splitLabel(option: EngineOption): string | undefined {
-    const label = option.mode?.label
-    return label ? label[0].toUpperCase() + label.slice(1) : undefined
-}
-
-function targetLabel(option: EngineOption): string {
+function targetLabel(option: OptionView): string {
     // The text ends with the target : "Play X with A on B"
-    const on = option.text.lastIndexOf(' on ')
-    return (
-        option.target?.kind == 'seat' && on >= 0 ? option.text.slice(on + 4)
-        : !option.target ? (splitLabel(option) ?? option.text)
-        : option.text
-    )
+    const text = option.text ?? ''
+    const on = text.lastIndexOf(' on ')
+    return option.target?.kind == 'seat' && on >= 0 ? text.slice(on + 4) : text
 }
 
 // The card of the table a target is : a minion, a card in play, a vampire in the uncontrolled
 // region ( Govern the Unaligned, Enchant Kindred at superior )
-function targetCard(option: EngineOption): Card | undefined {
-    const target = option.target
-    if (target?.kind != 'minion' && target?.kind != 'card') {
-        return undefined
-    }
-    return engineOptionCards({ index: -1, kind: 'target', text: '', target })[0]
+function targetCard(option: OptionView): Card | undefined {
+    const target = engineRoles(option).target
+    return target instanceof Card ? target : undefined
 }
 
 /**
  * What the choice under way asks next : the first of its card, the minion
  * playing it, its mode, its target that differs among the options left.
  */
-export function stagingStep(options: EngineOption[]): StagingStep {
+export function stagingStep(options: OptionView[]): StagingStep {
     const cards = group(
         options,
         option => cardOf(option)?.oid ?? 'none',
         option => {
             const card = cardOf(option)
-            return { card, label: card?.name ?? option.text }
+            return { card, label: card?.name ?? option.text ?? '' }
         },
     )
     if (cards.length > 1) {
@@ -250,7 +233,7 @@ export function stagingStep(options: EngineOption[]): StagingStep {
         options,
         option => String(option.actor ?? 'none'),
         option => {
-            const card = minionCard(option.actor)
+            const card = engineCard(option.actor)
             return { card, label: card?.name ?? 'Your Methuselah' }
         },
     )
@@ -273,16 +256,15 @@ export function stagingStep(options: EngineOption[]): StagingStep {
         option => ({ card: targetCard(option), label: targetLabel(option) }),
     )
     if (targets.length > 1) {
-        const role = options.find(option => option.mode?.target)?.mode?.target
-        return { ask: 'target', choices: targets, role }
+        return { ask: 'target', choices: targets }
     }
-    // Options alike in all of this : by what sets their mode apart, else by their text
+    // Options alike in all of this : by their text ( what sets their mode apart )
     return {
         ask: 'option',
         choices: options.map(option => ({
             key: String(option.index),
             options: [option],
-            label: splitLabel(option) ?? option.text,
+            label: option.text ?? '',
         })),
     }
 }
@@ -304,26 +286,27 @@ export const staging = computed(() => {
  * FloatingActionsCloud ) : the actions it can take, the cards it can play
  * from hand, the abilities it can use. Null when it can take no action.
  */
-export function minionMenuOptions(minion: Card): Record<string, EngineOption[]> | null {
+export function minionMenuOptions(minion: Card): Record<string, OptionView[]> | null {
     const options = pendingOptions()
-    const actions = options.filter(o => o.kind == 'take_action' && is(minionCard(o.minion), minion))
+    // The minion taking an action : the option's actor
+    const actions = options.filter(o => o.kind == 'take_action' && is(engineCard(o.actor), minion))
     if (actions.length == 0) {
         return null
     }
-    const by = (...kinds: string[]) => actions.filter(o => kinds.includes(o.action ?? ''))
-    const named = ['bleed', 'hunt', 'diablerie', 'rescue', 'leave torpor']
+    const named: ActionKind[] = ['bleed', 'hunt', 'diablerie', 'rescue', 'leave_torpor']
+    const by = (kind: ActionKind) => actions.filter(o => o.action == kind)
     return {
         Bleed: by('bleed'),
         Hunt: by('hunt'),
         Diablerize: by('diablerie'),
         Rescue: by('rescue'),
-        'Leave Torpor': by('leave torpor'),
+        'Leave Torpor': by('leave_torpor'),
         'Card In Hand': options.filter(o => o.kind == 'play' && is(actorOf(o), minion)),
         // Its own card's too ( an ally's Ⓓ action : Freakish Conglomeration )
         'Card In Play': options.filter(
             o => o.kind == 'use_ability' && (is(actorOf(o), minion) || is(cardOf(o), minion)),
         ),
-        'Other Actions': actions.filter(o => !named.includes(o.action ?? '')),
+        'Other Actions': actions.filter(o => !o.action || !named.includes(o.action)),
     }
 }
 
@@ -406,7 +389,7 @@ export function engineClaims(card: Card): boolean {
 }
 
 // Narrow the choice under way to these options : taken when a single one is left
-export function narrowStaging(options: EngineOption[]) {
+export function narrowStaging(options: OptionView[]) {
     const engine = useEngineStore()
     if (options.length == 1) {
         engine.staging = null
@@ -477,7 +460,7 @@ export function engineCardClick(card: Card): boolean {
  * one step at a time at random ( see stagingStep ). Throws when a step offers
  * nothing, or doesn't narrow : the narrowing must end on a single option.
  */
-export function autoplayStaging(options: EngineOption[]): EngineOption | null {
+export function autoplayStaging(options: OptionView[]): OptionView | null {
     const usable = options.filter(o => isUse(o) || o.kind == 'take_action' || isPick(o))
     if (usable.length == 0) {
         return null
@@ -502,7 +485,7 @@ export function autoplayStaging(options: EngineOption[]): EngineOption | null {
 }
 
 // The values X can take, in order, when there is a choice ( the lowest first ) : a stepper
-export function xOptions(options: EngineOption[]): EngineOption[] {
+export function xOptions(options: OptionView[]): OptionView[] {
     const values = options.filter(option => option.kind == 'set_x')
     return values.length > 1 ? values.sort((a, b) => (a.amount ?? 0) - (b.amount ?? 0)) : []
 }
@@ -522,11 +505,11 @@ const COMBAT = [
     'diablerise',
 ]
 
-export function isCombatOption(option: EngineOption): boolean {
+export function isCombatOption(option: OptionView): boolean {
     return COMBAT.includes(option.kind) || (option.kind == 'round_strike' && !option.card)
 }
 
-export function combatOptions(options: EngineOption[]): EngineOption[] {
+export function combatOptions(options: OptionView[]): OptionView[] {
     return options.filter(isCombatOption)
 }
 
@@ -537,7 +520,7 @@ export function combatOptions(options: EngineOption[]): EngineOption[] {
  * entry starts the choice about its card, as a click on it does ( its
  * Disciplines, its target… ) : the card keeps glowing on the table too.
  */
-export function cardChoices(options: EngineOption[]): StagingChoice[] {
+export function cardChoices(options: OptionView[]): StagingChoice[] {
     const engine = useEngineStore()
     if (!engine.pending?.combat && !useGameStateStore().action) {
         return []
@@ -553,12 +536,12 @@ export function cardChoices(options: EngineOption[]): StagingChoice[] {
         option => cardOf(option)?.oid ?? `option:${option.index}`,
         option => {
             const card = cardOf(option)
-            return { card, label: card?.name ?? option.text }
+            return { card, label: card?.name ?? option.text ?? '' }
         },
     ).map(choice => ({
         ...choice,
         label:
-            choice.options.length == 1 ? choice.options[0].text
+            choice.options.length == 1 ? (choice.options[0].text ?? '')
             : choice.options[0].kind == 'play' ? `Play ${choice.label}`
             : `Use ${choice.label}`,
     }))
@@ -570,16 +553,16 @@ export function cardChoices(options: EngineOption[]): StagingChoice[] {
  * box, the action's or the referendum's pass, the central box's menus. The
  * console lists the others, and every option on demand ( 2.17 ).
  */
-export function answeredOnTable(option: EngineOption): boolean {
+export function answeredOnTable(option: OptionView): boolean {
     const pending = useEngineStore().pending
     const gameState = useGameStateStore()
     const options = pending?.options ?? []
     switch (option.kind) {
         case 'take_action':
-            return !!minionCard(option.minion)
+            return !!engineCard(option.actor)
         case 'cast_votes':
         case 'declare_block':
-            return !!minionCard(option.minion)
+            return !!engineCard(option.minion)
         case 'pass':
             return !!gameState.action || !!gameState.referendum
         case 'allocate_to':
@@ -614,7 +597,7 @@ export function answeredOnTable(option: EngineOption): boolean {
         return !!actor && minionMenuOptions(actor) !== null
     }
     if (onCardLabel(option) !== null) {
-        return !!cardOf(option) || !!minionCard(option.minion)
+        return !!cardOf(option) || !!engineCard(option.minion)
     }
     return isCombatOption(option)
 }
@@ -628,7 +611,7 @@ const ACTION_BUTTONS = ['draw_crypt', 'pay_block_toll']
  * card from your crypt", after a successful bleed ), a block attempt's toll ( Where the Veil Thins
  * [OBL] : pay it, or resign the attempt with the pass )
  */
-export const actionButtons = computed((): EngineOption[] => {
+export const actionButtons = computed((): OptionView[] => {
     const pending = useEngineStore().pending
     if (!pending || !useGameStateStore().action) {
         return []
@@ -638,7 +621,7 @@ export const actionButtons = computed((): EngineOption[] => {
 
 // The Edge, usable now : its pool in the unlock phase, its vote in a polling — it glows, a click
 // on it takes the option ( see gestures.ts changeTheEdgeControl )
-export const edgeOptions = computed((): EngineOption[] =>
+export const edgeOptions = computed((): OptionView[] =>
     (useEngineStore().pending?.options ?? []).filter(
         option => option.kind == 'edge_pool' || option.kind == 'cast_edge',
     ),
@@ -646,7 +629,7 @@ export const edgeOptions = computed((): EngineOption[] =>
 
 // The votes of a polling that are no vampire's : the Edge's, the political action card's ( buttons
 // beside "All my votes" )
-export const methuselahVoteOptions = computed((): EngineOption[] =>
+export const methuselahVoteOptions = computed((): OptionView[] =>
     (useEngineStore().pending?.options ?? []).filter(
         option => option.kind == 'cast_edge' || option.kind == 'cast_card_vote',
     ),
@@ -661,7 +644,7 @@ const TABLE_MOVES = ['transfer', 'withdraw', 'influence_out']
  * the political action card's vote, the Edge's pool, a contest… The influence and discard
  * phases' own moves stay on the table, a phase's end on the turn controls.
  */
-export const leftoverOptions = computed((): EngineOption[] => {
+export const leftoverOptions = computed((): OptionView[] => {
     const pending = useEngineStore().pending
     if (!pending) {
         return []
@@ -671,13 +654,13 @@ export const leftoverOptions = computed((): EngineOption[] => {
     const effectPass = pending.options.some(isEffectPass)
     // The terms of a card played are its question : beside its prompt, even those a button on a
     // card answers ( Vessel's "burn a Blood Doll", on a vampire across the table )
-    const terms = pending.window == 'Terms of the play'
+    const terms = pending.window == 'play_terms'
     return pending.options.filter(option =>
         option.kind == 'pass' ?
             isEffectPass(option)
         :   !TABLE_MOVES.includes(option.kind) &&
-            !(option.kind == 'discard' && pending.window == 'Discard phase') &&
-            !(option.kind == 'draw_crypt' && pending.window == 'Influence phase') &&
+            !(option.kind == 'discard' && pending.window == 'discard_phase') &&
+            !(option.kind == 'draw_crypt' && pending.window == 'influence_transfers') &&
             (!answeredOnTable(option) || ((effectPass || terms) && onCardLabel(option) !== null)),
     )
 })
@@ -687,6 +670,6 @@ export const leftoverOptions = computed((): EngineOption[] => {
  * searching" ) : a choice like the others, in the central box beside them — the fixed Pass says
  * only "Pass". A plain pass ( "Pass (no block)", "End the minion phase" ) stays there alone.
  */
-export function isEffectPass(option: EngineOption): boolean {
-    return option.kind == 'pass' && !/^(Pass\b|End the )/.test(option.text)
+export function isEffectPass(option: OptionView): boolean {
+    return option.kind == 'pass' && !/^(Pass\b|End the )/.test(option.text ?? '')
 }

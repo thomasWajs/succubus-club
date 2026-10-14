@@ -1,5 +1,5 @@
 /**
- * Projection of the rules engine's table ( EngineView ) onto the game state.
+ * Projection of the rules engine's table ( the server's TableView ) onto the game state.
  *
  * The engine is the authority : after each of its messages, the game state is
  * brought to what the view shows. What a player would do by hand goes through
@@ -9,7 +9,9 @@
  * identity, the order of a stack ) is written directly, like a resync.
  *
  * The engine identifies each physical card by a `copy` number, stable across
- * views : each copy maps to one Card.
+ * views : each copy maps to one Card. A card the view leaves unnumbered ( a
+ * back ) is given a number of its seat, zone and place, stable while it stays
+ * there.
  */
 
 import { GameState } from '@/shared/state/gameState.ts'
@@ -35,13 +37,17 @@ import { useEngineStore } from '@/client/store/engine.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { nextTick } from 'vue'
 import Phaser from 'phaser'
-import {
-    EngineCard,
-    EngineInPlay,
-    EngineMinion,
-    EnginePhase,
-    EngineView,
-} from '@/client/engine/protocol.ts'
+import type {
+    ActionView,
+    Card as ViewCard,
+    InPlayView,
+    MinionView,
+    Mode,
+    OptionView,
+    Phase,
+    TableView,
+    Target,
+} from '@/client/engine/api.ts'
 
 // Where new cards land in the ready region : minions on a bottom row,
 // the other cards in play on a top row, the cards being played in the middle.
@@ -53,13 +59,25 @@ const CARD_SPACING_X = 9 * GRID_SIZE
 const ATTACHED_OFFSET_X = 2 * GRID_SIZE
 const ATTACHED_OFFSET_Y = 3 * GRID_SIZE
 
-const PHASES: Record<EnginePhase, TurnPhase | null> = {
+const PHASES: Record<Phase, TurnPhase | null> = {
     unlock: TurnPhase.Unlock,
     master: TurnPhase.Master,
     minion: TurnPhase.Minion,
     influence: TurnPhase.Influence,
     discard: TurnPhase.Discard,
     over: null,
+    unknown: null,
+}
+
+// A card as placed : always numbered ( a back gets a number of its place )
+type Seen = { copy: number; id: number | null; crypt: boolean }
+
+// What an option names on the table, by role
+export type Roles = {
+    card?: Card // the card played, used, moved ; the uncontrolled vampire influenced
+    minion?: Card // the minion it is about ( a minion's action : its menu )
+    actor?: Card // the minion playing the card, using the ability
+    target?: Card | Player
 }
 
 enum Spot {
@@ -74,7 +92,7 @@ enum Spot {
 
 // Where a copy is, and in which state, according to the view
 type Placement = {
-    card: EngineCard
+    card: Seen
     player: Player
     region: AnyCardRegion
     spot: Spot
@@ -87,8 +105,8 @@ type Placement = {
     markers?: string[]
     isLocked: boolean
     isFlipped: boolean
-    // A minion : the engine's own ( its kind : a vampire, an ally, a created vampire, a token )
-    minion?: EngineMinion
+    // A minion : the view's ( its kind : a vampire, an ally, a created vampire, a token )
+    minion?: MinionView
     // Stored on a card in play ( Fleshforge Chamber ), not attached to it
     stored?: boolean
 }
@@ -97,8 +115,8 @@ export class Projection {
     private cards = new Map<number, CardOid>()
     // The order of the stacks, as the view shows them
     private stacks: { region: AnyCardRegion; copies: number[] }[] = []
-    // The minions' copies ( the engine's minion id is its card's copy )
-    private minions = new Map<number, number>()
+    // The viewer's seat
+    private viewer: number | undefined
     // Where each copy was in the previous view ( spot and host ) : a card that
     // changes spot without changing region is moved too ( played, then attached )
     private spots = new Map<number, string>()
@@ -123,9 +141,71 @@ export class Projection {
         return oid ? this.gameState.cards[oid] : undefined
     }
 
-    // The card of a minion, by the engine's minion id
-    minion(minion: number | undefined): Card | undefined {
-        return minion === undefined ? undefined : this.card(this.minions.get(minion))
+    // The card or Methuselah a target names
+    target(target: Target | null | undefined): Card | Player | undefined {
+        return (
+            target?.kind == 'card' ? this.card(target.copy)
+            : target?.kind == 'seat' ? this.player(target.seat)
+            : undefined
+        )
+    }
+
+    // A card an option names : a card on the table by its copy ; a card in hand by its id
+    // ( copies alike in hand are one option : the first of them ), or stored on a card in play
+    cardRef(ref: OptionView['card']): Card | undefined {
+        if (!ref) {
+            return undefined
+        }
+        if (ref.copy != null) {
+            return this.card(ref.copy)
+        }
+        for (const [copy, at] of this.placements) {
+            const there =
+                ref.from != null ?
+                    at.stored && at.host == ref.from
+                :   at.spot == Spot.Stack &&
+                    at.region.is.hand &&
+                    at.player.oid == this.viewerPlayer()?.oid
+            if (there && at.card.id == ref.id) {
+                return this.card(copy)
+            }
+        }
+        return undefined
+    }
+
+    private viewerPlayer(): Player | undefined {
+        return this.viewer === undefined ? undefined : this.player(this.viewer)
+    }
+
+    /**
+     * What an option names, by role, as SC's table reads it : the uncontrolled vampire a transfer
+     * goes to is its card ; the minion taking an action is the option's minion ( its menu ) ; a
+     * minion or a card chosen is its target.
+     */
+    roles(option: OptionView): Roles {
+        const roles: Roles = {
+            card: this.cardRef(option.card),
+            minion: this.card(option.minion),
+            actor: this.card(option.actor),
+            target: this.target(option.target),
+        }
+        switch (option.kind) {
+            case 'take_action':
+                return { ...roles, minion: roles.actor, actor: undefined }
+            case 'choose_minion':
+                return { ...roles, minion: undefined, target: roles.minion }
+            case 'choose_card':
+                return { ...roles, target: roles.card }
+            case 'transfer':
+            case 'withdraw':
+            case 'influence_out':
+            case 'merge':
+            case 'allocate_to_card':
+                return option.target?.kind == 'card' ?
+                        { ...roles, card: this.card(option.target.copy), target: undefined }
+                    :   roles
+        }
+        return roles
     }
 
     /**
@@ -175,7 +255,7 @@ export class Projection {
         return this.gameState.players[this.playersOid[seat]]
     }
 
-    apply(view: EngineView) {
+    apply(view: TableView) {
         const placements = this.read(view)
         this.placements = placements
 
@@ -208,7 +288,7 @@ export class Projection {
     }
 
     // Dev : what differs between the game state and the view, once applied
-    check(view: EngineView): string[] {
+    check(view: TableView): string[] {
         const problems: string[] = []
         for (const [copy, placement] of this.read(view)) {
             const card = this.card(copy)
@@ -244,10 +324,10 @@ export class Projection {
                 seat.limbo.length +
                 [...seat.ready, ...seat.torpor].reduce(
                     (n, minion) =>
-                        n + 1 + minion.cards.reduce((m, c) => m + 1 + c.stored.length, 0),
+                        n + 1 + minion.cards.reduce((m, c) => m + 1 + (c.stored?.length ?? 0), 0),
                     0,
                 ) +
-                seat.in_play.reduce((n, c) => n + 1 + c.stored.length, 0)
+                seat.in_play.reduce((n, c) => n + 1 + (c.stored?.length ?? 0), 0)
             if (nbCards != nbShown) {
                 problems.push(`${player.name} has ${nbCards} cards, not ${nbShown}`)
             }
@@ -276,15 +356,25 @@ export class Projection {
      * Read the view : where is each copy
      */
 
-    private read(view: EngineView): Map<number, Placement> {
+    private read(view: TableView): Map<number, Placement> {
         const placements = new Map<number, Placement>()
         this.stacks = []
-        this.minions.clear()
+        this.viewer = view.viewer ?? undefined
+        // A card the view leaves unnumbered : a number of its seat, zone and place
+        let hidden = 0
+        const seen = (c: ViewCard, back?: number): Seen => ({
+            copy: c.copy ?? back ?? -1_000_000 - ++hidden,
+            id: c.id ?? null,
+            crypt: c.crypt ?? false,
+        })
 
         for (const seat of view.seats) {
             const player = this.player(seat.seat)
+            const back = (zone: number, i: number) => -(1 + seat.seat * 100_000 + zone * 10_000 + i)
+            const pile = (zone: number, cards: ViewCard[]) =>
+                cards.map((c, i) => seen(c, back(zone, i)))
 
-            const stack = (region: AnyCardRegion, cards: EngineCard[]) => {
+            const stack = (region: AnyCardRegion, cards: Seen[]) => {
                 this.stacks.push({ region, copies: cards.map(c => c.copy) })
                 cards.forEach((card, rank) =>
                     placements.set(card.copy, {
@@ -301,15 +391,16 @@ export class Projection {
                 )
             }
             // The engine lists a stack top last ; here the top is first
-            stack(player.crypt, [...seat.crypt].reverse())
-            stack(player.library, [...seat.library].reverse())
-            stack(player.hand, seat.hand)
-            stack(player.ashHeap, [...seat.ash_heap].reverse())
-            stack(player.removed, [...seat.removed].reverse())
+            stack(player.crypt, pile(0, seat.crypt).reverse())
+            stack(player.library, pile(1, seat.library).reverse())
+            stack(player.hand, pile(2, seat.hand))
+            stack(player.ashHeap, pile(3, seat.ash_heap).reverse())
+            stack(player.removed, pile(4, seat.removed).reverse())
 
-            seat.uncontrolled.forEach((slot, rank) =>
-                placements.set(slot.card.copy, {
-                    card: slot.card,
+            seat.uncontrolled.forEach((slot, rank) => {
+                const card = seen(slot.card, back(6, rank))
+                placements.set(card.copy, {
+                    card,
                     player,
                     region: player.uncontrolled,
                     spot: Spot.Uncontrolled,
@@ -318,63 +409,69 @@ export class Projection {
                     greenCounter: 0,
                     isLocked: false,
                     isFlipped: false,
-                }),
-            )
+                })
+            })
 
             const inPlay = (
-                inPlayCard: EngineInPlay,
+                inPlayCard: InPlayView,
                 region: AnyCardRegion,
                 rank: number,
                 host?: number,
             ) => {
-                placements.set(inPlayCard.card.copy, {
-                    card: inPlayCard.card,
+                const it = seen(inPlayCard.card)
+                placements.set(it.copy, {
+                    card: it,
                     player,
                     region,
                     spot: host === undefined ? Spot.InPlay : Spot.Attached,
                     host,
                     rank,
                     blood: 0,
-                    greenCounter: inPlayCard.counters,
+                    greenCounter: inPlayCard.counters ?? 0,
                     isLocked: inPlayCard.locked,
-                    isFlipped: inPlayCard.contested,
+                    isFlipped: inPlayCard.contested ?? false,
                 })
-                inPlayCard.stored.forEach((card, storedRank) =>
-                    placements.set(card.copy, {
-                        card,
-                        player,
-                        region,
-                        spot: Spot.Attached,
-                        host: inPlayCard.card.copy,
-                        rank: storedRank,
-                        blood: 0,
-                        greenCounter: 0,
-                        isLocked: false,
-                        isFlipped: card.id === null,
-                        stored: true,
-                    }),
-                )
+                ;(inPlayCard.stored ?? [])
+                    .map(c => seen(c))
+                    .forEach((card, storedRank) =>
+                        placements.set(card.copy, {
+                            card,
+                            player,
+                            region,
+                            spot: Spot.Attached,
+                            host: it.copy,
+                            rank: storedRank,
+                            blood: 0,
+                            greenCounter: 0,
+                            isLocked: false,
+                            isFlipped: card.id === null,
+                            stored: true,
+                        }),
+                    )
             }
 
-            const minions = (list: EngineMinion[], region: AnyCardRegion, spot: Spot) =>
+            const minions = (list: MinionView[], region: AnyCardRegion, spot: Spot) =>
                 list.forEach((minion, rank) => {
-                    this.minions.set(minion.minion, minion.card.copy)
-                    placements.set(minion.card.copy, {
-                        card: minion.card,
+                    const card = seen(minion.card)
+                    const markers = minion.markers ?? []
+                    placements.set(card.copy, {
+                        card,
                         player,
                         region,
                         spot,
                         rank,
                         blood: minion.blood,
-                        // Its corruption counters, as SC's green counter
-                        greenCounter: minion.corruption ?? 0,
-                        markers: minion.markers,
+                        // Its corruption counters, all Methuselahs', as SC's green counter
+                        greenCounter: markers
+                            .filter(k => k.kind == 'corruption')
+                            .reduce((n, k) => n + (k.n ?? 1), 0),
+                        markers: markers.map(k => k.text ?? k.kind),
                         isLocked: minion.locked,
-                        isFlipped: minion.contested,
+                        isFlipped: minion.contested ?? false,
                         minion,
                     })
                     minion.cards.forEach((inPlayCard, attachedRank) =>
-                        inPlay(inPlayCard, region, attachedRank, minion.card.copy),
+                        inPlay(inPlayCard, region, attachedRank, card.copy),
                     )
                 })
             minions(seat.ready, player.ready, Spot.Minion)
@@ -382,7 +479,7 @@ export class Projection {
 
             seat.in_play.forEach((inPlayCard, rank) => inPlay(inPlayCard, player.ready, rank))
 
-            seat.limbo.forEach((card, rank) =>
+            pile(5, seat.limbo).forEach((card, rank) =>
                 placements.set(card.copy, {
                     card,
                     player,
@@ -640,7 +737,7 @@ export class Projection {
                 } else {
                     card.becomeMinion()
                 }
-                if (minion.capacity !== null && card.isMinion()) {
+                if (minion.capacity != null && card.isMinion()) {
                     card.minionAttrs.capacity = minion.capacity
                 }
                 this.madeMinions.add(copy)
@@ -658,7 +755,7 @@ export class Projection {
         }
     }
 
-    private setSeats(view: EngineView) {
+    private setSeats(view: TableView) {
         for (const seat of view.seats) {
             const player = this.player(seat.seat)
             const pool = Math.max(0, seat.pool)
@@ -680,11 +777,11 @@ export class Projection {
         for (const seat of view.seats) {
             const player = this.player(seat.seat)
             player.isOusted = seat.ousted
-            player.victoryPoints = seat.vps
+            player.victoryPoints = seat.vp_halves / 2
         }
     }
 
-    private setTurn(view: EngineView) {
+    private setTurn(view: TableView) {
         const active = this.player(view.active)
 
         if (this.gameState.turnNumber != view.turn) {
@@ -706,24 +803,19 @@ export class Projection {
      * written directly, for display. The engine plays it out : SC's own
      * action flow never runs.
      */
-    private setAction(view: EngineView) {
+    private setAction(view: TableView) {
         const action = view.action
         // The bleed's amount, whatever bleeds ( a minion, an action card ) ; the transfers left
         useEngineStore().bleed = action?.bleed ?? null
         useEngineStore().transfers = view.transfers ?? null
-        const acting = action ? this.minion(action.acting) : undefined
+        const acting = action ? this.card(action.acting) : undefined
         if (!action || !acting?.isMinion()) {
             this.gameState.action = null
             return
         }
-        const target =
-            action.target?.kind == 'minion' ? this.minion(action.target.minion)
-            : action.target?.kind == 'card' ? this.card(action.target.copy)
-            : action.target?.kind == 'seat' ? this.player(action.target.seat)
-            : undefined
-        const minionAction = this.minionAction(view, action, acting, target)
-        const blocker = this.minion(action.blocker ?? undefined)
-        const decisions: BlockingDecision[] = action.declined.map(seat => ({
+        const minionAction = this.minionAction(action, acting, this.target(action.target))
+        const blocker = this.card(action.blocker)
+        const decisions: BlockingDecision[] = (action.declined ?? []).map(seat => ({
             player: this.player(seat),
             block: NO_BLOCK,
         }))
@@ -743,18 +835,13 @@ export class Projection {
     }
 
     private minionAction(
-        view: EngineView,
-        action: NonNullable<EngineView['action']>,
+        action: ActionView,
         acting: Minion,
         target: Card | Player | undefined,
     ): MinionAction {
         const base = { actingMinion: acting, target } as const
-        // An action card, on its way to play ( limbo ) : played from hand, with its Disciplines and X
-        const played =
-            action.card === null ?
-                undefined
-            :   view.seats[action.seat].limbo.find(card => card.id == action.card)
-        const card = played ? this.card(played.copy) : undefined
+        // An action card, on its way to play : played from hand, with its Disciplines and X
+        const card = this.card(action.card?.copy)
         if (card) {
             const bled =
                 action.kind == 'bleed' ? this.player(action.bleed_target ?? action.seat) : undefined
@@ -765,8 +852,8 @@ export class Projection {
                 card,
                 usage: {
                     target: bled ?? target,
-                    disciplines: disciplineUses(action.mode?.tags ?? []),
-                    x: action.x,
+                    disciplines: disciplineUses(action.mode),
+                    x: action.x ?? undefined,
                 },
             } as MinionAction
         }
@@ -779,7 +866,7 @@ export class Projection {
                 } as MinionAction
             case 'hunt':
                 return { ...base, type: MinionActionType.Hunt } as MinionAction
-            case 'leave torpor':
+            case 'leave_torpor':
                 return { ...base, type: MinionActionType.LeaveTorpor } as MinionAction
             case 'rescue':
                 return { ...base, type: MinionActionType.RescueFromTorpor } as MinionAction
@@ -795,51 +882,45 @@ export class Projection {
     }
 
     /**
-     * The referendum under way, as SC's referendum panel and vote boxes show
-     * it : the votes of each vampire, the others per Methuselah ( the Edge, a
-     * political action card, a card in play ). Written directly, for display.
-     */
-    /**
      * What the referendum is about, for its panel : the card calling it,
      * and the terms chosen so far ( Methuselahs, minions, a clan, cards,
      * points ).
      */
-    private referendumTerms(view: EngineView): string[] {
+    private referendumTerms(view: TableView): string[] {
         const referendum = view.referendum
         if (!referendum) {
             return []
         }
         const lines: string[] = []
         const card = this.referendumCard(view)
-        const calling = this.minion(referendum.calling ?? undefined)
+        const calling = this.card(referendum.calling)
         if (card || calling) {
             lines.push(
                 [card?.name, calling && `called by ${calling.name}`].filter(Boolean).join(', '),
             )
         }
+        const terms = referendum.terms
         const seat = (s: number) => this.player(s).name
-        const chosen = [
-            ...(referendum.chosen !== null ? [referendum.chosen] : []),
-            ...referendum.seats,
-        ]
+        const chosen = terms.seats ?? []
         if (chosen.length > 0) {
             lines.push(`Methuselah${chosen.length > 1 ? 's' : ''} : ${chosen.map(seat).join(', ')}`)
         }
-        const minions = referendum.minions.map(m => this.minion(m)?.name ?? '?')
+        const named = (terms.cards ?? []).map(c => this.card(c))
+        const minions = named.filter(c => c?.isMinion()).map(c => c?.name ?? '?')
         if (minions.length > 0) {
             lines.push(`Minion${minions.length > 1 ? 's' : ''} : ${minions.join(', ')}`)
         }
-        if (referendum.clan) {
-            lines.push(`Clan : ${referendum.clan}`)
+        if (terms.clan) {
+            lines.push(`Clan : ${terms.clan}`)
         }
-        const cards = referendum.cards.map(c => this.card(c)?.name ?? '?')
+        const cards = named.filter(c => !c?.isMinion()).map(c => c?.name ?? '?')
         if (cards.length > 0) {
             lines.push(`Card${cards.length > 1 ? 's' : ''} : ${cards.join(', ')}`)
         }
-        const points = [
-            ...referendum.allocated.map(([s, n]) => `${seat(s)} ${n}`),
-            ...referendum.card_allocated.map(([c, n]) => `${this.card(c)?.name ?? '?'} ${n}`),
-        ]
+        const points = (terms.allocated ?? []).map(
+            a =>
+                `${a.to.kind == 'seat' ? seat(a.to.seat) : (this.card(a.to.copy)?.name ?? '?')} ${a.points}`,
+        )
         if (points.length > 0) {
             lines.push(`Points : ${points.join(', ')}`)
         }
@@ -847,16 +928,12 @@ export class Projection {
     }
 
     // The card calling the referendum : the action card played, or the card in play granting it
-    private referendumCard(view: EngineView): Card | undefined {
+    private referendumCard(view: TableView): Card | undefined {
         const action = view.action
-        const played =
-            action?.card != null ?
-                view.seats[action.seat].limbo.find(card => card.id == action.card)
-            :   undefined
-        return (played ? this.card(played.copy) : undefined) ?? this.card(action?.source)
+        return this.card(action?.card?.copy) ?? this.card(action?.source)
     }
 
-    private setReferendum(view: EngineView) {
+    private setReferendum(view: TableView) {
         const referendum = view.referendum
         useEngineStore().terms = this.referendumTerms(view)
         // What passing does : the card's text
@@ -868,7 +945,7 @@ export class Projection {
         const state = createReferendumState()
         const side = (favor: boolean) => (favor ? VoteSide.InFavour : VoteSide.Against)
         for (const vote of referendum.votes.filter(v => !v.canceled)) {
-            const vampire = vote.source == 'vampire' ? this.minion(vote.minion) : undefined
+            const vampire = vote.source == 'vampire' ? this.card(vote.copy) : undefined
             if (vampire) {
                 const cast = state.votes[vampire.oid]
                 state.votes[vampire.oid] = {
@@ -889,12 +966,12 @@ export class Projection {
     }
 }
 
-// A mode's printed tags as Disciplines used ( 'dom' basic, 'DOM' superior ) : the other tags dropped
-export function disciplineUses(tags: string[]): DisciplineUse[] {
-    return tags
-        .filter(tag => DisciplineCode[tag.toLowerCase()])
-        .map(tag => ({
-            discipline: DisciplineCode[tag.toLowerCase()],
-            level: tag == tag.toLowerCase() ? DisciplineLevel.INFERIOR : DisciplineLevel.SUPERIOR,
+// A mode's Disciplines as SC's uses ( level inferior or superior )
+export function disciplineUses(mode: Mode | null | undefined): DisciplineUse[] {
+    return (mode?.disciplines ?? [])
+        .filter(d => DisciplineCode[d.discipline])
+        .map(d => ({
+            discipline: DisciplineCode[d.discipline],
+            level: d.superior ? DisciplineLevel.SUPERIOR : DisciplineLevel.INFERIOR,
         }))
 }

@@ -43,7 +43,7 @@
     <CentralPanel
         v-else-if="picking"
         class="engine-staging"
-        :title="engine.pending?.window"
+        :title="engine.pending ? windowName(engine.pending.window) : undefined"
     >
         <div
             v-if="engine.pending?.prompt"
@@ -68,6 +68,7 @@
 </template>
 
 <script setup lang="ts">
+import { windowName } from '@/client/engine/labels.ts'
 import { computed, onMounted, onUnmounted } from 'vue'
 import { hoverEngineCard } from '@/client/engine/cardNames.ts'
 import EngineText from '@/client/ui/ingame/EngineText.vue'
@@ -75,7 +76,7 @@ import CentralPanel from '@/client/ui/ingame/topArea/central/CentralPanel.vue'
 import DisciplineIcon from '@/client/ui/components/DisciplineIcon.vue'
 import { useEngineStore } from '@/client/store/engine.ts'
 import { chooseEngineOption, engineOptionCards } from '@/client/engine/driver.ts'
-import { EngineOption } from '@/client/engine/protocol.ts'
+import type { OptionView } from '@/client/engine/api.ts'
 import {
     cancelStaging,
     isPick,
@@ -84,7 +85,8 @@ import {
     StagingChoice,
     StagingStep,
 } from '@/client/engine/interaction.ts'
-import { Discipline, DisciplineCode, DisciplineLevel } from '@/shared/const/model.ts'
+import { Discipline, DisciplineLevel } from '@/shared/const/model.ts'
+import { disciplineUses } from '@/client/engine/projection.ts'
 
 /**
  * The choice under way on the table, in a game with the rules engine ( see
@@ -97,7 +99,7 @@ const engine = useEngineStore()
 const picks = computed(() => engine.pending?.options.filter(isPick) ?? [])
 const picking = computed(() => picks.value.length > 0)
 
-function pick(option: EngineOption) {
+function pick(option: OptionView) {
     hoverEngineCard(null)
     chooseEngineOption(option.index)
 }
@@ -112,11 +114,8 @@ const PROMPTS: Record<StagingStep['ask'], string> = {
 
 const current = staging
 
-// The target step names what the target is for, when the card chooses two minions
 function prompt(step: StagingStep): string {
-    return step.role ?
-            `${step.role[0].toUpperCase()}${step.role.slice(1)} ? Click a glowing card`
-        :   PROMPTS[step.ask]
+    return PROMPTS[step.ask]
 }
 
 // The choices not on the table : the others are clicked there. The card to play is a button too
@@ -128,14 +127,12 @@ const buttons = computed(
         ) ?? [],
 )
 
-// A mode's Disciplines, as icons ( 'dom' basic, 'DOM' superior ) : none when a tag is not one
+// A mode's Disciplines, as icons : none when it is played as a card type too ( [COMBAT] ), or at a
+// Discipline SC has no icon for
 function icons(choice: StagingChoice): { discipline: Discipline; level: DisciplineLevel }[] {
-    const tags = choice.options[0].mode?.tags ?? []
-    const all = tags.map(tag => ({
-        discipline: DisciplineCode[tag.toLowerCase()],
-        level: tag == tag.toLowerCase() ? DisciplineLevel.INFERIOR : DisciplineLevel.SUPERIOR,
-    }))
-    return all.every(icon => icon.discipline) ? all : []
+    const mode = choice.options[0].mode
+    const all = disciplineUses(mode)
+    return !mode?.card_type && all.length == (mode?.disciplines ?? []).length ? all : []
 }
 
 // A mode's level, in words, when its Disciplines are all at one level

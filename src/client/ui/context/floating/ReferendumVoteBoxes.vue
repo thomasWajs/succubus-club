@@ -91,7 +91,7 @@ import { getCastBallot, getCastVote, isBallotVampire } from '@/shared/state/refe
 import { CastVote, GameType, VoteSide } from '@/shared/types/state.ts'
 import { useEngineStore } from '@/client/store/engine.ts'
 import { chooseEngineOption, engineOptionCards } from '@/client/engine/driver.ts'
-import { EngineOption } from '@/client/engine/protocol.ts'
+import type { OptionView } from '@/client/engine/api.ts'
 import { Vampire } from '@/shared/model/Card.ts'
 import PropertyStepper from '@/client/ui/components/PropertyStepper.vue'
 
@@ -111,14 +111,14 @@ type VoteBoxData = {
     isBallot: boolean
     style: Record<string, string>
     // A game with the rules engine : the vote it offers this vampire now, each way
-    engine?: Partial<Record<VoteSide, EngineOption>>
+    engine?: Partial<Record<VoteSide, OptionView>>
 }
 
 // A game with the rules engine : the boxes of the vampires that voted, or can vote now ( theirs
 // are the interactive ones )
 const isEngine = computed(() => gameState.gameType == GameType.Engine)
 const engineVotes = computed(() => {
-    const offered = new Map<string, Partial<Record<VoteSide, EngineOption>>>()
+    const offered = new Map<string, Partial<Record<VoteSide, OptionView>>>()
     for (const option of engine.pending?.options ?? []) {
         const vampire = option.kind == 'cast_votes' ? engineOptionCards(option)[0] : undefined
         if (vampire) {

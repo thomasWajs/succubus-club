@@ -24,7 +24,7 @@
                 @mouseenter="hoverRecipient(i)"
                 @mouseleave="hoverEngineCard(null)"
             >
-                <span class="engine-choices-name">{{ recipient.name }}</span>
+                <span class="engine-choices-name">{{ recipientName(recipient.to) }}</span>
                 <button
                     class="game-button small"
                     :disabled="amounts[i] == 0"
@@ -100,7 +100,7 @@
         <CentralPanel
             v-if="xValues.length > 0"
             class="engine-choices"
-            :title="pending.prompt ? pending.window : 'Choose X'"
+            :title="pending.prompt ? windowName(pending.window) : 'Choose X'"
         >
             <div
                 v-if="pending.prompt"
@@ -204,7 +204,7 @@
         <CentralPanel
             v-if="!pending.combat && cards.length > 0"
             class="engine-choices"
-            :title="pending.window"
+            :title="windowName(pending.window)"
         >
             <div class="engine-choices-buttons">
                 <button
@@ -224,7 +224,7 @@
         <CentralPanel
             v-if="leftovers.length > 0"
             class="engine-choices"
-            :title="pending.window"
+            :title="windowName(pending.window)"
         >
             <div
                 v-if="pending.prompt"
@@ -255,6 +255,7 @@
  * for X, the steps of a combat, and what nothing else answers ( leftoverOptions ). The rest is
  * on the table ( see engine/interaction.ts ), and every option in the console.
  */
+import { windowName } from '@/client/engine/labels.ts'
 import { computed, ref, watch } from 'vue'
 import { hoverEngineCard } from '@/client/engine/cardNames.ts'
 import EngineText from '@/client/ui/ingame/EngineText.vue'
@@ -264,6 +265,7 @@ import {
     allocateEngine,
     chooseEngineOption,
     engineOptionCards,
+    engineTarget,
     voteAllEngine,
 } from '@/client/engine/driver.ts'
 import {
@@ -275,7 +277,8 @@ import {
     StagingChoice,
     xOptions,
 } from '@/client/engine/interaction.ts'
-import { EngineOption } from '@/client/engine/protocol.ts'
+import type { OptionView, Target } from '@/client/engine/api.ts'
+import { Card } from '@/shared/model/Card.ts'
 
 const engine = useEngineStore()
 
@@ -319,12 +322,15 @@ function allocate() {
     }
 }
 
-// Show on the table the card a recipient is ( a location or an equipment )
+// A recipient : a Methuselah, or a card in play ( a location, an equipment )
+function recipientName(to: Target): string {
+    return engineTarget(to)?.name ?? ''
+}
+
+// Show on the table the card a recipient is
 function hoverRecipient(i: number) {
-    const card = allocation.value?.recipients[i].card
-    hoverEngineCard(
-        card ? engineOptionCards({ index: -1, kind: 'allocate_to_card', text: '', card })[0] : null,
-    )
+    const to = engineTarget(allocation.value?.recipients[i].to)
+    hoverEngineCard(to instanceof Card ? to : null)
 }
 
 const xValues = computed(() => xOptions(pending.value?.options ?? []))
@@ -360,7 +366,7 @@ function stage(choice: StagingChoice) {
     narrowStaging(choice.options)
 }
 
-function choose(option: EngineOption) {
+function choose(option: OptionView) {
     hoverEngineCard(null)
     chooseEngineOption(option.index)
 }

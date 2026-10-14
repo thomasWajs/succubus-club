@@ -1022,6 +1022,7 @@ export type Purpose =
     | 'pursuit_discard'
     | 'purge_pick'
     | 'steal_up_to'
+    | 'move_blood_up_to'
     | 'ally_search'
     | 'remove_uncontrolled'
     | 'choose_for_card'
@@ -1035,6 +1036,7 @@ export type Purpose =
     | 'anarch_convert'
     | 'uncontrolled_blood'
     | 'lock_or_pay'
+    | 'pool_or_vampire'
     | 'crypt_search'
     | 'prey_slot_to_pool'
     | 'distribute_from'
@@ -1213,6 +1215,7 @@ export type StrikeKind =
     | 'ranged_burn_equipment'
     | 'corrupt'
     | 'card_effect'
+    | 'steal_weapon'
     | 'unknown'
 
 export type StruckSide = {

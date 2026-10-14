@@ -10,7 +10,7 @@
 
         <!-- During a bleed, its amount -->
         <span
-            v-if="bleed !== null"
+            v-if="bleed !== null && !engine.result"
             class="engine-header-bleed"
         >
             Bleed {{ bleed }}
@@ -29,7 +29,11 @@
             class="engine-header-state"
             :class="{ yours: !!engine.pending }"
         >
-            {{ engine.pending ? `Your decision : ${engine.pending.window}` : engine.status }}
+            {{
+                engine.pending ?
+                    `Your decision : ${windowName(engine.pending.window)}`
+                :   engine.status
+            }}
         </span>
     </div>
 </template>
@@ -41,6 +45,7 @@
  * phase is on the turn line, beside the active player ). One line, always there : the panels below
  * change, it does not.
  */
+import { windowName } from '@/client/engine/labels.ts'
 import { computed } from 'vue'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { useEngineStore } from '@/client/store/engine.ts'

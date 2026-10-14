@@ -7,14 +7,18 @@
 
 import { ref } from 'vue'
 import { EngineHost } from '@/client/engine/host.ts'
-import { Projection } from '@/client/engine/projection.ts'
-import {
-    EngineAllocation,
-    EngineOption,
-    EngineOut,
-    EngineView,
-    EngineZone,
-} from '@/client/engine/protocol.ts'
+import { Projection, Roles } from '@/client/engine/projection.ts'
+import type {
+    Allocation,
+    OptionView,
+    TableView,
+    Target,
+    Window,
+    ZoneRef,
+} from '@/client/engine/api.ts'
+import { Player } from '@/shared/model/Player.ts'
+import { windowName } from '@/client/engine/labels.ts'
+import type { EngineOut } from '@/client/engine/host.ts'
 import { AnyCardRegion } from '@/shared/types/model.ts'
 import { EngineCombat, useEngineStore } from '@/client/store/engine.ts'
 import { useHistoryStore } from '@/client/store/history.ts'
@@ -47,11 +51,11 @@ type Running = {
     host: EngineHost
     projection: Projection
     answer: ((answer: Answer) => void) | null
-    // A move worth several decisions ( influence 3 ) : the option to take again
-    repeat: { kind: string; copy: number | null | undefined; left: number } | null
+    // A move worth several decisions ( influence 3 ) : the option to take again, by its card
+    repeat: { kind: string; card: string | undefined; left: number } | null
     // A move a later phase answers, the phase under way passed for it ( see AUTO_PASSES ) : made
     // again in that phase
-    deferred: { gameMutation: AnyGameMutation; window: string } | null
+    deferred: { gameMutation: AnyGameMutation; window: Window } | null
 }
 
 /**
@@ -61,18 +65,18 @@ type Running = {
  * passes it, or when no minion can act.
  */
 const AUTO_PASSES: {
-    from: string
-    to: string
+    from: Window
+    to: Window
     moves: (gameMutation: AnyGameMutation) => boolean
 }[] = [
     {
-        from: 'Unlock phase',
-        to: 'Master phase',
+        from: 'unlock_abilities',
+        to: 'master_phase',
         moves: gameMutation => fromHand(gameMutation)?.type == LibraryCardType.Master,
     },
     {
-        from: 'Influence phase',
-        to: 'Discard phase',
+        from: 'influence_transfers',
+        to: 'discard_phase',
         moves: gameMutation => {
             const card = fromHand(gameMutation)
             return (
@@ -120,7 +124,7 @@ export function chooseEngineOption(index: number) {
 
 // The pass of the decision under way ( "Pass (no block)", "End the master phase"… ) : one fixed
 // button in the turn controls, and → / Space
-export function enginePassOption(): EngineOption | undefined {
+export function enginePassOption(): OptionView | undefined {
     return useEngineStore().pending?.options.find(option => option.kind == 'pass')
 }
 
@@ -153,7 +157,7 @@ export function voteAllEngine(favor: boolean) {
 }
 
 // Valid amounts at random ( dev autoplay ) : a point to `min_nonzero` recipients, the rest anywhere
-function randomAmounts(allocation: EngineAllocation): number[] {
+function randomAmounts(allocation: Allocation): number[] {
     const { recipients } = allocation
     const room = (amounts: number[], i: number) => amounts[i] < (recipients[i].cap ?? Infinity)
     const amounts = recipients.map(() => 0)
@@ -177,26 +181,27 @@ function randomAmounts(allocation: EngineAllocation): number[] {
 
 // The combat under way, by its minions' names
 // `seat` : the user's, deciding
-function combatOf(view: EngineView, seat: number): EngineCombat | null {
+function combatOf(view: TableView, seat: number): EngineCombat | null {
     if (!view.combat) {
         return null
     }
     const minions = view.seats.flatMap(seat => [...seat.ready, ...seat.torpor])
-    const name = (id: number) => minions.find(m => m.minion == id)?.name ?? 'a minion'
+    const name = (id: number) => minions.find(m => m.card.copy == id)?.name ?? 'a minion'
     const own = (id: number) =>
         view.seats.some(
             other =>
-                other.seat == seat && [...other.ready, ...other.torpor].some(m => m.minion == id),
+                other.seat == seat &&
+                [...other.ready, ...other.torpor].some(m => m.card.copy == id),
         )
     const [acting, opposing] = view.combat.minions
     return {
         minions: [name(acting), name(opposing)],
         round: view.combat.round,
-        range: view.combat.range,
-        sides: (view.combat.sides ?? []).map(side => ({
+        range: view.combat.range ?? 'close',
+        sides: view.combat.sides.map(side => ({
             name: name(side.minion),
             own: own(side.minion),
-            strike: side.strike,
+            strike: side.strike ? (side.strike.text ?? side.strike.kind) : undefined,
             maneuvers: side.maneuvers,
             presses: side.presses,
         })),
@@ -244,7 +249,7 @@ export function engineGesture(gameMutation: AnyGameMutation): Validity {
             chooseEngineOption(pass.index)
             return VALID
         }
-        return Invalid(`Not possible now ( ${pending.window} )`)
+        return Invalid(`Not possible now ( ${windowName(pending.window)} )`)
     }
     // Several options that read the same are the same to the user
     if (matches.length == 1 || matches.every(option => option.text == matches[0].text)) {
@@ -265,7 +270,13 @@ export function engineGesture(gameMutation: AnyGameMutation): Validity {
             )
         }
         running.repeat =
-            amount > 1 ? { kind: option.kind, copy: option.card?.copy, left: amount - 1 } : null
+            amount > 1 ?
+                {
+                    kind: option.kind,
+                    card: running.projection.roles(option).card?.oid,
+                    left: amount - 1,
+                }
+            :   null
         chooseEngineOption(option.index)
         return VALID
     }
@@ -277,23 +288,33 @@ export function engineGesture(gameMutation: AnyGameMutation): Validity {
 }
 
 // The cards an option is about, to show them on the table
-export function engineOptionCards(option: EngineOption): Card[] {
+export function engineOptionCards(option: OptionView): Card[] {
     if (!running) {
         return []
     }
-    const { projection } = running
-    const target = option.target
-    return [
-        projection.card(option.card?.copy),
-        projection.minion(option.minion),
-        projection.minion(option.actor),
-        target?.kind == 'minion' ? projection.minion(target.minion) : undefined,
-        target?.kind == 'card' ? projection.card(target.copy) : undefined,
-    ].filter((card): card is Card => card !== undefined)
+    const { card, minion, actor, target } = running.projection.roles(option)
+    return [card, minion, actor, target instanceof Card ? target : undefined].filter(
+        (card): card is Card => card !== undefined,
+    )
+}
+
+// The card of the table a copy is
+export function engineCard(copy: number | null | undefined): Card | undefined {
+    return running?.projection.card(copy)
+}
+
+// The card or Methuselah a target names
+export function engineTarget(target: Target | null | undefined): Card | Player | undefined {
+    return running?.projection.target(target)
+}
+
+// What an option names on the table, by role ( see Projection.roles )
+export function engineRoles(option: OptionView): Roles {
+    return running ? running.projection.roles(option) : {}
 }
 
 // The region of the table a search's zone is ( a seat's library, ash heap or hand )
-export function engineZoneRegion(zone: EngineZone | undefined): AnyCardRegion | undefined {
+export function engineZoneRegion(zone: ZoneRef | null | undefined): AnyCardRegion | undefined {
     if (!running || !zone) {
         return undefined
     }
@@ -313,7 +334,7 @@ export function engineAlikeCards(card: Card): Card[] {
 }
 
 // The pending options answered by a button on a card of the table, and that card ( see onCardLabel )
-export function engineCardOptions(): { card: Card; option: EngineOption; label: string }[] {
+export function engineCardOptions(): { card: Card; option: OptionView; label: string }[] {
     const pending = useEngineStore().pending
     if (!running || !pending) {
         return []
@@ -405,7 +426,8 @@ function tell(out: EngineOut) {
 
 // A decision, as the log tells it : its text ; a bare pass with the window it passes
 function decisionLine(out: Extract<EngineOut, { type: 'decided' }>): string {
-    return out.choice.text == 'Pass' ? `Pass ( ${out.window} )` : out.choice.text
+    const text = out.choice.text ?? ''
+    return text == 'Pass' ? `Pass ( ${windowName(out.window)} )` : text
 }
 
 function narrate(current: Running, out: EngineOut) {
@@ -456,7 +478,7 @@ export async function runEngine(host: EngineHost, projection: Projection) {
             }
 
             if (out.type == 'decided') {
-                engine.status = `${projection.player(out.seat).name} : ${out.window}`
+                engine.status = `${projection.player(out.seat).name} : ${windowName(out.window)}`
                 narrate(current, out)
                 await sleep(out.choice.kind == 'pass' ? BOT_PASS_PAUSE : BOT_DECISION_PAUSE)
                 continue
@@ -482,7 +504,9 @@ export async function runEngine(host: EngineHost, projection: Projection) {
             const repeat = current.repeat
             const again =
                 repeat ?
-                    out.options.find(o => o.kind == repeat.kind && o.card?.copy == repeat.copy)
+                    out.options.find(
+                        o => o.kind == repeat.kind && projection.roles(o).card?.oid == repeat.card,
+                    )
                 :   undefined
             current.repeat =
                 repeat && again && repeat.left > 1 ? { ...repeat, left: repeat.left - 1 } : null
@@ -490,7 +514,7 @@ export async function runEngine(host: EngineHost, projection: Projection) {
             const deferred = current.deferred
             current.deferred = null
             if (deferred && deferred.window != out.window) {
-                engine.tellNotice(`Passed, now ${out.window} : make that move again`)
+                engine.tellNotice(`Passed, now ${windowName(out.window)} : make that move again`)
             }
             const answer = await new Promise<Answer>(resolve => {
                 current.answer = resolve

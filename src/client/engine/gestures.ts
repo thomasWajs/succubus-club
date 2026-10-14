@@ -14,13 +14,13 @@ import { Card } from '@/shared/model/Card.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { AnyCardRegion } from '@/shared/types/model.ts'
 import { MinionAction, MinionActionType, NO_BLOCK } from '@/shared/types/state.ts'
-import { EngineOption } from '@/client/engine/protocol.ts'
+import type { ActionKind, OptionView } from '@/client/engine/api.ts'
 import { Projection } from '@/client/engine/projection.ts'
 import { getCardRectangle } from '@/client/game/utils.ts'
 
 // What an option names, as cards on the table
 type Named = {
-    option: EngineOption
+    option: OptionView
     card?: Card
     minion?: Card
     actor?: Card
@@ -28,27 +28,24 @@ type Named = {
     targetPlayer?: Player
 }
 
-// The engine's action kinds ( EngineOption.action ) for the actions declared here
-const ACTIONS: Partial<Record<MinionActionType, string[]>> = {
+// The engine's action kinds ( OptionView.action ) for the actions declared here
+const ACTIONS: Partial<Record<MinionActionType, ActionKind[]>> = {
     [MinionActionType.Bleed]: ['bleed'],
     [MinionActionType.Hunt]: ['hunt'],
-    [MinionActionType.LeaveTorpor]: ['leave torpor'],
+    [MinionActionType.LeaveTorpor]: ['leave_torpor'],
     [MinionActionType.RescueFromTorpor]: ['rescue'],
     [MinionActionType.Diablerize]: ['diablerie'],
 }
 
-function named(projection: Projection, option: EngineOption): Named {
-    const target = option.target
+function named(projection: Projection, option: OptionView): Named {
+    const { card, minion, actor, target } = projection.roles(option)
     return {
         option,
-        card: projection.card(option.card?.copy),
-        minion: projection.minion(option.minion),
-        actor: projection.minion(option.actor),
-        target:
-            target?.kind == 'minion' ? projection.minion(target.minion)
-            : target?.kind == 'card' ? projection.card(target.copy)
-            : undefined,
-        targetPlayer: target?.kind == 'seat' ? projection.player(target.seat) : undefined,
+        card,
+        minion,
+        actor,
+        target: target instanceof Card ? target : undefined,
+        targetPlayer: target instanceof Player ? target : undefined,
     }
 }
 
@@ -131,7 +128,8 @@ function declaredAction(all: Named[], action: MinionAction): Named[] {
         n =>
             n.option.kind == 'take_action' &&
             is(n.minion, acting) &&
-            kinds.includes(n.option.action ?? ''),
+            !!n.option.action &&
+            kinds.includes(n.option.action),
     )
     const target = action.target
     if (actions.length > 1 && target instanceof Card) {
@@ -146,9 +144,9 @@ function declaredAction(all: Named[], action: MinionAction): Named[] {
  */
 export function matchGesture(
     projection: Projection,
-    options: EngineOption[],
+    options: OptionView[],
     gameMutation: AnyGameMutation,
-): EngineOption[] {
+): OptionView[] {
     const all = options.map(option => named(projection, option))
     const params = gameMutation.params as Record<string, unknown>
     const card = gameMutation.card ?? undefined
@@ -172,7 +170,7 @@ export function matchGesture(
                 // Blood moved onto or off a vampire : the ability moving it that way, if any
                 // ( a Blood Doll on it )
                 const moving = found.filter(
-                    n => n.option.blood !== undefined && n.option.blood * amount > 0,
+                    n => n.option.blood != null && n.option.blood * amount > 0,
                 )
                 found = moving.length > 0 ? moving : found
             }
@@ -229,7 +227,7 @@ export function matchGesture(
                 // ( not a Blood Doll's blood, moved by changing the vampire's blood )
                 found = all.filter(
                     n =>
-                        n.option.blood === undefined &&
+                        n.option.blood == null &&
                         (is(n.minion, card) || is(n.actor, card) || is(n.card, card)),
                 )
                 const acts = found.filter(n =>
@@ -299,7 +297,7 @@ export function matchGesture(
 // The options answered by a button on the card they are about ( SC's floating actions ) : what a
 // card or minion in play can be made to do ( picks glow instead : engine/interaction.ts ). The
 // label is short : the button sits under the card.
-const ON_CARD: Record<string, (option: EngineOption) => string> = {
+const ON_CARD: Record<string, (option: OptionView) => string> = {
     resolve_rider: () => 'Resolve',
     resolve_printed: () => 'Resolve',
     burn_blood_from: () => 'Burn 1 blood',
@@ -307,7 +305,7 @@ const ON_CARD: Record<string, (option: EngineOption) => string> = {
     unlock_for_blood: () => 'Burn blood to unlock',
     burn_corruption_to_fail: () => 'Block fails',
     burn_corruption_to_unlock: () => 'Unlock',
-    draw_stored: option => option.text,
+    draw_stored: option => option.text ?? 'Draw',
     burn_weapon_strike: () => 'Burn to strike',
     // A contest, under the card or minion contested
     pay_contest: () => 'Pay to contest',
@@ -321,6 +319,6 @@ const ON_CARD: Record<string, (option: EngineOption) => string> = {
  * The label of the button on the card an option is about, or null when the
  * option is not answered there.
  */
-export function onCardLabel(option: EngineOption): string | null {
+export function onCardLabel(option: OptionView): string | null {
     return ON_CARD[option.kind]?.(option) ?? null
 }

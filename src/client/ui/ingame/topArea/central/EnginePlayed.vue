@@ -34,13 +34,14 @@
  */
 import CentralPanel from '@/client/ui/ingame/topArea/central/CentralPanel.vue'
 import { useEngineStore } from '@/client/store/engine.ts'
-import { engineOptionCards } from '@/client/engine/driver.ts'
+import { engineCard, engineOptionCards } from '@/client/engine/driver.ts'
 import { hoverEngineCard } from '@/client/engine/cardNames.ts'
 import EngineText from '@/client/ui/ingame/EngineText.vue'
 import DisciplineIcon from '@/client/ui/components/DisciplineIcon.vue'
 import { gameResources } from '@/shared/registries.ts'
-import { type Discipline, DisciplineCode, DisciplineLevel } from '@/shared/const/model.ts'
-import type { EngineOption } from '@/client/engine/protocol.ts'
+import { type Discipline, DisciplineLevel } from '@/shared/const/model.ts'
+import { disciplineUses } from '@/client/engine/projection.ts'
+import type { OptionView } from '@/client/engine/api.ts'
 
 const engine = useEngineStore()
 
@@ -48,38 +49,24 @@ const engine = useEngineStore()
 // Disciplines it was played at ( lower case inferior, upper case superior ). Null for the rest,
 // said by the log's line
 function short(
-    option: EngineOption,
+    option: OptionView,
     player: string,
 ): { text: string; icons: { discipline: Discipline; level: DisciplineLevel }[] } | null {
     const card = option.card?.id ? gameResources.cardbase[option.card.id]?.name : undefined
     if (option.kind != 'play' || !card) {
         return null
     }
-    const actor = option.actor === undefined ? undefined : engineActor(option)
+    const actor = engineActor(option)
     const who = actor ?? player
     if (!who) {
         return null
     }
-    const icons = (option.mode?.tags ?? []).flatMap(tag => {
-        const discipline = DisciplineCode[tag.toLowerCase()]
-        if (!discipline) {
-            return []
-        }
-        const level = tag == tag.toLowerCase() ? DisciplineLevel.INFERIOR : DisciplineLevel.SUPERIOR
-        return [{ discipline, level }]
-    })
-    return { text: `${who} plays ${card}`, icons }
+    return { text: `${who} plays ${card}`, icons: disciplineUses(option.mode) }
 }
 
 // The name of the minion playing the card
-function engineActor(option: EngineOption): string | undefined {
-    const minion = engineOptionCards({
-        index: -1,
-        kind: 'minion',
-        text: '',
-        minion: option.actor,
-    })[0]
-    const krcgId = minion?.krcgId
+function engineActor(option: OptionView): string | undefined {
+    const krcgId = engineCard(option.actor)?.krcgId
     return krcgId ? gameResources.cardbase[krcgId]?.name : undefined
 }
 </script>
