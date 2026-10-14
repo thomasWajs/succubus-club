@@ -28,6 +28,9 @@ import {
 } from '@/client/multiplayer/communication/scs.ts'
 import { getLogger } from '@/shared/registries.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
+import { useEngineStore } from '@/client/store/engine.ts'
+import { engineGesture, isEngineProjecting } from '@/client/engine/driver.ts'
+import { useEngineMode } from '@/client/engine/mode.ts'
 
 /**
  * Apply the mutation locally, if it's valid.
@@ -38,7 +41,8 @@ export function applyMutationIfValid(gameMutation: AnyGameMutation) {
         gameMutation.apply()
 
         try {
-            useHistoryStore().addGameMutation(gameMutation)
+            // The rules engine's table moves are narrated by the engine ( see engine/driver.ts )
+            useHistoryStore().addGameMutation(gameMutation, undefined, !isEngineProjecting())
 
             // Special handlings
             if (gameMutation instanceof ResolveAction || gameMutation instanceof ResolveBlock) {
@@ -54,6 +58,10 @@ export function applyMutationIfValid(gameMutation: AnyGameMutation) {
         }
     }
 }
+
+// The mutations the user keeps in a game run by the rules engine : arranging
+// the cards of a region, and the UI ones ( arrows, scale, separators, ping )
+const ENGINE_USER_MUTATIONS = /^(moveCard|UI_.*)$/
 
 /**
  * In multiplayer, apply immediately.
@@ -73,7 +81,20 @@ export function applyMutationLocally(gameMutation: AnyGameMutation) {
  */
 export function dispatchMutation(gameMutation: AnyGameMutation) {
     const gameState = useGameStateStore()
+    const { isEngine } = useEngineMode()
     const bus = useBusStore()
+
+    // With the rules engine, the table changes only through the engine : the
+    // user's moves are read as decisions ( see engine/gestures.ts ), the
+    // cosmetic ones kept as they are.
+    if (isEngine.value && !isEngineProjecting() && !ENGINE_USER_MUTATIONS.test(gameMutation.name)) {
+        // Told beside the Pass, not over the table
+        const validity = engineGesture(gameMutation)
+        if (!validity.isValid) {
+            useEngineStore().tellNotice(validity.reason)
+        }
+        return validity
+    }
 
     const validity = gameMutation.canApply()
     if (!validity.isValid) {

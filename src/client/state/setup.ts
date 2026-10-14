@@ -21,6 +21,7 @@ import { shuffleArray } from '@/shared/utils.ts'
 import { leaveMultiplayer } from '@/client/multiplayer/lobby.ts'
 import { setupMultiplayerGameState, setupPlayArea } from '@/shared/state/setup.ts'
 import { Puppet } from '@/client/types.ts'
+import { stopEngine } from '@/client/engine/driver.ts'
 import { CardRegionVisibility, RegionName } from '@/shared/const/model.ts'
 import { CardRegion } from '@/shared/model/CardRegion.ts'
 import { computePerimeterLayout, PLAY_AREA_CENTER } from '@/shared/state/freeTableLayout.ts'
@@ -38,6 +39,8 @@ export function resetState() {
     useGameStateStore().$reset()
     useHistoryStore().$reset()
     useGameBusStore().$reset()
+
+    stopEngine()
 
     core.gameIsStarted = false
     core.phaserIsReady = false
