@@ -200,19 +200,17 @@ const actionsStyle = computed(() => {
         }
     }
 
-    let right, top
+    let right
     if (worldAlignment.value == WorldAlignment.TopRight) {
         right = rightBase + display.horizontalPadding * display.scale
-        top = 0
     } else {
         right = rightBase + display.horizontalSpaceAvailable / 2
-        top = display.verticalSpaceAvailable / 2
     }
 
     return {
         width: `${wieldsActionsWidth}px`,
         height: `${wieldsActionsHeight}px`,
-        top: `${top}px`,
+        top: `${display.worldTop}px`,
         right: `${right}px`,
         transform: `scale(${display.scale})`,
     }

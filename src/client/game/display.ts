@@ -112,6 +112,9 @@ function getDisplay() {
     const verticalSpaceAvailable = actualHeight - WORLD_HEIGHT * scale
     const horizontalSpaceAvailable = actualWidth - WORLD_WIDTH * scale
     const horizontalPadding = Math.min(horizontalSpaceAvailable / 2, 20)
+    // The world sits at the bottom of the display, the hand flush with its bottom edge : the
+    // vertical space left goes to the top area, above the central player's play area
+    const worldTop = verticalSpaceAvailable
 
     return {
         rightColumnVisible,
@@ -125,6 +128,7 @@ function getDisplay() {
         verticalSpaceAvailable,
         horizontalSpaceAvailable,
         horizontalPadding,
+        worldTop,
     }
 }
 
