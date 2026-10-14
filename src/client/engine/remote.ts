@@ -115,6 +115,7 @@ export class RemoteEngineHost implements EngineHost {
     private names: string[] = []
     private lastDecision = -1
     private answered = true
+    onWithdrawn?: (decision: number) => void
     private failure: Error | null = null
 
     private constructor(
@@ -258,6 +259,12 @@ export class RemoteEngineHost implements EngineHost {
                 continue
             }
             if (e.kind == 'decided' || e.kind == 'auto_passed') {
+                // The user's pending decision, taken without them ( passed by itself once the
+                // opportunities are off ) : no answer to wait for
+                if (e.decision == this.lastDecision && !this.answered) {
+                    this.answered = true
+                    this.onWithdrawn?.(e.decision)
+                }
                 const choice: EngineOption =
                     e.kind == 'decided' ?
                         { ...this.option(e.choice), text: e.text ?? e.choice.text ?? '' }
@@ -582,7 +589,11 @@ export class RemoteEngineHost implements EngineHost {
     }
 
     async answer(decision: number, index: number): Promise<EngineOut> {
-        this.send({ type: 'answer', decision, option: index })
+        // A decision the server took already ( passed by itself ) : the answer is moot, the game
+        // goes on
+        if (decision == this.lastDecision && !this.answered) {
+            this.send({ type: 'answer', decision, option: index })
+        }
         return this.next()
     }
 

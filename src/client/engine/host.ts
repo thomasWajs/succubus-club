@@ -27,6 +27,9 @@ export interface EngineHost {
     setOpportunities(on: boolean): Promise<void>
     // The game as a replay ( JSON ) : the spec and every decision
     replay(): Promise<string>
+    // Told when the pending human decision was taken without its answer ( a server passes it by
+    // itself once the opportunities are off ) : `advance` goes on
+    onWithdrawn?: (decision: number) => void
 }
 
 let ready: Promise<unknown> | null = null

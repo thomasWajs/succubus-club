@@ -36,7 +36,12 @@ const BOT_DECISION_PAUSE = 450
 const BOT_PASS_PAUSE = 120
 
 // What the user answers : an option, taking back a step, a whole allocation, or all their votes one way
-type Answer = { index: number } | { undo: true } | { amounts: number[] } | { favor: boolean }
+type Answer =
+    | { index: number }
+    | { undo: true }
+    | { amounts: number[] }
+    | { favor: boolean }
+    | { withdrawn: true }
 
 type Running = {
     host: EngineHost
@@ -478,6 +483,12 @@ export async function runEngine(host: EngineHost, projection: Projection) {
             }
             const answer = await new Promise<Answer>(resolve => {
                 current.answer = resolve
+                // Taken without the user ( passed by itself on a server ) : the game goes on
+                host.onWithdrawn = decision => {
+                    if (decision == out.decision) {
+                        resolve({ withdrawn: true })
+                    }
+                }
                 if (again) {
                     resolve({ index: again.index })
                 }
@@ -492,10 +503,14 @@ export async function runEngine(host: EngineHost, projection: Projection) {
                 }
             })
             current.answer = null
+            host.onWithdrawn = undefined
             engine.pending = null
             engine.staging = null
             if (running !== current) {
                 return
+            }
+            if ('withdrawn' in answer) {
+                continue
             }
             if ('amounts' in answer) {
                 for (const decided of await host.allocate(out.decision, answer.amounts)) {
