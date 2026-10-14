@@ -81,6 +81,7 @@
         <div class="action-properties">
             <span class="action-property">
                 <PropertyStepper
+                    :readOnly="!manualControlsEnabled"
                     :value="action.stealth"
                     label="Stealth"
                     @change="changeProperty(ActionProperty.Stealth, $event)"
@@ -93,6 +94,7 @@
             >
                 <PropertyStepper
                     v-if="actions.isBleed(action.minionAction)"
+                    :readOnly="!manualControlsEnabled"
                     :value="action.bleed"
                     label="Bleed"
                     @change="changeProperty(ActionProperty.Bleed, $event)"
@@ -100,6 +102,7 @@
 
                 <PropertyStepper
                     v-if="actions.isHunt(action.minionAction)"
+                    :readOnly="!manualControlsEnabled"
                     :value="action.hunt"
                     label="Hunt"
                     @change="changeProperty(ActionProperty.Hunt, $event)"
@@ -115,6 +118,7 @@
                 :style="{ visibility: hasBlockingMinion ? 'visible' : 'hidden' }"
             >
                 <PropertyStepper
+                    :readOnly="!manualControlsEnabled"
                     :value="action.intercept"
                     label="Intercept"
                     @change="changeProperty(ActionProperty.Intercept, $event)"
@@ -123,7 +127,10 @@
         </div>
 
         <div class="action-impulse">
-            <div class="action-buttons">
+            <div
+                v-if="manualControlsEnabled"
+                class="action-buttons"
+            >
                 <button
                     v-if="politicalActionCard"
                     class="game-button"
@@ -148,8 +155,31 @@
                 </button>
             </div>
 
+            <!-- A game with the rules engine : who it asks now, and the user's pass -->
             <div
-                v-if="botDisplay || selfCanAttemptBlock()"
+                v-if="isEngine"
+                class="impulse-decision"
+            >
+                <span class="impulse-player">
+                    Impulse
+                    <strong :style="{ color: action.impulsePlayer?.rgbaColor }">
+                        {{ action.impulsePlayer?.shortName }}
+                    </strong>
+                </span>
+
+                <!-- Enthrall's crypt draw for blood, a block attempt's toll ( see actionButtons ) -->
+                <button
+                    v-for="option in buttons"
+                    :key="option.index"
+                    class="game-button engine-pass"
+                    @click="chooseEngineOption(option.index)"
+                >
+                    {{ option.text }}
+                </button>
+            </div>
+
+            <div
+                v-else-if="botDisplay || selfCanAttemptBlock()"
                 class="impulse-decision"
             >
                 <span
@@ -217,6 +247,9 @@ import { useGameStateStore } from '@/client/store/gameState.ts'
 import { LibraryCard } from '@/shared/model/Card.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
+import { actionButtons } from '@/client/engine/interaction.ts'
+import { chooseEngineOption } from '@/client/engine/driver.ts'
+import { useEngineMode } from '@/client/engine/mode.ts'
 
 const props = defineProps<{
     action: ActionState
@@ -224,8 +257,12 @@ const props = defineProps<{
 
 const gameState = useGameStateStore()
 const players = usePlayersStore()
+
+// A game with the rules engine : the engine plays the action out ( see engine/projection.ts )
+const { isEngine } = useEngineMode()
+const buttons = actionButtons
 const gameBus = useGameBusStore()
-const { automaticCostPaymentEnabled } = useUIFeatures()
+const { automaticCostPaymentEnabled, manualControlsEnabled } = useUIFeatures()
 
 function changeProperty(propertyName: ActionProperty, amount: number) {
     gameMutations.ACTION_changeProperty.actSelf({ propertyName, amount })
@@ -434,5 +471,11 @@ const hasBlockingMinion = computed(() =>
             border: dotted 2px $purple-grey;
         }
     }
+}
+
+// With the rules engine the central box holds the decision and the cards played too : the rows
+// closer, so the cards played keep a line in sight
+.central-box.engine .central-panel.action-infos {
+    gap: 0.25rem;
 }
 </style>

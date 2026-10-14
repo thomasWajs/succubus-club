@@ -1,5 +1,11 @@
 <template>
-    <div class="central-box">
+    <!-- A game with the rules engine : its own central box -->
+    <EngineCentral v-if="isEngine" />
+
+    <div
+        v-else
+        class="central-box"
+    >
         <!-- The Edge Hint -->
         <TheEdgeHint v-if="aidsEnabled && centralContent.theEdge" />
 
@@ -58,6 +64,8 @@ import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import { TurnPhase } from '@/shared/const/model.ts'
 import { useTimer } from '@/shared/state/useTimer.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
+import { useEngineMode } from '@/client/engine/mode.ts'
+import EngineCentral from '@/client/ui/ingame/topArea/central/EngineCentral.vue'
 import TheEdgeHint from '@/client/ui/ingame/topArea/central/TheEdgeHint.vue'
 import DeclarationHint from '@/client/ui/ingame/topArea/central/DeclarationHint.vue'
 import SecretChoice from '@/client/ui/ingame/topArea/central/SecretChoice.vue'
@@ -69,6 +77,7 @@ import TurnNotification from '@/client/ui/ingame/topArea/central/TurnNotificatio
 import { GameType } from '@/shared/types/state.ts'
 
 const gameState = useGameStateStore()
+const { isEngine } = useEngineMode()
 const gameBus = useGameBusStore()
 const players = usePlayersStore()
 const multiplayer = useMultiplayerStore()
