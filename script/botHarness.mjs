@@ -1,6 +1,7 @@
 // Headless bot-vs-bot games, 2 to 5 players. Run from the repo root:
 //   npx tsx script/botHarness.mjs [--games N] [--agents govern,random] [--players N] [--max-turns N]
-//       [--deck NAME] [--deck-of 2=malkav,3=brujah] [--seed N] [--check-ledger] [--explain] [--trace]
+//       [--deck NAME] [--deck-of 2=malkav,3=brujah] [--seed N] [--check-ledger] [--explain] [--trace] [--cards]
+//       [--variant NAME:path=value,path=value]
 // --agents lists one agent per seat; with --players N the list is cycled (or cut) to N players,
 // e.g. `--players 4 --agents govern` is 4 govern bots. The agents: govern, random, utility.
 // --deck is the deck of every seat, --deck-of overrides the deck of some seats (seat numbers start at 1).
@@ -9,6 +10,9 @@
 // --check-ledger fills the mutation history like the client does and checks that the ledger rebuilt
 //   from it is the one folded live (slow).
 // --explain prints the trace of the decisions of the utility agents.
+// --variant NAME:... defines a variant of the utility profile ( --variant b:influence.floor=4,plan.caution=1.2 ),
+//   which the agent utility@NAME plays: two profiles meet at the same table ( --agents utility,utility@b ).
+// --cards lists, per agent, the cards left dead in hand the most (offered by the engine, never played).
 // Exits with code 1 if any game hits a hard failure (invalid move, stall, exception, broken invariant).
 import { readFileSync } from 'node:fs'
 import { registerLogger, setGameResources } from '@/shared/registries.ts'
@@ -21,13 +25,18 @@ import {
     registerSyncMutationTrigger,
 } from './harness.ts'
 import { createDiagnostics } from './diagnostics.ts'
+import { createCardUse } from './cardUse.ts'
 import { GovernAgent } from '@/shared/bot/agents/governAgent.ts'
 import { RandomAgent } from '@/shared/bot/agents/randomAgent.ts'
 import { UtilityAgent } from '@/shared/bot/agents/utilityAgent.ts'
+import { DEFAULT_PROFILE } from '@/shared/bot/utility/profile.ts'
 import { BrujahDeck, GovernDeck, MalkavDeck, NosferatuDeck } from '@/shared/bot/decks.ts'
 import { AttachDeck, PoolDeck, PostBlockDeck } from './attachDeck.ts'
 import { BOT_NAME } from '@/shared/const/bot.ts'
 import { MAX_PLAYERS } from '@/shared/const/model.ts'
+
+// The first turns of a Methuselah whose pool and crew are averaged
+const CURVE_TURNS = 10
 
 const DECKS = {
     govern: GovernDeck,
@@ -43,7 +52,7 @@ const AGENTS = {
     govern: () => new GovernAgent(),
     random: () => new RandomAgent(),
     // The utility bot knows its own decklist, never the others'
-    utility: (deck, explain) => new UtilityAgent(deck, undefined, explain),
+    utility: (deck, explain, profile) => new UtilityAgent(deck, profile, explain),
 }
 
 function parseArgs(argv) {
@@ -58,6 +67,8 @@ function parseArgs(argv) {
         checkLedger: false,
         explain: false,
         trace: false,
+        cards: false,
+        variants: {},
     }
     for (let i = 0; i < argv.length; i++) {
         if (argv[i] == '--games') args.games = Number(argv[++i])
@@ -72,7 +83,11 @@ function parseArgs(argv) {
             }
         } else if (argv[i] == '--seed') args.seed = Number(argv[++i])
         else if (argv[i] == '--check-ledger') args.checkLedger = true
-        else if (argv[i] == '--explain') args.explain = true
+        else if (argv[i] == '--cards') args.cards = true
+        else if (argv[i] == '--variant') {
+            const [name, changes] = argv[++i].split(':')
+            args.variants[name] = changes.split(',').map(change => change.split('='))
+        } else if (argv[i] == '--explain') args.explain = true
         else if (argv[i] == '--trace') args.trace = true
         else throw new Error(`Unknown argument ${argv[i]}`)
     }
@@ -87,7 +102,9 @@ function parseArgs(argv) {
         if (!DECKS[deck]) throw new Error(`Unknown deck '${deck}' (${Object.keys(DECKS)})`)
     }
     for (const name of args.agents) {
-        if (!AGENTS[name]) throw new Error(`Unknown agent '${name}' (${Object.keys(AGENTS)})`)
+        const [agent, variant] = name.split('@')
+        if (!AGENTS[agent]) throw new Error(`Unknown agent '${agent}' (${Object.keys(AGENTS)})`)
+        if (variant && !args.variants[variant]) throw new Error(`Unknown variant '${variant}'`)
     }
     if (args.agents.length < 2 || args.agents.length > MAX_PLAYERS) {
         throw new Error(`A game needs 2 to ${MAX_PLAYERS} players, got ${args.agents.length}`)
@@ -108,6 +125,20 @@ function seededRandom(seed) {
 }
 
 const args = parseArgs(process.argv.slice(2))
+
+// The default profile with the changes of a variant ( paths of numbers, like influence.floor )
+function profileOf(variant) {
+    const profile = structuredClone(DEFAULT_PROFILE)
+    for (const [path, value] of args.variants[variant] ?? []) {
+        const keys = path.split('.')
+        const last = keys.pop()
+        const holder = keys.reduce((object, key) => object[key], profile)
+        if (typeof holder[last] != 'number')
+            throw new Error(`${path} is not a number of the profile`)
+        holder[last] = Number(value)
+    }
+    return profile
+}
 
 registerLogger({
     captureException: error => console.error(error),
@@ -141,6 +172,8 @@ function addStats(agentName, seat) {
         ousters: {},
         poolLostToBleeds: 0,
         turns: 0,
+        cardUse: {},
+        curve: [],
     })
     stats.seats++
     stats.turns += seat.turns
@@ -152,6 +185,30 @@ function addStats(agentName, seat) {
         if (seat.ouster.kind == 'noBlockOffered' && seat.ouster.unlocked > 0) {
             increment(stats.ousters, 'noBlockOffered with unlocked minions')
         }
+    }
+    seat.curve.slice(0, CURVE_TURNS).forEach((point, turn) => {
+        const row = (stats.curve[turn] ??= { pool: 0, minions: 0, capacity: 0, seats: 0 })
+        row.pool += point.pool
+        row.minions += point.minions
+        row.capacity += point.capacity
+        row.seats++
+    })
+    for (const card of seat.cards) {
+        const use = (stats.cardUse[card.name] ??= {
+            seen: 0,
+            played: 0,
+            dead: 0,
+            unplayable: 0,
+            other: 0,
+            kinds: {},
+        })
+        use.seen++
+        if (card.fate == 'played') use.played++
+        else if (card.fate == 'other') use.other++
+        else if (card.offered) {
+            use.dead++
+            for (const kind of card.kinds) increment(use.kinds, kind)
+        } else use.unplayable++
     }
     for (const key of [
         'poolLostToBleeds',
@@ -176,6 +233,7 @@ for (let game = 1; game <= args.games; game++) {
     const recorder = recordMutations({ history: args.checkLedger })
     const { gameState, players } = createHeadlessGame(args.decks.map(deck => DECKS[deck]))
     const diagnostics = createDiagnostics(gameState)
+    const cardUse = createCardUse(gameState)
     const explain =
         args.explain ?
             entry => {
@@ -192,7 +250,12 @@ for (let game = 1; game <= args.games; game++) {
     const agents = new Map(
         players.map((player, i) => [
             player.oid,
-            AGENTS[args.agents[i]](DECKS[args.decks[i]], explain),
+            (([agent, variant]) =>
+                AGENTS[agent](
+                    DECKS[args.decks[i]],
+                    explain,
+                    variant ? profileOf(variant) : undefined,
+                ))(args.agents[i].split('@')),
         ]),
     )
 
@@ -201,9 +264,13 @@ for (let game = 1; game <= args.games; game++) {
             maxTurns: args.maxTurns,
             maxSteps: 100000,
             recorder,
-            beforeStep: () => diagnostics.before(),
+            beforeStep: () => {
+                diagnostics.before()
+                cardUse.before()
+            },
             onStep: step => {
                 diagnostics.after(step)
+                cardUse.after(step)
                 if (args.trace) {
                     console.log(
                         `T${gameState.turnNumber} ${step.decision.kind} ${step.decision.player.name}${step.forced ? ' (forced)' : ''}: ${describeOption(step.option)}`,
@@ -213,8 +280,13 @@ for (let game = 1; game <= args.games; game++) {
         })
         totalTurns += report.turns
         const outcome = diagnostics.finish(recorder.ledger, report.turns, report.winner)
+        const cards = cardUse.finish()
         for (const [i, player] of players.entries()) {
-            addStats(args.agents[i], { ...outcome.seats[player.oid], turns: report.turns })
+            addStats(args.agents[i], {
+                ...outcome.seats[player.oid],
+                turns: report.turns,
+                cards: cards[player.oid],
+            })
         }
         if (report.outcome == 'win') {
             increment(winsByName, report.winner)
@@ -258,6 +330,29 @@ for (const [agentName, stats] of Object.entries(statsByAgent).sort(([a], [b]) =>
                 .map(([kind, count]) => `${count} ${kind}`)
                 .join(', ')})`
         :   'never ousted'
+    const uses = Object.entries(stats.cardUse)
+    const total = key => uses.reduce((sum, [, use]) => sum + use[key], 0)
+    const seen = Math.max(1, total('seen'))
+    const share = key => ((100 * total(key)) / seen).toFixed(1)
+    console.log(
+        `cards ${agentName}: ${perSeat(total('seen'))} drawn per game, ${share('played')}% played, ${share('dead')}% dead ` +
+            `(offered, never played), ${share('unplayable')}% never offered, ${share('other')}% gone otherwise`,
+    )
+    if (args.cards) {
+        const rows = uses.filter(([, use]) => use.dead > 0).sort(([, a], [, b]) => b.dead - a.dead)
+        for (const [name, use] of rows.slice(0, 25)) {
+            console.log(
+                `    ${name}: ${use.dead} dead of ${use.seen} (${use.played} played, ${use.unplayable} never offered) in ${Object.keys(use.kinds).join('/')}`,
+            )
+        }
+    }
+    const curve = stats.curve.map(
+        row =>
+            `${(row.pool / row.seats).toFixed(0)}/${(row.minions / row.seats).toFixed(1)}/${(row.capacity / row.seats).toFixed(0)}`,
+    )
+    console.log(
+        `curve ${agentName} (pool/minions/capacity at the end of turns 1-${CURVE_TURNS}): ${curve.join(' ')}`,
+    )
     console.log(
         `matchup ${agentName}: ${stats.wins}/${stats.seats} wins ${((100 * stats.wins) / stats.seats).toFixed(1)}% ` +
             `(expected ${expected}%), pool lost to bleeds ${(stats.poolLostToBleeds / Math.max(1, stats.turns)).toFixed(2)} per turn, ${ousted}, ` +

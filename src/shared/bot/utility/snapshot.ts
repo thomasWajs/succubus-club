@@ -38,6 +38,8 @@ export type MethuselahSnapshot = {
     // The minions in play: ready ( unlocked or locked ) and in torpor
     minions: MinionProfile[]
     permanents: PermanentSnapshot[]
+    // The vampires of the uncontrolled region, only for the player itself ( the others' are face down )
+    uncontrolled: MinionProfile[]
     handSize: number
     // The cards in hand, only for the player itself ( the others' hands are unknown )
     hand: HandCard[]
@@ -46,7 +48,19 @@ export type MethuselahSnapshot = {
     seenRoles: Partial<Record<Role, number>>
 }
 
+// Where the game stands in its turns: what decides how many transfers each Methuselah has
+export type TurnSnapshot = {
+    // The turn of the table, counted from 1 ( every Methuselah's turn is one )
+    number: number
+    // The Methuselahs the game started with, and those still in it ( the turns that pass between two of mine )
+    players: number
+    competing: number
+    // The transfers left in the active turn
+    transfers: number
+}
+
 export type TableSnapshot = {
+    turn: TurnSnapshot
     me: MethuselahSnapshot
     // The others, from my prey around the ring to my predator
     others: MethuselahSnapshot[]
@@ -129,6 +143,7 @@ function snapshotMethuselah(player: Player, me: Player): MethuselahSnapshot {
         victoryPoints: player.victoryPoints,
         minions: [...player.minionsReady, ...player.vampiresInTorpor].map(profileMinion),
         permanents: player.controlledReadyCards.flatMap(card => snapshotPermanent(card) ?? []),
+        uncontrolled: isMe ? player.vampiresInUncontrolled.map(profileMinion) : [],
         handSize: player.hand.cards.length,
         hand:
             isMe ?
@@ -149,6 +164,12 @@ export function takeSnapshot(gameState: GameState, me: Player): TableSnapshot {
     const ring = competing.map((_, i) => competing[(start + 1 + i) % competing.length])
     const others = ring.filter(player => player != me).map(player => snapshotMethuselah(player, me))
     return {
+        turn: {
+            number: gameState.turnNumber,
+            players: gameState.orderedPlayers.length,
+            competing: competing.length,
+            transfers: gameState.turnResources.transfers,
+        },
         me: snapshotMethuselah(me, me),
         others,
         prey: others.find(other => other.isPrey) ?? null,

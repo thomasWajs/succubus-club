@@ -92,8 +92,8 @@ export type PlannedAction = {
 // What a play uses up: its card, and the vampire it puts blood on ( two minions do not fill the same one )
 function claimsOf(candidate: Candidate): string[] {
     const { card, play } = candidate
-    const recruit = play?.summary.roles.includes('recruit') ? play.target : undefined
-    return [card, recruit].filter(claim => claim !== undefined)
+    const accelerated = play?.summary.roles.includes('accelerate') ? play.target : undefined
+    return [card, accelerated].filter(claim => claim !== undefined)
 }
 
 // A minion that does something else than bleed

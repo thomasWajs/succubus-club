@@ -5,9 +5,9 @@ import {
     CardRegionVisibility,
     DEFAULT_DPA,
     DEFAULT_MPA,
-    DEFAULT_TRANSFERS,
     INITIAL_POOL,
     RegionName,
+    transfersOfTurn,
     TurnSequence,
 } from '@/shared/const/model.ts'
 import {
@@ -321,10 +321,7 @@ export class GameState {
     }
 
     setNewTurnResources(): void {
-        // standard game use 1/2/3/4 transfers for the first 4 turns.
-        // 2-player games use 3/4 transfers for the first 2 turns.
-        const nbPlayers = this.orderedPlayers.length
-        const transfers = Math.min(DEFAULT_TRANSFERS, this.turnNumber + (nbPlayers == 2 ? 2 : 0))
+        const transfers = transfersOfTurn(this.turnNumber, this.orderedPlayers.length)
         this.turnResources = {
             unlocked: false,
             mpa: DEFAULT_MPA,

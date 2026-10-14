@@ -50,17 +50,25 @@ export const SUMMARY_SCENARIOS: Scenario[] = [
     {
         name: 'Summary: a bleed action is a bleed, and the stealth of an action is its own, not a stealth card',
         run() {
-            const [bleed, recruit] = summaryOf(GOVERN_ID).plays
+            const [bleed, accelerate] = summaryOf(GOVERN_ID).plays
             expectEqual(bleed.window, 'minionAction', 'window')
             expectEqual(findEffect(bleed.effects, 'bleedAction').amount, 2, 'bleed')
             expectEqual(bleed.roles.join(), 'bleed', 'roles of the bleed')
             expectEqual(bleed.ways.length, 1, 'one way')
             expectEqual(bleed.ways[0][0].level, DisciplineLevel.INFERIOR, 'inferior')
 
-            expectEqual(findEffect(recruit.effects, 'stealth').amount, 1, 'stealth of the action')
-            expectEqual(findEffect(recruit.effects, 'gainBlood').amount, 3, 'blood')
-            expectEqual(recruit.target, 'youngerUncontrolledVampire', 'target')
-            expectEqual(recruit.roles.join(), 'recruit', 'a recruit, not a stealth card')
+            expectEqual(
+                findEffect(accelerate.effects, 'stealth').amount,
+                1,
+                'stealth of the action',
+            )
+            expectEqual(findEffect(accelerate.effects, 'gainBlood').amount, 3, 'blood')
+            expectEqual(accelerate.target, 'youngerUncontrolledVampire', 'target')
+            expectEqual(
+                accelerate.roles.join(),
+                'accelerate',
+                'an acceleration, not a stealth card',
+            )
         },
     },
     {

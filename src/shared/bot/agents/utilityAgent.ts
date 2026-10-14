@@ -18,6 +18,7 @@ import { candidateOf, planTurn } from '@/shared/bot/utility/turnPlan.ts'
 import { describeTurnPlan } from '@/shared/bot/utility/describeAssessment.ts'
 import { chooseLiveCombat } from '@/shared/bot/utility/liveCombat.ts'
 import { judgeBlock } from '@/shared/bot/utility/blockDecision.ts'
+import { judgeInfluence } from '@/shared/bot/utility/influence.ts'
 import { judgeModifier } from '@/shared/bot/utility/modifierDecision.ts'
 import { judgeReaction, judgeTrigger } from '@/shared/bot/utility/reactionDecision.ts'
 
@@ -89,6 +90,12 @@ export class UtilityAgent implements BotAgent {
         }
         if (context.decision.kind == DecisionKind.ActionImpulse) {
             const judged = judgeModifier(context.decision, context.assessment)
+            if (judged) {
+                return judged
+            }
+        }
+        if (context.decision.kind == DecisionKind.Influence) {
+            const judged = judgeInfluence(context.decision, context.assessment, context.deck)
             if (judged) {
                 return judged
             }

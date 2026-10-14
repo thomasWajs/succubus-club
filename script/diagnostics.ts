@@ -44,6 +44,8 @@ export type SeatDiagnostics = {
     torporTaken: number
     // Torpor taken by the opponent of a combat the Methuselah was in
     torporInflicted: number
+    // Where the Methuselah stood at the end of the influence phase of each of its turns
+    curve: { pool: number; minions: number; capacity: number }[]
 }
 
 type Snapshot = {
@@ -76,6 +78,7 @@ export function createDiagnostics(gameState: GameState) {
             bouncesPlayed: 0,
             torporTaken: 0,
             torporInflicted: 0,
+            curve: [],
         }
     }
 
@@ -120,6 +123,17 @@ export function createDiagnostics(gameState: GameState) {
                 blockWindows = {}
             }
             const deciding = step.decision.player.oid
+            if (step.decision.kind == DecisionKind.Influence && step.option.type == 'endPhase') {
+                const { pool, minionsReady } = step.decision.player
+                seats[deciding].curve.push({
+                    pool,
+                    minions: minionsReady.length,
+                    capacity: minionsReady.reduce(
+                        (total, minion) => total + minion.minionAttrs.capacity,
+                        0,
+                    ),
+                })
+            }
             const window = (blockWindows[deciding] ??= { offered: false, attempted: false })
             window.offered ||= step.decision.options.some(option => option.type == 'block')
             window.attempted ||= step.option.type == 'block'

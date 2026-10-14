@@ -200,6 +200,11 @@ export const DEFAULT_MPA = 1 // masterPhaseActions
 export const DEFAULT_TRANSFERS = 4
 export const DEFAULT_DPA = 1 // discardPhaseActions
 
+// The transfers of a turn: a standard game gives 1/2/3/4 to its first 4 turns, a 2-player game 3/4 to its first 2
+export function transfersOfTurn(turnNumber: number, players: number): number {
+    return Math.min(DEFAULT_TRANSFERS, turnNumber + (players == 2 ? 2 : 0))
+}
+
 export const LEAVE_TORPOR_COST = 2
 
 export const DEFAULT_CARD_ATTRS = {

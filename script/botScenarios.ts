@@ -48,6 +48,7 @@ import { BLOCK_SCENARIOS } from './scenarios/block.ts'
 import { REACTION_SCENARIOS } from './scenarios/reaction.ts'
 import { MODIFIER_SCENARIOS } from './scenarios/modifier.ts'
 import { CARD_ACTION_SCENARIOS } from './scenarios/cardActions.ts'
+import { INFLUENCE_SCENARIOS, INFLUENCE_VALUE_SCENARIOS } from './scenarios/influence.ts'
 import { createdGames } from './scenarios/helpers.ts'
 
 type ScenarioResult = { name: string; error: string | null }
@@ -110,6 +111,8 @@ function runScenarios(filters: string[]): ScenarioResult[] {
         ...REACTION_SCENARIOS,
         ...MODIFIER_SCENARIOS,
         ...CARD_ACTION_SCENARIOS,
+        ...INFLUENCE_SCENARIOS,
+        ...INFLUENCE_VALUE_SCENARIOS,
     ]
         .filter(({ name }) => filters.some(filter => name.toLowerCase().includes(filter)))
         .map(({ name, run }) => {

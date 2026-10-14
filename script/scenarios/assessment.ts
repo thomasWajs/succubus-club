@@ -313,7 +313,7 @@ export const ASSESSMENT_SCENARIOS: Scenario[] = [
 
             const everything = roleDensities(
                 Object.values(Discipline).map(name => ({ [name]: DisciplineLevel.SUPERIOR })),
-                { stealth: 5, bleed: 5, recruit: 5 },
+                { stealth: 5, bleed: 5, accelerate: 5 },
                 prior,
             )
             const total = Object.values(everything).reduce((sum, share) => sum + share, 0)

@@ -44,7 +44,7 @@ export const ROLES = [
     'poolSteal',
     'combatStarter',
     // Puts blood on a younger vampire of the uncontrolled region
-    'recruit',
+    'accelerate',
     // Blood or pool back for me
     'sustain',
     'poolGain',
@@ -592,7 +592,7 @@ function deriveRoles(
                 roles.add('bleedBonus')
                 break
             case 'gainBlood':
-                roles.add(target == 'youngerUncontrolledVampire' ? 'recruit' : 'sustain')
+                roles.add(target == 'youngerUncontrolledVampire' ? 'accelerate' : 'sustain')
                 break
             case 'stealPool':
                 roles.add('poolSteal')

@@ -185,6 +185,28 @@ export type CardWeights = {
     perLife: number
 }
 
+// How the vampires are brought out ( influence.ts ). Draft numbers
+export type InfluenceWeights = {
+    // The turns of mine that a vampire brought out is counted acting over, from the turn after it comes
+    horizon: number
+    // What a turn of a vampire in play is worth, in pool: this much, plus `perCapacity` for each point of its capacity
+    turnWorth: number
+    perCapacity: number
+    // ... less `crowd` of that for each minion I already have, down to `crowdFloor`: the more there are, the less the next one adds
+    crowd: number
+    crowdFloor: number
+    // The pool kept once a full crew of `crew` minions stands, whatever the predator shows: it will come. A smaller crew
+    // keeps its share of it, the first vampires being what the pool is for
+    floor: number
+    crew: number
+    // The chance of being ousted by my predator on its next turn that the pool left after the phase may not exceed
+    tolerance: number
+    // What a plan must bring me at least, in pool, to be made
+    margin: number
+    // The turns of mine the plan looks ahead for a vampire to come
+    lookahead: number
+}
+
 export type BotProfile = {
     name: string
     // Temperature of the softmax pick among the scored options, 0 = always the best one
@@ -205,6 +227,7 @@ export type BotProfile = {
     modifier: ModifierWeights
     reaction: ReactionWeights
     cards: CardWeights
+    influence: InfluenceWeights
 }
 
 export const DEFAULT_PROFILE: BotProfile = {
@@ -280,5 +303,17 @@ export const DEFAULT_PROFILE: BotProfile = {
         perPrevention: 0.15,
         perWeaponDamage: 0.15,
         perLife: 0.35,
+    },
+    influence: {
+        horizon: 8,
+        turnWorth: 1.5,
+        perCapacity: 0.15,
+        crowd: 0.1,
+        crowdFloor: 0.4,
+        floor: 8,
+        crew: 3,
+        tolerance: 0.1,
+        margin: 0.5,
+        lookahead: 10,
     },
 }
