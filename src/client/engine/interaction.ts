@@ -411,15 +411,16 @@ export function engineClaims(card: Card): boolean {
     )
 }
 
-// Narrow the choice under way to these options : taken when a single one is left
-export function narrowStaging(options: OptionView[]) {
+// Narrow the choice under way to these options : taken when a single one is left, unless it is
+// to be confirmed ( a card's lone use, started by a click on it )
+export function narrowStaging(options: OptionView[], confirm = false) {
     const engine = useEngineStore()
-    if (options.length == 1) {
+    if (options.length == 1 && !confirm) {
         engine.staging = null
         chooseEngineOption(options[0].index)
         return
     }
-    engine.staging = options.length > 1 ? options.map(option => option.index) : null
+    engine.staging = options.length > 0 ? options.map(option => option.index) : null
 }
 
 export function cancelStaging() {
@@ -474,7 +475,9 @@ export function engineCardClick(card: Card): boolean {
     if (picked.length == 0) {
         return false
     }
-    narrowStaging(picked)
+    // A card's lone use is confirmed, never taken on a click ( War Ghoul burning a location and
+    // itself ) ; a pick stays one click
+    narrowStaging(picked, !picked.some(isPick))
     return true
 }
 

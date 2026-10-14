@@ -116,7 +116,7 @@ const PROMPTS: Record<StagingStep['ask'], string> = {
 const current = staging
 
 function prompt(step: StagingStep): string {
-    return PROMPTS[step.ask]
+    return step.ask == 'option' && step.choices.length == 1 ? 'Confirm :' : PROMPTS[step.ask]
 }
 
 // The choices not on the table : the others are clicked there. The card to play is a button too
