@@ -1,16 +1,23 @@
 <template>
     <CentralPanel
         class="referendum-infos"
-        title="Referendum"
+        :class="{ engine: isEngine }"
+        :title="isEngine && engine.terms.length > 0 ? undefined : 'Referendum'"
     >
         <div
             v-if="isEngine && engine.terms.length > 0"
             class="referendum-terms"
         >
+            <!-- The title on the first line ( the card, who calls it ) -->
             <div
                 v-for="(line, i) in engine.terms"
                 :key="i"
             >
+                <span
+                    v-if="i == 0"
+                    class="central-panel-title"
+                    >Referendum :
+                </span>
                 <EngineText :text="line" />
             </div>
             <div
@@ -527,6 +534,36 @@ function changePlayerVotes(player: Player, side: VoteSide, amount: number) {
         text-align: center;
         color: $blood-red;
         animation: ReferendumLastCallAppear 0.3s ease-out;
+    }
+}
+
+// With the rules engine the central box holds the decision and the cards played too : the
+// panel stays whole ( the tally in sight ), so it is denser : its title on the terms' first
+// line, the card's text over a few lines at most ( scrolled ), each side's count beside its label
+.central-panel.referendum-infos.engine {
+    flex-shrink: 0;
+    gap: 0.25rem;
+    padding: 0.25rem 0.75rem;
+
+    .referendum-terms {
+        margin-bottom: 0;
+    }
+
+    .referendum-card-text {
+        max-height: 3.6em;
+        overflow-y: auto;
+    }
+
+    .tally-side {
+        flex-direction: row;
+        justify-content: center;
+        align-items: baseline;
+        gap: 0.4rem;
+        padding: 0 4px;
+
+        .tally-amount {
+            font-size: 24px;
+        }
     }
 }
 

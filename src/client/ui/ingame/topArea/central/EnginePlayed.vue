@@ -3,26 +3,34 @@
         v-if="engine.played.length > 0"
         class="engine-played"
         title="Played during the action"
+        :style="{ minHeight: minHeight }"
     >
         <div
-            v-for="(play, i) in engine.played"
-            :key="i"
-            class="engine-played-line"
-            @mouseenter="hoverEngineCard(engineOptionCards(play.option)[0])"
-            @mouseleave="hoverEngineCard(null)"
+            ref="lines"
+            class="engine-played-lines"
+            :style="{ clipPath: `inset(${clipTop}px 0 0 0)` }"
+            @scroll="fitLines"
         >
-            <template v-if="short(play.option, play.player)">
-                <EngineText :text="short(play.option, play.player)!.text" />
-                <DisciplineIcon
-                    v-for="icon in short(play.option, play.player)!.icons"
-                    :key="`${icon.discipline}:${icon.level}`"
-                    :discipline="icon.discipline"
-                    :level="icon.level"
-                />
-            </template>
-            <template v-else>
-                <strong>{{ play.player }}</strong> : <EngineText :text="play.text" />
-            </template>
+            <div
+                v-for="(play, i) in engine.played"
+                :key="i"
+                class="engine-played-line"
+                @mouseenter="hoverEngineCard(engineOptionCards(play.option)[0])"
+                @mouseleave="hoverEngineCard(null)"
+            >
+                <template v-if="short(play.option, play.player)">
+                    <EngineText :text="short(play.option, play.player)!.text" />
+                    <DisciplineIcon
+                        v-for="icon in short(play.option, play.player)!.icons"
+                        :key="`${icon.discipline}:${icon.level}`"
+                        :discipline="icon.discipline"
+                        :level="icon.level"
+                    />
+                </template>
+                <template v-else>
+                    <strong>{{ play.player }}</strong> : <EngineText :text="play.text" />
+                </template>
+            </div>
         </div>
     </CentralPanel>
 </template>
@@ -32,6 +40,7 @@
  * A game with the rules engine : the cards played during the action under way, by whom, until
  * the action is over. They are in the ash heap already ; this is what happened.
  */
+import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import CentralPanel from '@/client/ui/ingame/topArea/central/CentralPanel.vue'
 import { useEngineStore } from '@/client/store/engine.ts'
 import { engineCard, engineOptionCards } from '@/client/engine/driver.ts'
@@ -44,6 +53,57 @@ import { disciplineUses } from '@/client/engine/projection.ts'
 import type { OptionView } from '@/client/engine/api.ts'
 
 const engine = useEngineStore()
+
+/**
+ * Whole lines only : the panel gives way down to its title and the latest line ( one row or
+ * two ), its lines scrolled a line at a time ( snapped to their bottom ), the part of a line
+ * cut at the top of the scrolled lines hidden.
+ */
+const lines = ref<HTMLElement | null>(null)
+// The panel's least height : its title and the latest line
+const minHeight = ref<string | undefined>(undefined)
+// The part of the lines' box over the first whole line in it
+const clipTop = ref(0)
+
+function fitLines() {
+    const box = lines.value
+    const panel = box?.parentElement
+    const items = box ? [...box.children].filter(item => item instanceof HTMLElement) : []
+    const latest = items.at(-1)
+    // Not laid out ( a hidden tab ) : measured again when it is
+    if (!box || !panel || !latest || latest.offsetHeight == 0) {
+        return
+    }
+    const chrome = panel.offsetHeight - box.offsetHeight
+    minHeight.value = `${chrome + latest.offsetHeight}px`
+    const first = items.find(item => item.offsetTop >= box.scrollTop - 0.5)
+    clipTop.value = first ? Math.max(0, first.offsetTop - box.scrollTop) : 0
+}
+
+// The latest card played in sight, the lines fitted again
+watch(
+    () => engine.played.length,
+    async () => {
+        await nextTick()
+        if (lines.value) {
+            lines.value.scrollTop = lines.value.scrollHeight
+        }
+        fitLines()
+    },
+    { immediate: true },
+)
+
+// The central box's room changes ( a panel above it comes or goes ) : the lines fitted again
+const resizes = new ResizeObserver(() => fitLines())
+watch(lines, (box, previous) => {
+    if (previous) {
+        resizes.unobserve(previous)
+    }
+    if (box) {
+        resizes.observe(box)
+    }
+})
+onBeforeUnmount(() => resizes.disconnect())
 
 // A card played, said short : "Dario Ziggler plays Deep Ecology" and the icons of the
 // Disciplines it was played at ( lower case inferior, upper case superior ). Null for the rest,
@@ -77,7 +137,29 @@ function engineActor(option: OptionView): string | undefined {
     gap: 2px;
     font-size: 14px;
 
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem;
+
+    // The one panel of the central box that gives way : the decision, the action and the
+    // referendum above or below it stay whole, its lines scroll ( down to its title and the
+    // latest line, whole : its least height set by fitLines )
+    flex: 0 1 auto;
+    overflow: hidden;
+
+    .engine-played-lines {
+        position: relative;
+        align-self: stretch;
+        min-height: 0;
+        overflow-y: auto;
+        scroll-snap-type: y mandatory;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
     .engine-played-line {
+        flex-shrink: 0;
+        scroll-snap-align: end;
         cursor: default;
     }
 }

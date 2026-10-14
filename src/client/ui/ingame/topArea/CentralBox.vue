@@ -189,8 +189,10 @@ const centralContent = computed(() => ({
     overflow-y: auto;
     justify-content: safe center;
 
+    // Its panels closer : the decision, the action or the referendum, the cards played share it
     &.engine {
         justify-content: flex-start;
+        gap: 0.25rem;
     }
 }
 </style>

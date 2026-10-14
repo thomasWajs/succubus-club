@@ -473,4 +473,10 @@ const hasBlockingMinion = computed(() =>
         }
     }
 }
+
+// With the rules engine the central box holds the decision and the cards played too : the rows
+// closer, so the cards played keep a line in sight
+.central-box.engine .central-panel.action-infos {
+    gap: 0.25rem;
+}
 </style>
