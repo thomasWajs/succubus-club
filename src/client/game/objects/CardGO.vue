@@ -275,6 +275,66 @@
         />
     </template>
 
+    <!-- A game with the rules engine : the minion's counted markers, round chips, the count on
+    them, their name on hover -->
+    <template
+        v-for="(chip, index) in chips"
+        :key="`${key}chip${chip.kind}${chip.name}${index}`"
+    >
+        <Circle
+            :ref="el => registerChipCircles(index, el as typeof Circle | null)"
+            :radius="CHIP_RADIUS"
+            :fillColor="chipColor(chip).color"
+            :fillAlpha="1"
+            :lineWidth="COUNTER_OUTLINE_THICKNESS"
+            :strokeColor="Colors.COUNTER_OUTLINE.color"
+            :origin="0.5"
+            :x="getChipPosition(index).x"
+            :y="getChipPosition(index).y"
+            :scale="scale"
+            :rotation="ownerFacingRotation"
+            @create="onChipCreate"
+            @pointerover="onChipOver(index)"
+            @pointerout="onChipOut"
+        />
+        <Text
+            :ref="el => registerChipTexts(index, el as typeof Text | null)"
+            :text="chip.n.toString()"
+            :style="CHIP_TEXT_STYLE"
+            :origin="0.5"
+            :x="getChipPosition(index).x"
+            :y="getChipPosition(index).y"
+            :scale="scale"
+            :rotation="ownerFacingRotation"
+        />
+    </template>
+    <template v-if="hoveredChip">
+        <Rectangle
+            :key="key + 'chipName'"
+            :originX="0.5"
+            :originY="0.5"
+            :x="hoveredChip.position.x"
+            :y="hoveredChip.position.y"
+            :width="hoveredChip.width"
+            :height="MARKER_HEIGHT"
+            :fillColor="Colors.MARKERS_FILL.color"
+            :fillAlpha="Colors.MARKERS_FILL.alphaGL"
+            :scale="scale"
+            :rotation="ownerFacingRotation"
+        />
+        <Text
+            :key="key + 'chipNameText'"
+            :originX="0.5"
+            :originY="0.5"
+            :x="hoveredChip.position.x"
+            :y="hoveredChip.position.y"
+            :text="hoveredChip.name"
+            :style="MARKERS_TEXT_STYLE"
+            :scale="scale"
+            :rotation="ownerFacingRotation"
+        />
+    </template>
+
     <!-- Floating cost indicator ( automatic cost payment ) -->
     <FxCardCost
         v-if="cardCost"
@@ -303,6 +363,9 @@ import {
     CARD_IN_PLAY_GLOW_OUTER_STRENGTH,
     CARD_OUTLINE_THICKNESS,
     CARD_WIDTH,
+    CHIP_GAP,
+    CHIP_RADIUS,
+    CHIP_TEXT_STYLE,
     COUNTER_HOVER_OFFSET_MULTIPLIER,
     COUNTER_OUTLINE_THICKNESS,
     COUNTER_RADIUS,
@@ -338,6 +401,7 @@ import { useCardTexture } from '@/client/game/composables/useCardTexture.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
 import { engineClaims, engineGlow, engineHighlight } from '@/client/engine/interaction.ts'
 import { useEngineStore } from '@/client/store/engine.ts'
+import type { ChipKind, EngineChip } from '@/client/engine/labels.ts'
 import Pointer = Phaser.Input.Pointer
 
 const { card, regionName } = defineProps<{
@@ -364,6 +428,8 @@ const orangeCounterCircle = refObj<GameObjects.Arc>()
 const orangeCounterText = refObj<GameObjects.Text>()
 const markersRectangles = [] as (GameObjects.Rectangle | null)[]
 const markersTexts = [] as (GameObjects.Text | null)[]
+const chipCircles = [] as (GameObjects.Arc | null)[]
+const chipTexts = [] as (GameObjects.Text | null)[]
 
 const burnBloodButton = ref<typeof ButtonGO>()
 const gainBloodButton = ref<typeof ButtonGO>()
@@ -375,6 +441,12 @@ function registerMarkersRectangles(index: number, rectangle: typeof Rectangle | 
 }
 function registerMarkersTexts(index: number, text: typeof Text | null) {
     markersTexts[index] = text?.object ?? null
+}
+function registerChipCircles(index: number, circle: typeof Circle | null) {
+    chipCircles[index] = circle?.object ?? null
+}
+function registerChipTexts(index: number, text: typeof Text | null) {
+    chipTexts[index] = text?.object ?? null
 }
 
 const scale = computed(() => getRegionScale(card.region))
@@ -500,6 +572,12 @@ function bringToTop() {
         if (rectangle) container.bringToTop(rectangle)
     })
     markersTexts.forEach(text => {
+        if (text) container.bringToTop(text)
+    })
+    chipCircles.forEach(circle => {
+        if (circle) container.bringToTop(circle)
+    })
+    chipTexts.forEach(text => {
         if (text) container.bringToTop(text)
     })
 
@@ -666,6 +744,72 @@ function getMarkerPosition(index: number): Point2D {
         x: markersPosition.value.x,
         y: markersPosition.value.y + (MARKER_HEIGHT + 2) * index + MARKER_MARGIN_TOP,
     })
+}
+
+/**
+ * Chips : a game with the rules engine's counted markers ( see minionMarkers )
+ */
+
+const chips = computed(() =>
+    gameState.gameType == GameType.Engine ? (useEngineStore().chips[card.oid] ?? []) : [],
+)
+
+const CHIP_COLORS: Record<ChipKind, Phaser.Display.Color> = {
+    hostage: Colors.HOSTAGE_CHIP_FILL,
+    nightmare: Colors.NIGHTMARE_CHIP_FILL,
+    torture: Colors.TORTURE_CHIP_FILL,
+    effect: Colors.EFFECT_CHIP_FILL,
+}
+function chipColor(chip: EngineChip) {
+    return CHIP_COLORS[chip.kind]
+}
+
+// Down the card's left edge, under the row of the blood counter and its hover buttons ( the
+// green counter at the bottom corner ) ; locked, along its top edge, past the green counter
+function chipCenter(index: number): Point2D {
+    const radius = (CHIP_RADIUS + COUNTER_OUTLINE_THICKNESS) * scale.value
+    const step = 2 * radius + CHIP_GAP * scale.value
+    const counterRow = 2 * (COUNTER_RADIUS + COUNTER_OUTLINE_THICKNESS) * scale.value
+    const first = counterRow + CHIP_GAP * scale.value + radius
+    return card.isLocked ?
+            { x: card.x + first + step * index, y: card.y + radius }
+        :   { x: card.x + radius, y: card.y + first + step * index }
+}
+
+function getChipPosition(index: number): Point2D {
+    return rotateAroundCardCenter(chipCenter(index))
+}
+
+function onChipCreate(circle: GameObjects.Arc) {
+    circle.setInteractive()
+}
+
+// The chip under the pointer : its name beside it ( right of it, below it when locked )
+const hoveredChipIndex = ref<number | null>(null)
+const hoveredChip = computed(() => {
+    const index = hoveredChipIndex.value
+    const chip = index !== null ? chips.value[index] : undefined
+    if (index === null || !chip) {
+        return null
+    }
+    const width = MARKER_WIDTH_PER_CHAR * chip.name.length + MARKER_PADDING
+    const radius = (CHIP_RADIUS + COUNTER_OUTLINE_THICKNESS) * scale.value
+    const center = chipCenter(index)
+    const position =
+        card.isLocked ?
+            { x: center.x, y: center.y + radius + (MARKER_HEIGHT / 2 + 2) * scale.value }
+        :   { x: center.x + radius + (width / 2 + 2) * scale.value, y: center.y }
+    return { name: chip.name, width, position: rotateAroundCardCenter(position) }
+})
+
+// Over a chip, the card stays hovered ( as over its blood buttons )
+function onChipOver(index: number) {
+    hoveredChipIndex.value = index
+    onPointerOver()
+}
+function onChipOut() {
+    hoveredChipIndex.value = null
+    onPointerOut()
 }
 
 /**

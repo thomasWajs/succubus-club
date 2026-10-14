@@ -1,5 +1,6 @@
 import { acceptHMRUpdate, defineStore } from 'pinia'
 import type { Allocation, OptionView, VoteTotals, Window } from '@/client/engine/api.ts'
+import type { EngineChip } from '@/client/engine/labels.ts'
 
 export type EngineDecision = {
     decision: number
@@ -63,6 +64,9 @@ export const useEngineStore = defineStore('engine', {
         played: [] as { decision: number; player: string; text: string; option: OptionView }[],
         // The cards on their way to play ( limbo ), by oid : not in play yet
         limbo: [] as string[],
+        // A minion's counted markers ( hostage, nightmare, torture, a lasting effect's counters ),
+        // by oid : round chips on it, the count on them ( see minionMarkers )
+        chips: {} as Record<string, EngineChip[]>,
         // During a bleed, its amount ( the engine's, a card's bleed too )
         bleed: null as number | null,
         // During an influence phase, the active seat's transfers left

@@ -34,6 +34,7 @@ import {
     VoteSide,
 } from '@/shared/types/state.ts'
 import { useEngineStore } from '@/client/store/engine.ts'
+import { type EngineChip, minionMarkers } from '@/client/engine/labels.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { nextTick } from 'vue'
 import Phaser from 'phaser'
@@ -100,9 +101,11 @@ type Placement = {
     rank: number // order among its siblings ( slot, attachment rank )
     blood: number
     greenCounter: number
-    // A minion's other public state, as SC's markers : its hostage and nightmare counters, the
-    // counters of a lingering effect on it, whose corruption it bears, a contested title
+    // A minion's other marks, as SC's markers ( short labels ) : a disease, a contested title, a
+    // lasting effect without counters on it
     markers?: string[]
+    // Its counted markers : hostage, nightmare and torture counters, a lasting effect's counters
+    chips?: EngineChip[]
     isLocked: boolean
     isFlipped: boolean
     // A minion : the view's ( its kind : a vampire, an ally, a created vampire, a token )
@@ -274,6 +277,12 @@ export class Projection {
         useEngineStore().limbo = [...placements]
             .filter(([, placement]) => placement.spot == Spot.Limbo)
             .flatMap(([copy]) => this.card(copy)?.oid ?? [])
+        useEngineStore().chips = Object.fromEntries(
+            [...placements].flatMap(([copy, placement]) => {
+                const oid = this.card(copy)?.oid
+                return oid && placement.chips?.length ? [[oid, placement.chips]] : []
+            }),
+        )
         this.setSeats(view)
         this.setTurn(view)
         this.setAction(view)
@@ -454,6 +463,7 @@ export class Projection {
                 list.forEach((minion, rank) => {
                     const card = seen(minion.card)
                     const markers = minion.markers ?? []
+                    const { chips, labels } = minionMarkers(markers)
                     placements.set(card.copy, {
                         card,
                         player,
@@ -465,7 +475,8 @@ export class Projection {
                         greenCounter: markers
                             .filter(k => k.kind == 'corruption')
                             .reduce((n, k) => n + (k.n ?? 1), 0),
-                        markers: markers.map(k => k.text ?? k.kind),
+                        markers: labels,
+                        chips,
                         isLocked: minion.locked,
                         isFlipped: minion.contested ?? false,
                         minion,

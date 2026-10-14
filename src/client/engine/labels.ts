@@ -1,8 +1,9 @@
 /**
- * Names for the server's ids where the table shows them : windows, actions.
+ * Names for the server's ids where the table shows them : windows, actions, markers.
  */
 
-import type { ActionKind, Mode, Window } from '@/client/engine/api.ts'
+import type { ActionKind, Marker, MarkerKind, Mode, Window } from '@/client/engine/api.ts'
+import { gameResources } from '@/shared/registries.ts'
 
 // A window's name
 const WINDOWS: Partial<Record<Window, string>> = {
@@ -82,4 +83,59 @@ export function modeTags(mode: Mode | null | undefined): string[] {
         tags.push(mode.card_type.replace(/_/g, '').toUpperCase())
     }
     return tags
+}
+
+/**
+ * A minion's markers as the table shows them : a counted kind ( hostage, nightmare, torture,
+ * a lasting effect's counters ) as a chip, its count on it and its name on hover ; any other
+ * mark ( disease, a contested title, expelled, a lasting effect without counters ) as a short
+ * label. Corruption is SC's green counter, neither.
+ */
+
+// A counted marker : a round chip on the minion, one color per kind
+export type EngineChip = { kind: ChipKind; n: number; name: string }
+export type ChipKind = 'hostage' | 'nightmare' | 'torture' | 'effect'
+
+const MARKER_NAMES: Partial<Record<MarkerKind, string>> = {
+    hostage: 'Hostage',
+    nightmare: 'Nightmare',
+    torture: 'Torture',
+    disease: 'Disease',
+    title_contested: 'Contested title',
+    expelled: 'Expelled',
+    effect: 'Effect',
+}
+
+// A marker's short name : a lasting effect's is its card's
+export function markerName(marker: Marker): string {
+    const card = marker.card != null ? gameResources.cardbase[marker.card]?.name : undefined
+    return (
+        (marker.kind == 'effect' ? card : undefined) ??
+        MARKER_NAMES[marker.kind] ??
+        marker.kind.replace(/_/g, ' ')
+    )
+}
+
+// A minion's markers, split : the chips, the labels
+export function minionMarkers(markers: Marker[]): { chips: EngineChip[]; labels: string[] } {
+    const chips: EngineChip[] = []
+    const labels: string[] = []
+    for (const marker of markers) {
+        const n = marker.n ?? 0
+        if (marker.kind == 'corruption') {
+            continue
+        }
+        if (
+            n > 0 &&
+            (marker.kind == 'hostage' ||
+                marker.kind == 'nightmare' ||
+                marker.kind == 'torture' ||
+                marker.kind == 'effect')
+        ) {
+            chips.push({ kind: marker.kind, n, name: markerName(marker) })
+        } else {
+            labels.push(markerName(marker))
+        }
+    }
+    return { chips, labels }
 }

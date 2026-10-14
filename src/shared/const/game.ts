@@ -225,6 +225,20 @@ export const MARKERS_TEXT_STYLE = {
     fontSize: '13px',
 }
 
+// A counted marker of the rules engine ( hostage, nightmare, torture, a lasting effect's
+// counters ) : a round chip, its count on it, one color per kind, its name on hover
+export const CHIP_RADIUS = 10
+export const CHIP_GAP = 2
+export const CHIP_TEXT_STYLE = {
+    color: 'black',
+    fontStyle: 'bold',
+    fontSize: '14px',
+}
+export const HOSTAGE_CHIP_FILL_COLOR = 'rgb(90,160,230)'
+export const NIGHTMARE_CHIP_FILL_COLOR = 'rgb(175,120,230)'
+export const TORTURE_CHIP_FILL_COLOR = 'rgb(230,130,175)'
+export const EFFECT_CHIP_FILL_COLOR = 'rgb(200,200,200)'
+
 /**
  * Wield Card Stack
  */
