@@ -3,11 +3,13 @@ import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import { useCoreStore } from '@/client/store/core.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { WorldAlignment } from '@/client/gateway/db.ts'
+import { useEngineMode } from '@/client/engine/mode.ts'
 
 export function useUIFeatures() {
     const multiplayer = useMultiplayerStore()
     const core = useCoreStore()
     const gameState = useGameStateStore()
+    const { isEngine } = useEngineMode()
     const preferences = computed(() => core.userProfile.preferences)
 
     const aidsEnabled = computed(() => multiplayer.currentGameRoom?.isCasual ?? true)
@@ -30,6 +32,9 @@ export function useUIFeatures() {
         usageEditorEnabled: computed(() => (preferences.value.usageEditor ?? 1) === 1),
         turnNotificationEnabled: computed(() => (preferences.value.turnNotification ?? 1) === 1),
         showBleedTargetEnabled: computed(() => (preferences.value.showBleedTarget ?? 1) === 1),
+        // SC's own controls of the game's course ( turn phases, next turn, editing an action's
+        // numbers, discarding at random ) : not when the rules engine runs the game
+        manualControlsEnabled: computed(() => !isEngine.value),
         automaticCostPaymentEnabled: computed(
             () => (preferences.value.automaticCostPayment ?? 0) === 1,
         ),

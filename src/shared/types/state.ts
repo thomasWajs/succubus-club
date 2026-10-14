@@ -8,6 +8,7 @@ import { KrcgId } from '@/shared/types/gateway.ts'
 export enum GameType {
     Unset = 'Unset',
     TrainBot = 'TrainBot',
+    Engine = 'Engine', // Against bots, the rules enforced by the zero-vtes engine
     Multiplayer = 'Multiplayer',
     Puppeteer = 'Puppeteer',
 }

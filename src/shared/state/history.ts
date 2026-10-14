@@ -24,7 +24,7 @@ const authorFromPlayer = (player: Player) => ({
     authorColorRgba: getAuthorColorRgba(player.rgbaColor),
 })
 
-type Transformer = <T extends object>(value: T) => T
+export type Transformer = <T extends object>(value: T) => T
 
 export class HistoryStore {
     logEntries: LogEntry[] = []
@@ -49,7 +49,9 @@ export class HistoryStore {
 
     // Methods
 
-    addGameMutation(gameMutation: AnyGameMutation, transformer?: Transformer): void {
+    // `log` : false for a mutation the log tells otherwise ( a game with the rules engine narrates
+    // its own table )
+    addGameMutation(gameMutation: AnyGameMutation, transformer?: Transformer, log = true): void {
         // gameMutations and logEntries are both append-only & read-only,
         // so use markRaw to enhance performances
 
@@ -65,7 +67,7 @@ export class HistoryStore {
 
         this.gameMutations.push(mutation)
 
-        const text = gameMutation.formatForLog()
+        const text = log ? gameMutation.formatForLog() : null
         if (text) {
             let cancelText: string | undefined
             let { authorName, authorColorRgba } = authorFromPlayer(gameMutation.author)
