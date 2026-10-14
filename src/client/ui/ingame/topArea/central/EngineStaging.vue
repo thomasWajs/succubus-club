@@ -106,6 +106,7 @@ function pick(option: OptionView) {
 
 const PROMPTS: Record<StagingStep['ask'], string> = {
     card: 'Which card ? Click it on the table, or :',
+    ability: 'Which ability ?',
     actor: 'Who plays it ? Click a glowing minion',
     mode: 'Disciplines :',
     target: 'On what ? Click a glowing card',

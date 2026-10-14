@@ -45,7 +45,7 @@ export type StagingChoice = { key: string; options: OptionView[]; card?: Card; l
 
 // What the choice under way asks next
 export type StagingStep = {
-    ask: 'card' | 'actor' | 'mode' | 'target' | 'option'
+    ask: 'card' | 'ability' | 'actor' | 'mode' | 'target' | 'option'
     choices: StagingChoice[]
 }
 
@@ -199,6 +199,14 @@ function modeLabel(option: OptionView): string {
     return tags.length > 0 ? tags.map(tag => `[${tag}]`).join('') : (option.text ?? '')
 }
 
+// What one of a card's abilities does : its text's tail ( "Use War Ghoul with War Ghoul on X: action,
+// enter combat" ), else its number
+function abilityLabel(option: OptionView): string {
+    const text = option.text ?? ''
+    const colon = text.lastIndexOf(': ')
+    return colon >= 0 ? text.slice(colon + 2) : `Ability ${(option.ability ?? 0) + 1}`
+}
+
 function targetLabel(option: OptionView): string {
     // The text ends with the target : "Play X with A on B"
     const text = option.text ?? ''
@@ -228,6 +236,16 @@ export function stagingStep(options: OptionView[]): StagingStep {
     )
     if (cards.length > 1) {
         return { ask: 'card', choices: cards }
+    }
+    // Which of the card's abilities, before who uses it : an ability with no actor ( War Ghoul's
+    // location burn, beside its rush ) is not a minion's to pick
+    const abilities = group(
+        options,
+        option => (option.kind == 'use_ability' ? String(option.ability ?? 'none') : 'none'),
+        option => ({ label: abilityLabel(option) }),
+    )
+    if (abilities.length > 1) {
+        return { ask: 'ability', choices: abilities }
     }
     const actors = group(
         options,
@@ -320,8 +338,11 @@ const highlights = computed(() => {
                 map.set(card.oid, 'candidate')
             }
         }
+        // The card staged, unless it is a choice of the step ( a minion using its own card )
         for (const card of alike(current.card)) {
-            map.set(card.oid, 'staged')
+            if (!map.has(card.oid)) {
+                map.set(card.oid, 'staged')
+            }
         }
         return map
     }
