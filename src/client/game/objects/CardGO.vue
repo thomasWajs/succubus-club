@@ -31,7 +31,11 @@
         "
         :texture="displayedTexture.textureName"
         :frame="displayedTexture.frameName"
-        :alpha="dragAttrs.isDragging ? CARD_DRAGGING_ALPHA : 1"
+        :alpha="
+            dragAttrs.isDragging ? CARD_DRAGGING_ALPHA
+            : inLimbo ? LIMBO_ALPHA
+            : 1
+        "
         :scale="dragAttrs.isDragging ? dragAttrs.cardScale : cardAttrs.scale"
         :rotation="cardAttrs.rotation"
         :tween="rotationTween"
@@ -47,8 +51,13 @@
         <!-- Glow effect for "isDuringCurrentPhase" -->
         <FxGlow
             v-if="showGlowEffect"
-            :color="Colors.CARD_GLOW.color"
-            :outerStrength="CARD_IN_PLAY_GLOW_OUTER_STRENGTH"
+            :key="`${glowColor}-${engineActor}`"
+            :color="glowColor"
+            :outerStrength="
+                engineActor ?
+                    CARD_IN_PLAY_GLOW_ACTOR_OUTER_STRENGTH
+                :   CARD_IN_PLAY_GLOW_OUTER_STRENGTH
+            "
             :innerStrength="CARD_IN_PLAY_GLOW_INNER_STRENGTH"
         />
 
@@ -60,20 +69,20 @@
         v-if="players.isPlayer"
         ref="cardOutline"
         :key="key + 'cardOutline'"
-        :visible="!!getCardOutlineColor"
+        :visible="!!outlineColor"
         :origin="0.5"
         :x="cardAttrs.x"
         :y="cardAttrs.y"
         :width="displaySize.width"
         :height="displaySize.height"
         :rotation="cardAttrs.rotation"
-        :lineWidth="CARD_OUTLINE_THICKNESS"
-        :strokeColor="getCardOutlineColor"
+        :lineWidth="outlineThickness"
+        :strokeColor="outlineColor"
         :tween="rotationTween"
     />
 
     <!-- Blood Counter -->
-    <template v-if="card.blood > 0 || (card.isMinion() && !isTweening)">
+    <template v-if="card.blood > 0 || (card.isMinion() && !isTweening && !inLimbo)">
         <!-- Red Circle -->
         <Circle
             ref="bloodCounterCircle"
@@ -266,6 +275,66 @@
         />
     </template>
 
+    <!-- A game with the rules engine : the minion's counted markers, round chips, the count on
+    them, their name on hover -->
+    <template
+        v-for="(chip, index) in chips"
+        :key="`${key}chip${chip.kind}${chip.name}${index}`"
+    >
+        <Circle
+            :ref="el => registerChipCircles(index, el as typeof Circle | null)"
+            :radius="CHIP_RADIUS"
+            :fillColor="chipColor(chip).color"
+            :fillAlpha="1"
+            :lineWidth="COUNTER_OUTLINE_THICKNESS"
+            :strokeColor="Colors.COUNTER_OUTLINE.color"
+            :origin="0.5"
+            :x="getChipPosition(index).x"
+            :y="getChipPosition(index).y"
+            :scale="scale"
+            :rotation="ownerFacingRotation"
+            @create="onChipCreate"
+            @pointerover="onChipOver(index)"
+            @pointerout="onChipOut"
+        />
+        <Text
+            :ref="el => registerChipTexts(index, el as typeof Text | null)"
+            :text="chip.n.toString()"
+            :style="CHIP_TEXT_STYLE"
+            :origin="0.5"
+            :x="getChipPosition(index).x"
+            :y="getChipPosition(index).y"
+            :scale="scale"
+            :rotation="ownerFacingRotation"
+        />
+    </template>
+    <template v-if="hoveredChip">
+        <Rectangle
+            :key="key + 'chipName'"
+            :originX="0.5"
+            :originY="0.5"
+            :x="hoveredChip.position.x"
+            :y="hoveredChip.position.y"
+            :width="hoveredChip.width"
+            :height="MARKER_HEIGHT"
+            :fillColor="Colors.MARKERS_FILL.color"
+            :fillAlpha="Colors.MARKERS_FILL.alphaGL"
+            :scale="scale"
+            :rotation="ownerFacingRotation"
+        />
+        <Text
+            :key="key + 'chipNameText'"
+            :originX="0.5"
+            :originY="0.5"
+            :x="hoveredChip.position.x"
+            :y="hoveredChip.position.y"
+            :text="hoveredChip.name"
+            :style="MARKERS_TEXT_STYLE"
+            :scale="scale"
+            :rotation="ownerFacingRotation"
+        />
+    </template>
+
     <!-- Floating cost indicator ( automatic cost payment ) -->
     <FxCardCost
         v-if="cardCost"
@@ -280,7 +349,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, toRef, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, toRef, watch, watchEffect } from 'vue'
 import Phaser, { GameObjects } from 'phaser'
 import { Circle, FxGlow, Image, Rectangle, refObj, Text } from 'phavuer'
 import { Colors } from '@/client/colors.ts'
@@ -289,9 +358,13 @@ import {
     CARD_HEIGHT,
     CARD_IN_PLAY_BASE_SCALE,
     CARD_IN_PLAY_GLOW_INNER_STRENGTH,
+    CARD_IN_PLAY_GLOW_ACTOR_OUTER_STRENGTH,
     CARD_IN_PLAY_GLOW_OUTER_STRENGTH,
     CARD_OUTLINE_THICKNESS,
     CARD_WIDTH,
+    CHIP_GAP,
+    CHIP_RADIUS,
+    CHIP_TEXT_STYLE,
     COUNTER_HOVER_OFFSET_MULTIPLIER,
     COUNTER_OUTLINE_THICKNESS,
     COUNTER_RADIUS,
@@ -320,7 +393,11 @@ import FxPingCard from './FxPingCard.vue'
 import FxCardCost from './FxCardCost.vue'
 import { useCardTexture } from '@/client/game/composables/useCardTexture.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
+import { engineClaims, engineGlow, engineHighlight } from '@/client/engine/interaction.ts'
+import { useEngineStore } from '@/client/store/engine.ts'
+import type { ChipKind, EngineChip } from '@/client/engine/labels.ts'
 import Pointer = Phaser.Input.Pointer
+import { useEngineMode } from '@/client/engine/mode.ts'
 
 const { card, regionName } = defineProps<{
     card: Card
@@ -330,6 +407,8 @@ const { card, regionName } = defineProps<{
 const key = computed(() => regionName + card.oid.toString())
 
 const gameState = useGameStateStore()
+
+const { isEngine } = useEngineMode()
 const players = usePlayersStore()
 const gameBus = useGameBusStore()
 const commands = useCommands()
@@ -346,6 +425,8 @@ const orangeCounterCircle = refObj<GameObjects.Arc>()
 const orangeCounterText = refObj<GameObjects.Text>()
 const markersRectangles = [] as (GameObjects.Rectangle | null)[]
 const markersTexts = [] as (GameObjects.Text | null)[]
+const chipCircles = [] as (GameObjects.Arc | null)[]
+const chipTexts = [] as (GameObjects.Text | null)[]
 
 const burnBloodButton = ref<typeof ButtonGO>()
 const gainBloodButton = ref<typeof ButtonGO>()
@@ -357,6 +438,12 @@ function registerMarkersRectangles(index: number, rectangle: typeof Rectangle | 
 }
 function registerMarkersTexts(index: number, text: typeof Text | null) {
     markersTexts[index] = text?.object ?? null
+}
+function registerChipCircles(index: number, circle: typeof Circle | null) {
+    chipCircles[index] = circle?.object ?? null
+}
+function registerChipTexts(index: number, text: typeof Text | null) {
+    chipTexts[index] = text?.object ?? null
 }
 
 const scale = computed(() => getRegionScale(card.region))
@@ -436,9 +523,21 @@ function startRotationTween(newAttrs: CardAttrs, oldAttrs: CardAttrs) {
  * Glow effect on usable card, depending on the phase of the turn.
  */
 
+// In a game with the rules engine, what the engine allows ( see engineGlow )
+const engineGlowColor = computed(() => engineGlow(card))
+// A card on its way to play ( an engine's limbo ) : faded, no counter, until it resolves
+const LIMBO_ALPHA = 0.6
+const inLimbo = computed(() => useEngineStore().limbo.includes(card.oid))
+
 const showGlowEffect = computed(
-    () => glowInPlayEnabled.value && card.isDuringCurrentPhase() && !dragAttrs.isDragging,
+    () =>
+        !dragAttrs.isDragging &&
+        (engineGlowColor.value !== undefined ?
+            engineGlowColor.value !== null
+        :   glowInPlayEnabled.value && card.isDuringCurrentPhase()),
 )
+
+const glowColor = computed(() => engineGlowColor.value ?? Colors.CARD_GLOW.color)
 
 /**
  * Bring to top
@@ -472,6 +571,12 @@ function bringToTop() {
     markersTexts.forEach(text => {
         if (text) container.bringToTop(text)
     })
+    chipCircles.forEach(circle => {
+        if (circle) container.bringToTop(circle)
+    })
+    chipTexts.forEach(text => {
+        if (text) container.bringToTop(text)
+    })
 
     // If the player is ousted, the ousted overlay always takes precedence
     const bringOustedToTop = container.getData(PhaserDataKey.BringOustedToTop)
@@ -482,9 +587,51 @@ function bringToTop() {
  * Overlay ( counters & buttons )
  */
 
+// A card the engine's choice under way can be ( a candidate : a pick, a target, the minion
+// playing a card ) or is about ( staged ) : a click anywhere on it is that choice, so SC's hover
+// buttons ( blood, Influence, ash heap ) don't cover parts of it ( see engine/interaction.ts ).
+// A card that can be used or a minion that can act keeps them : moving blood is a gesture too
+// A candidate of the engine's choice under way ( a target, a pick ) is outlined in its glow's blue
+// too : a frame that reads at any scale, even under the cards on it
+const engineCandidate = computed(() => engineHighlight(card) == 'candidate')
+// A minion that can act, not a card to play : a thinner glow
+const engineActor = computed(() => engineHighlight(card) == 'actor')
+const outlineColor = computed(
+    () =>
+        getCardOutlineColor.value ??
+        (engineCandidate.value ? Colors.CARD_GLOW_CANDIDATE.color : undefined),
+)
+const outlineThickness = computed(() =>
+    !getCardOutlineColor.value && engineCandidate.value ?
+        2 * CARD_OUTLINE_THICKNESS
+    :   CARD_OUTLINE_THICKNESS,
+)
+
+// A card the engine's choice under way claims is clicked, never dragged : a press moving a few
+// pixels started a drag and the click was lost. A candidate takes the clicks on its glow and
+// outline too : its hit area padded by a few screen pixels
+const ENGINE_CANDIDATE_HIT_PADDING = 6
+const engineClaimed = computed(() => isEngine.value && engineClaims(card))
+watchEffect(() => {
+    const img = image.value
+    if (!img?.input || !isEngine.value) {
+        return
+    }
+    img.scene.input.setDraggable(img, !engineClaimed.value)
+    const pad = engineCandidate.value ? ENGINE_CANDIDATE_HIT_PADDING / Math.abs(img.scaleX) : 0
+    const hitArea = img.input.hitArea as Phaser.Geom.Rectangle
+    hitArea.setTo(-pad, -pad, img.frame.width + 2 * pad, img.frame.height + 2 * pad)
+})
+
+const engineChoosing = computed(() => {
+    const highlight = engineHighlight(card)
+    return highlight == 'candidate' || highlight == 'staged'
+})
+
 const showOverlay = computed(() => {
     return (
         isHovered.value &&
+        !engineChoosing.value &&
         gameBus.selectedCards.length <= 1 &&
         players.isPlayer &&
         !dragAttrs.isDragging &&
@@ -594,6 +741,70 @@ function getMarkerPosition(index: number): Point2D {
         x: markersPosition.value.x,
         y: markersPosition.value.y + (MARKER_HEIGHT + 2) * index + MARKER_MARGIN_TOP,
     })
+}
+
+/**
+ * Chips : a game with the rules engine's counted markers ( see minionMarkers )
+ */
+
+const chips = computed(() => (isEngine.value ? (useEngineStore().chips[card.oid] ?? []) : []))
+
+const CHIP_COLORS: Record<ChipKind, Phaser.Display.Color> = {
+    hostage: Colors.HOSTAGE_CHIP_FILL,
+    nightmare: Colors.NIGHTMARE_CHIP_FILL,
+    torture: Colors.TORTURE_CHIP_FILL,
+    effect: Colors.EFFECT_CHIP_FILL,
+}
+function chipColor(chip: EngineChip) {
+    return CHIP_COLORS[chip.kind]
+}
+
+// Down the card's left edge, under the row of the blood counter and its hover buttons ( the
+// green counter at the bottom corner ) ; locked, along its top edge, past the green counter
+function chipCenter(index: number): Point2D {
+    const radius = (CHIP_RADIUS + COUNTER_OUTLINE_THICKNESS) * scale.value
+    const step = 2 * radius + CHIP_GAP * scale.value
+    const counterRow = 2 * (COUNTER_RADIUS + COUNTER_OUTLINE_THICKNESS) * scale.value
+    const first = counterRow + CHIP_GAP * scale.value + radius
+    return card.isLocked ?
+            { x: card.x + first + step * index, y: card.y + radius }
+        :   { x: card.x + radius, y: card.y + first + step * index }
+}
+
+function getChipPosition(index: number): Point2D {
+    return rotateAroundCardCenter(chipCenter(index))
+}
+
+function onChipCreate(circle: GameObjects.Arc) {
+    circle.setInteractive()
+}
+
+// The chip under the pointer : its name beside it ( right of it, below it when locked )
+const hoveredChipIndex = ref<number | null>(null)
+const hoveredChip = computed(() => {
+    const index = hoveredChipIndex.value
+    const chip = index !== null ? chips.value[index] : undefined
+    if (index === null || !chip) {
+        return null
+    }
+    const width = MARKER_WIDTH_PER_CHAR * chip.name.length + MARKER_PADDING
+    const radius = (CHIP_RADIUS + COUNTER_OUTLINE_THICKNESS) * scale.value
+    const center = chipCenter(index)
+    const position =
+        card.isLocked ?
+            { x: center.x, y: center.y + radius + (MARKER_HEIGHT / 2 + 2) * scale.value }
+        :   { x: center.x + radius + (width / 2 + 2) * scale.value, y: center.y }
+    return { name: chip.name, width, position: rotateAroundCardCenter(position) }
+})
+
+// Over a chip, the card stays hovered ( as over its blood buttons )
+function onChipOver(index: number) {
+    hoveredChipIndex.value = index
+    onPointerOver()
+}
+function onChipOut() {
+    hoveredChipIndex.value = null
+    onPointerOut()
 }
 
 /**

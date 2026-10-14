@@ -41,6 +41,7 @@
             :height="TORPOR_ZONE_BOTTOM - player.separators.horizontalY"
             :color="playerColor"
             :cardRegion="player.uncontrolled"
+            labelOnTop
         />
 
         <!-- Vertical separator line -->

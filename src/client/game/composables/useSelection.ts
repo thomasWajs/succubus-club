@@ -3,6 +3,8 @@ import { Card, Minion } from '@/shared/model/Card.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
+import { minionMenuOptions } from '@/client/engine/interaction.ts'
+import { useEngineMode } from '@/client/engine/mode.ts'
 
 /**
  * Selection-derived helpers over a source set of cards ( the table selection,
@@ -14,6 +16,7 @@ import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
  */
 export function useSelection(cards: () => Card[]) {
     const gameState = useGameStateStore()
+    const { isEngine } = useEngineMode()
     const players = usePlayersStore()
     const { actionDeclarationEnabled } = useUIFeatures()
 
@@ -29,6 +32,10 @@ export function useSelection(cards: () => Card[]) {
     // here instead - only the ready-equivalent case is supported for now.
     const primedMinion = computed<Minion | null>(() => {
         const minion = singleMinion.value
+        // With the rules engine : a minion that can take an action now
+        if (isEngine.value) {
+            return minion && minionMenuOptions(minion) ? minion : null
+        }
         if (
             minion &&
             actionDeclarationEnabled.value &&

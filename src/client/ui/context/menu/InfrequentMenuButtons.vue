@@ -72,7 +72,9 @@
     </ContextMenuButton>
 
     <ContextMenuButton
-        v-if="singleCard && !singleCard.isVampire() && singleCard.isIn.ready"
+        v-if="
+            manualControlsEnabled && singleCard && !singleCard.isVampire() && singleCard.isIn.ready
+        "
         :closeOnClick="true"
         :cardAction="
             (card: Card) =>
@@ -85,7 +87,9 @@
     </ContextMenuButton>
 
     <ContextMenuButton
-        v-if="singleCard && !singleCard.isMinion() && singleCard.isIn.ready"
+        v-if="
+            manualControlsEnabled && singleCard && !singleCard.isMinion() && singleCard.isIn.ready
+        "
         :closeOnClick="true"
         :cardAction="
             (card: Card) =>
@@ -113,8 +117,10 @@ import { useGameBusStore } from '@/client/store/bus.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
 import { useCommands } from '@/client/game/composables/useCommands.ts'
 import { useSelection } from '@/client/game/composables/useSelection.ts'
+import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
 
 const gameBus = useGameBusStore()
+const { manualControlsEnabled } = useUIFeatures()
 const players = usePlayersStore()
 const commands = useCommands()
 const { firstCard, singleCard } = useSelection(() => gameBus.contextMenu.cards)

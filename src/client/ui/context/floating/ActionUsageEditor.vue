@@ -1,6 +1,6 @@
 <template>
     <div
-        v-if="editor && gameState.action"
+        v-if="editor && gameState.action && manualControlsEnabled"
         class="action-usage-editor"
         :class="{ 'read-only': !editor.editable }"
         :style="editor.style"
@@ -122,7 +122,7 @@ import * as actions from '@/shared/state/minionActions.ts'
 const gameBus = useGameBusStore()
 const gameState = useGameStateStore()
 const players = usePlayersStore()
-const { usageEditorEnabled } = useUIFeatures()
+const { usageEditorEnabled, manualControlsEnabled } = useUIFeatures()
 
 function useKey(use: DisciplineUse): string {
     return `${use.discipline}:${use.level}`
