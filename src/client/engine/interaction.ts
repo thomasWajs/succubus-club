@@ -199,12 +199,14 @@ function modeLabel(option: OptionView): string {
     return tags.length > 0 ? tags.map(tag => `[${tag}]`).join('') : (option.text ?? '')
 }
 
-// What one of a card's abilities does : its text's tail ( "Use War Ghoul with War Ghoul on X: action,
-// enter combat" ), else its number
+// What one of a card's abilities does : its text's tail ( "Use War Ghoul on X: action, enter
+// combat" ), else its number ( a text that says none, "Use X (ability 2)", or no text )
 function abilityLabel(option: OptionView): string {
     const text = option.text ?? ''
     const colon = text.lastIndexOf(': ')
-    return colon >= 0 ? text.slice(colon + 2) : `Ability ${(option.ability ?? 0) + 1}`
+    return colon >= 0 && !/\(ability \d+\)$/.test(text) ?
+            text.slice(colon + 2)
+        :   `Ability ${(option.ability ?? 0) + 1}`
 }
 
 function targetLabel(option: OptionView): string {
