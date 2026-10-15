@@ -57,7 +57,6 @@
                     @click="router.push({ name: ROUTES.PlayerAvailability })"
                 >
                     Player Availability
-                    <sup class="new-badge">NEW</sup>
                 </span>
 
                 <div
