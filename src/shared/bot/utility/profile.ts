@@ -19,6 +19,10 @@ export type OpponentPrior = {
     bonusPerCard: number
     // Intercept points an intercept card adds to a block attempt
     interceptPerCard: number
+    // What a Methuselah is assumed to do before it is seen doing it: the pool one of its bleeds takes, and the
+    // share of the actions it could block that it tries to block. `weight` is how many observations the
+    // assumption is worth: one odd observation moves the belief by 1 / ( 1 + weight ) of the way
+    behaviour: { bleedSize: number; blockRate: number; weight: number }
     reserve: ReservePrior
 }
 
@@ -302,6 +306,7 @@ export const DEFAULT_PROFILE: BotProfile = {
         stealthPerCard: 1,
         bonusPerCard: 1.5,
         interceptPerCard: 1,
+        behaviour: { bleedSize: 2, blockRate: 0.3, weight: 3 },
         reserve: {
             caution: 1,
             guard: 0.3,

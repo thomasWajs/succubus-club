@@ -68,10 +68,11 @@ export class UtilityAgent implements BotAgent {
     ) {}
 
     choose(decision: DecisionPoint, context?: BotContext): BotOption {
+        const ledger = context?.ledger ?? createLedger()
         const choice = this.decide({
             decision,
-            assessment: assess(decision.player.gameState, decision.player, this.profile),
-            ledger: context?.ledger ?? createLedger(),
+            assessment: assess(decision.player.gameState, decision.player, this.profile, ledger),
+            ledger,
             deck: this.deck,
             profile: this.profile,
         })

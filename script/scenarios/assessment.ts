@@ -27,6 +27,7 @@ import {
 } from '@/shared/bot/utility/snapshot.ts'
 import { roleDensities } from '@/shared/bot/utility/capabilities.ts'
 import { opponentModelOf } from '@/shared/bot/utility/opponentModel.ts'
+import { createLedger, getPlayerLedger, PlayerLedger } from '@/shared/bot/utility/ledger.ts'
 import { binomial, exact } from '@/shared/bot/utility/attack.ts'
 import {
     Assessment,
@@ -804,6 +805,59 @@ export const ASSESSMENT_SCENARIOS: Scenario[] = [
             expectClose(shown.confidence, 0.5, 'one vampire halves the doubt', 1e-9)
             expectEqual(shown.risks.stealth > bare.risks.stealth, true, 'Obfuscate says stealth')
             expectEqual(shown.risks.blocking, bare.risks.blocking, 'and nothing of blocking')
+        },
+    },
+    {
+        name: 'Opponent model: what the ledger saw pulls the bleed size and the block rate from the prior, a single observation little',
+        run() {
+            const ring = createRing([GovernDeck, GovernDeck])
+            const [me, other] = ring.players
+            const { behaviour } = DEFAULT_PROFILE.opponentPrior
+            const modelWith = (seen: (ledger: PlayerLedger) => void) => {
+                const ledger = createLedger()
+                seen(getPlayerLedger(ledger, other.oid))
+                return opponentModelOf(
+                    snapshotAs(ring, me).others[0],
+                    DEFAULT_PROFILE,
+                    getPlayerLedger(ledger, other.oid),
+                )
+            }
+            const none = modelWith(() => {})
+            expectClose(none.risks.bleedSize, behaviour.bleedSize, 'no bleed seen: the prior', 1e-9)
+            expectClose(
+                none.risks.blockRate,
+                behaviour.blockRate,
+                'no block chance: the prior',
+                1e-9,
+            )
+            expectEqual(none.observed.bleeds, 0, 'no bleed counted')
+
+            const one = modelWith(seen => {
+                seen.bleedAmounts = [8]
+            })
+            expectClose(
+                one.risks.bleedSize,
+                (behaviour.bleedSize * behaviour.weight + 8) / (behaviour.weight + 1),
+                'one bleed of 8 moves it a quarter of the way',
+                1e-9,
+            )
+            expectEqual(one.risks.bleedSize < 4, true, 'and does not make it a big bleeder')
+            const many = modelWith(seen => {
+                seen.bleedAmounts = Array.from({ length: 12 }, () => 8)
+            })
+            expectEqual(many.risks.bleedSize > 6, true, 'twelve of them do')
+            expectEqual(many.confidence > one.confidence, true, 'and make the read surer')
+
+            const declines = modelWith(seen => {
+                seen.blocksDeclined = 9
+            })
+            expectEqual(declines.risks.blockRate < behaviour.blockRate / 2, true, 'it never blocks')
+            const blocks = modelWith(seen => {
+                seen.blocksAttempted = 9
+                seen.blocksDeclined = 1
+            })
+            expectEqual(blocks.risks.blockRate > 0.6, true, 'it blocks nearly always')
+            expectEqual(blocks.observed.blockChances, 10, 'ten chances counted')
         },
     },
     {

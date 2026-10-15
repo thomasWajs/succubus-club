@@ -23,6 +23,7 @@ import { createPlayerView } from '@/shared/bot/playerView.ts'
 import { getDecidingPlayer, getDecisionPoint } from '@/shared/bot/referee.ts'
 import { Assessment, assess, survivalCurve } from '@/shared/bot/utility/assessment.ts'
 import { DEFAULT_PROFILE } from '@/shared/bot/utility/profile.ts'
+import { TableLedger } from '@/shared/bot/utility/ledger.ts'
 import { describeAssessment, describeTurnPlan } from '@/shared/bot/utility/describeAssessment.ts'
 import { candidateOf, planTurn, TurnPlan } from '@/shared/bot/utility/turnPlan.ts'
 import { DecisionKind, optionsOfType } from '@/shared/bot/types.ts'
@@ -88,6 +89,11 @@ function findProblems(assessment: Assessment): string[] {
         for (const [role, density] of Object.entries(densities)) {
             check(density, `${role} density of ${oid}`, 0, 1)
         }
+    }
+    for (const [oid, model] of Object.entries(assessment.models)) {
+        check(model.confidence, `confidence in the read of ${oid}`, 0, 1)
+        check(model.risks.blockRate, `block rate of ${oid}`, 0, 1)
+        check(model.risks.bleedSize, `bleed size of ${oid}`, 0)
     }
     for (const [oid, threat] of Object.entries(assessment.threat)) {
         check(threat.bleed, `bleed threat of ${oid}`, 0)
@@ -203,7 +209,10 @@ const deckNames = Object.keys(DECKS)
 function playGame(
     seed: number,
     decks: DeckList[],
-    beforeStep: (gameState: ReturnType<typeof createHeadlessGame>['gameState']) => void,
+    beforeStep: (
+        gameState: ReturnType<typeof createHeadlessGame>['gameState'],
+        ledger: TableLedger,
+    ) => void,
     maxTurns = 1000,
 ) {
     Math.random = seededRandom(seed)
@@ -214,7 +223,7 @@ function playGame(
         maxTurns,
         maxSteps: 100000,
         recorder,
-        beforeStep: () => beforeStep(gameState),
+        beforeStep: () => beforeStep(gameState, recorder.ledger),
     })
 }
 
@@ -230,7 +239,7 @@ if (args.sweep > 0) {
             playGame(
                 args.seed + game,
                 names.map(name => DECKS[name]),
-                gameState => {
+                (gameState, ledger) => {
                     steps++
                     const minionPhase =
                         gameState.turnPhase == TurnPhase.Minion &&
@@ -243,7 +252,12 @@ if (args.sweep > 0) {
                     }
                     const view = createPlayerView(gameState, deciding)
                     try {
-                        const assessment = assess(view.gameState, view.player, DEFAULT_PROFILE)
+                        const assessment = assess(
+                            view.gameState,
+                            view.player,
+                            DEFAULT_PROFILE,
+                            ledger,
+                        )
                         const problems = steps % 7 == 0 ? findProblems(assessment) : []
                         const decision =
                             minionPhase ? getDecisionPoint(view.gameState, view.player) : null
@@ -268,9 +282,14 @@ if (args.sweep > 0) {
                         if (problems.length > 0) {
                             if (process.env.ASSESS_DEBUG && failures.length == 0) {
                                 console.log(
-                                    describeAssessment(assess(view.gameState, view.player)).join(
-                                        String.fromCharCode(10),
-                                    ),
+                                    describeAssessment(
+                                        assess(
+                                            view.gameState,
+                                            view.player,
+                                            DEFAULT_PROFILE,
+                                            ledger,
+                                        ),
+                                    ).join(String.fromCharCode(10)),
                                 )
                             }
                             failures.push(
@@ -304,7 +323,7 @@ const decks = Array.from({ length: args.players }, (_, i) => DECKS[args.deckOf[i
 
 let dumped = false
 try {
-    playGame(args.seed, decks, gameState => {
+    playGame(args.seed, decks, (gameState, ledger) => {
         if (gameState.turnNumber < args.turn || gameState.turnPhase != TurnPhase.Minion || dumped) {
             return
         }
@@ -314,7 +333,11 @@ try {
             const view = createPlayerView(gameState, player)
             try {
                 console.log(`\n=== The table as ${player.name} sees it`)
-                console.log(describeAssessment(assess(view.gameState, view.player)).join('\n'))
+                console.log(
+                    describeAssessment(
+                        assess(view.gameState, view.player, DEFAULT_PROFILE, ledger),
+                    ).join('\n'),
+                )
             } finally {
                 view.dispose()
             }

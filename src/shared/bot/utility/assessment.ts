@@ -27,7 +27,6 @@ import {
     attackKitOf,
     defenceOf,
     Densities,
-    densitiesOf,
     IdleActor,
     idleActorsOf,
     interceptShare,
@@ -37,6 +36,8 @@ import {
 import { boardsOf, returnsOf, returnWorth } from '@/shared/bot/utility/rescue.ts'
 import { Bloat, bloatOf, lastingLoss, takenBack } from '@/shared/bot/utility/bloat.ts'
 import { fightRisk } from '@/shared/bot/utility/combatPosition.ts'
+import { OpponentModel, opponentModelOf } from '@/shared/bot/utility/opponentModel.ts'
+import { TableLedger } from '@/shared/bot/utility/ledger.ts'
 
 /**
  * The table, read: what each Methuselah can do to me and what I can do to it, how my pool stands against
@@ -105,6 +106,9 @@ export type Assessment = {
     profile: BotProfile
     // What each Methuselah is believed to hold, by role
     densities: Record<PlayerOid, Densities>
+    // The read of each Methuselah: the densities, the risks and how sure the bot is of them, with what the
+    // ledger saw it do ( nothing read yet by the decisions )
+    models: Record<PlayerOid, OpponentModel>
     // What each Methuselah takes back from the blood bank, turn by turn ( bloat.ts )
     bloat: Record<PlayerOid, Bloat>
     // What the minions and the cards in play are worth, in pool, plus the pool and the victory points,
@@ -543,13 +547,23 @@ function idleOf(
     return idle
 }
 
-export function assessSnapshot(table: TableSnapshot, profile: BotProfile): Assessment {
+export function assessSnapshot(
+    table: TableSnapshot,
+    profile: BotProfile,
+    ledger?: TableLedger,
+): Assessment {
     const { me } = table
     const densities: Record<PlayerOid, Densities> = {}
     const bloat: Record<PlayerOid, Bloat> = {}
     const power: Record<PlayerOid, number> = {}
+    const models: Record<PlayerOid, OpponentModel> = {}
     for (const methuselah of everyone(table)) {
-        densities[methuselah.oid] = densitiesOf(methuselah, profile)
+        models[methuselah.oid] = opponentModelOf(
+            methuselah,
+            profile,
+            ledger?.players[methuselah.oid],
+        )
+        densities[methuselah.oid] = models[methuselah.oid].densities
         bloat[methuselah.oid] = bloatOf(methuselah, densities[methuselah.oid], profile)
         power[methuselah.oid] = powerOf(methuselah, profile, bloat[methuselah.oid])
     }
@@ -629,6 +643,7 @@ export function assessSnapshot(table: TableSnapshot, profile: BotProfile): Asses
         table,
         profile,
         densities,
+        models,
         bloat,
         power,
         threat,
@@ -740,6 +755,7 @@ export function assess(
     gameState: GameState,
     me: Player,
     profile: BotProfile = DEFAULT_PROFILE,
+    ledger?: TableLedger,
 ): Assessment {
-    return assessSnapshot(takeSnapshot(gameState, me), profile)
+    return assessSnapshot(takeSnapshot(gameState, me), profile, ledger)
 }
