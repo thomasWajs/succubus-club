@@ -10,6 +10,7 @@ import type {
     Decision,
     Event,
     GameSpec,
+    Joined,
     OptionView,
     Out,
     SpecError,
@@ -58,6 +59,45 @@ export class EngineRefused extends Error {
     }
 }
 
+// The game the server no longer holds ( it ended a while ago, or the server restarted )
+export class EngineGone extends Error {
+    constructor() {
+        super('The engine server ended the game')
+    }
+}
+
+// The seat of the game under way, kept for the tab : a page refreshed joins it again
+const SEAT_STORAGE_KEY = 'engine-seat'
+type Seat = { game: string; token: string }
+
+export function savedEngineSeat(): Seat | null {
+    try {
+        const saved = sessionStorage.getItem(SEAT_STORAGE_KEY)
+        return saved ? (JSON.parse(saved) as Seat) : null
+    } catch {
+        return null
+    }
+}
+
+function saveSeat(seat: Seat) {
+    try {
+        sessionStorage.setItem(SEAT_STORAGE_KEY, JSON.stringify(seat))
+    } catch {
+        // No storage ( a private window ) : a refresh loses the game
+    }
+}
+
+// Only this game's : another may have started since
+function forgetSeat(game: string) {
+    try {
+        if (savedEngineSeat()?.game == game) {
+            sessionStorage.removeItem(SEAT_STORAGE_KEY)
+        }
+    } catch {
+        // No storage
+    }
+}
+
 // How long to wait before sending again a command refused as too many in a second
 const RATE_LIMITED_RETRY = 1000
 
@@ -90,6 +130,12 @@ export class EngineHost {
     private resent = false
     // Told when the connection drops ( true ) and when the game is joined again ( false )
     onConnection?: (lost: boolean) => void
+    // The seat taken : its game's seats, and the table as it stands
+    private joined: Joined | null = null
+    // A failure that says nothing of the game ( the server out of reach ) : its seat kept
+    private unreachable = false
+    // Joined again from a refreshed page ( resume ), not yet seated
+    private resuming = false
 
     private constructor(
         private game: string,
@@ -118,13 +164,45 @@ export class EngineHost {
         const ws = await EngineHost.open(game)
         const host = new EngineHost(game, token, ws)
         host.join(ws)
+        saveSeat({ game, token })
         return host
+    }
+
+    // The tab's game joined again ( the page refreshed ) : the table as it stands, the pending decision
+    // next ; forgotten unless the server was out of reach ( a later refresh tries again )
+    static async resume(seat: Seat): Promise<{ host: EngineHost; joined: Joined }> {
+        let ws: WebSocket
+        try {
+            ws = await EngineHost.open(seat.game)
+        } catch (e) {
+            if (await EngineHost.gone(seat.game)) {
+                forgetSeat(seat.game)
+                throw new EngineGone()
+            }
+            throw e
+        }
+        const host = new EngineHost(seat.game, seat.token, ws)
+        host.resuming = true
+        host.join(ws)
+        while (!host.joined) {
+            if (host.failure) {
+                host.over = true
+                host.ws.close()
+                if (!host.unreachable) {
+                    forgetSeat(seat.game)
+                }
+                throw host.failure
+            }
+            await new Promise<void>(resolve => host.waiting.push(resolve))
+        }
+        return { host, joined: host.joined }
     }
 
     // The game left ( another started, the table reset ) : its connection closed, never joined again
     close() {
         this.over = true
         this.ws.close()
+        forgetSeat(this.game)
     }
 
     private static async open(game: string): Promise<WebSocket> {
@@ -151,6 +229,13 @@ export class EngineHost {
         if (this.over || this.failure) {
             return
         }
+        // A resume dropped before the seat was taken : the menu tells it at once, no table to wait on
+        // ( a new game's first join is retried as any other )
+        if (this.resuming && !this.joined) {
+            this.unreachable = true
+            this.fail(new Error('The engine server cannot be reached'))
+            return
+        }
         this.onConnection?.(true)
         for (const delay of REJOIN_DELAYS) {
             await new Promise(resolve => setTimeout(resolve, delay))
@@ -163,8 +248,9 @@ export class EngineHost {
                 ws = await EngineHost.open(this.game)
             } catch {
                 // The game gone ( the server restarted ) : no use trying again
-                if (await this.gone()) {
-                    this.fail(new Error('The engine server ended the game'))
+                if (await EngineHost.gone(this.game)) {
+                    forgetSeat(this.game)
+                    this.fail(new EngineGone())
                     return
                 }
                 continue
@@ -215,9 +301,9 @@ export class EngineHost {
     }
 
     // Whether the server answers that the game is not there any more ( false while it is out of reach )
-    private async gone(): Promise<boolean> {
+    private static async gone(game: string): Promise<boolean> {
         try {
-            const res = await fetch(`${ENGINE_SERVER}/games/${this.game}/ws`)
+            const res = await fetch(`${ENGINE_SERVER}/games/${game}/ws`)
             return res.status == 404
         } catch {
             return false
@@ -245,6 +331,8 @@ export class EngineHost {
         switch (m.type) {
             case 'joined':
                 this.view = m.view
+                this.joined = m
+                this.wake()
                 break
             case 'events': {
                 if (m.view) {
@@ -269,6 +357,7 @@ export class EngineHost {
             }
             case 'over':
                 this.over = true
+                forgetSeat(this.game)
                 this.view = m.view
                 this.push({
                     type: 'over',
@@ -294,6 +383,11 @@ export class EngineHost {
                 // The command sent again after joining again, which the server had taken already
                 if (this.resent && m.error == 'stale') {
                     this.resent = false
+                    break
+                }
+                // Joined again as the game ended
+                if (!this.joined && m.error == 'over') {
+                    this.fail(new EngineGone())
                     break
                 }
                 this.fail(new Error(`The engine server refused : ${m.error}`))

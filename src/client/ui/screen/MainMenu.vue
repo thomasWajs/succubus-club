@@ -113,7 +113,8 @@ import {
     setupTrainGame,
     startGame,
 } from '@/client/state/setup.ts'
-import { setupEngineGame } from '@/client/engine/setup.ts'
+import { resumeEngineGame, setupEngineGame } from '@/client/engine/setup.ts'
+import { EngineGone, savedEngineSeat } from '@/client/engine/host.ts'
 import { useRouter } from 'vue-router'
 import TopBar from '@/client/ui/components/TopBar.vue'
 import { waitUntil } from '@/shared/utils.ts'
@@ -200,6 +201,10 @@ async function startEngineGame() {
     if (core.gameIsStarted) {
         throw new Error(`Game is already started`)
     }
+    // The tab's game being joined again : it is the game
+    if (resuming) {
+        return
+    }
 
     if (!core.selfDeck) {
         bus.alertWarning('You must select a deck before starting a game')
@@ -219,6 +224,37 @@ async function startEngineGame() {
         if (!(error instanceof InvalidDeck)) {
             logging.captureException(error)
         }
+    }
+}
+
+// The engine game this tab was playing before the page refreshed, joined again
+let resuming = false
+async function resumeEngine() {
+    if (core.gameIsStarted) {
+        return
+    }
+
+    resuming = true
+    try {
+        const runEngine = await resumeEngineGame()
+        if (!runEngine) {
+            return
+        }
+        startGame()
+        runEngine()
+    } catch (error) {
+        if (error instanceof EngineGone) {
+            bus.alertWarning('The engine game is over : the server no longer has it')
+            return
+        }
+        let message = 'An error occurred while joining the engine game again'
+        if (error instanceof Error) {
+            message = `${message} : ${error.message}`
+        }
+        bus.alertError(message)
+        logging.captureException(error)
+    } finally {
+        resuming = false
     }
 }
 
@@ -272,7 +308,11 @@ async function startPuppeteerGame() {
     }
 }
 
-if (import.meta.env.VITE_FAST_TRACK_ENGINE_GAME) {
+if (savedEngineSeat()) {
+    waitUntil(() => core.resourcesAreReady, 500).then(() => {
+        resumeEngine()
+    })
+} else if (import.meta.env.VITE_FAST_TRACK_ENGINE_GAME) {
     waitUntil(() => core.resourcesAreReady, 500).then(() => {
         startEngineGame()
     })

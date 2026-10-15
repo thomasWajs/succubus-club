@@ -16,7 +16,7 @@ import { shuffleArray } from '@/shared/utils.ts'
 import { PlayerOid } from '@/shared/types/model.ts'
 import { DeckList } from '@/shared/types/gateway.ts'
 import { GameSpec, SpecError } from '@/client/engine/api.ts'
-import { EngineHost, engineCatalog, EngineRefused } from '@/client/engine/host.ts'
+import { EngineHost, engineCatalog, EngineRefused, savedEngineSeat } from '@/client/engine/host.ts'
 import { Projection } from '@/client/engine/projection.ts'
 import { engineOpportunities, runEngine } from '@/client/engine/driver.ts'
 
@@ -27,6 +27,11 @@ const ENGINE_NB_BOTS = 3
 const ENGINE_BOT_DECK = /\((Fifth Edition\b.*|.*Anniversary|Sabbat V5)\)$/
 // The server's bots play the trained network
 const ENGINE_BOT_PROFILE = 'network'
+
+// The bot of a seat, numbered from 1 around the user's
+function botOf(seat: number, selfSeat: number): number {
+    return seat < selfSeat ? seat + 1 : seat
+}
 
 // Same cards in the same numbers ( a card at 0 copies counts as absent )
 function sameDeck(a: DeckList, b: DeckList): boolean {
@@ -62,7 +67,6 @@ function deckErrorMessage(error: SpecError): string | null {
  */
 export async function setupEngineGame(): Promise<() => void> {
     const core = useCoreStore()
-    const gameState = useGameStateStore()
 
     if (!core.selfDeck) {
         throw new Error(`No deck list`)
@@ -79,8 +83,6 @@ export async function setupEngineGame(): Promise<() => void> {
     // Seats are in turn order : the engine's seat 0 plays first
     const nbSeats = ENGINE_NB_BOTS + 1
     const selfSeat = Math.floor(Math.random() * nbSeats)
-    // The bots by seat, from 1
-    const botOf = (seat: number) => (seat < selfSeat ? seat + 1 : seat)
     const spec: GameSpec = {
         seed: Math.floor(Math.random() * 2 ** 32),
         time_limit: null,
@@ -100,8 +102,8 @@ export async function setupEngineGame(): Promise<() => void> {
                     },
                 }
             :   {
-                    name: `${BOT_NAME}${botOf(seat)} - ${botDecks[botOf(seat) - 1][0].split(' (')[0]}`,
-                    deck: botDecks[botOf(seat) - 1][1],
+                    name: `${BOT_NAME}${botOf(seat, selfSeat)} - ${botDecks[botOf(seat, selfSeat) - 1][0].split(' (')[0]}`,
+                    deck: botDecks[botOf(seat, selfSeat) - 1][1],
                     player: { type: 'bot', profile: ENGINE_BOT_PROFILE },
                 },
         ),
@@ -118,6 +120,34 @@ export async function setupEngineGame(): Promise<() => void> {
             :   null
         throw message ? new InvalidDeck(message) : e
     }
+    return setupTable(
+        host,
+        spec.seats.map(seat => seat.name),
+        selfSeat,
+    )
+}
+
+/**
+ * The game of this tab joined again ( the page refreshed ) : set up as the server shows it ; null
+ * when the tab has none. Returns the function that starts the engine.
+ */
+export async function resumeEngineGame(): Promise<(() => void) | null> {
+    const seat = savedEngineSeat()
+    if (!seat) {
+        return null
+    }
+    const { host, joined } = await EngineHost.resume(seat)
+    return setupTable(
+        host,
+        joined.seats.map(seat => seat.name),
+        joined.seat,
+    )
+}
+
+// The game state for the server's game : its seats' players, the table projected as it comes
+function setupTable(host: EngineHost, names: string[], selfSeat: number): () => void {
+    const core = useCoreStore()
+    const gameState = useGameStateStore()
 
     resetState()
 
@@ -126,19 +156,18 @@ export async function setupEngineGame(): Promise<() => void> {
     gameState.gameType = GameType.Engine
     registerGameState(gameState.gameId, gameState)
 
-    const playersOid: PlayerOid[] = spec.seats.map((seat, i) => {
+    const playersOid: PlayerOid[] = names.map((name, i) => {
         if (i == selfSeat) {
             const selfPlayer = gameState.createPlayer(
-                seat.name,
+                name,
                 ORDERED_PLAYER_COLORS[0],
                 core.userProfile.permanentId,
             )
             gameState.usersToPlayer[core.userProfile.permanentId] = selfPlayer.oid
             return selfPlayer.oid
         }
-        const bot = botOf(i)
-        return gameState.createPlayer(seat.name, ORDERED_PLAYER_COLORS[bot], `${BOT_PERM_ID}${bot}`)
-            .oid
+        const bot = botOf(i, selfSeat)
+        return gameState.createPlayer(name, ORDERED_PLAYER_COLORS[bot], `${BOT_PERM_ID}${bot}`).oid
     })
     const projection = new Projection(gameState, playersOid)
 
