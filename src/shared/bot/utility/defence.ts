@@ -7,7 +7,8 @@ import {
     readyMinions,
     TableSnapshot,
 } from '@/shared/bot/utility/snapshot.ts'
-import { mayUseRole, roleDensities } from '@/shared/bot/utility/capabilities.ts'
+import { mayUseRole } from '@/shared/bot/utility/capabilities.ts'
+import { opponentModelOf } from '@/shared/bot/utility/opponentModel.ts'
 import { BotProfile } from '@/shared/bot/utility/profile.ts'
 import {
     Attacker,
@@ -31,12 +32,7 @@ export type InterceptKind = 'bleed' | 'general'
 export type Densities = Partial<Record<Role, number>>
 
 export function densitiesOf(snapshot: MethuselahSnapshot, profile: BotProfile): Densities {
-    return roleDensities(
-        snapshot.minions.map(minion => minion.disciplines),
-        snapshot.seenRoles,
-        profile.opponentPrior,
-        snapshot.minions.map(minion => minion.title),
-    )
+    return opponentModelOf(snapshot, profile).densities
 }
 
 function interceptOf(minion: MinionProfile, kind: InterceptKind): number {

@@ -28,12 +28,19 @@ type Deck = {
     creation_date: string
 }
 
+// Same cutoff as RECENT_CARDS_DATE_CUTOFF in const.py: the decks of today
+const RECENT_DECKS_DATE_CUTOFF = '2020-01-01'
+
 const dir = resolve(fileURLToPath(import.meta.url), '..', 'resources')
 const read = <T>(file: string): T => JSON.parse(readFileSync(resolve(dir, file), 'utf8')) as T
 const library = read<Record<string, LibraryCard>>('cardbase_lib.json')
 const crypt = read<Record<string, CryptCard>>('cardbase_crypt.json')
 const decks = Object.values(read<Record<string, Deck>>('twdDecks.json')).filter(
-    deck => deck.crypt_total >= 4 && deck.library_total >= 60 && deck.library_total <= 90,
+    deck =>
+        deck.creation_date >= RECENT_DECKS_DATE_CUTOFF &&
+        deck.crypt_total >= 4 &&
+        deck.library_total >= 60 &&
+        deck.library_total <= 90,
 )
 
 const STUDIED: Role[] = [

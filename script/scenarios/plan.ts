@@ -244,7 +244,7 @@ export const PLAN_SCENARIOS: Scenario[] = [
                 const ring = createRing([MalkavDeck, MalkavDeck, MalkavDeck])
                 const [me, , predator] = ring.players
                 addMinions(ring, me, [{ locked: true }, { bleed: 2 }])
-                addMinions(ring, predator, [{ bleed: 3 }])
+                addMinions(ring, predator, [{ bleed: 4 }])
                 holdOnly(ring, me, hand)
                 me.pool = 8
                 return { ring, me }
@@ -412,7 +412,7 @@ export const PLAN_SCENARIOS: Scenario[] = [
                     { bleed: theirBleed, blood: 5 },
                 ])
                 ring.gameState.moveCardToRegion(theirs, other.torpor)
-                addMinions(ring, predator, [{ bleed: 2 }])
+                addMinions(ring, predator, [{ bleed: 1 }])
                 holdOnly(ring, me, [])
                 const plan = planAs(ring, me)
                 const opening = assessAs(ring, me).rescues.find(

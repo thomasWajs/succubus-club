@@ -26,6 +26,7 @@ import {
     bounceTargetOf,
 } from '@/shared/bot/utility/snapshot.ts'
 import { roleDensities } from '@/shared/bot/utility/capabilities.ts'
+import { opponentModelOf } from '@/shared/bot/utility/opponentModel.ts'
 import { binomial, exact } from '@/shared/bot/utility/attack.ts'
 import {
     Assessment,
@@ -287,11 +288,16 @@ export const ASSESSMENT_SCENARIOS: Scenario[] = [
             const stealthOf = (...minions: Partial<Disciplines>[]) =>
                 roleDensities(minions, {}, prior).stealth ?? 0
 
-            expectClose(stealthOf(), 0.08, 'nothing shown')
-            expectClose(stealthOf(obfuscate), 1 - 0.92 * (1 - 0.1 * 0.5), 'one Obfuscate vampire')
+            const base = prior.density.stealth ?? 0
+            expectClose(stealthOf(), base, 'nothing shown')
+            expectClose(
+                stealthOf(obfuscate),
+                1 - (1 - base) * (1 - 0.08 * 0.5),
+                'one Obfuscate vampire',
+            )
             expectClose(
                 stealthOf(obfuscate, obfuscate),
-                1 - 0.92 * (1 - 0.1 * 0.75),
+                1 - (1 - base) * (1 - 0.08 * 0.75),
                 'two are a safer bet',
             )
             expectEqual(
@@ -302,12 +308,12 @@ export const ASSESSMENT_SCENARIOS: Scenario[] = [
             )
             expectClose(
                 roleDensities([obfuscate], {}, prior).wake ?? 0,
-                0.04,
+                prior.density.wake ?? 0,
                 'what the discipline does not say stays at the prior',
             )
             expectClose(
                 roleDensities([], { stealth: 3 }, prior).stealth ?? 0,
-                1 - 0.92 * 0.97 ** 3,
+                1 - (1 - base) * 0.97 ** 3,
                 'a stealth card played raises it',
             )
 
@@ -351,7 +357,7 @@ export const ASSESSMENT_SCENARIOS: Scenario[] = [
             // One bleed modifier is enough to make 7. An unlock card is not: a minion bleeds once a turn
             expectClose(
                 chanceOfOust(assessment, { pool: 7 }),
-                1 - withNone(0.06, hand),
+                1 - withNone(DEFAULT_PROFILE.opponentPrior.density.bleedBonus ?? 0, hand),
                 'a modifier in a hand of the predator',
             )
             expectEqual(chanceOfOust(assessment, { pool: 12 }), 0, 'out of reach of any hand')
@@ -473,11 +479,11 @@ export const ASSESSMENT_SCENARIOS: Scenario[] = [
                 },
             })
             expectEqual(setup(0, 9, 4, guard(0), 1).kept, 0, 'no guard: it all goes out')
-            expectEqual(setup(0, 9, 4, guard(5), 1).kept, 3, 'a guard worth more than a bleed')
+            expectEqual(setup(0, 9, 4, guard(10), 1).kept, 3, 'a guard worth more than a bleed')
             // It only guards against actions that may come at it, and that its intercept reaches: a hunt has
             // stealth 1, so a minion with no intercept stops none
-            expectEqual(setup(0, 9, 4, guard(5), 0).kept, 0, 'nobody can act on it: no guard')
-            expectEqual(setup(0, 9, 4, guard(5), 1, 0).kept, 0, 'no intercept, nothing stopped')
+            expectEqual(setup(0, 9, 4, guard(10), 0).kept, 0, 'nobody can act on it: no guard')
+            expectEqual(setup(0, 9, 4, guard(10), 1, 0).kept, 0, 'no intercept, nothing stopped')
         },
     },
     {
@@ -538,7 +544,7 @@ export const ASSESSMENT_SCENARIOS: Scenario[] = [
                     ...DEFAULT_PROFILE,
                     opponentPrior: {
                         ...DEFAULT_PROFILE.opponentPrior,
-                        reserve: { ...DEFAULT_PROFILE.opponentPrior.reserve, guard: 5 },
+                        reserve: { ...DEFAULT_PROFILE.opponentPrior.reserve, guard: 10 },
                     },
                 }
                 return assessAs(ring, me, profile).held[predator.oid].length
@@ -606,7 +612,7 @@ export const ASSESSMENT_SCENARIOS: Scenario[] = [
             holdOnly(ring, me, [QUI_VIVE_ID])
             expectClose(
                 chanceOfOust(assessAs(ring, me)),
-                1 - withNone(0.08, hand),
+                1 - withNone(DEFAULT_PROFILE.opponentPrior.density.stealth ?? 0, hand),
                 'the woken minion blocks unless a stealth card beats it',
             )
         },
@@ -732,7 +738,7 @@ export const ASSESSMENT_SCENARIOS: Scenario[] = [
 
             const plain = bounced(trio, {})
             expectEqual(plain.opportunity.chanceOfBounce, 0, 'nobody can play a bounce')
-            expectEqual(plain.opportunity.drain, 2, 'the bleed lands')
+            expectClose(plain.opportunity.drain, 2, 'the bleed lands', 1e-9)
 
             const dom = bounced(trio, dominate)
             expectEqual(dom.opportunity.chanceOfBounce > 0, true, 'Dominate may bounce')
@@ -750,7 +756,7 @@ export const ASSESSMENT_SCENARIOS: Scenario[] = [
             const duel = bounced([MalkavDeck, MalkavDeck], dominate)
             expectEqual(duel.opportunity.chanceOfBounce, 0, 'no bounce in a duel')
             expectEqual(duel.opportunity.bounceTarget, null, 'no target')
-            expectEqual(duel.opportunity.drain, 2, 'the bleed lands')
+            expectClose(duel.opportunity.drain, 2, 'the bleed lands', 1e-9)
         },
     },
     {
@@ -760,7 +766,7 @@ export const ASSESSMENT_SCENARIOS: Scenario[] = [
             const bounceOf = (minions: Partial<Disciplines>[], titles: string[] = []) =>
                 roleDensities(minions, {}, prior, titles).bounce ?? 0
             const base = bounceOf([])
-            expectClose(base, 0.04, 'nothing shown')
+            expectClose(base, prior.density.bounce ?? 0, 'nothing shown')
             expectClose(bounceOf([{}], ['baron']), 1 - (1 - base) * (1 - 0.04 * 0.5), 'a baron')
             expectClose(bounceOf([{}], ['']), base, 'no title', 1e-9)
             expectClose(
@@ -774,6 +780,30 @@ export const ASSESSMENT_SCENARIOS: Scenario[] = [
                 true,
                 'superior Auspex has some',
             )
+        },
+    },
+    {
+        name: 'Opponent model: nothing shown is the prior with no confidence, each vampire and each card seen adds to it',
+        run() {
+            const ring = createRing([GovernDeck, GovernDeck])
+            const [me, other] = ring.players
+            const modelAs = () => opponentModelOf(snapshotAs(ring, me).others[0], DEFAULT_PROFILE)
+            const bare = modelAs()
+            expectEqual(bare.confidence, 0, 'nothing shown, no confidence')
+            expectClose(
+                bare.risks.stealth,
+                DEFAULT_PROFILE.opponentPrior.density.stealth ?? 0,
+                'the prior',
+                1e-9,
+            )
+
+            addMinions(ring, other, [
+                { disciplines: { [Discipline.Obfuscate]: DisciplineLevel.SUPERIOR } },
+            ])
+            const shown = modelAs()
+            expectClose(shown.confidence, 0.5, 'one vampire halves the doubt', 1e-9)
+            expectEqual(shown.risks.stealth > bare.risks.stealth, true, 'Obfuscate says stealth')
+            expectEqual(shown.risks.blocking, bare.risks.blocking, 'and nothing of blocking')
         },
     },
     {

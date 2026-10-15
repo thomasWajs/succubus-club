@@ -5,12 +5,10 @@ import { Role } from '@/shared/bot/utility/summaries.ts'
 
 /**
  * Disciplines as evidence of what a Methuselah can hold. A vampire in play with a discipline says
- * which cards its deck plausibly has: a few rows of hand-written data, not a tag per card. A row
- * gives, for a deck that has a vampire with the discipline at that level, the share of its library
- * that carries each role.
- *
- * THE NUMBERS ARE A DRAFT for the author to check ( then validated against the cardbase and the
- * TWDA ): they are orders of magnitude from the strategy primers, not measures.
+ * which cards its deck plausibly has: a few rows of data, not a tag per card. A row gives, for a deck
+ * that has a vampire with the discipline at that level, how much its library share of each role
+ * rises ABOVE the prior ( a lift ), measured on the tournament decks since 2020. A lift of 0.005 only says that the
+ * discipline can play a card of the role ( combat cards need it ), not that it raises the share.
  */
 
 type CapabilityRow = {
@@ -24,62 +22,62 @@ const SUP = DisciplineLevel.SUPERIOR
 
 export const CAPABILITY_TABLE: CapabilityRow[] = [
     // Stealth
-    { discipline: Discipline.Obfuscate, level: INF, density: { stealth: 0.1 } },
-    { discipline: Discipline.Obfuscate, level: SUP, density: { stealth: 0.16 } },
-    { discipline: Discipline.Celerity, level: INF, density: { strike: 0.06, stealth: 0.04 } },
+    { discipline: Discipline.Obfuscate, level: INF, density: { stealth: 0.08 } },
+    { discipline: Discipline.Obfuscate, level: SUP, density: { stealth: 0.115 } },
+    { discipline: Discipline.Celerity, level: INF, density: { strike: 0.005, stealth: 0.005 } },
     {
         discipline: Discipline.Celerity,
         level: SUP,
-        density: { strike: 0.1, additionalStrike: 0.06, stealth: 0.06, unlock: 0.03 },
+        density: { strike: 0.005, additionalStrike: 0.045, stealth: 0.005, unlock: 0.012 },
     },
     // Intercept and wake
-    { discipline: Discipline.Auspex, level: INF, density: { intercept: 0.06, wake: 0.05 } },
+    { discipline: Discipline.Auspex, level: INF, density: { intercept: 0.005, wake: 0.018 } },
     {
         discipline: Discipline.Auspex,
         level: SUP,
-        density: { intercept: 0.1, wake: 0.08, bounce: 0.04 },
+        density: { intercept: 0.023, wake: 0.035, bounce: 0.035 },
     },
     // Big bleeds and bounces
     {
         discipline: Discipline.Dominate,
         level: INF,
-        density: { bounce: 0.05, bleedBonus: 0.06 },
+        density: { bounce: 0.038, bleedBonus: 0.01 },
     },
     {
         discipline: Discipline.Dominate,
         level: SUP,
-        density: { bounce: 0.08, bleedBonus: 0.1 },
+        density: { bounce: 0.045, bleedBonus: 0.012 },
     },
-    // Defence: dodge, and the combat ends strikes the roles do not name yet
-    { discipline: Discipline.Presence, level: INF, density: { dodge: 0.06 } },
-    { discipline: Discipline.Presence, level: SUP, density: { dodge: 0.1, unlock: 0.03 } },
+    // Dodge: the cards that a Presence vampire plays do not raise the share
+    { discipline: Discipline.Presence, level: INF, density: { dodge: 0.005 } },
+    { discipline: Discipline.Presence, level: SUP, density: { dodge: 0.005, unlock: 0.008 } },
     // Unlock cards ( Freak Drive, Forced March ): a minion acts again, or acts then blocks
-    { discipline: Discipline.Fortitude, level: INF, density: { prevention: 0.06, unlock: 0.03 } },
-    { discipline: Discipline.Fortitude, level: SUP, density: { prevention: 0.1, unlock: 0.05 } },
+    { discipline: Discipline.Fortitude, level: INF, density: { prevention: 0.015, unlock: 0.021 } },
+    { discipline: Discipline.Fortitude, level: SUP, density: { prevention: 0.024, unlock: 0.037 } },
     // Damage
-    { discipline: Discipline.Potence, level: INF, density: { strike: 0.1 } },
-    { discipline: Discipline.Potence, level: SUP, density: { strike: 0.16 } },
-    { discipline: Discipline.Quietus, level: INF, density: { strike: 0.08 } },
-    { discipline: Discipline.Quietus, level: SUP, density: { strike: 0.12 } },
+    { discipline: Discipline.Potence, level: INF, density: { strike: 0.01 } },
+    { discipline: Discipline.Potence, level: SUP, density: { strike: 0.02 } },
+    { discipline: Discipline.Quietus, level: INF, density: { strike: 0.005 } },
+    { discipline: Discipline.Quietus, level: SUP, density: { strike: 0.005 } },
     {
         discipline: Discipline.Protean,
         level: INF,
-        density: { strike: 0.06, maneuver: 0.05, unlock: 0.02 },
+        density: { strike: 0.005, maneuver: 0.005, unlock: 0.027 },
     },
     {
         discipline: Discipline.Protean,
         level: SUP,
-        density: { strike: 0.1, maneuver: 0.08, unlock: 0.04 },
+        density: { strike: 0.005, maneuver: 0.005, unlock: 0.04 },
     },
-    { discipline: Discipline.Vicissitude, level: INF, density: { strike: 0.08 } },
-    { discipline: Discipline.Vicissitude, level: SUP, density: { strike: 0.14 } },
+    { discipline: Discipline.Vicissitude, level: INF, density: { strike: 0.01 } },
+    { discipline: Discipline.Vicissitude, level: SUP, density: { strike: 0.01 } },
     // Versatile
-    { discipline: Discipline.Animalism, level: INF, density: { maneuver: 0.04, wake: 0.04 } },
-    { discipline: Discipline.Animalism, level: SUP, density: { maneuver: 0.06, wake: 0.06 } },
+    { discipline: Discipline.Animalism, level: INF, density: { maneuver: 0.005, wake: 0.016 } },
+    { discipline: Discipline.Animalism, level: SUP, density: { maneuver: 0.005, wake: 0.022 } },
 ]
 
-// A title is evidence too: some cards need a titled vampire ( Bait and Switch, a bounce, a baron ). Draft
-// numbers like the rest of the table.
+// A title is evidence too: some cards need a titled vampire ( Bait and Switch, a bounce, a baron ). Not
+// measured, a guess like the rest of the roles that no discipline shows
 export const TITLE_TABLE: Record<string, Partial<Record<Role, number>>> = {
     baron: { bounce: 0.04 },
 }

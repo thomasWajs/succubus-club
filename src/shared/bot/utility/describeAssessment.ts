@@ -2,6 +2,7 @@ import { MinionActionType } from '@/shared/types/state.ts'
 import { Assessment, survivalCurve } from '@/shared/bot/utility/assessment.ts'
 import { MinionProfile } from '@/shared/bot/utility/minionProfile.ts'
 import { everyone, MethuselahSnapshot } from '@/shared/bot/utility/snapshot.ts'
+import { opponentModelOf } from '@/shared/bot/utility/opponentModel.ts'
 import { PlannedAction, TurnPlan } from '@/shared/bot/utility/turnPlan.ts'
 
 /**
@@ -105,6 +106,10 @@ export function describeAssessment(assessment: Assessment): string[] {
             .map(([role, density]) => `${role} ${percent(density)}`)
         lines.push(
             `    power ${fixed(assessment.power[snapshot.oid])}, believed to hold ${densities.join(', ')}`,
+        )
+        const { risks, confidence } = opponentModelOf(snapshot, assessment.profile)
+        lines.push(
+            `    read of the deck ( confidence ${percent(confidence)} ): stealth ${percent(risks.stealth)}, bleed bonus ${percent(risks.bleedBonus)}, combat ${percent(risks.combat)}, blocking ${percent(risks.blocking)}`,
         )
         const bloat = assessment.bloat[snapshot.oid]
         if (bloat.pool >= 0.05 || bloat.blood >= 0.05) {

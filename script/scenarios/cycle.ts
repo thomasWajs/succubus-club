@@ -186,7 +186,7 @@ export const CYCLE_SCENARIOS: Scenario[] = [
                     throw new ScenarioFailure('The defender has not the impulse')
                 }
                 // A fight is worth little to a card of the hand at the default weights: it is made to cost a lot
-                const deadly = { ...DEFAULT_PROFILE, hand: { ...DEFAULT_PROFILE.hand, cover: 10 } }
+                const deadly = { ...DEFAULT_PROFILE, hand: { ...DEFAULT_PROFILE.hand, cover: 20 } }
                 return nameOf(chooseOf(getCombatDecision(fight, me), HAND_DECK, deadly))
             }
             const open = answers([WIDER_VIEW_ID, CLOAK_ID])
@@ -282,7 +282,7 @@ export const CYCLE_SCENARIOS: Scenario[] = [
         run() {
             const deadlyProfile = {
                 ...DEFAULT_PROFILE,
-                hand: { ...DEFAULT_PROFILE.hand, cover: 10 },
+                hand: { ...DEFAULT_PROFILE.hand, cover: 20 },
             }
             const drawsFor = (hand: string[], profile: BotProfile = deadlyProfile) => {
                 const turn = handTurn({ hand, inPlay: [] })
