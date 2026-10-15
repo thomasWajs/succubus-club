@@ -87,8 +87,10 @@ function evidenceOf(minions: number, assessment: Assessment): number {
 type Table = { needs: Record<NeedKind, Need>; bleeds: number; fights: number }
 
 function needsOf(assessment: Assessment): Table {
-    const { table, profile, stakes, densities } = assessment
+    const { table, profile, stakes, densities, models } = assessment
     const { hand, plan } = profile
+    const { behaviour, density } = profile.opponentPrior
+    const neutralCombat = (density.strike ?? 0) + (density.additionalStrike ?? 0)
     const { me, prey, predator } = table
     // What the others can do to me with none of my cards: the cards I hold are not what makes them worth holding
     const threat =
@@ -127,7 +129,9 @@ function needsOf(assessment: Assessment): Table {
             })
         :   null
     const known = prey ? evidenceOf(readyMinions(prey).length, assessment) : 0
-    const blocked = known * (base?.blockedShare ?? 0) + (1 - known) * hand.priorBlock
+    const blocked =
+        known * (base?.blockedShare ?? 0) +
+        (1 - known) * (prey ? models[prey.oid].risks.blockRate : 0)
     const intercept =
         defence && defence.reactors.length > 0 ?
             defence.reactors.reduce((sum, value) => sum + value, 0) / defence.reactors.length
@@ -140,7 +144,12 @@ function needsOf(assessment: Assessment): Table {
     const lost =
         predator ? (threat[predator.oid].bleed + threat[predator.oid].bounced) * plan.caution : 0
     const perBleed =
-        predator ? seen * (lost / Math.max(1, hostile)) + (1 - seen) * hand.priorBleed : 0
+        predator ?
+            seen * (lost / Math.max(1, hostile)) +
+            (1 - seen) *
+                hand.priorBleed *
+                (models[predator.oid].risks.bleedSize / behaviour.bleedSize)
+        :   0
     const bleeds = predator ? seen * hostile + (1 - seen) * profile.influence.crew : 0
 
     // The fights of my neighbours' minions with mine: what each could cost me
@@ -153,7 +162,9 @@ function needsOf(assessment: Assessment): Table {
         const sure = evidenceOf(readyMinions(neighbour).length, assessment)
         const loss =
             sure * (threat[neighbour.oid]?.combat ?? 0) * plan.caution +
-            (1 - sure) * hand.priorFight
+            (1 - sure) *
+                hand.priorFight *
+                (neutralCombat > 0 ? models[neighbour.oid].risks.combat / neutralCombat : 1)
         if (loss > 0.05) {
             fighting++
             fightLoss += loss

@@ -15,6 +15,7 @@ import { UtilityAgent } from '@/shared/bot/agents/utilityAgent.ts'
 import { BotOption, DecisionPoint } from '@/shared/bot/types.ts'
 import { BotProfile, DEFAULT_PROFILE } from '@/shared/bot/utility/profile.ts'
 import { assess } from '@/shared/bot/utility/assessment.ts'
+import { createLedger, getPlayerLedger, TableLedger } from '@/shared/bot/utility/ledger.ts'
 import { HandEvaluator } from '@/shared/bot/utility/hand.ts'
 import { Ring, MinionSetup, addMinions, createRing, holdOnly } from './assessment.ts'
 import { sealLibrary } from './bounce.ts'
@@ -227,6 +228,42 @@ export const STEALTH_HAND = [
 ]
 
 export const HAND_SCENARIOS: Scenario[] = [
+    {
+        name: 'Hand: a prey seen never blocking asks for fewer stealth cards, one seen always blocking for more, a predator seen bleeding big raises the defence it asks for',
+        run() {
+            const ring = createRing([HAND_DECK, HAND_DECK, HAND_DECK])
+            const [me, prey, predator] = ring.players
+            addMinions(ring, me, [{ bleed: 2 }])
+            holdOnly(ring, me, [])
+            const needsWith = (seen: (ledger: TableLedger) => void) => {
+                const ledger = createLedger()
+                seen(ledger)
+                const view = createPlayerView(ring.gameState, me)
+                try {
+                    return new HandEvaluator(
+                        assess(view.gameState, view.player, DEFAULT_PROFILE, ledger),
+                        HAND_DECK,
+                        view.player,
+                    ).needs
+                } finally {
+                    view.dispose()
+                }
+            }
+            const unknown = needsWith(() => {})
+            const lax = needsWith(ledger => {
+                getPlayerLedger(ledger, prey.oid).blocksDeclined = 9
+            })
+            const strict = needsWith(ledger => {
+                getPlayerLedger(ledger, prey.oid).blocksAttempted = 9
+            })
+            expectEqual(lax.stealth.rate < unknown.stealth.rate, true, 'it never blocks')
+            expectEqual(strict.stealth.rate > unknown.stealth.rate, true, 'it always blocks')
+            const big = needsWith(ledger => {
+                getPlayerLedger(ledger, predator.oid).bleedAmounts = Array(9).fill(6)
+            })
+            expectEqual(big.defence.worth > unknown.defence.worth, true, 'it bleeds big')
+        },
+    },
     {
         name: 'Hand: a jammed stealth hand against a prey with no intercept cycles a stealth card',
         run() {

@@ -9,7 +9,7 @@ import { DEFAULT_PROFILE } from '@/shared/bot/utility/profile.ts'
 import { assess } from '@/shared/bot/utility/assessment.ts'
 import { judgeBlock, BlockJudgement } from '@/shared/bot/utility/blockDecision.ts'
 import { BotOption, optionsOfType } from '@/shared/bot/types.ts'
-import { MinionSetup, addMinions, createRing, holdOnly } from './assessment.ts'
+import { MinionSetup, addMinions, createRing, expectClose, holdOnly } from './assessment.ts'
 import { sealLibrary } from './bounce.ts'
 import { minionDecisionOf } from './plan.ts'
 import { Scenario, ScenarioFailure, expectEqual } from './helpers.ts'
@@ -240,17 +240,22 @@ export const BLOCK_SCENARIOS: Scenario[] = [
         },
     },
     {
-        name: 'Block decision: an action that is not a bleed is worth the guard of the profile',
+        name: 'Block decision: an action that is not a bleed is worth the guard of the profile, by its kind',
         run() {
-            const board = blockBoard({
-                actor: { strength: 1, blood: 1 },
-                blockers: [{ strength: 5, intercept: 1 }],
-                action: MinionActionType.Hunt,
-            })
-            expectEqual(
-                judgementOf(board).candidates[0].parts.denial,
-                DEFAULT_PROFILE.plan.guard,
-                'denial',
+            const denialOf = (action: MinionActionType) =>
+                judgementOf(
+                    blockBoard({
+                        actor: { strength: 1, blood: 1 },
+                        blockers: [{ strength: 5, intercept: 1 }],
+                        action,
+                    }),
+                ).candidates[0].parts.denial
+            const { guard, guardKinds } = DEFAULT_PROFILE.plan
+            expectClose(
+                denialOf(MinionActionType.Hunt),
+                guard * guardKinds.hunt,
+                'a hunt gives some blood',
+                1e-9,
             )
         },
     },

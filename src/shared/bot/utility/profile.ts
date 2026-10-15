@@ -22,7 +22,14 @@ export type OpponentPrior = {
     // What a Methuselah is assumed to do before it is seen doing it: the pool one of its bleeds takes, and the
     // share of the actions it could block that it tries to block. `weight` is how many observations the
     // assumption is worth: one odd observation moves the belief by 1 / ( 1 + weight ) of the way
-    behaviour: { bleedSize: number; blockRate: number; weight: number }
+    behaviour: {
+        bleedSize: number
+        blockRate: number
+        // The share of its actions that are not bleeds which are hunts and political actions ( the rest
+        // are recruits, equips, and the like )
+        mix: { hunt: number; political: number }
+        weight: number
+    }
     reserve: ReservePrior
 }
 
@@ -84,6 +91,9 @@ export type PlanWeights = {
     // What a minion kept unlocked is worth per turn against the actions that are not bleeds, if its intercept
     // stops all of them: it counts for the share of them it does stop
     guard: number
+    // What stopping an action is worth by its kind, as a multiple of `guard`: a hunt gives some blood, a
+    // political action is a victory point at stake. At the prior mix of actions the mean is 1
+    guardKinds: { hunt: number; political: number; other: number }
     // What a further action of a minion is worth: the action card that nothing describes ( cardActions.ts ),
     // or the unlock of a minion that acted
     cardAction: number
@@ -243,7 +253,6 @@ export type HandWeights = {
     // What a Methuselah that shows no minion is assumed to do: the bleed of an action, the chance that its
     // minions block my action, the pool a fight of its minions costs me
     priorBleed: number
-    priorBlock: number
     priorFight: number
     // The fights a neighbour with a minion that hurts mine runs me into each turn, and the cards of the hand a fight uses
     fightsPerTurn: number
@@ -306,7 +315,12 @@ export const DEFAULT_PROFILE: BotProfile = {
         stealthPerCard: 1,
         bonusPerCard: 1.5,
         interceptPerCard: 1,
-        behaviour: { bleedSize: 2, blockRate: 0.3, weight: 3 },
+        behaviour: {
+            bleedSize: 2,
+            blockRate: 0.3,
+            mix: { hunt: 0.5, political: 0.1 },
+            weight: 3,
+        },
         reserve: {
             caution: 1,
             guard: 0.3,
@@ -327,6 +341,7 @@ export const DEFAULT_PROFILE: BotProfile = {
     plan: {
         caution: 1,
         guard: 0.3,
+        guardKinds: { hunt: 0.6, political: 3.5, other: 0.875 },
         cardAction: 1.5,
         bloodValue: 0.5,
         oustedCost: 15,
@@ -385,7 +400,6 @@ export const DEFAULT_PROFILE: BotProfile = {
         future: 0.4,
         cover: 0.6,
         priorBleed: 1,
-        priorBlock: 0.3,
         priorFight: 1.5,
         fightsPerTurn: 0.5,
         cardsPerFight: 2,

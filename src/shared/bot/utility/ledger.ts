@@ -3,7 +3,7 @@ import { Player } from '@/shared/model/Player.ts'
 import { AnyGameMutation, GameMutationParams } from '@/shared/state/mutationBase.ts'
 import { HistoryStore } from '@/shared/state/history.ts'
 import { deserializeGameMutation } from '@/shared/serialization.ts'
-import { isBleed } from '@/shared/state/minionActions.ts'
+import { isBleed, isHunt, isPoliticalAction } from '@/shared/state/minionActions.ts'
 import { MinionAction, NO_BLOCK, NO_REACTION } from '@/shared/types/state.ts'
 import { GameId, PlayerOid } from '@/shared/types/model.ts'
 
@@ -20,6 +20,8 @@ import { GameId, PlayerOid } from '@/shared/types/model.ts'
 export type PlayerLedger = {
     actionsDeclared: number
     bleedsDeclared: number
+    huntsDeclared: number
+    politicalDeclared: number
     // The pool each of its bleeds that no block stopped took from the target
     bleedAmounts: number[]
     // The pool it lost to the bleeds of the others
@@ -66,6 +68,8 @@ function createPlayerLedger(): PlayerLedger {
     return {
         actionsDeclared: 0,
         bleedsDeclared: 0,
+        huntsDeclared: 0,
+        politicalDeclared: 0,
         bleedAmounts: [],
         poolLostToBleeds: 0,
         blocksAttempted: 0,
@@ -111,6 +115,10 @@ function foldDeclareAction(ledger: TableLedger, params: GameMutationParams): voi
     actorLedger.actionsDeclared++
     if (bleed) {
         actorLedger.bleedsDeclared++
+    } else if (isHunt(minionAction)) {
+        actorLedger.huntsDeclared++
+    } else if (isPoliticalAction(minionAction)) {
+        actorLedger.politicalDeclared++
     }
 }
 

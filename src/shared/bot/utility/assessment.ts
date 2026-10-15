@@ -530,12 +530,17 @@ function ringOf(table: TableSnapshot): MethuselahSnapshot[] {
 // The minions of the prey and of the predator of each Methuselah: the ones whose actions it may block
 function idleOf(
     table: TableSnapshot,
-    densities: Record<PlayerOid, Densities>,
+    models: Record<PlayerOid, OpponentModel>,
     profile: BotProfile,
 ): Record<PlayerOid, IdleActor[]> {
     const ring = ringOf(table)
     const actors = ring.map(methuselah =>
-        idleActorsOf(methuselah, densities[methuselah.oid], profile),
+        idleActorsOf(
+            methuselah,
+            models[methuselah.oid].densities,
+            profile,
+            models[methuselah.oid].guardFactor,
+        ),
     )
     const idle: Record<PlayerOid, IdleActor[]> = {}
     for (let index = 0; index < ring.length; index++) {
@@ -567,7 +572,7 @@ export function assessSnapshot(
         bloat[methuselah.oid] = bloatOf(methuselah, densities[methuselah.oid], profile)
         power[methuselah.oid] = powerOf(methuselah, profile, bloat[methuselah.oid])
     }
-    const idle = idleOf(table, densities, profile)
+    const idle = idleOf(table, models, profile)
     const context: Context = { table, profile, densities, bloat, held: {}, unlocks: {}, idle }
     // Who keeps what back, read from the lunge of each one's predator before the rest uses it
     const held: Record<PlayerOid, CardOid[]> = {}

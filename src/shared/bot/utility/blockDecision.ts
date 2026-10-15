@@ -2,8 +2,13 @@ import { getMinionIntercept } from '@/shared/cardImpl/catalog/attached.ts'
 import { LibraryCard, Minion } from '@/shared/model/Card.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { resolveCost } from '@/shared/state/cardCosts.ts'
-import { getBlockedStrengthBonus, isBleed } from '@/shared/state/minionActions.ts'
-import { ActionState, MinionActionType } from '@/shared/types/state.ts'
+import {
+    getBlockedStrengthBonus,
+    isBleed,
+    isHunt,
+    isPoliticalAction,
+} from '@/shared/state/minionActions.ts'
+import { ActionState, MinionAction, MinionActionType } from '@/shared/types/state.ts'
 import { BotOptionOf, DecisionPoint, optionsOfType } from '@/shared/bot/types.ts'
 import { Assessment, outcomeOfTurn } from '@/shared/bot/utility/assessment.ts'
 import {
@@ -62,16 +67,26 @@ function costOfResult(assessment: Assessment, result: AttackResult): number {
     )
 }
 
+// What stopping an action that is not a bleed aimed at me is worth: the guard, by the kind of action
+function guardOf(assessment: Assessment, minionAction: MinionAction): number {
+    const { guard, guardKinds } = assessment.profile.plan
+    if (isHunt(minionAction)) {
+        return guard * guardKinds.hunt
+    }
+    return guard * (isPoliticalAction(minionAction) ? guardKinds.political : guardKinds.other)
+}
+
 // What the action costs me when nobody blocks it: the bleed aimed at me, the cards of the acting side
 // that raise it counted. The other actions are only worth the guard against them.
 function denialOf(
     assessment: Assessment,
     owner: MethuselahSnapshot,
     actor: MinionProfile,
+    minionAction: MinionAction,
     bleed: number | null,
 ): number {
     if (bleed === null) {
-        return assessment.profile.plan.guard
+        return guardOf(assessment, minionAction)
     }
     const kit = attackKitOf(owner, [actor], assessment.densities[owner.oid], assessment.profile)
     const result = resolveAttack([{ bleed, stealth: 0 }], NOBODY_DEFENDS, {
@@ -201,7 +216,7 @@ export function blockContextOf(player: Player, assessment: Assessment): BlockCon
         owner,
         actor,
         bleed,
-        denial: denialOf(assessment, owner, actor, bleed),
+        denial: denialOf(assessment, owner, actor, minionAction, bleed),
         strengthBonus: getBlockedStrengthBonus(minionAction),
     }
 }
@@ -210,7 +225,7 @@ export function blockContextOf(player: Player, assessment: Assessment): BlockCon
 export function landedCost(context: BlockContext): number {
     const { assessment, bleed } = context
     if (bleed === null) {
-        return assessment.profile.plan.guard
+        return guardOf(assessment, context.action.minionAction)
     }
     return costOfResult(
         assessment,

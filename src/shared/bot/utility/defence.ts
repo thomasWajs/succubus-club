@@ -217,24 +217,27 @@ export function interceptReserve(
 
 // A minion that may take an action that is not directed ( a hunt, a recruit, an equip ): the stealth it
 // starts with, and the stealth points its Methuselah may add with cards and permanents
-export type IdleActor = { stealth: number; points: Dist }
+// `worth`: what stopping one of its actions is worth, as a multiple of the neutral guard ( its kind of actions )
+export type IdleActor = { stealth: number; points: Dist; worth: number }
 
 export function idleActorsOf(
     owner: MethuselahSnapshot,
     densities: Densities,
     profile: BotProfile,
+    worth = 1,
 ): IdleActor[] {
     return readyMinions(owner).map(minion => {
         const kit = attackKitOf(owner, [minion], densities, profile)
         return {
             stealth: Math.max(0, UNDIRECTED_STEALTH + minion.undirectedStealth),
             points: kit.stealth.map(({ value, p }) => ({ value: value + kit.standingStealth, p })),
+            worth,
         }
     })
 }
 
-// The share of those actions that a block at this intercept stops: it needs to match the stealth, which
-// the cards of the acting side may raise past it
+// The share of those actions that a block at this intercept stops, each counted by what stopping it is
+// worth: it needs to match the stealth, which the cards of the acting side may raise past it
 export function interceptShare(intercept: number, actors: IdleActor[]): number {
     if (actors.length == 0) {
         return 0
@@ -244,7 +247,7 @@ export function interceptShare(intercept: number, actors: IdleActor[]): number {
         const margin = intercept - actor.stealth
         for (const { value, p } of actor.points) {
             if (value <= margin) {
-                total += p
+                total += p * actor.worth
             }
         }
     }

@@ -490,7 +490,7 @@ export const ASSESSMENT_SCENARIOS: Scenario[] = [
     {
         name: 'Guard: the share of the undirected actions that an intercept stops, from their stealth and the cards behind it',
         run() {
-            const hunt = { stealth: 1, points: exact(0) }
+            const hunt = { stealth: 1, points: exact(0), worth: 1 }
             expectEqual(
                 interceptShare(0, [hunt]),
                 0,
@@ -499,7 +499,7 @@ export const ASSESSMENT_SCENARIOS: Scenario[] = [
             expectEqual(interceptShare(1, [hunt]), 1, 'an intercept of 1 matches it')
             expectEqual(interceptShare(1, []), 0, 'no one to act: nothing to stop')
             // A vampire whose crypt card lowers its stealth acts at 0
-            const quiet = { stealth: 0, points: exact(0) }
+            const quiet = { stealth: 0, points: exact(0), worth: 1 }
             expectClose(interceptShare(0, [hunt, quiet]), 0.5, 'half of them at intercept 0')
             expectEqual(interceptShare(1, [hunt, quiet]), 1, 'all of them at intercept 1')
             // The cards of its Methuselah may raise the stealth past the intercept
@@ -509,9 +509,16 @@ export const ASSESSMENT_SCENARIOS: Scenario[] = [
                     { value: 0, p: 0.6 },
                     { value: 1, p: 0.4 },
                 ],
+                worth: 1,
             }
             expectClose(interceptShare(1, [backed]), 0.6, 'a stealth card flips the block')
             expectEqual(interceptShare(2, [backed]), 1, 'one more intercept beats it')
+            // What stopping the actions of one of them is worth counts for its share
+            expectClose(
+                interceptShare(1, [hunt, { ...hunt, worth: 3 }]),
+                2,
+                'actions worth three times the guard count three times',
+            )
 
             // The actors are read from the board: the stealth of the engine, less what the crypt card takes
             const ring = createRing([GovernDeck, GovernDeck, GovernDeck])
@@ -858,6 +865,49 @@ export const ASSESSMENT_SCENARIOS: Scenario[] = [
             })
             expectEqual(blocks.risks.blockRate > 0.6, true, 'it blocks nearly always')
             expectEqual(blocks.observed.blockChances, 10, 'ten chances counted')
+        },
+    },
+    {
+        name: 'Opponent model: the kinds of action it takes besides bleeds set what stopping one of them is worth',
+        run() {
+            const ring = createRing([GovernDeck, GovernDeck])
+            const [me, other] = ring.players
+            const { mix } = DEFAULT_PROFILE.opponentPrior.behaviour
+            const modelWith = (seen: (ledger: PlayerLedger) => void) => {
+                const ledger = createLedger()
+                seen(getPlayerLedger(ledger, other.oid))
+                return opponentModelOf(
+                    snapshotAs(ring, me).others[0],
+                    DEFAULT_PROFILE,
+                    getPlayerLedger(ledger, other.oid),
+                )
+            }
+            const none = modelWith(() => {})
+            expectClose(none.mix.hunt, mix.hunt, 'nothing seen: the prior mix', 1e-9)
+            expectClose(none.guardFactor, 1, 'the prior mix is worth the neutral guard', 1e-9)
+
+            const politician = modelWith(seen => {
+                seen.actionsDeclared = 14
+                seen.bleedsDeclared = 4
+                seen.politicalDeclared = 8
+                seen.huntsDeclared = 2
+            })
+            expectEqual(politician.observed.actions, 10, 'ten actions that are not bleeds')
+            expectEqual(politician.mix.political > 0.4, true, 'it plays politics')
+            expectEqual(politician.guardFactor > 1.5, true, 'stopping its actions is worth more')
+
+            const hunter = modelWith(seen => {
+                seen.actionsDeclared = 12
+                seen.huntsDeclared = 12
+            })
+            expectEqual(hunter.mix.hunt > 0.8, true, 'it only hunts')
+            expectEqual(hunter.guardFactor < 0.8, true, 'stopping its actions is worth less')
+            expectClose(
+                hunter.mix.hunt + hunter.mix.political + hunter.mix.other,
+                1,
+                'the mix is a whole',
+                1e-9,
+            )
         },
     },
     {

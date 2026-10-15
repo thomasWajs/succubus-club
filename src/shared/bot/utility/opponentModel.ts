@@ -9,7 +9,8 @@ import { Role } from '@/shared/bot/utility/summaries.ts'
  * titles of its minions in play and the roles of the cards on its ash heap. The share of its library
  * with each role is the base ( the neutral prior when nothing is shown ), the risks are the same
  * numbers read as the threats a neighbour poses, and the confidence says how much was shown.
- * The ledger adds what it was seen doing: the size of its bleeds and how often it blocks. Each is
+ * The ledger adds what it was seen doing: the size of its bleeds, how often it blocks and the kinds of
+ * action it takes besides bleeds ( the mix, which sets what stopping one of them is worth ). Each is
  * the prior pulled toward what was observed, by as many observations as the count says, so that one
  * odd observation moves it little. What it played shows in the cards seen ( the ash heap ), which
  * is public state, so the ledger holds no card of the combat.
@@ -30,13 +31,19 @@ export type OpponentRisks = {
     blockRate: number
 }
 
+// The share of the actions it takes that are not bleeds, by kind
+export type ActionMix = { hunt: number; political: number; other: number }
+
 export type OpponentModel = {
     densities: Partial<Record<Role, number>>
     risks: OpponentRisks
+    mix: ActionMix
+    // What stopping one of its actions that is not a bleed is worth, as a multiple of the guard
+    guardFactor: number
     // From 0 ( nothing shown ) to 1: each vampire in play halves the doubt, and so do four cards seen
     confidence: number
     // The observations behind bleedSize and blockRate
-    observed: { bleeds: number; blockChances: number }
+    observed: { bleeds: number; blockChances: number; actions: number }
 }
 
 const CARDS_PER_VAMPIRE = 4
@@ -71,8 +78,25 @@ export function opponentModelOf(
     const amounts = observed?.bleedAmounts ?? []
     const chances = (observed?.blocksAttempted ?? 0) + (observed?.blocksDeclined ?? 0)
     const watched = amounts.length + chances
+    const actions = (observed?.actionsDeclared ?? 0) - (observed?.bleedsDeclared ?? 0)
+    const hunt = pulled(
+        behaviour.mix.hunt,
+        (observed?.huntsDeclared ?? 0) / Math.max(1, actions),
+        actions,
+        behaviour.weight,
+    )
+    const political = pulled(
+        behaviour.mix.political,
+        (observed?.politicalDeclared ?? 0) / Math.max(1, actions),
+        actions,
+        behaviour.weight,
+    )
+    const mix = { hunt, political, other: 1 - hunt - political }
+    const kinds = profile.plan.guardKinds
     return {
         densities,
+        mix,
+        guardFactor: hunt * kinds.hunt + political * kinds.political + mix.other * kinds.other,
         risks: {
             stealth: share(densities, 'stealth'),
             bleedBonus: share(densities, 'bleedBonus'),
@@ -97,6 +121,6 @@ export function opponentModelOf(
                 (snapshot.minions.length +
                     seen / CARDS_PER_VAMPIRE +
                     watched / OBSERVATIONS_PER_VAMPIRE),
-        observed: { bleeds: amounts.length, blockChances: chances },
+        observed: { bleeds: amounts.length, blockChances: chances, actions },
     }
 }

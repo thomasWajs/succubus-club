@@ -94,6 +94,8 @@ function findProblems(assessment: Assessment): string[] {
         check(model.confidence, `confidence in the read of ${oid}`, 0, 1)
         check(model.risks.blockRate, `block rate of ${oid}`, 0, 1)
         check(model.risks.bleedSize, `bleed size of ${oid}`, 0)
+        check(model.mix.other, `share of other actions of ${oid}`, 0, 1)
+        check(model.guardFactor, `guard factor of ${oid}`, 0)
     }
     for (const [oid, threat] of Object.entries(assessment.threat)) {
         check(threat.bleed, `bleed threat of ${oid}`, 0)
