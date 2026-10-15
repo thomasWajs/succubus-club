@@ -114,7 +114,7 @@ import {
     startGame,
 } from '@/client/state/setup.ts'
 import { resumeEngineGame, setupEngineGame } from '@/client/engine/setup.ts'
-import { EngineGone, savedEngineSeat } from '@/client/engine/host.ts'
+import { EngineGone, EngineTaken, savedEngineSeat } from '@/client/engine/host.ts'
 import { useRouter } from 'vue-router'
 import TopBar from '@/client/ui/components/TopBar.vue'
 import { waitUntil } from '@/shared/utils.ts'
@@ -245,6 +245,10 @@ async function resumeEngine() {
     } catch (error) {
         if (error instanceof EngineGone) {
             bus.alertWarning('The engine game is over : the server no longer has it')
+            return
+        }
+        if (error instanceof EngineTaken) {
+            bus.alertWarning(error.message)
             return
         }
         let message = 'An error occurred while joining the engine game again'

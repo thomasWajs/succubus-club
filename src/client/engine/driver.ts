@@ -6,7 +6,7 @@
  */
 
 import { ref } from 'vue'
-import { EngineHost } from '@/client/engine/host.ts'
+import { EngineHost, EngineTaken } from '@/client/engine/host.ts'
 import { Projection, Roles } from '@/client/engine/projection.ts'
 import type {
     Allocation,
@@ -585,6 +585,10 @@ export async function runEngine(host: EngineHost, projection: Projection) {
         }
         engine.pending = null
         engine.rejoining = false
+        if (error instanceof EngineTaken) {
+            engine.status = error.message
+            return
+        }
         engine.status = `The engine stopped : ${error instanceof Error ? error.message : error}`
         logging.captureException(error)
     }

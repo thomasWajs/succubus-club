@@ -66,6 +66,14 @@ export class EngineGone extends Error {
     }
 }
 
+// The seat joined from another tab ( a duplicated tab shares its seat ) : the game plays there now,
+// never joined again from here ; a refresh takes it back
+export class EngineTaken extends Error {
+    constructor() {
+        super('The game was opened in another tab : it plays there now')
+    }
+}
+
 // The seat of the game under way, kept for the tab : a page refreshed joins it again
 const SEAT_STORAGE_KEY = 'engine-seat'
 type Seat = { game: string; token: string }
@@ -188,7 +196,7 @@ export class EngineHost {
             if (host.failure) {
                 host.over = true
                 host.ws.close()
-                if (!host.unreachable) {
+                if (!host.unreachable && !(host.failure instanceof EngineTaken)) {
                     forgetSeat(seat.game)
                 }
                 throw host.failure
@@ -383,6 +391,11 @@ export class EngineHost {
                 // The command sent again after joining again, which the server had taken already
                 if (this.resent && m.error == 'stale') {
                     this.resent = false
+                    break
+                }
+                // The seat joined from another tab : the server closes this connection next
+                if (m.error == 'seat_taken') {
+                    this.fail(new EngineTaken())
                     break
                 }
                 // Joined again as the game ended

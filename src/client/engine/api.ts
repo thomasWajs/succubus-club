@@ -1,6 +1,6 @@
-/* zvtes protocol 1.0.0 (docs/protocol.md): generated from
+/* zvtes protocol 1.4.0 (docs/protocol.md): generated from
  * crates/api/schema.json by scripts/gen_ts.py, do not edit. */
-export const PROTOCOL_VERSION = '1.0.0'
+export const PROTOCOL_VERSION = '1.4.0'
 
 /**
  * A command as sent: an optional client id, echoed by an `error` it
@@ -39,6 +39,10 @@ export type In = {
     | {
           type: 'leave'
       }
+    | {
+          text: string
+          type: 'feedback'
+      }
 )
 
 /**
@@ -67,6 +71,10 @@ export type Out = {
     | ({
           type: 'error'
       } & Error)
+    | {
+          decision: number
+          type: 'noted'
+      }
 )
 
 export type GameSpec = {
@@ -267,7 +275,8 @@ export type Allocation = {
     recipients: Recipient[]
 }
 
-export type AllocationError = 'none' | 'length' | 'total' | 'cap' | 'min_nonzero'
+/** Why an allocation is refused. */
+export type AllocationError = 'none' | 'length' | 'total' | 'cap' | 'min_nonzero' | 'unknown'
 
 export type BotRecord = {
     /** "network" or a scripted style. */
@@ -284,7 +293,8 @@ export type BotRecord = {
     weights?: string | null
 }
 
-export type By = 'human' | 'bot' | 'order' | 'auto'
+/** Who answered a decision. */
+export type By = 'human' | 'bot' | 'order' | 'auto' | 'unknown'
 
 /**
  * A physical card: its copy where the viewer may follow it, its KRCG id
@@ -514,6 +524,12 @@ export type EndReason =
     | {
           type: 'engine_error'
       }
+    | {
+          type: 'server_restart'
+      }
+    | {
+          type: 'unknown'
+      }
 
 export type Entry =
     | {
@@ -551,6 +567,16 @@ export type Entry =
           seat: number
           type: 'refused'
       }
+    | {
+          at: number
+          decision: number
+          seat: number
+          text: string
+          type: 'feedback'
+      }
+    | {
+          type: 'unknown'
+      }
 
 export type Error =
     | {
@@ -586,6 +612,12 @@ export type Error =
       }
     | {
           error: 'rate_limited'
+      }
+    | {
+          error: 'seat_taken'
+      }
+    | {
+          error: 'unknown'
       }
 
 export type Event = {
@@ -728,7 +760,10 @@ export type Event = {
 )
 
 export type GameResult = {
-    /** The engine's failure, when it failed: message, location, backtrace. */
+    /**
+     * The engine's failure, when it failed: message, location, backtrace;
+     * for a game a restart ended, why its record did not read to its end.
+     */
     failure?: string | null
     reason: EndReason
     vp_halves: number[]
@@ -1037,6 +1072,11 @@ export type Purpose =
     | 'uncontrolled_blood'
     | 'lock_or_pay'
     | 'pool_or_vampire'
+    | 'pool_or_no_transfers'
+    | 'blood_or_camarilla'
+    | 'store_own_ash'
+    | 'stored_to_library_top'
+    | 'library_to_hand'
     | 'crypt_search'
     | 'prey_slot_to_pool'
     | 'distribute_from'
