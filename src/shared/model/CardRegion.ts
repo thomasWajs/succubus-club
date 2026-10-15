@@ -41,6 +41,17 @@ export class CardRegion<CardType extends Card> extends BaseModel {
         return this.gameState.regionOwners[this.oid]
     }
 
+    // The player the owner gave control to, if any
+    get delegate(): Player | undefined {
+        const delegateOid = this.gameState.regionTakeovers[this.oid]
+        return delegateOid ? this.gameState.players[delegateOid] : undefined
+    }
+
+    // Control is cumulative : the owner always keeps it, the delegate shares it
+    isControlledBy(player: Player): boolean {
+        return this.owner?.oid == player.oid || this.delegate?.oid == player.oid
+    }
+
     // Shortcuts to check this region
     get is() {
         return {
