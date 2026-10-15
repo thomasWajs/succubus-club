@@ -112,6 +112,7 @@ export function isEngineProjecting() {
 }
 
 export function stopEngine() {
+    running?.host.close()
     running = null
     forgetCardNames()
     useEngineStore().$reset()
@@ -456,8 +457,15 @@ function narrate(current: Running, out: EngineOut) {
 export async function runEngine(host: EngineHost, projection: Projection) {
     const engine = useEngineStore()
     const current: Running = { host, projection, answer: null, repeat: null, deferred: null }
+    running?.host.close()
     running = current
     forgetCardNames()
+    engine.rejoining = false
+    host.onConnection = lost => {
+        if (running === current) {
+            engine.rejoining = lost
+        }
+    }
     await host.setOpportunities(engineOpportunities.value)
 
     try {
@@ -571,7 +579,12 @@ export async function runEngine(host: EngineHost, projection: Projection) {
             narrate(current, await host.answer(out.decision, answer.index))
         }
     } catch (error) {
+        // An earlier game's failure : the store is the game's now running
+        if (running !== current) {
+            return
+        }
         engine.pending = null
+        engine.rejoining = false
         engine.status = `The engine stopped : ${error instanceof Error ? error.message : error}`
         logging.captureException(error)
     }

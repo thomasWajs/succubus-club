@@ -52,6 +52,8 @@ export const useEngineStore = defineStore('engine', {
         focus: [] as number[],
         // What the engine is waiting for, when it's not the user
         status: '',
+        // The connection to the engine server dropped : the game being joined again
+        rejoining: false,
         // A choice made on the table, under way : the options ( by index ) still possible
         staging: null as number[] | null,
         // Victory points per seat, once the game is over

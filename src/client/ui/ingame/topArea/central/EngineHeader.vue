@@ -35,12 +35,12 @@
         <!-- The user's decision, or who the engine waits for -->
         <span
             class="engine-header-state"
-            :class="{ yours: !!engine.pending }"
+            :class="{ yours: !!engine.pending && !engine.rejoining }"
         >
             {{
-                engine.pending ?
-                    `Your decision : ${windowName(engine.pending.window)}`
-                :   engine.status
+                engine.rejoining ? 'Connection lost : joining the game again…'
+                : engine.pending ? `Your decision : ${windowName(engine.pending.window)}`
+                : engine.status
             }}
         </span>
     </div>

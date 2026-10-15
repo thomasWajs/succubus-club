@@ -61,6 +61,10 @@ export class EngineRefused extends Error {
 // How long to wait before sending again a command refused as too many in a second
 const RATE_LIMITED_RETRY = 1000
 
+// The waits before each try to join again a game whose connection dropped ( a sleep, a network
+// change ) : the game fails after the last, a minute on ( the server keeps the seat longer )
+const REJOIN_DELAYS = [500, 1000, 2000, 4000, 8000, 15000, 30000]
+
 // What the server sends while a command is answered, then the decision or the end
 type Waiter = () => void
 
@@ -76,8 +80,16 @@ export class EngineHost {
     // itself once the opportunities are off ) : `advance` goes on
     onWithdrawn?: (decision: number) => void
     private failure: Error | null = null
-    // The last command sent : sent again when the server refuses it as too many
+    // The last command sent : sent again when the server refuses it as too many, or after joining
+    // again while the server has not answered it ( the dropped connection may have lost it )
     private sent: string | null = null
+    // The last message's number : a game joined again resumes after it
+    private seq = 0
+    private over = false
+    // The last command sent again after joining again : refused as stale when the server had it
+    private resent = false
+    // Told when the connection drops ( true ) and when the game is joined again ( false )
+    onConnection?: (lost: boolean) => void
 
     private constructor(
         private game: string,
@@ -103,16 +115,73 @@ export class EngineHost {
             throw new EngineRefused(refusal, `The engine server refused the game : ${text}`)
         }
         const { game, token } = await res.json()
-        const ws = new WebSocket(`${ENGINE_SERVER.replace(/^http/, 'ws')}/games/${game}/ws`)
+        const ws = await EngineHost.open(game)
         const host = new EngineHost(game, token, ws)
-        ws.onmessage = e => host.receive(JSON.parse(e.data) as Out)
-        ws.onclose = () => host.fail(new Error('The engine server closed the game'))
+        host.join(ws)
+        return host
+    }
+
+    // The game left ( another started, the table reset ) : its connection closed, never joined again
+    close() {
+        this.over = true
+        this.ws.close()
+    }
+
+    private static async open(game: string): Promise<WebSocket> {
+        const ws = new WebSocket(`${ENGINE_SERVER.replace(/^http/, 'ws')}/games/${game}/ws`)
         await new Promise<void>((resolve, reject) => {
             ws.onopen = () => resolve()
             ws.onerror = () => reject(new Error('The engine server cannot be reached'))
         })
-        ws.send(JSON.stringify({ type: 'join', token }))
-        return host
+        return ws
+    }
+
+    // The seat taken on this connection : from the start, or after the last message received
+    private join(ws: WebSocket) {
+        this.ws = ws
+        ws.onmessage = e => this.receive(JSON.parse(e.data) as Out)
+        ws.onclose = () => void this.rejoin()
+        const after = this.seq > 0 ? { after: this.seq } : {}
+        ws.send(JSON.stringify({ type: 'join', token: this.token, ...after }))
+    }
+
+    // A dropped connection : the game joined again, the server sending again what followed the last
+    // message received, and the last command sent again ( see resent )
+    private async rejoin() {
+        if (this.over || this.failure) {
+            return
+        }
+        this.onConnection?.(true)
+        for (const delay of REJOIN_DELAYS) {
+            await new Promise(resolve => setTimeout(resolve, delay))
+            // The game left meanwhile ( close )
+            if (this.over) {
+                return
+            }
+            let ws: WebSocket
+            try {
+                ws = await EngineHost.open(this.game)
+            } catch {
+                // The game gone ( the server restarted ) : no use trying again
+                if (await this.gone()) {
+                    this.fail(new Error('The engine server ended the game'))
+                    return
+                }
+                continue
+            }
+            if (this.over) {
+                ws.close()
+                return
+            }
+            this.join(ws)
+            if (this.sent) {
+                this.resent = true
+                ws.send(this.sent)
+            }
+            this.onConnection?.(false)
+            return
+        }
+        this.fail(new Error('The engine server cannot be reached'))
     }
 
     private fail(error: Error) {
@@ -145,13 +214,34 @@ export class EngineHost {
         return out
     }
 
+    // Whether the server answers that the game is not there any more ( false while it is out of reach )
+    private async gone(): Promise<boolean> {
+        try {
+            const res = await fetch(`${ENGINE_SERVER}/games/${this.game}/ws`)
+            return res.status == 404
+        } catch {
+            return false
+        }
+    }
+
     private send(command: object) {
         this.answered = true
+        this.resent = false
         this.sent = JSON.stringify(command)
-        this.ws.send(this.sent)
+        if (this.ws.readyState == WebSocket.OPEN) {
+            this.ws.send(this.sent)
+        }
     }
 
     private receive(m: Out) {
+        // Numbered : an answer to the last command, if any ( the server answers each it takes ; a
+        // refusal as too many is unnumbered ). One command in flight at a time : a reply to an
+        // earlier one ( a settings change just before an answer ) clears the later, which a drop
+        // then would not send again
+        if (m.seq > 0) {
+            this.seq = m.seq
+            this.sent = null
+        }
         switch (m.type) {
             case 'joined':
                 this.view = m.view
@@ -165,8 +255,9 @@ export class EngineHost {
             }
             case 'decision': {
                 this.view = m.view
-                // Sent again ( a settings change ) : the one the user is answering stays
-                if (m.decision == this.lastDecision && !this.answered) {
+                // Sent again ( a settings change, the game joined again ) : the one the user is
+                // answering stays, the one answered is
+                if (m.decision == this.lastDecision && (!this.answered || this.resent)) {
                     break
                 }
                 this.queue = this.queue.filter(
@@ -177,6 +268,7 @@ export class EngineHost {
                 break
             }
             case 'over':
+                this.over = true
                 this.view = m.view
                 this.push({
                     type: 'over',
@@ -189,7 +281,19 @@ export class EngineHost {
                 // Too many commands this second : refused, so sent again a moment later
                 if (m.error == 'rate_limited') {
                     const sent = this.sent
-                    setTimeout(() => sent && this.ws.send(sent), RATE_LIMITED_RETRY)
+                    setTimeout(() => {
+                        if (sent) {
+                            this.sent = sent
+                            if (this.ws.readyState == WebSocket.OPEN) {
+                                this.ws.send(sent)
+                            }
+                        }
+                    }, RATE_LIMITED_RETRY)
+                    break
+                }
+                // The command sent again after joining again, which the server had taken already
+                if (this.resent && m.error == 'stale') {
+                    this.resent = false
                     break
                 }
                 this.fail(new Error(`The engine server refused : ${m.error}`))
