@@ -1,13 +1,7 @@
 import { Card, LibraryCard, Minion } from '@/shared/model/Card.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
-import {
-    ACTION_TYPES,
-    Discipline,
-    DisciplineLevel,
-    LEAVE_TORPOR_COST,
-    LibraryCardType,
-} from '@/shared/const/model.ts'
+import { Discipline, DisciplineLevel, LEAVE_TORPOR_COST } from '@/shared/const/model.ts'
 import {
     ActionCardFromHandAction,
     ActionModifier,
@@ -124,7 +118,7 @@ export function createActionCardAction(
     actionCard: LibraryCard,
     usage: LibraryCardUsage,
 ): ActionCardFromHandAction {
-    if (!actionCard.type || !ACTION_TYPES.includes(actionCard.type)) {
+    if (!actionCard.isType.anyAction) {
         throw new Error('ActionCardAction needs a LibraryCard with an action type')
     }
 
@@ -141,7 +135,7 @@ export function createActionModifier(
     actionModifierCard: LibraryCard,
     usage: LibraryCardUsage,
 ): ActionModifier {
-    if (actionModifierCard.type != LibraryCardType.ActionModifier) {
+    if (!actionModifierCard.isType.actionModifier) {
         throw new Error("ActionModifier needs a LibraryCard with type 'ActionModifier'")
     }
 
@@ -245,7 +239,7 @@ export function getPoliticalActionCard(action: MinionAction): LibraryCard | null
         return null
     }
     const card = action.card
-    return card instanceof LibraryCard && card.type == LibraryCardType.PoliticalAction ? card : null
+    return card instanceof LibraryCard && card.isType.politicalAction ? card : null
 }
 
 export function isPoliticalAction(action: MinionAction): boolean {

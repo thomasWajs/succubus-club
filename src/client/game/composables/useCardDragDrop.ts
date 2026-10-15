@@ -21,7 +21,6 @@ import { AnyCardRegion } from '@/shared/types/model.ts'
 import { Snap } from '@/shared/utils.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
 import { declareActionCardFromHand, playCard } from '@/client/game/declaration.ts'
-import { ACTION_TYPES, LibraryCardType } from '@/shared/const/model.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { getFreeTableUICamera, getTabletopScene } from '@/client/game/camera.ts'
 import Pointer = Phaser.Input.Pointer
@@ -241,7 +240,6 @@ export function useCardDragDrop(
         if (
             !actionDeclarationEnabled.value ||
             !(card instanceof LibraryCard) ||
-            !card.type ||
             card.region != card.controller.hand ||
             card.controller.oid != players.selfPlayer?.oid
         ) {
@@ -252,27 +250,33 @@ export function useCardDragDrop(
 
         // Action card : declared as a new action, on our turn, only when no
         // action is already in progress.
-        if (
-            selfActive &&
-            !gameState.action &&
-            !gameState.combat &&
-            ACTION_TYPES.includes(card.type)
-        ) {
+        if (selfActive && !gameState.action && !gameState.combat && card.isType.anyAction) {
             return card
         }
         // Action modifier : played on our turn, with or without an ongoing action.
-        if (selfActive && card.type == LibraryCardType.ActionModifier) {
+        if (selfActive && card.isType.actionModifier) {
             return card
         }
         // Reaction : played on someone else's turn, with or without an ongoing action.
-        if (!selfActive && card.type == LibraryCardType.Reaction) {
+        if (!selfActive && card.isType.reaction) {
             return card
         }
         // Combat card : played on anyone's turn, with or without an ongoing action.
-        if (card.type == LibraryCardType.Combat) {
+        if (card.isType.combat) {
             return card
         }
         return null
+    }
+
+    // Whether a card returned by draggedMinionCard() is declared as a new action
+    // ( rather than simply played next to the minion ).
+    function isDeclaredAsAction(card: LibraryCard): boolean {
+        return (
+            card.isType.anyAction &&
+            gameState.activePlayer == players.selfPlayer &&
+            !gameState.action &&
+            !gameState.combat
+        )
     }
 
     function findDropMinionCandidate(
@@ -288,8 +292,7 @@ export function useCardDragDrop(
 
         // Declaring an action needs an unlocked minion ; playing an action
         // modifier, a reaction or a combat card can be done with a locked one.
-        const requiresUnlocked =
-            card instanceof LibraryCard && !!card.type && ACTION_TYPES.includes(card.type)
+        const requiresUnlocked = card instanceof LibraryCard && card.isType.anyAction
         // On the shared table, a flipped minion is in torpor ( there is no
         // separate Torpor region there ) and can't be acted through.
         const minions = cardRegion.cards.filter(
@@ -552,10 +555,10 @@ export function useCardDragDrop(
         // played with it rather than moved. Action cards declare an action ;
         // action modifiers and reactions are simply played next to the minion.
         const minionCard = draggedMinionCard()
-        if (minionCard && minionCard.type && gameBus.dropMinionCandidate) {
+        if (minionCard && gameBus.dropMinionCandidate) {
             const byMinion = gameBus.dropMinionCandidate
             gameBus.dropMinionCandidate = null
-            if (ACTION_TYPES.includes(minionCard.type)) {
+            if (isDeclaredAsAction(minionCard)) {
                 declareActionCardFromHand(byMinion, minionCard)
             } else {
                 playCard({ card: minionCard, byMinion })

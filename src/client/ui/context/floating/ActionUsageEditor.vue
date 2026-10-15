@@ -112,7 +112,6 @@ import { usePlayersStore } from '@/client/state/players.ts'
 import { display } from '@/client/game/display.ts'
 import { getCardRectangle, getScreenPoint } from '@/client/game/utils.ts'
 import { DisciplineUse, LibraryCardUsage, MinionActionType } from '@/shared/types/state.ts'
-import { LibraryCardType } from '@/shared/const/model.ts'
 import { parseCardUsage } from '@/shared/state/usageParsing.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
 import { startTargetDeclaration } from '@/client/game/declaration.ts'
@@ -270,7 +269,7 @@ const editor = computed(() => {
     // Only a plain Action card can be directed at a target.
     // Every other Action cards ( Political, Equipment... ) is necessarily undirected,
     // so the target button is hidden.
-    const directable = card.type == LibraryCardType.Action
+    const directable = card.isType.action
 
     // A variable "X" cost ( blood or pool ) lets the player declare the value of
     // X. The select is offered only when the card actually has such a cost.

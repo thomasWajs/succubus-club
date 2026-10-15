@@ -1,7 +1,7 @@
 import { Player } from '@/shared/model/Player.ts'
 import { CardRegion } from '@/shared/model/CardRegion.ts'
 import { Card, Minion, PropertiesInPlay } from '@/shared/model/Card.ts'
-import { ActionVerb, Marker, TurnSequence } from '@/shared/const/model.ts'
+import { Marker, TurnSequence } from '@/shared/const/model.ts'
 import {
     CARD_LOG_PLACEHOLDER,
     CONTROLLED_ZONE_HEIGHT,
@@ -1764,9 +1764,9 @@ class DeclareAction extends GameMutation<DeclareActionParams> {
         let disciplines = ''
         if (
             this.params.minionAction.type == MinionActionType.ActionCardFromHand &&
-            this.params.minionAction.card.type
+            this.params.minionAction.card.actionVerb
         ) {
-            actionVerb = `${ActionVerb[this.params.minionAction.card.type as keyof typeof ActionVerb]} `
+            actionVerb = `${this.params.minionAction.card.actionVerb} `
             disciplines =
                 disciplineUsesImg(this.params.minionAction.usage.disciplines ?? []) +
                 actions.usageXLog(this.params.minionAction.usage)

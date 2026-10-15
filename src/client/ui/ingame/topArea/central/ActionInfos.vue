@@ -11,7 +11,7 @@
                     {{ action.minionAction.actingMinion.name }} </span
                 >:
                 <template v-if="action.minionAction.type == MinionActionType.ActionCardFromHand">
-                    {{ ActionVerb[action.minionAction.card.type as keyof typeof ActionVerb] + ' ' }}
+                    {{ action.minionAction.card.actionVerb + ' ' }}
                 </template>
 
                 <strong>{{ actions.getName(action.minionAction) }}</strong>
@@ -200,7 +200,6 @@
 import { computed } from 'vue'
 import { usePlayersStore } from '@/client/state/players.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
-import { ACTION_TYPES, ActionVerb } from '@/shared/const/model.ts'
 import {
     ActionProperty,
     ActionState,
@@ -256,7 +255,7 @@ const payableActionCard = computed<LibraryCard | null>(() => {
     }
 
     const card = minionAction.card
-    if (!(card instanceof LibraryCard) || !card.type || !ACTION_TYPES.includes(card.type)) {
+    if (!(card instanceof LibraryCard) || !card.isType.anyAction) {
         return null
     }
 
