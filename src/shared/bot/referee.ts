@@ -151,7 +151,27 @@ export function getDecidingPlayer(gameState: GameState): Player | null {
     const cleaning = gameState.competingPlayers.find(
         player => player.isBot && getCleanupCards(gameState, player).length > 0,
     )
-    return cleaning ?? gameState.activePlayer ?? null
+    return cleaning ?? turnEndAsker(gameState) ?? gameState.activePlayer ?? null
+}
+
+// The bots that can use a card in play at the end of the turn of the active bot: those that have not passed
+function turnEndAskers(gameState: GameState): Player[] {
+    const { activePlayer } = gameState
+    return gameState.competingPlayers.filter(
+        player =>
+            player.isBot &&
+            player != activePlayer &&
+            !player.isOusted &&
+            getLockEffectOptions(player).length > 0,
+    )
+}
+
+function turnEndAsker(gameState: GameState): Player | null {
+    const waiting = gameState.turnEndWaiting
+    if (!waiting) {
+        return null
+    }
+    return turnEndAskers(gameState).find(player => waiting.includes(player.oid)) ?? null
 }
 
 function hasExcessCards(player: Player): boolean {
@@ -202,6 +222,16 @@ export function getDecisionPoint(gameState: GameState, player: Player): Decision
     const cleanupCards = getCleanupCards(gameState, player)
     if (cleanupCards.length > 0) {
         return decision(DecisionKind.Cleanup, player, [{ type: 'cleanup', cards: cleanupCards }])
+    }
+
+    // The turn is ending: the bots that can use a card in play have their last chance, then the active bot passes
+    if (gameState.turnEndWaiting) {
+        return player == gameState.activePlayer ?
+                decision(DecisionKind.Discard, player, [{ type: 'endTurn' }])
+            :   decision(DecisionKind.TurnEnd, player, [
+                    ...getLockEffectOptions(player),
+                    { type: 'passTurnEnd' },
+                ])
     }
 
     switch (gameState.turnPhase) {
@@ -270,6 +300,7 @@ function unlockPhaseOptions(gameState: GameState, player: Player): BotOption[] {
     return [
         ...getUnlockEffectOptions(player),
         ...getMoveBloodOptions(player, 'unlock'),
+        ...getLockEffectOptions(player),
         { type: 'endPhase' },
     ]
 }
@@ -344,6 +375,7 @@ function minionPhaseOptions(player: Player): BotOption[] {
     if (mandatoryHunts.length == 0 && mandatoryBleeds.length == 0) {
         options.push({ type: 'endPhase' })
     }
+    options.push(...getLockEffectOptions(player))
     return options
 }
 
@@ -361,7 +393,9 @@ function influencePhaseOptions(gameState: GameState, player: Player): BotOption[
         }
     }
 
-    options.push(...getTransferEffectOptions(player), { type: 'endPhase' })
+    options.push(...getTransferEffectOptions(player), ...getLockEffectOptions(player), {
+        type: 'endPhase',
+    })
     return options
 }
 
@@ -391,7 +425,7 @@ function actionImpulseDecision(gameState: GameState, player: Player): DecisionPo
         options.push(...getLockForActionOptions(player, actingMinion))
     }
 
-    options.push({ type: 'noModifier' })
+    options.push(...getLockEffectOptions(player), { type: 'noModifier' })
     return decision(DecisionKind.ActionImpulse, player, options)
 }
 
@@ -448,6 +482,7 @@ function reactionImpulseDecision(gameState: GameState, player: Player): Decision
     if (blocker) {
         options.push(...getLockForReactionOptions(player, blocker))
     }
+    options.push(...getLockEffectOptions(player))
 
     // Passing the impulse comes second: the block is decided first ( a block attempt, or "no block"
     // that lets the acting player play modifiers ), only then may the player pass without reacting
@@ -462,7 +497,7 @@ function postBlockDecision(gameState: GameState, blocker: Minion, player: Player
     const options: BotOption[] = getReactionCardOptions(blocker).filter(option =>
         isReactionOptionValid(gameState, option),
     )
-    options.push({ type: 'noReaction' })
+    options.push(...getLockEffectOptions(player), { type: 'noReaction' })
     return decision(DecisionKind.PostBlock, player, options)
 }
 
@@ -555,6 +590,7 @@ function combatDecision(gameState: GameState, combat: CombatState, player: Playe
     }
 
     // The strike step is the only one where something has to be chosen
+    options.push(...getLockEffectOptions(player))
     if (combat.step != CombatStep.Strike) {
         options.push({ type: 'combatPass' })
     }
@@ -713,11 +749,27 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
             goToNextPhase(gameState, player)
             break
 
-        case 'endTurn':
+        case 'endTurn': {
+            // The bots that hold a card in play they can use at any time get a last chance first
+            const waiting = gameState.turnEndWaiting ? [] : turnEndAskers(gameState)
+            if (waiting.length > 0) {
+                check(
+                    botMutations.openTurnEnd.act(player, {
+                        waiting: waiting.map(asker => asker.oid),
+                    }),
+                    'open the end of the turn',
+                )
+                break
+            }
             check(
                 gameMutations.goToTurn.act(player, { index: gameState.turnNumber + 1 }),
                 'goToTurn',
             )
+            break
+        }
+
+        case 'passTurnEnd':
+            check(botMutations.passTurnEnd.act(player, {}), 'pass the end of the turn')
             break
 
         case 'cleanup':

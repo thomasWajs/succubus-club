@@ -25,6 +25,9 @@ export enum DecisionKind {
     ReactionImpulse = 'ReactionImpulse',
     // The combat of a block is over: the blocker's controller may play the reactions made for it
     PostBlock = 'PostBlock',
+    // The turn of another Methuselah is over and has not passed yet: the cards in play that can be used at any
+    // time have their last chance of the turn
+    TurnEnd = 'TurnEnd',
     // A window of a combat step, or the choice of a strike
     Combat = 'Combat',
 }
@@ -104,6 +107,8 @@ export type BotOption =
     | { type: 'playMaster'; card: LibraryCard; target?: Minion; amount?: number }
     // Go to the next turn (the hand is never refilled here: replacements are drawn immediately)
     | { type: 'endTurn' }
+    // Nothing to use at the end of the turn of another Methuselah
+    | { type: 'passTurnEnd' }
     // Send the one-shot cards played during the last action to the ash heap
     | { type: 'cleanup'; cards: LibraryCard[] }
     | { type: 'declareAction'; action: MinionAction }

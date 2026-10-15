@@ -29,7 +29,14 @@ export abstract class BaseAgent implements BotAgent {
                 return this.postBlock(decision)
             case DecisionKind.Combat:
                 return this.combat(decision)
+            case DecisionKind.TurnEnd:
+                return this.turnEnd(decision)
         }
+    }
+
+    // Uses nothing at the end of the turn of another Methuselah
+    protected turnEnd(decision: DecisionPoint): BotOption {
+        return findOption(decision.options, 'passTurnEnd')
     }
 
     // Unlocks first ( mandatory ), then uses no unlock effect

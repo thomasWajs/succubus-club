@@ -1,6 +1,8 @@
+import { Player } from '@/shared/model/Player.ts'
 import { CardOid } from '@/shared/types/model.ts'
 import { getExtraPlayCost } from '@/shared/cardImpl/catalog/attached.ts'
 import { resolveCost } from '@/shared/state/cardCosts.ts'
+import { getMasterCardOptions } from '@/shared/bot/cardOptions.ts'
 import { findOption } from '@/shared/bot/helpers.ts'
 import { BotOption, BotOptionOf, DecisionPoint, optionsOfType } from '@/shared/bot/types.ts'
 import { Assessment, chanceOfOust } from '@/shared/bot/utility/assessment.ts'
@@ -89,8 +91,16 @@ function groundWorth(assessment: Assessment, ability: AbilitySummary): number {
 }
 
 // A card in play that a minion of mine locks to give a bonus to an action or a block attempt, over `stay` turns
-function chargeWorth(assessment: Assessment, values: PlayValues, ability: AbilitySummary): number {
+function chargeWorth(
+    assessment: Assessment,
+    values: PlayValues,
+    ability: AbilitySummary,
+    cycle: number,
+): number {
     const { master } = assessment.profile
+    if (ability.effects.some(effect => effect.type == 'discardFromHand')) {
+        return cycle * master.stay
+    }
     const fits = readyMinions(assessment.table.me).filter(
         minion => !ability.minion || profileMatches(minion, ability.minion),
     )
@@ -142,6 +152,7 @@ function playValue(
     assessment: Assessment,
     values: PlayValues,
     option: BotOptionOf<'playMaster'>,
+    cycle: number,
 ): Judged | null {
     const play = summaryOfPlay(option)
     if (!play) {
@@ -202,7 +213,7 @@ function playValue(
             total +
             (ability.windows.includes('unlockPhase') ?
                 groundWorth(assessment, ability) * master.stay
-            :   chargeWorth(assessment, values, ability)),
+            :   chargeWorth(assessment, values, ability, cycle)),
         0,
     )
     if (standing > 0) {
@@ -287,13 +298,37 @@ function choose(assessment: Assessment, endPhase: BotOption, groups: Judged[][])
 }
 
 /**
- * The master phase: the card of the hand or the move of blood that pays most, and the end of the phase when
- * none pays enough.
+ * What each master card of the hand would be worth if it were played now, by card: the best of its plays. A card
+ * with no play that pays ( or none at all ) is not in the map.
  */
-export function judgeMaster(decision: DecisionPoint, assessment: Assessment): MasterJudgement {
+export function masterWorths(
+    assessment: Assessment,
+    player: Player,
+    cycle = 0,
+): Map<CardOid, number> {
+    const values = new PlayValues(assessment)
+    const worths = new Map<CardOid, number>()
+    for (const option of getMasterCardOptions(player)) {
+        const judged = playValue(assessment, values, option, cycle)
+        if (judged) {
+            worths.set(option.card.oid, Math.max(worths.get(option.card.oid) ?? 0, judged.value))
+        }
+    }
+    return worths
+}
+
+/**
+ * The master phase: the card of the hand or the move of blood that pays most, and the end of the phase when
+ * none pays enough. `cycle` is what the charge of a card that throws cards away is worth per turn.
+ */
+export function judgeMaster(
+    decision: DecisionPoint,
+    assessment: Assessment,
+    cycle = 0,
+): MasterJudgement {
     const values = new PlayValues(assessment)
     const plays = optionsOfType(decision.options, 'playMaster').flatMap(
-        option => playValue(assessment, values, option) ?? [],
+        option => playValue(assessment, values, option, cycle) ?? [],
     )
     const moves = optionsOfType(decision.options, 'moveBlood').flatMap(
         option => moveValue(assessment, option) ?? [],

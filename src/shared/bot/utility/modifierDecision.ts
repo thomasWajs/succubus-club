@@ -1,6 +1,7 @@
 import { getCardDef } from '@/shared/cardImpl/catalog/index.ts'
 import { findPlay } from '@/shared/cardImpl/catalog/requirements.ts'
 import { CardOid } from '@/shared/types/model.ts'
+import { DeckList } from '@/shared/types/gateway.ts'
 import { getBlockingMinion, getReactingPlayers } from '@/shared/state/actionState.ts'
 import { resolveCost } from '@/shared/state/cardCosts.ts'
 import { getBlockedStrengthBonus, isBleed } from '@/shared/state/minionActions.ts'
@@ -17,6 +18,7 @@ import {
 import { attackKitOf, defenceOf, interceptReserve } from '@/shared/bot/utility/defence.ts'
 import { gainOfBleeds } from '@/shared/bot/utility/equity.ts'
 import { ExplainCandidate } from '@/shared/bot/utility/explain.ts'
+import { HandEvaluator } from '@/shared/bot/utility/hand.ts'
 import { MinionProfile } from '@/shared/bot/utility/minionProfile.ts'
 import { PlayValues } from '@/shared/bot/utility/cardActions.ts'
 import { candidateOf, idleOf } from '@/shared/bot/utility/turnPlan.ts'
@@ -57,15 +59,21 @@ type Context = {
     sources: Source[]
 }
 
-function sourcesOf(decision: DecisionPoint, assessment: Assessment): Source[] {
+function sourcesOf(
+    decision: DecisionPoint,
+    assessment: Assessment,
+    hand?: HandEvaluator,
+): Source[] {
     const { table, profile } = assessment
     return decision.options.flatMap((option): Source[] => {
         if (option.type == 'playModifier') {
             const { card, usage, by } = option.modifier
             const def = getCardDef(card)
             const effects = (def && findPlay(def, 'modifier', usage)?.effects) ?? []
+            // A card the hand has too many of costs less: the draw that takes its place is worth more than it
             const cost =
-                profile.plan.spentCard +
+                profile.plan.spentCard -
+                (hand ? hand.flowOf(card) : 0) +
                 resolveCost(card.bloodCost, usage.x) * profile.plan.bloodValue +
                 resolveCost(card.poolCost, usage.x) * profile.plan.caution
             return [
@@ -342,6 +350,7 @@ function playBonus(context: Context): ModifierJudgement {
 export function judgeModifier(
     decision: DecisionPoint,
     assessment: Assessment,
+    deck?: DeckList,
 ): ModifierJudgement | null {
     const { gameState } = decision.player
     const { action } = gameState
@@ -357,7 +366,13 @@ export function judgeModifier(
         action,
         actor,
         pass,
-        sources: sourcesOf(decision, assessment),
+        sources: sourcesOf(
+            decision,
+            assessment,
+            deck && decision.options.some(option => option.type == 'playModifier') ?
+                new HandEvaluator(assessment, deck, decision.player)
+            :   undefined,
+        ),
     }
     if (context.sources.length == 0) {
         return passed(context, 'nothing to play')

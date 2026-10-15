@@ -219,6 +219,40 @@ export type MasterWeights = {
     margin: number
 }
 
+// How the hand is judged ( hand.ts ). Draft numbers
+export type HandWeights = {
+    // The turns a card of the hand is expected to wait for its use: a role is used up to its rate over them, and
+    // the cards beyond that are spare
+    horizon: number
+    // What a card is worth that no card of the table's needs describes, once: a card the bot knows nothing of, a
+    // card with no known use
+    unknown: number
+    other: number
+    // What a master card of the library is worth when played, and the share of it that a card of the hand keeps
+    // while no play of it pays now ( `hold`: it waits for the vampire that needs it )
+    master: number
+    hold: number
+    // The share of what a card is worth that only a vampire of the uncontrolled region could play keeps
+    future: number
+    // The share of what a lunge or a fight would cost that one card of a role covers
+    cover: number
+    // What a Methuselah that shows no minion is assumed to do: the bleed of an action, the chance that its
+    // minions block my action, the pool a fight of its minions costs me
+    priorBleed: number
+    priorBlock: number
+    priorFight: number
+    // The fights a neighbour with a minion that hurts mine runs me into each turn, and the cards of the hand a fight uses
+    fightsPerTurn: number
+    cardsPerFight: number
+    // How much better than the weakest card of the hand a draw must be, in pool, for the weakest to be cycled
+    margin: number
+    // The same for a card in play that throws a card away: its charge is lost if it is not used before the next
+    // unlock phase, so the margin is small. `bleedOdds` is the chance that each minion of my predator that I
+    // know of bleeds me on its turn
+    chargeMargin: number
+    bleedOdds: number
+}
+
 export type BotProfile = {
     name: string
     // Temperature of the softmax pick among the scored options, 0 = always the best one
@@ -241,6 +275,7 @@ export type BotProfile = {
     cards: CardWeights
     influence: InfluenceWeights
     master: MasterWeights
+    hand: HandWeights
 }
 
 export const DEFAULT_PROFILE: BotProfile = {
@@ -330,4 +365,21 @@ export const DEFAULT_PROFILE: BotProfile = {
         lookahead: 10,
     },
     master: { stay: 6, handSize: 0.4, charge: 0.4, margin: 0.25 },
+    hand: {
+        horizon: 2,
+        unknown: 1,
+        other: 0.5,
+        master: 1.5,
+        hold: 0.6,
+        future: 0.4,
+        cover: 0.6,
+        priorBleed: 1,
+        priorBlock: 0.3,
+        priorFight: 1.5,
+        fightsPerTurn: 0.5,
+        cardsPerFight: 2,
+        margin: 0.25,
+        chargeMargin: 0.05,
+        bleedOdds: 0.5,
+    },
 }

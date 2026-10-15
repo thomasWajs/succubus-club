@@ -123,6 +123,10 @@ export class GameState {
     // The optional triggers waiting for a decision of a bot ( the first one is decided first )
     pendingTriggers: PendingTrigger[] = []
 
+    // The bots that may still use a card in play at the end of the turn, which the active bot has ended but not
+    // passed yet ( null: the turn is not ending )
+    turnEndWaiting: PlayerOid[] | null = null
+
     // The cards ( krcgId ) that a minion played since its last unlock phase, keyed by minion oid
     playedSinceUnlock: Record<CardOid, string[]> = {}
 
@@ -342,6 +346,7 @@ export class GameState {
             // Will normally be 1 or -1
             const delta = newTurnNumber - this.turnNumber
             this.turnNumber = newTurnNumber
+            this.turnEndWaiting = null
             this.activePlayerIndex =
                 (this.activePlayerIndex + delta + this.competingPlayers.length) %
                 this.competingPlayers.length

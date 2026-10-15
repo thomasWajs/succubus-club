@@ -18,6 +18,8 @@ import { candidateOf, planTurn } from '@/shared/bot/utility/turnPlan.ts'
 import { describeTurnPlan } from '@/shared/bot/utility/describeAssessment.ts'
 import { chooseLiveCombat } from '@/shared/bot/utility/liveCombat.ts'
 import { judgeBlock } from '@/shared/bot/utility/blockDecision.ts'
+import { cycleWorthOf, judgeCycle } from '@/shared/bot/utility/cycle.ts'
+import { discards, judgeDiscard, judgeDiscardExcess } from '@/shared/bot/utility/hand.ts'
 import { judgeInfluence } from '@/shared/bot/utility/influence.ts'
 import { judgeMaster, judgeUnlock } from '@/shared/bot/utility/masterPhase.ts'
 import { judgeModifier } from '@/shared/bot/utility/modifierDecision.ts'
@@ -52,8 +54,10 @@ type Choice = {
  * the block attempts are a judgement of what they save and cost ( blockDecision.ts ), and the stealth
  * and bleed cards of my own actions are played when they pay ( modifierDecision.ts ), and so are the
  * reaction cards, the cards in play, the window after a block and the triggers ( reactionDecision.ts ). The
- * vampires come out by a plan over the transfers to come ( influence.ts ), and the master phase and the unlock
- * phase play the master cards and move the blood by their worth ( masterPhase.ts ).
+ * vampires come out by a plan over the transfers to come ( influence.ts ), the master phase and the unlock
+ * phase play the master cards and move the blood by their worth ( masterPhase.ts ), and the hand is judged as a whole: the
+ * weakest card is cycled when a draw is worth more, and it is the one that goes when the hand is too big ( hand.ts ). A card in
+ * play that throws a card away waits for the best moment of the cycle to be used ( cycle.ts ).
  */
 export class UtilityAgent implements BotAgent {
     constructor(
@@ -82,6 +86,37 @@ export class UtilityAgent implements BotAgent {
     }
 
     private decide(context: DecisionContext): Choice {
+        const { decision } = context
+        if (decision.kind == DecisionKind.TurnEnd) {
+            const cycled = judgeCycle(decision, context.assessment, context.deck)
+            return cycled ?
+                    { ...cycled }
+                :   { option: this.fallback.choose(decision), note: 'nothing to use now' }
+        }
+        if (optionsOfType(decision.options, 'lockEffect').length > 0) {
+            // The free discard of the turn goes before a card in play that throws a card away: it cannot wait
+            if (decision.kind == DecisionKind.Discard) {
+                const free = judgeDiscard(decision, context.assessment, context.deck)
+                if (free.option.type == 'discard') {
+                    return free
+                }
+            }
+            const cycled = judgeCycle(decision, context.assessment, context.deck)
+            if (cycled) {
+                return cycled
+            }
+            return this.decideKind({
+                ...context,
+                decision: {
+                    ...decision,
+                    options: decision.options.filter(option => option.type != 'lockEffect'),
+                },
+            })
+        }
+        return this.decideKind(context)
+    }
+
+    private decideKind(context: DecisionContext): Choice {
         if (context.decision.kind == DecisionKind.Minion) {
             return this.minionPhase(context)
         }
@@ -94,7 +129,19 @@ export class UtilityAgent implements BotAgent {
             return judgeUnlock(context.decision, context.assessment)
         }
         if (context.decision.kind == DecisionKind.Master) {
-            return judgeMaster(context.decision, context.assessment)
+            // A card that throws cards away is worth the charges it gives over the turns it stays
+            const throwing = optionsOfType(context.decision.options, 'playMaster').some(option =>
+                discards(option.card),
+            )
+            const cycle =
+                throwing ? cycleWorthOf(context.decision, context.assessment, context.deck) : 0
+            return judgeMaster(context.decision, context.assessment, cycle)
+        }
+        if (context.decision.kind == DecisionKind.Discard) {
+            return judgeDiscard(context.decision, context.assessment, context.deck)
+        }
+        if (context.decision.kind == DecisionKind.DiscardExcess) {
+            return judgeDiscardExcess(context.decision, context.assessment, context.deck)
         }
         if (context.decision.kind == DecisionKind.Combat) {
             const live = chooseLiveCombat(context.decision, context.assessment)
@@ -103,7 +150,7 @@ export class UtilityAgent implements BotAgent {
             }
         }
         if (context.decision.kind == DecisionKind.ActionImpulse) {
-            const judged = judgeModifier(context.decision, context.assessment)
+            const judged = judgeModifier(context.decision, context.assessment, context.deck)
             if (judged) {
                 return judged
             }

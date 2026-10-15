@@ -14,7 +14,7 @@ import {
 } from '@/shared/types/state.ts'
 import { CARD_LOG_PLACEHOLDER } from '@/shared/const/game.ts'
 import { MutationSyncMode, VersioningId, VersioningTarget } from '@/shared/types/multiplayer.ts'
-import { CardOid } from '@/shared/types/model.ts'
+import { CardOid, PlayerOid } from '@/shared/types/model.ts'
 import { secureName } from '@/shared/state/cardVisibility.ts'
 import {
     canChangeTarget,
@@ -320,6 +320,64 @@ class ResolvePendingTrigger extends GameMutation<ResolvePendingTriggerParams> {
 
     formatForLog() {
         return this.params.used ? `${CARD_LOG_PLACEHOLDER} uses its ability` : null
+    }
+}
+
+/**
+ * The turn of the active bot is over: the bots that hold a card in play they can use at any time get a last
+ * chance before the turn passes ( see the decision TurnEnd ). Closed by the change of turn.
+ */
+
+interface OpenTurnEndParams extends GameMutationParams {
+    waiting: PlayerOid[]
+}
+
+class OpenTurnEnd extends GameMutation<OpenTurnEndParams> {
+    _isUserCancellable = false
+    readonly syncMode = MutationSyncMode.Exclusive
+
+    get allowedPlayer() {
+        return this.gameState.activePlayer
+    }
+
+    getValidity(gameState: GameState) {
+        return gameState.turnEndWaiting ? Invalid('The turn is already ending') : VALID
+    }
+
+    protected updateGameState(gameState: GameState) {
+        gameState.turnEndWaiting = [...this.params.waiting]
+    }
+
+    formatForLog() {
+        return null
+    }
+}
+
+/**
+ * A bot has nothing to use at the end of the turn of the active bot.
+ */
+
+class PassTurnEnd extends GameMutation<EmptyParams> {
+    _isUserCancellable = false
+    readonly syncMode = MutationSyncMode.Exclusive
+
+    get allowedPlayer() {
+        return ANY_PLAYER
+    }
+
+    getValidity(gameState: GameState) {
+        return gameState.turnEndWaiting?.includes(this.author.oid) ?
+                VALID
+            :   Invalid('The player is not waiting at the end of the turn')
+    }
+
+    protected updateGameState(gameState: GameState) {
+        gameState.turnEndWaiting =
+            gameState.turnEndWaiting?.filter(oid => oid != this.author.oid) ?? null
+    }
+
+    formatForLog() {
+        return null
     }
 }
 
@@ -1114,6 +1172,8 @@ export const botMutations = {
     attachCard: defineMutation(AttachCard),
     markCardUsed: defineMutation(MarkCardUsed),
     markPlayedSinceUnlock: defineMutation(MarkPlayedSinceUnlock),
+    openTurnEnd: defineMutation(OpenTurnEnd),
+    passTurnEnd: defineMutation(PassTurnEnd),
     resolvePendingTrigger: defineMutation(ResolvePendingTrigger),
     spendMasterPhaseAction: defineMutation(SpendMasterPhaseAction),
     spendTransfers: defineMutation(SpendTransfers),

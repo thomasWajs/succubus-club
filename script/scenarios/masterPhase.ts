@@ -325,10 +325,12 @@ export const MASTER_PHASE_SCENARIOS: Scenario[] = [
         },
     },
     {
-        name: 'Master: the Barrens and Wider View are not played, their abilities are not used',
+        name: 'Master: Wider View is not played and its abilities are not used, the Barrens is played to cycle',
         run() {
-            const turn = masterTurn({ hand: [BARRENS_ID, WIDER_VIEW_ID], ready: [{ blood: 8 }] })
-            expectEqual(played(playPhase(turn)), '', 'plays')
+            const wider = masterTurn({ hand: [WIDER_VIEW_ID], ready: [{ blood: 8 }] })
+            expectEqual(played(playPhase(wider)), '', 'Wider View')
+            const both = masterTurn({ hand: [BARRENS_ID, WIDER_VIEW_ID], ready: [{ blood: 8 }] })
+            expectEqual(played(playPhase(both)), 'Barrens, The', 'the Barrens')
         },
     },
     {
