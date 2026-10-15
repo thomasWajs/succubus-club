@@ -204,7 +204,13 @@ export class PlayValues {
 
     // An equipment or a retainer serves for `stay` turns ( or `turns` ), as long as its bearer is not lost: what
     // its bonuses are worth each turn, and the life counters once. Null when it carries nothing the bot values
-    attachedWorth(attached: Effect[], bearer: MinionProfile, turns?: number): number | null {
+    // `held` is the least that an intercept is worth each turn: what a card of the hand that intercepts is
+    attachedWorth(
+        attached: Effect[],
+        bearer: MinionProfile,
+        turns?: number,
+        held = 0,
+    ): number | null {
         const { cards } = this.assessment.profile
         let perTurn = 0
         let once = 0
@@ -216,7 +222,10 @@ export class PlayValues {
                     known = true
                     break
                 case 'intercept':
-                    perTurn += this.interceptWorth(bearer, effect.amount, effect.bleedsOnly)
+                    perTurn += Math.max(
+                        held,
+                        this.interceptWorth(bearer, effect.amount, effect.bleedsOnly),
+                    )
                     known = true
                     break
                 case 'environmentalDamage':

@@ -38,3 +38,10 @@ export const PostBlockDeck = <DeckList>{
     '200017': 2, // Aeron
     '200013': 2, // Adhiambo
 }
+
+// The Govern deck with the cards that give intercept, to play them in the harness
+export const GuardDeck = <DeckList>{
+    ...GovernDeck,
+    '101067': 8, // KRCG News Radio
+    '100866': 8, // Guardian Angel
+}

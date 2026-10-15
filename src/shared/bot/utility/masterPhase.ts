@@ -10,6 +10,7 @@ import { bloodChange } from '@/shared/bot/utility/bloat.ts'
 import { PlayValues } from '@/shared/bot/utility/cardActions.ts'
 import { ExplainCandidate } from '@/shared/bot/utility/explain.ts'
 import { MinionProfile, profileMatches } from '@/shared/bot/utility/minionProfile.ts'
+import { keepOf } from '@/shared/bot/utility/reserve.ts'
 import { readyMinions, unlockedMinions } from '@/shared/bot/utility/snapshot.ts'
 import { AbilitySummary, PlaySummary, summarizeCard } from '@/shared/bot/utility/summaries.ts'
 
@@ -21,6 +22,12 @@ import { AbilitySummary, PlaySummary, summarizeCard } from '@/shared/bot/utility
  * already in play and the use of the unlock effects. A trifle goes first: it gives back the master phase
  * action it uses. Nothing is kept from one decision to the next: what was played is gone from the options.
  */
+
+/**
+ * What the cards that last are worth per turn, read from the hand: the charge of a card that throws cards away,
+ * and what one use of an intercept against a bleed is worth with the bleeds of my predator to expect in a turn.
+ */
+export type Standing = { cycle: number; defence: number; bleeds: number }
 
 export type MasterJudgement = {
     option: BotOption
@@ -95,11 +102,11 @@ function chargeWorth(
     assessment: Assessment,
     values: PlayValues,
     ability: AbilitySummary,
-    cycle: number,
+    standing: Standing,
 ): number {
     const { master } = assessment.profile
     if (ability.effects.some(effect => effect.type == 'discardFromHand')) {
-        return cycle * master.stay
+        return standing.cycle * master.stay
     }
     const fits = readyMinions(assessment.table.me).filter(
         minion => !ability.minion || profileMatches(minion, ability.minion),
@@ -115,9 +122,16 @@ function chargeWorth(
         const intercept = ability.effects.flatMap(effect =>
             effect.type == 'intercept' ? [effect] : [],
         )
+        // One use a turn, worth what an intercept card of the hand is
+        const held = intercept.length > 0 ? Math.min(1, standing.bleeds) * standing.defence : 0
         return Math.max(
             0,
-            ...fits.map(minion => values.attachedWorth(intercept, minion, master.stay) ?? 0),
+            ...fits.map(minion =>
+                Math.max(
+                    held * master.stay,
+                    values.attachedWorth(intercept, minion, master.stay) ?? 0,
+                ),
+            ),
         )
     }
     return 0
@@ -152,14 +166,14 @@ function playValue(
     assessment: Assessment,
     values: PlayValues,
     option: BotOptionOf<'playMaster'>,
-    cycle: number,
+    standing: Standing,
 ): Judged | null {
     const play = summaryOfPlay(option)
     if (!play) {
         return null
     }
     const { profile } = assessment
-    const { master, plan, bloat } = profile
+    const { master, plan } = profile
     const target = profileOf(assessment, option.target)
     const poolCost =
         resolveCost(option.card.poolCost) +
@@ -178,7 +192,7 @@ function playValue(
             case 'bloodToPool': {
                 const taken = option.amount ?? 0
                 // A vampire keeps what it needs for itself
-                if (!target || target.blood - taken < bloat.keep) {
+                if (!target || target.blood - taken < keepOf(assessment, target)) {
                     return null
                 }
                 parts.pool = (parts.pool ?? 0) + conversionOf(assessment, taken)
@@ -199,25 +213,29 @@ function playValue(
             // What the carriers on it already move is spoken for
             const stock = Math.max(
                 0,
-                target.blood - bloat.keep - target.bloodMove * profile.cards.stay,
+                target.blood - keepOf(assessment, target) - target.bloodMove * profile.cards.stay,
             )
             parts.carry = conversionOf(assessment, Math.min(carried * profile.cards.stay, stock))
         }
-        const attached = values.attachedWorth(play.attached, target)
+        // An intercept that stays serves each bleed against me, and the bearer is one of the vampires that can block
+        const held =
+            (standing.defence * standing.bleeds) /
+            Math.max(1, readyMinions(assessment.table.me).length)
+        const attached = values.attachedWorth(play.attached, target, undefined, held)
         if (attached !== null) {
             parts.attached = attached
         }
     }
-    const standing = play.abilities.reduce(
+    const lasting = play.abilities.reduce(
         (total, ability) =>
             total +
             (ability.windows.includes('unlockPhase') ?
                 groundWorth(assessment, ability) * master.stay
-            :   chargeWorth(assessment, values, ability, cycle)),
+            :   chargeWorth(assessment, values, ability, standing)),
         0,
     )
-    if (standing > 0) {
-        parts.standing = standing
+    if (lasting > 0) {
+        parts.standing = lasting
     }
     const value = Object.values(parts).reduce((total, part) => total + part, 0)
     if (value >= master.margin && !holdsAfter(assessment, poolCost)) {
@@ -238,14 +256,37 @@ function playValue(
     }
 }
 
+// Pool put back on a vampire by a card on it: the blood, and the hunt that a vampire with none is spared, against
+// the pool it costs, which may not leave my predator a better chance to oust me
+function backValue(
+    assessment: Assessment,
+    option: BotOptionOf<'moveBlood'>,
+    vampire: MinionProfile,
+): Judged | null {
+    const blood = gainOf(assessment, vampire, option.amount)
+    const pool = -option.amount * assessment.profile.plan.caution
+    if (blood + pool <= 0 || !holdsAfter(assessment, option.amount)) {
+        return null
+    }
+    return {
+        option,
+        value: blood + pool,
+        trifle: false,
+        fill: vampire.blood / Math.max(1, vampire.capacity),
+        parts: { blood, pool },
+    }
+}
+
 // Blood of a vampire moved to the pool by a card on it: only what the vampire does not need for itself
 function moveValue(assessment: Assessment, option: BotOptionOf<'moveBlood'>): Judged | null {
     const vampire = profileOf(assessment, option.vampire)
-    if (
-        !option.toPool ||
-        !vampire ||
-        vampire.blood - option.amount < assessment.profile.bloat.keep
-    ) {
+    if (!vampire) {
+        return null
+    }
+    if (!option.toPool) {
+        return backValue(assessment, option, vampire)
+    }
+    if (vampire.blood - option.amount < keepOf(assessment, vampire)) {
         return null
     }
     return {
@@ -304,12 +345,12 @@ function choose(assessment: Assessment, endPhase: BotOption, groups: Judged[][])
 export function masterWorths(
     assessment: Assessment,
     player: Player,
-    cycle = 0,
+    standing: Standing,
 ): Map<CardOid, number> {
     const values = new PlayValues(assessment)
     const worths = new Map<CardOid, number>()
     for (const option of getMasterCardOptions(player)) {
-        const judged = playValue(assessment, values, option, cycle)
+        const judged = playValue(assessment, values, option, standing)
         if (judged) {
             worths.set(option.card.oid, Math.max(worths.get(option.card.oid) ?? 0, judged.value))
         }
@@ -319,16 +360,16 @@ export function masterWorths(
 
 /**
  * The master phase: the card of the hand or the move of blood that pays most, and the end of the phase when
- * none pays enough. `cycle` is what the charge of a card that throws cards away is worth per turn.
+ * none pays enough.
  */
 export function judgeMaster(
     decision: DecisionPoint,
     assessment: Assessment,
-    cycle = 0,
+    standing: Standing,
 ): MasterJudgement {
     const values = new PlayValues(assessment)
     const plays = optionsOfType(decision.options, 'playMaster').flatMap(
-        option => playValue(assessment, values, option, cycle) ?? [],
+        option => playValue(assessment, values, option, standing) ?? [],
     )
     const moves = optionsOfType(decision.options, 'moveBlood').flatMap(
         option => moveValue(assessment, option) ?? [],

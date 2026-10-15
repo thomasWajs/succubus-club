@@ -8,7 +8,7 @@ import { Assessment, assessSnapshot } from '@/shared/bot/utility/assessment.ts'
 import { exact, resolveAttack } from '@/shared/bot/utility/attack.ts'
 import { attackersOf, defenceOf, toAttackers } from '@/shared/bot/utility/defence.ts'
 import { ExplainCandidate } from '@/shared/bot/utility/explain.ts'
-import { masterWorths } from '@/shared/bot/utility/masterPhase.ts'
+import { masterWorths, Standing } from '@/shared/bot/utility/masterPhase.ts'
 import { MinionProfile } from '@/shared/bot/utility/minionProfile.ts'
 import { isRoleLive, readyMinions } from '@/shared/bot/utility/snapshot.ts'
 import {
@@ -187,6 +187,18 @@ function needsOf(assessment: Assessment): Table {
     return { needs, bleeds, fights }
 }
 
+function standingOfTable(table: Table, cycle: number): Standing {
+    return { cycle, defence: table.needs.defence.worth, bleeds: table.bleeds }
+}
+
+/**
+ * What the cards in play that last are worth per turn with the hand as it is: the charge of a card that throws
+ * cards away is `cycle`, an intercept is worth what a card of the hand that intercepts is.
+ */
+export function standingFor(assessment: Assessment, cycle: number): Standing {
+    return standingOfTable(needsOf(assessment), cycle)
+}
+
 // How much of a play a card of the hand can make with the vampires I have: all, what a vampire of the
 // uncontrolled region could make, or nothing
 function playableShare(assessment: Assessment, play: PlaySummary): number {
@@ -286,7 +298,7 @@ export class HandEvaluator {
                     summarizeCard(card)?.plays.some(play => play.kind == 'master'),
                 )
             ) ?
-                masterWorths(assessment, player)
+                masterWorths(assessment, player, standingOfTable(table, 0))
             :   new Map<CardOid, number>()
         this.entries = player.hand.cards.flatMap(card =>
             card instanceof LibraryCard ?
@@ -447,6 +459,17 @@ function candidatesOf(
             parts: { keep: evaluator.keeps.get(card.oid) ?? 0 },
         }))
         .toSorted((a, b) => b.score - a.score)
+}
+
+// Does the card give an intercept against the bleeds, once it is in play or put on a minion
+export function guards(card: LibraryCard): boolean {
+    return (summarizeCard(card)?.plays ?? []).some(
+        play =>
+            play.attached.some(effect => effect.type == 'intercept') ||
+            play.abilities.some(ability =>
+                ability.effects.some(effect => effect.type == 'intercept'),
+            ),
+    )
 }
 
 // Does the card in play let its controller throw a card of the hand away

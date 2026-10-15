@@ -3,8 +3,16 @@ import { TurnPhase, TurnSequence } from '@/shared/const/model.ts'
 import { MinionActionType } from '@/shared/types/state.ts'
 import { DeckList } from '@/shared/types/gateway.ts'
 import { DecisionKind, DecisionPoint, optionsOfType } from '@/shared/bot/types.ts'
+import { Standing } from '@/shared/bot/utility/masterPhase.ts'
 import { Assessment } from '@/shared/bot/utility/assessment.ts'
-import { discards, HandEvaluator, HandJudgement, NeedKind } from '@/shared/bot/utility/hand.ts'
+import {
+    discards,
+    guards,
+    HandEvaluator,
+    HandJudgement,
+    NeedKind,
+    standingFor,
+} from '@/shared/bot/utility/hand.ts'
 
 /**
  * A card in play that throws a card of the hand away ( The Barrens ) has one charge per cycle, from one unlock
@@ -205,4 +213,18 @@ export function cycleWorthOf(
         decision.player.hand.cards.filter(card => card instanceof LibraryCard),
     )
     return cycle ? valueOf(cycle.windows, cycle.gain) : 0
+}
+
+/**
+ * What the cards of the master phase that last are worth per turn: the charge of those that throw cards away and the
+ * intercept of those that give it, priced only when a card of the decision does one of them.
+ */
+export function standingOf(
+    decision: DecisionPoint,
+    assessment: Assessment,
+    deck: DeckList,
+): Standing {
+    const cards = optionsOfType(decision.options, 'playMaster').map(option => option.card)
+    const cycle = cards.some(discards) ? cycleWorthOf(decision, assessment, deck) : 0
+    return cards.some(guards) ? standingFor(assessment, cycle) : { cycle, defence: 0, bleeds: 0 }
 }

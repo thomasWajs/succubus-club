@@ -14,6 +14,8 @@ import { applyOption, getDecisionPoint } from '@/shared/bot/referee.ts'
 import { UtilityAgent } from '@/shared/bot/agents/utilityAgent.ts'
 import { BotOption, DecisionKind, DecisionPoint, optionsOfType } from '@/shared/bot/types.ts'
 import { BotProfile, DEFAULT_PROFILE } from '@/shared/bot/utility/profile.ts'
+import { standingOf } from '@/shared/bot/utility/cycle.ts'
+import { HandEvaluator } from '@/shared/bot/utility/hand.ts'
 import { judgeMaster } from '@/shared/bot/utility/masterPhase.ts'
 import {
     Ring,
@@ -81,6 +83,7 @@ type MasterSetup = {
     // Cards put on the vampire of this index ( in the order of `ready` )
     attached?: [number, string][]
     pool?: number
+    prey?: MinionSetup[]
     predator?: MinionSetup[]
 }
 
@@ -99,6 +102,7 @@ function masterTurn(setup: MasterSetup): MasterTurn {
     for (const [index, ready] of setup.ready.entries()) {
         vampires[index].minionAttrs.capacity = ready.capacity ?? 8
     }
+    addMinions(ring, ring.players[1], setup.prey ?? [])
     addMinions(ring, ring.players[players - 1], setup.predator ?? [])
     for (const player of ring.players) {
         holdOnly(ring, player, player == me ? (setup.hand ?? []) : [])
@@ -161,8 +165,13 @@ function playPhase(
 
 // The top candidate of the master phase, through the view of the agent, and its terms
 function best(turn: MasterTurn, profile: BotProfile = DEFAULT_PROFILE) {
-    const { candidates } = judgeMaster(decisionOf(turn), assessAs(turn.ring, turn.me, profile))
-    return candidates[0]?.parts ?? {}
+    return judged(turn, profile).candidates[0]?.parts ?? {}
+}
+
+function judged(turn: MasterTurn, profile: BotProfile = DEFAULT_PROFILE) {
+    const decision = decisionOf(turn)
+    const assessment = assessAs(turn.ring, turn.me, profile)
+    return judgeMaster(decision, assessment, standingOf(decision, assessment, MASTER_DECK))
 }
 
 function played(done: BotOption[]): string {
@@ -307,6 +316,68 @@ export const MASTER_PHASE_SCENARIOS: Scenario[] = [
         },
     },
     {
+        name: 'Master: the Doll puts a pool back on a vampire with no blood, which is spared a hunt, and on no other',
+        run() {
+            const { plan } = DEFAULT_PROFILE
+            const empty = masterTurn({ ready: [{ blood: 0 }], attached: [[0, BLOOD_DOLL_ID]] })
+            const pool = empty.me.pool
+            const parts = best(empty)
+            expectClose(parts.pool, -plan.caution, 'the pool it costs')
+            expectEqual(parts.blood > plan.cardAction, true, 'the hunt it spares and the blood')
+            expectEqual(played(playPhase(empty)), 'move', 'moves')
+            expectEqual(empty.me.pool, pool - 1, 'pool')
+            expectEqual(empty.vampires[0].blood, 1, 'blood')
+            const fed = masterTurn({ ready: [{ blood: 1 }], attached: [[0, BLOOD_DOLL_ID]] })
+            expectEqual(played(playPhase(fed)), '', 'a vampire with blood keeps its hunt')
+        },
+    },
+    {
+        name: 'Master: no pool goes back to a vampire when the pool left lets my predator oust me',
+        run() {
+            const setup = (predator: MinionSetup[]) =>
+                masterTurn({
+                    ready: [{ blood: 0 }],
+                    attached: [[0, BLOOD_DOLL_ID]],
+                    pool: 3,
+                    predator,
+                })
+            expectEqual(played(playPhase(setup([]))), 'move', 'a calm table')
+            const threat = setup([{ bleed: 2 }])
+            for (const vampire of threat.vampires) {
+                vampire.isLocked = true
+            }
+            expectEqual(played(playPhase(threat)), '', 'under the threat')
+        },
+    },
+    {
+        name: 'Master: a vampire keeps more blood against a neighbour that fights hard, a Villein and a Doll leave it on it',
+        run() {
+            const fighter = (strength: number): MinionSetup[] => [
+                { strength, bleed: 1, disciplines: { Potence: 1 } as never },
+            ]
+            const villein = (predator: MinionSetup[], prey: MinionSetup[] = []) =>
+                masterTurn({ hand: [VILLEIN_ID], ready: [{ blood: 6 }], predator, prey })
+            expectPlay(playPhase(villein([])), 'Villein', undefined, 4)
+            expectPlay(playPhase(villein(fighter(1))), 'Villein', undefined, 3)
+            expectPlay(playPhase(villein(fighter(4))), 'Villein', undefined, 2)
+            expectPlay(playPhase(villein([], fighter(4))), 'Villein', undefined, 2)
+            for (const both of [
+                [...fighter(1), ...fighter(4)],
+                [...fighter(4), ...fighter(1)],
+            ]) {
+                expectPlay(playPhase(villein(both)), 'Villein', undefined, 2)
+            }
+            const dolls = (predator: MinionSetup[]) =>
+                masterTurn({ hand: [BLOOD_DOLL_ID], ready: [{ blood: 4 }], predator })
+            expectPlay(playPhase(dolls([])), 'Blood Doll')
+            expectEqual(played(playPhase(dolls(fighter(4)))), '', 'no Doll to carry what it needs')
+            const doll = (predator: MinionSetup[]) =>
+                masterTurn({ ready: [{ blood: 3 }], attached: [[0, BLOOD_DOLL_ID]], predator })
+            expectEqual(played(playPhase(doll([]))), 'move', 'a calm table')
+            expectEqual(played(playPhase(doll(fighter(4)))), '', 'a fighter next door')
+        },
+    },
+    {
         name: 'Master: a trifle goes first, it gives back the master phase action for the other card',
         run() {
             const turn = masterTurn({ hand: [ELDER_LIBRARY_ID, VILLEIN_ID], ready: [{ blood: 4 }] })
@@ -377,21 +448,71 @@ export const MASTER_PHASE_SCENARIOS: Scenario[] = [
         },
     },
     {
-        name: 'Master: the intercept of KRCG News Radio and of a Guardian Angel is worth something, not the 2 pool they cost here',
+        name: 'Master: KRCG News Radio is worth what an intercept card of the hand is worth, on each turn it stays',
         run() {
+            const { master } = DEFAULT_PROFILE
             const turn = masterTurn({
-                hand: [KRCG_ID, GUARDIAN_ANGEL_ID],
+                hand: [KRCG_ID],
                 ready: [{ blood: 5 }, { blood: 5 }],
                 predator: [{ bleed: 3 }, { bleed: 3 }, { bleed: 3 }],
             })
-            const { candidates } = judgeMaster(decisionOf(turn), assessAs(turn.ring, turn.me))
-            const parts = (name: string) =>
-                candidates.find(
-                    ({ option }) => option.type == 'playMaster' && option.card.name == name,
-                )?.parts
-            expectEqual((parts('KRCG News Radio')?.standing ?? 0) > 0, true, 'the charge of KRCG')
-            expectEqual((parts('Guardian Angel')?.attached ?? 0) > 0, true, 'the angel')
+            const assessment = assessAs(turn.ring, turn.me)
+            const standing = standingOf(decisionOf(turn), assessment, MASTER_DECK)
+            const card = new HandEvaluator(assessment, MASTER_DECK, turn.me).needs.defence.worth
+            expectEqual(standing.defence > 0, true, 'an intercept is worth something')
+            expectClose(standing.defence, card, 'the worth of a card held')
+            expectClose(
+                best(turn).standing,
+                Math.min(1, standing.bleeds) * standing.defence * master.stay,
+                'one use a turn, over the turns it stays',
+            )
+            expectPlay(playPhase(turn), 'KRCG News Radio')
+        },
+    },
+    {
+        name: 'Master: KRCG News Radio is worth nothing when no minion of mine could use it',
+        run() {
+            const turn = masterTurn({
+                hand: [KRCG_ID],
+                ready: [],
+                predator: [{ bleed: 3 }, { bleed: 3 }, { bleed: 3 }],
+            })
+            expectEqual(best(turn).standing ?? 0, 0, 'its charge')
             expectEqual(played(playPhase(turn)), '', 'plays')
+        },
+    },
+    {
+        name: 'Master: a Guardian Angel is worth an intercept per bleed against me, shared by the vampires that can block',
+        run() {
+            const { cards } = DEFAULT_PROFILE
+            const setup = (ready: Ready[]) =>
+                masterTurn({
+                    hand: [GUARDIAN_ANGEL_ID],
+                    ready,
+                    predator: [{ bleed: 3 }, { bleed: 3 }, { bleed: 3 }],
+                })
+            const shieldOf = (turn: MasterTurn) => {
+                const { defence, bleeds } = standingOf(
+                    decisionOf(turn),
+                    assessAs(turn.ring, turn.me),
+                    MASTER_DECK,
+                )
+                return (defence * bleeds) / turn.vampires.length
+            }
+            const prevention = cards.perPrevention
+            const alone = setup([{ blood: 8 }])
+            expectClose(
+                best(alone).attached,
+                cards.stay * (shieldOf(alone) + prevention),
+                'a lone vampire',
+            )
+            expectPlay(playPhase(alone), 'Guardian Angel')
+            const pair = setup([{ blood: 8 }, { blood: 8 }])
+            expectClose(
+                best(pair).attached,
+                cards.stay * (shieldOf(pair) + prevention),
+                'one of two vampires',
+            )
         },
     },
     {

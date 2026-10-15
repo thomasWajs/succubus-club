@@ -14,8 +14,9 @@ import { getDecisionPoint } from '@/shared/bot/referee.ts'
 import { UtilityAgent } from '@/shared/bot/agents/utilityAgent.ts'
 import { BotOption, DecisionPoint } from '@/shared/bot/types.ts'
 import { BotProfile, DEFAULT_PROFILE } from '@/shared/bot/utility/profile.ts'
+import { assess } from '@/shared/bot/utility/assessment.ts'
 import { HandEvaluator } from '@/shared/bot/utility/hand.ts'
-import { Ring, MinionSetup, addMinions, assessAs, createRing, holdOnly } from './assessment.ts'
+import { Ring, MinionSetup, addMinions, createRing, holdOnly } from './assessment.ts'
 import { sealLibrary } from './bounce.ts'
 import {
     BARRENS_ID,
@@ -153,7 +154,7 @@ export function nameOf(option: BotOption): string | null {
 export function worths(turn: HandTurn, profile: BotProfile = DEFAULT_PROFILE): string {
     const view = createPlayerView(turn.ring.gameState, turn.me)
     try {
-        const assessment = assessAs(turn.ring, turn.me, profile)
+        const assessment = assess(view.gameState, view.player, profile)
         const evaluator = new HandEvaluator(assessment, HAND_DECK, view.player)
         const keeps = view.player.hand.cards
             .map(card => `${card.name} ${(evaluator.keeps.get(card.oid) ?? 0).toFixed(2)}`)
@@ -175,7 +176,11 @@ export function worths(turn: HandTurn, profile: BotProfile = DEFAULT_PROFILE): s
 function keepOf(turn: HandTurn, name: string): number {
     const view = createPlayerView(turn.ring.gameState, turn.me)
     try {
-        const evaluator = new HandEvaluator(assessAs(turn.ring, turn.me), HAND_DECK, view.player)
+        const evaluator = new HandEvaluator(
+            assess(view.gameState, view.player),
+            HAND_DECK,
+            view.player,
+        )
         const card = view.player.hand.cards.find(candidate => candidate.name == name)
         if (!card) {
             throw new ScenarioFailure(`${name} is not in the hand`)
@@ -190,7 +195,11 @@ function keepOf(turn: HandTurn, name: string): number {
 function keepsOf(turn: HandTurn, name: string): number[] {
     const view = createPlayerView(turn.ring.gameState, turn.me)
     try {
-        const evaluator = new HandEvaluator(assessAs(turn.ring, turn.me), HAND_DECK, view.player)
+        const evaluator = new HandEvaluator(
+            assess(view.gameState, view.player),
+            HAND_DECK,
+            view.player,
+        )
         return view.player.hand.cards
             .filter(card => card.name == name)
             .map(card => evaluator.keeps.get(card.oid) ?? 0)

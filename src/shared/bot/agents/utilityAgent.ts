@@ -18,8 +18,8 @@ import { candidateOf, planTurn } from '@/shared/bot/utility/turnPlan.ts'
 import { describeTurnPlan } from '@/shared/bot/utility/describeAssessment.ts'
 import { chooseLiveCombat } from '@/shared/bot/utility/liveCombat.ts'
 import { judgeBlock } from '@/shared/bot/utility/blockDecision.ts'
-import { cycleWorthOf, judgeCycle } from '@/shared/bot/utility/cycle.ts'
-import { discards, judgeDiscard, judgeDiscardExcess } from '@/shared/bot/utility/hand.ts'
+import { judgeCycle, standingOf } from '@/shared/bot/utility/cycle.ts'
+import { judgeDiscard, judgeDiscardExcess } from '@/shared/bot/utility/hand.ts'
 import { judgeInfluence } from '@/shared/bot/utility/influence.ts'
 import { judgeMaster, judgeUnlock } from '@/shared/bot/utility/masterPhase.ts'
 import { judgeModifier } from '@/shared/bot/utility/modifierDecision.ts'
@@ -129,13 +129,11 @@ export class UtilityAgent implements BotAgent {
             return judgeUnlock(context.decision, context.assessment)
         }
         if (context.decision.kind == DecisionKind.Master) {
-            // A card that throws cards away is worth the charges it gives over the turns it stays
-            const throwing = optionsOfType(context.decision.options, 'playMaster').some(option =>
-                discards(option.card),
+            return judgeMaster(
+                context.decision,
+                context.assessment,
+                standingOf(context.decision, context.assessment, context.deck),
             )
-            const cycle =
-                throwing ? cycleWorthOf(context.decision, context.assessment, context.deck) : 0
-            return judgeMaster(context.decision, context.assessment, cycle)
         }
         if (context.decision.kind == DecisionKind.Discard) {
             return judgeDiscard(context.decision, context.assessment, context.deck)
