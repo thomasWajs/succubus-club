@@ -21,39 +21,28 @@ export function isUrlDeck(source: DeckSource): source is UrlDeckSource {
     return source in URL_DECK_ENDPOINTS
 }
 
-async function updateUrlDeck(deck: DbDeck) {
-    if (!isUrlDeck(deck.source)) {
-        throw new Error(`Deck source "${deck.source}" cannot be updated`)
-    }
-    const krcgEndpoint = URL_DECK_ENDPOINTS[deck.source]
-
-    const freshDeck = await fetchFromDeckBuilder(krcgEndpoint, deck.sourceValue)
-    await db.decks.update(deck.id, { cards: freshDeck.cards })
-    const updatedDeck = await DbDeck.get(deck.id)
+async function updateDeck(dbDeck: DbDeck, deck: Deck) {
+    await db.decks.update(dbDeck.id, { cards: deck.cards })
+    const updatedDeck = await DbDeck.get(dbDeck.id)
     if (!updatedDeck) {
         throw new Error('Error while refreshing the deck')
     }
     return updatedDeck
 }
 
-export async function getOrImportDeck(
+// An deck already existing in the db is always re-imported, to avoid stale states.
+export async function importDeck(
     source: DeckSource,
     sourceId: string,
     importer: () => Promise<Deck>,
 ) {
-    let dbDeck = await db.decks
+    const deck = await importer()
+    const dbDeck = await db.decks
         .filter(deck => deck.source === source && deck.sourceValue === sourceId)
         .first()
-
-    if (dbDeck && isUrlDeck(source)) {
-        return await updateUrlDeck(dbDeck)
-    }
-
-    if (!dbDeck) {
-        const deck = await importer()
-        dbDeck = await DbDeck.create(deck.name, deck.cards, source, sourceId)
-    }
-    return dbDeck
+    return dbDeck ?
+            await updateDeck(dbDeck, deck)
+        :   await DbDeck.create(deck.name, deck.cards, source, sourceId)
 }
 
 export async function selectDeck(deck: DbDeck) {
@@ -66,27 +55,31 @@ export async function selectDeck(deck: DbDeck) {
 
 export async function getOrImportFromDeckBuilder(deckSource: UrlDeckSource, url: string) {
     const krcgEndpoint = URL_DECK_ENDPOINTS[deckSource]
-    const dbDeck = await getOrImportDeck(deckSource, url, () =>
-        fetchFromDeckBuilder(krcgEndpoint, url),
-    )
+    const dbDeck = await importDeck(deckSource, url, () => fetchFromDeckBuilder(krcgEndpoint, url))
     await selectDeck(dbDeck)
 }
 
-export async function refreshDeck(deck: DbDeck) {
-    const updatedDeck = await updateUrlDeck(deck)
-    await selectDeck(updatedDeck)
-}
-
 export async function getOrImportText(deckText: string) {
-    const dbDeck = await getOrImportDeck(DeckSource.Text, deckText, () => importTextDeck(deckText))
+    const dbDeck = await importDeck(DeckSource.Text, deckText, () => importTextDeck(deckText))
     await selectDeck(dbDeck)
 }
 
 export async function getOrImportPrecon(fullPreconId: string, name: string, cards: DeckList) {
-    const dbDeck = await getOrImportDeck(DeckSource.Precon, fullPreconId, () =>
+    const dbDeck = await importDeck(DeckSource.Precon, fullPreconId, () =>
         Promise.resolve({ name, cards }),
     )
     await selectDeck(dbDeck)
+}
+
+export async function refreshUrlDeck(deck: DbDeck) {
+    if (!isUrlDeck(deck.source)) {
+        throw new Error(`"${deck.source}" is not an url source`)
+    }
+
+    const krcgEndpoint = URL_DECK_ENDPOINTS[deck.source]
+    const freshDeck = await fetchFromDeckBuilder(krcgEndpoint, deck.sourceValue)
+    const updatedDeck = await updateDeck(deck, freshDeck)
+    await selectDeck(updatedDeck)
 }
 
 export function countCards(deckList: DeckList) {
