@@ -1,6 +1,6 @@
-/* zvtes protocol 1.4.0 (docs/protocol.md): generated from
+/* zvtes protocol 1.5.0 (docs/protocol.md): generated from
  * crates/api/schema.json by scripts/gen_ts.py, do not edit. */
-export const PROTOCOL_VERSION = '1.4.0'
+export const PROTOCOL_VERSION = '1.5.0'
 
 /**
  * A command as sent: an optional client id, echoed by an `error` it
@@ -1029,6 +1029,9 @@ export type Player =
 export type Purpose =
     | 'discard_chosen'
     | 'move_card_to_titled'
+    | 'move_off_burned_bearer'
+    | 'secret_number'
+    | 'search_equip_for'
     | 'give_blood'
     | 'move_between'
     | 'pay_or_burn'
@@ -1091,6 +1094,7 @@ export type Purpose =
     | 'beast_disciplines'
     | 'store_prey_ash'
     | 'name_own_ash_card'
+    | 'name_ash_vampire'
     | 'name_ash_pair'
     | 'may_put_on'
     | 'may_add_counter'
