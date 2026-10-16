@@ -17,7 +17,7 @@ import type {
     ZoneRef,
 } from '@/client/engine/api.ts'
 import { Player } from '@/shared/model/Player.ts'
-import { windowName } from '@/client/engine/labels.ts'
+import { strikeName, windowName } from '@/client/engine/labels.ts'
 import type { EngineOut } from '@/client/engine/host.ts'
 import { AnyCardRegion } from '@/shared/types/model.ts'
 import { EngineCombat, useEngineStore } from '@/client/store/engine.ts'
@@ -202,7 +202,7 @@ function combatOf(view: TableView, seat: number): EngineCombat | null {
         sides: view.combat.sides.map(side => ({
             name: name(side.minion),
             own: own(side.minion),
-            strike: side.strike ? (side.strike.text ?? side.strike.kind) : undefined,
+            strike: side.strike ? strikeName(side.strike) : undefined,
             maneuvers: side.maneuvers,
             presses: side.presses,
         })),

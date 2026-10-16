@@ -1,8 +1,16 @@
 /**
- * Names for the server's ids where the table shows them : windows, actions, markers.
+ * Names for the server's ids where the table shows them : windows, actions, strikes, markers.
  */
 
-import type { ActionKind, Marker, MarkerKind, Mode, Window } from '@/client/engine/api.ts'
+import type {
+    ActionKind,
+    Marker,
+    MarkerKind,
+    Mode,
+    Strike,
+    StrikeKind,
+    Window,
+} from '@/client/engine/api.ts'
 import { gameResources } from '@/shared/registries.ts'
 
 // A window's name
@@ -73,6 +81,29 @@ const ACTIONS: Partial<Record<ActionKind, string>> = {
 
 export const windowName = (w: Window) => WINDOWS[w] ?? w.replace(/_/g, ' ')
 export const actionName = (a: ActionKind) => ACTIONS[a] ?? a.replace(/_/g, ' ')
+
+// A strike's name
+const STRIKES: Partial<Record<StrikeKind, string>> = {
+    hand: 'hands',
+    melee: 'weapon',
+    ranged_burn_equipment: 'burn equipment',
+    corrupt: 'corruption',
+    card_effect: 'strike',
+    unknown: 'strike',
+}
+
+// A declared strike as the combat panel shows it : its card ( a weapon ) or kind, then what it
+// deals ( 'hands (3)', 'hands (1 agg)', 'Sniper Rifle (2 ranged)' )
+export function strikeName(strike: Strike): string {
+    const card = strike.card != null ? gameResources.cardbase[strike.card]?.name : undefined
+    const name = card ?? STRIKES[strike.kind] ?? strike.kind.replace(/_/g, ' ')
+    const deals = [
+        strike.n != null ? `${strike.n}` : undefined,
+        strike.aggravated ? 'agg' : undefined,
+        strike.ranged ? 'ranged' : undefined,
+    ].filter(part => part != undefined)
+    return deals.length > 0 ? `${name} (${deals.join(' ')})` : name
+}
 
 // A mode's printed tags : its Disciplines ( 'dom' basic, 'DOM' superior ), its card type ( 'COMBAT' )
 export function modeTags(mode: Mode | null | undefined): string[] {

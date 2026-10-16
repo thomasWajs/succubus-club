@@ -27,7 +27,7 @@ export type EngineCombat = {
     sides: EngineCombatSideView[]
 }
 
-// A side of the combat : its minion, whether it is the user's, its strike once declared ( its text ),
+// A side of the combat : its minion, whether it is the user's, its strike once declared ( its name and damage ),
 // its maneuvers and presses for the round
 export type EngineCombatSideView = {
     name: string
