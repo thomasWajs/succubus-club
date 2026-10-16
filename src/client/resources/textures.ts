@@ -3,6 +3,7 @@ import Phaser from 'phaser'
 import { ASSETS_URL, ATLASES, atlasUrls, CARDS_PATH } from '@/client/resources/cards.ts'
 import { fetchWithRetry } from '@/client/resources/index.ts'
 import { useCoreStore } from '@/client/store/core.ts'
+import * as logging from '@/client/logging.ts'
 
 export enum Texture {
     BrokenChain = 'brokenChain',
@@ -66,6 +67,10 @@ export function preloadAllTextures() {
 }
 
 export function setupTextureListener(scene: Phaser.Scene) {
+    // A new Phaser game starts with an empty texture manager : the images loaded on demand by an
+    // earlier game in this page are gone with it, and must be loaded again
+    loadedTextures.clear()
+    loadAttempts.clear()
     scene.textures.on('addtexture', (textureName: string) => {
         loadedTextures.add(textureName)
     })
@@ -79,9 +84,50 @@ export function enqueueTextureLoading(scene: Phaser.Scene, cardName: string) {
     scene.load.image(cardName, `${CARDS_PATH}/${cardName}.webp`)
 }
 
+// A card image whose loading failed is asked again, a few times : without it, the card shows
+// its loading back for good
+const LOAD_RETRIES = 3
+const LOAD_RETRY_DELAY = 1000
+const loadAttempts = new Map<string, number>()
+const retrying = new WeakSet<Phaser.Loader.LoaderPlugin>()
+
+function retryFailedLoads(scene: Phaser.Scene) {
+    if (retrying.has(scene.load)) {
+        return
+    }
+    retrying.add(scene.load)
+    scene.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, (file: Phaser.Loader.File) => {
+        const attempts = loadAttempts.get(file.key) ?? 0
+        if (file.type != 'image' || isTextureLoaded(file.key) || !loadAttempts.has(file.key)) {
+            return
+        }
+        if (attempts >= LOAD_RETRIES) {
+            logging.captureMessage(
+                `The image of ${file.key} failed to load ( ${file.url} )`,
+                'warning',
+            )
+            return
+        }
+        loadAttempts.set(file.key, attempts + 1)
+        setTimeout(
+            () => {
+                if (!isTextureLoaded(file.key)) {
+                    enqueueTextureLoading(scene, file.key)
+                    scene.load.start()
+                }
+            },
+            LOAD_RETRY_DELAY * (attempts + 1),
+        )
+    })
+}
+
 // Load texture dynamically, when a unknown card become known
 export function loadTexture(scene: Phaser.Scene, cardName: string) {
     if (!isTextureLoaded(cardName)) {
+        retryFailedLoads(scene)
+        if (!loadAttempts.has(cardName)) {
+            loadAttempts.set(cardName, 0)
+        }
         enqueueTextureLoading(scene, cardName)
         scene.load.start()
     }
