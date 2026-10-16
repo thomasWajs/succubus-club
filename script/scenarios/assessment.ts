@@ -88,6 +88,7 @@ export function addMinions(ring: Ring, player: Player, setups: MinionSetup[]): V
         const vampire = readyVampire(ring.gameState, player, setup.blood ?? 5)
         const attrs = vampire.minionAttrs
         attrs.disciplines = (setup.disciplines ?? {}) as Disciplines
+        vampire.vampireAttrs.title = ''
         attrs.bleed = setup.bleed ?? 1
         attrs.strength = setup.strength ?? 1
         attrs.intercept = setup.intercept ?? 0

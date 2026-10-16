@@ -549,7 +549,7 @@ export const PLAN_SCENARIOS: Scenario[] = [
         run() {
             const ring = createRing([GovernDeck, GovernDeck, GovernDeck])
             const [me, , predator] = ring.players
-            addMinions(ring, me, [{ bleed: 2 }, { bleed: 2 }, { bleed: 2 }])
+            addMinions(ring, me, [{ bleed: 3 }, { bleed: 3 }, { bleed: 3 }])
             addMinions(ring, predator, [{ bleed: 3 }, { bleed: 3 }])
             holdOnly(ring, me, [])
             me.pool = 7
