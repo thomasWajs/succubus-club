@@ -316,7 +316,7 @@ export const DEFAULT_PROFILE: BotProfile = {
         bonusPerCard: 1.5,
         interceptPerCard: 1,
         behaviour: {
-            bleedSize: 2,
+            bleedSize: 2.5,
             blockRate: 0.3,
             mix: { hunt: 0.5, political: 0.1 },
             weight: 3,

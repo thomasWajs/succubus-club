@@ -16,6 +16,7 @@ import {
     BlockContext,
     blockContextOf,
     costOfCard,
+    actingSideRead,
     InterceptSource,
     interceptSets,
     judgeBlock,
@@ -150,15 +151,20 @@ function judgeWindow(
     }
     const ranked = candidates.toSorted(byScore)
     const best = ranked[0]
+    const read = actingSideRead(context)
     if (!best || best.score <= profile.block.margin) {
-        return { option: noBlock, candidates: ranked, note: 'no block is worth it' }
+        return { option: noBlock, candidates: ranked, note: `no block is worth it${read}` }
     }
     const notes: Partial<Record<BotOption['type'], string>> = {
         block: `block with ${best.option.type == 'block' ? best.option.minion.name : ''}`,
         playReaction: 'a card lets a minion block',
         noBlock: 'a bounce card is worth more than a block',
     }
-    return { option: best.option, candidates: ranked, note: notes[best.option.type] ?? '' }
+    return {
+        option: best.option,
+        candidates: ranked,
+        note: (notes[best.option.type] ?? '') + read,
+    }
 }
 
 // A block attempt of mine stands and fails: the cheapest intercept that flips it, when it is worth its cost

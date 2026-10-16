@@ -447,6 +447,18 @@ export function judgeBlock(decision: DecisionPoint, assessment: Assessment): Blo
     return {
         block: worth ? best.option : null,
         candidates: ranked,
-        note: worth ? `block with ${best.option.minion.name}` : 'no block is worth it',
+        note:
+            (worth ? `block with ${best.option.minion.name}` : 'no block is worth it') +
+            actingSideRead(context),
     }
+}
+
+// The read of the Methuselah that acts, as the trace of a decision shows it
+export function actingSideRead(context: BlockContext): string {
+    const model = context.assessment.models[context.owner.oid]
+    if (!model) {
+        return ''
+    }
+    const { bleedSize, blockRate } = model.risks
+    return ` (acting side: bleeds ${bleedSize.toFixed(1)}, blocks ${blockRate.toFixed(2)}, guard x${model.guardFactor.toFixed(2)})`
 }
