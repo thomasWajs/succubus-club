@@ -34,6 +34,13 @@ export const preloadedTextures = {
 // All loaded textures, either preloaded or dynamically loaded
 export const loadedTextures = reactive(new Set<string>())
 
+// A card image whose loading failed is asked again, a few times : without it, the card shows
+// its loading back for good
+const LOAD_RETRIES = 3
+const LOAD_RETRY_DELAY = 1000
+const loadAttempts = new Map<string, number>()
+const retrying = new WeakSet<Phaser.Loader.LoaderPlugin>()
+
 async function preloadTexture(url: string, store: (img: HTMLImageElement) => void): Promise<void> {
     const textureResponse = await fetchWithRetry(url)
     const imageBlob = await textureResponse.blob()
@@ -83,13 +90,6 @@ export function isTextureLoaded(cardName: string) {
 export function enqueueTextureLoading(scene: Phaser.Scene, cardName: string) {
     scene.load.image(cardName, `${CARDS_PATH}/${cardName}.webp`)
 }
-
-// A card image whose loading failed is asked again, a few times : without it, the card shows
-// its loading back for good
-const LOAD_RETRIES = 3
-const LOAD_RETRY_DELAY = 1000
-const loadAttempts = new Map<string, number>()
-const retrying = new WeakSet<Phaser.Loader.LoaderPlugin>()
 
 function retryFailedLoads(scene: Phaser.Scene) {
     if (retrying.has(scene.load)) {
