@@ -1,6 +1,6 @@
-/* zvtes protocol 1.5.0 (docs/protocol.md): generated from
+/* zvtes protocol 1.6.0 (docs/protocol.md): generated from
  * crates/api/schema.json by scripts/gen_ts.py, do not edit. */
-export const PROTOCOL_VERSION = '1.5.0'
+export const PROTOCOL_VERSION = '1.6.0'
 
 /**
  * A command as sent: an optional client id, echoed by an `error` it
@@ -1236,10 +1236,13 @@ export type Strike = {
     /** The card it comes from (a weapon, a strike card). */
     card?: number | null
     kind: StrikeKind
-    /** Damage or blood stolen. */
+    /**
+     * Damage or blood stolen; in a combat, a damage strike's: what it
+     * inflicts now if it lands, before prevention.
+     */
     n?: number | null
     ranged?: boolean
-    /** Resolved this pair: the damage it dealt. */
+    /** Resolved this pair: its damage, before prevention. */
     resolved?: number | null
     /** English, when the seat's settings ask for text. */
     text?: string | null
@@ -1263,9 +1266,15 @@ export type StrikeKind =
     | 'unknown'
 
 export type StruckSide = {
+    /**
+     * The damage the side inflicts this pair, before prevention: its
+     * strike's, its retainers' and environmental damage.
+     */
     damage: number
     minion: number
     strike?: Strike | null
+    /** The strike's share of `damage`. */
+    strike_damage?: number
 }
 
 export type TableView = {
