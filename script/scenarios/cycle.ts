@@ -10,15 +10,7 @@ import { HandEvaluator } from '@/shared/bot/utility/hand.ts'
 import { cycleWorthOf, windowsOf } from '@/shared/bot/utility/cycle.ts'
 import { Assessment, assess } from '@/shared/bot/utility/assessment.ts'
 import { assessAs } from './assessment.ts'
-import {
-    BARRENS_ID,
-    CLOAK_ID,
-    WIDER_VIEW_ID,
-    CONDITIONING_ID,
-    createCatalogBleed,
-    passUntilDecides,
-} from './catalog.ts'
-import { BEHIND_YOU_ID, DEFLECTION_ID } from '@/shared/cardImpl/cardIds.ts'
+import { createCatalogBleed, passUntilDecides } from './catalog.ts'
 import { emptyHand, sealLibrary } from './bounce.ts'
 import { getCombatDecision } from './combatCards.ts'
 import {
@@ -40,6 +32,14 @@ import {
     handTurn,
     nameOf,
 } from './hand.ts'
+import {
+    BARRENS_ID,
+    BEHIND_YOU_ID,
+    CLOAK_ID,
+    CONDITIONING_ID,
+    DEFLECTION_ID,
+    WIDER_VIEW_ID,
+} from '../cardIds.ts'
 
 /**
  * The charge of a card in play that throws a card away ( The Barrens ): the windows it is offered in, the end of

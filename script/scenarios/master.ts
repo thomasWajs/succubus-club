@@ -4,13 +4,6 @@ import { GameState } from '@/shared/state/gameState.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
 import { botMutations } from '@/shared/state/botMutations.ts'
 import { TurnSequence, TurnPhase } from '@/shared/const/model.ts'
-import {
-    ELDER_LIBRARY_ID,
-    ABRAHAM_MELLON_ID,
-    ASYLUM_HUNTING_GROUND_ID,
-    GOVERN_ID,
-    DEFLECTION_ID,
-} from '@/shared/cardImpl/cardIds.ts'
 import { MasterCardImplementation } from '@/shared/cardImpl/base.ts'
 import { MASTER_CARD_IMPLEMENTATIONS } from '@/shared/cardImpl/index.ts'
 import { getUnlockEffectOptions } from '@/shared/bot/cardOptions.ts'
@@ -38,6 +31,15 @@ import {
     readyVampire,
 } from './helpers.ts'
 import { emptyHand } from './bounce.ts'
+import {
+    ABRAHAM_MELLON_ID,
+    ASYLUM_HUNTING_GROUND_ID,
+    DEFLECTION_ID,
+    ELDER_LIBRARY_ID,
+    FORGERS_HAMMER_ID,
+    GOVERN_ID,
+    SLUM_HUNTING_GROUND_ID,
+} from '../cardIds.ts'
 
 /**
  * Master cards: Elder Library (cost 1 pool, location, +1 hand size), played in the
@@ -115,10 +117,6 @@ function getVampireOfClan(player: Player, clan: string): Vampire {
 
 export const countUnlockEffects = (turn: MasterTurn) =>
     optionsOfType(getMasterDecision(turn).options, 'unlockEffect').length
-
-const FORGERS_HAMMER_ID = '100767'
-
-const SLUM_HUNTING_GROUND_ID = '101808'
 
 // A card of the player that is not in play yet ( hand or library )
 export function findHeldCard(player: Player, krcgId: string): LibraryCard {

@@ -5,8 +5,7 @@ import { optionsOfType } from '@/shared/bot/types.ts'
 import { attemptBlock, createCatalogBleed, passUntilDecides } from './catalog.ts'
 import { Scenario, ScenarioFailure, expectEqual } from './helpers.ts'
 import { decideWith } from './bounce.ts'
-
-export const WARRENS_ID = '102216'
+import { WARRENS_ID } from '../cardIds.ts'
 
 // A bleed against a prey whose vampire is a Nosferatu, titled or not, holding The Warrens
 function createWarrens(titled: boolean, clan: string) {

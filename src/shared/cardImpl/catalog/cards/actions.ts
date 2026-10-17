@@ -1,4 +1,3 @@
-import { GOVERN_ID } from '@/shared/cardImpl/cardIds.ts'
 import {
     all,
     attachToMinion,
@@ -20,7 +19,7 @@ import {
 } from '@/shared/cardImpl/catalog/builders.ts'
 
 export const ACTION_CARDS = [
-    defineCard(GOVERN_ID, 'Govern the Unaligned', [
+    defineCard('100845', 'Govern the Unaligned', [
         {
             kind: 'action',
             requires: discipline('dom', 'inferior'),

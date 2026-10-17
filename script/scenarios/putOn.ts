@@ -5,7 +5,6 @@ import { DisciplineUse, MinionActionType, CombatStep } from '@/shared/types/stat
 import { TurnSequence, TurnPhase, DisciplineLevel, Discipline } from '@/shared/const/model.ts'
 import { Disciplines } from '@/shared/types/resources.ts'
 import { getHost, isAttached } from '@/shared/state/attachments.ts'
-import { BLOOD_DOLL_ID } from '@/shared/cardImpl/cardIds.ts'
 import { getCombatCardOptions } from '@/shared/bot/cardOptions.ts'
 import {
     matchesMinionFilter,
@@ -55,18 +54,20 @@ import { emptyHand, sealLibrary } from './bounce.ts'
 import { getMasterDecision } from './master.ts'
 import { createEquipTurn, equipOptions, levelOf } from './attachment.ts'
 import { resolveAction } from './torpor.ts'
-import { TORN_SIGNPOST_ID } from './brujah.ts'
 import { getCombatDecision } from './combatCards.ts'
+import {
+    BLOOD_DOLL_ID,
+    HEROIC_MIGHT_ID,
+    PRETERNATURAL_ID,
+    TORN_SIGNPOST_ID,
+    VESSEL_ID,
+} from '../cardIds.ts'
 
 /**
  * Cards put on a minion that are neither equipment nor retainers: a master card that goes on one of
  * the player's vampires ( Blood Doll ), an action card that goes on the acting vampire
  * ( Preternatural Strength ).
  */
-
-export const PRETERNATURAL_ID = '101483'
-
-const VESSEL_ID = '102113'
 
 // The master phase of a player holding a Blood Doll as their only card, with ready vampires of the
 // given blood and one vampire in torpor
@@ -139,8 +140,6 @@ const POTENCE_SUPERIOR: DisciplineUse[] = [
 const POTENCE_INFERIOR: DisciplineUse[] = [
     { discipline: Discipline.Potence, level: DisciplineLevel.INFERIOR },
 ]
-
-const HEROIC_MIGHT_ID = '100913'
 
 export const PUT_ON_SCENARIOS: Scenario[] = [
     {

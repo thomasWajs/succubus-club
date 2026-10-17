@@ -39,7 +39,7 @@ const DECKS: Record<string, DeckList> = {
     nosferatu: NosferatuDeck,
 }
 
-// What the agent must never contain: a card id, or a way to get them
+// What the agent must never contain: a card id
 const AGENT_SOURCES = [
     'src/shared/bot/agents/utilityAgent.ts',
     ...readdirSync(resolve(ROOT, 'src/shared/bot/utility'))
@@ -47,7 +47,6 @@ const AGENT_SOURCES = [
         .map(file => `src/shared/bot/utility/${file}`),
 ]
 const CARD_ID_LITERAL = /['"`]\d{5,6}['"`]/
-const CARD_IDS_IMPORT = /cardImpl\/cardIds\.ts/
 
 // The effects the summaries keep as facts without making a role of them
 const FACTS_WITHOUT_ROLE: EffectType[] = [
@@ -112,9 +111,6 @@ function runChecks(): number {
         const text = readFileSync(resolve(ROOT, file), 'utf-8')
         if (CARD_ID_LITERAL.test(text)) {
             failures.push(`${file}: a card id literal. The agent reads the summaries, never a card`)
-        }
-        if (CARD_IDS_IMPORT.test(text)) {
-            failures.push(`${file}: imports the card ids`)
         }
     }
 

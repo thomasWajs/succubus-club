@@ -1,11 +1,3 @@
-import {
-    ASYLUM_HUNTING_GROUND_ID,
-    BLOOD_DOLL_ID,
-    DEFLECTION_ID,
-    ELDER_LIBRARY_ID,
-    GOVERN_ID,
-    LOST_IN_CROWDS_ID,
-} from '@/shared/cardImpl/cardIds.ts'
 import { getMinionIntercept, getMinionStrength } from '@/shared/cardImpl/catalog/attached.ts'
 import { DisciplineLevel } from '@/shared/const/model.ts'
 import { Card, Minion } from '@/shared/model/Card.ts'
@@ -18,6 +10,14 @@ import { isStrikeEffective } from '@/shared/state/combatRules.ts'
 import { BaseAgent } from '@/shared/bot/agents/baseAgent.ts'
 import { capacityOf } from '@/shared/bot/helpers.ts'
 import { BotOption, BotOptionOf, DecisionPoint, optionsOfType } from '@/shared/bot/types.ts'
+import {
+    ASYLUM_HUNTING_GROUND_ID,
+    BLOOD_DOLL_ID,
+    DEFLECTION_ID,
+    ELDER_LIBRARY_ID,
+    GOVERN_ID,
+    LOST_IN_CROWDS_ID,
+} from './cardIds.ts'
 
 /**
  * Port of the GovernBot strategy onto the referee's options: hunt when empty

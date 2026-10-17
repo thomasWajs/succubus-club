@@ -4,7 +4,6 @@ import { GameState } from '@/shared/state/gameState.ts'
 import { botMutations } from '@/shared/state/botMutations.ts'
 import { MinionActionType } from '@/shared/types/state.ts'
 import { DisciplineLevel, TurnSequence, TurnPhase, Discipline } from '@/shared/const/model.ts'
-import { DEFLECTION_ID, GOVERN_ID } from '@/shared/cardImpl/cardIds.ts'
 import { findOption } from '@/shared/bot/helpers.ts'
 import { GovernAgent } from '../governAgent.ts'
 import { createHeadlessGame } from '../harness.ts'
@@ -23,6 +22,7 @@ import {
     mustRefuse,
     readyVampire,
 } from './helpers.ts'
+import { DEFLECTION_ID, GOVERN_ID } from '../cardIds.ts'
 
 /**
  * Bounce cards (Deflection): the bled player declines to block, then changes the target of

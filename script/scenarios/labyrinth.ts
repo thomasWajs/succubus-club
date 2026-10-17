@@ -6,12 +6,11 @@ import { DeckList } from '@/shared/types/gateway.ts'
 import { getDecisionPoint, applyOption } from '@/shared/bot/referee.ts'
 import { stepBot } from '@/shared/bot/driver.ts'
 import { optionsOfType, DecisionKind } from '@/shared/bot/types.ts'
-import { LENNY_ID, NOSFERATU_DECK } from './nosferatu.ts'
+import { NOSFERATU_DECK } from './nosferatu.ts'
 import { attemptBlock, createCatalogBleed } from './catalog.ts'
 import { findAnyCard } from './attachment.ts'
 import { Scenario, ScenarioFailure, expectEqual } from './helpers.ts'
-
-export const LABYRINTH_ID = '101070'
+import { LABYRINTH_ID, LENNY_ID } from '../cardIds.ts'
 
 export const LABYRINTH_DECK = <DeckList>{ ...NOSFERATU_DECK, [LABYRINTH_ID]: 2 }
 

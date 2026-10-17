@@ -28,12 +28,7 @@ import {
 import { createMinionPhase, getActionOptions, resolveAction } from './torpor.ts'
 import { emptyHand } from './bounce.ts'
 import { SPY_INFERIOR, createEquipTurn, equipOptions, levelOf } from './attachment.ts'
-
-const CARRION_CROWS_ID = '100301'
-
-const DEEP_SONG_ID = '100515'
-
-export const MURDER_OF_CROWS_ID = '101254'
+import { CARRION_CROWS_ID, DEEP_SONG_ID, MURDER_OF_CROWS_ID } from '../cardIds.ts'
 
 const createCrowsFight = (level: DisciplineLevel) =>
     createBrujahFight(CARRION_CROWS_ID, level, 3, Discipline.Animalism, CrowsDeck)

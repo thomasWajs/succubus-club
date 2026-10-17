@@ -1,6 +1,5 @@
 import { Discipline, DisciplineLevel, Sect } from '@/shared/const/model.ts'
 import { Disciplines } from '@/shared/types/resources.ts'
-import { DEFLECTION_ID } from '@/shared/cardImpl/cardIds.ts'
 import { chooseThroughView } from '@/shared/bot/playerView.ts'
 import { findOption } from '@/shared/bot/helpers.ts'
 import { MalkavDeck, BrujahDeck } from '@/shared/bot/decks.ts'
@@ -9,20 +8,21 @@ import { applyOption } from '@/shared/bot/referee.ts'
 import { UtilityAgent } from '@/shared/bot/agents/utilityAgent.ts'
 import { ExplainCandidate } from '@/shared/bot/utility/explain.ts'
 import { DecisionPoint, optionsOfType, BotOption, DecisionKind } from '@/shared/bot/types.ts'
-import { EYES_OF_ARGUS_ID, QUI_VIVE_ID, passUntilDecides } from './catalog.ts'
-import { KRCG_ID } from './krcg.ts'
-import {
-    CATS_GUIDANCE_ID,
-    createBlockCombat,
-    endCombatByHand,
-    getPostBlockDecision,
-} from './catsGuidance.ts'
-import { ORGANIZED_RESISTANCE_ID } from './brujahReaction.ts'
+import { passUntilDecides } from './catalog.ts'
+import { createBlockCombat, endCombatByHand, getPostBlockDecision } from './catsGuidance.ts'
 import { BlockBoard, BlockSetup, blockBoard } from './block.ts'
 import { Scenario, expectEqual, readyVampire } from './helpers.ts'
 import { findAnyCard } from './attachment.ts'
 import { createAlineGame, getTriggerDecision } from './aline.ts'
 import { passUntilActionOver } from './events.ts'
+import {
+    CATS_GUIDANCE_ID,
+    DEFLECTION_ID,
+    EYES_OF_ARGUS_ID,
+    KRCG_ID,
+    ORGANIZED_RESISTANCE_ID,
+    QUI_VIVE_ID,
+} from '../cardIds.ts'
 
 /**
  * Reaction decision: my predator declares an action against me and I decide what to play in the windows: the

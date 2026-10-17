@@ -19,8 +19,15 @@ import { Discipline } from '@/shared/const/model.ts'
 import { profileMinion } from '@/shared/bot/utility/minionProfile.ts'
 import { CombatSim, Side } from '@/shared/bot/utility/combatModel.ts'
 import { cardFactsOf, combatOf } from '@/shared/bot/utility/combatSetup.ts'
-import { BEHIND_YOU_ID } from '@/shared/cardImpl/cardIds.ts'
 import { createHeadlessGame, registerSyncMutationTrigger } from './harness.ts'
+import {
+    BEHIND_YOU_ID,
+    GUARDIAN_ANGEL_ID,
+    HEROIC_MIGHT_ID,
+    MAGNUM_ID,
+    MURDER_OF_CROWS_ID,
+    RAVEN_SPY_ID,
+} from './cardIds.ts'
 
 const COMBAT_CARDS = [
     '100301', // Carrion Crows
@@ -34,20 +41,14 @@ const COMBAT_CARDS = [
     '102215', // Roundhouse
 ]
 
-const MAGNUM = '100001'
-const RAVEN_SPY = '101550'
-const MURDER_OF_CROWS = '101254'
-const GUARDIAN_ANGEL = '100866'
-const HEROIC_MIGHT = '100913'
-
 const CombatDeck = <DeckList>{
     ...BrujahDeck,
     [BEHIND_YOU_ID]: 4,
-    [MAGNUM]: 4,
-    [RAVEN_SPY]: 4,
-    [MURDER_OF_CROWS]: 4,
-    [GUARDIAN_ANGEL]: 4,
-    [HEROIC_MIGHT]: 4,
+    [MAGNUM_ID]: 4,
+    [RAVEN_SPY_ID]: 4,
+    [MURDER_OF_CROWS_ID]: 4,
+    [GUARDIAN_ANGEL_ID]: 4,
+    [HEROIC_MIGHT_ID]: 4,
     '100301': 4,
 }
 
@@ -126,12 +127,12 @@ function equip(minion: Vampire): void {
     const player = minion.controller
     const level = (discipline: Discipline) => minion.minionAttrs.disciplines[discipline] ?? 0
     if (Math.random() < 0.4) {
-        attach(takeCard(player, MAGNUM), minion)
+        attach(takeCard(player, MAGNUM_ID), minion)
     }
     if (Math.random() < 0.3) {
-        attach(takeCard(player, GUARDIAN_ANGEL), minion)
+        attach(takeCard(player, GUARDIAN_ANGEL_ID), minion)
     }
-    for (const id of [RAVEN_SPY, MURDER_OF_CROWS]) {
+    for (const id of [RAVEN_SPY_ID, MURDER_OF_CROWS_ID]) {
         const animalism = level(Discipline.Animalism)
         if (animalism > 0 && Math.random() < 0.4) {
             const card = takeCard(player, id)
@@ -140,7 +141,7 @@ function equip(minion: Vampire): void {
     }
     const potence = level(Discipline.Potence)
     if (potence > 0 && Math.random() < 0.3) {
-        attach(takeCard(player, HEROIC_MIGHT), minion, [
+        attach(takeCard(player, HEROIC_MIGHT_ID), minion, [
             { discipline: Discipline.Potence, level: potence },
         ])
     }

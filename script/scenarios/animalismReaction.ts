@@ -10,10 +10,7 @@ import { DecisionPoint, optionsOfType } from '@/shared/bot/types.ts'
 import { Scenario, ScenarioFailure, expectEqual, must } from './helpers.ts'
 import { attemptBlock, createCatalogBleed, passUntilDecides } from './catalog.ts'
 import { decideWith } from './bounce.ts'
-
-export const GUARD_DOGS_ID = '100863'
-
-const INSTINCTIVE_REACTION_ID = '100995'
+import { GUARD_DOGS_ID, INSTINCTIVE_REACTION_ID } from '../cardIds.ts'
 
 // The players pass until a combat starts ( a block with enough intercept was resolved )
 export function passUntilCombat(gameState: GameState) {

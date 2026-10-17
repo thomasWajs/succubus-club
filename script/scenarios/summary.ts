@@ -1,13 +1,6 @@
 import { DisciplineLevel, Discipline } from '@/shared/const/model.ts'
 import { Disciplines } from '@/shared/types/resources.ts'
 import {
-    GOVERN_ID,
-    LOST_IN_CROWDS_ID,
-    DEFLECTION_ID,
-    MINION_TAP_ID,
-    VILLEIN_ID,
-} from '@/shared/cardImpl/cardIds.ts'
-import {
     Effect,
     describeEffect,
     summarizeCardId,
@@ -16,22 +9,28 @@ import {
 import { CARD_DEFS } from '@/shared/cardImpl/catalog/index.ts'
 import { Scenario, ScenarioFailure, expectEqual, summaryOf } from './helpers.ts'
 import {
+    ALINE_ID,
     BARRENS_ID,
     CONDITIONING_ID,
+    DEFLECTION_ID,
     FACELESS_NIGHT_ID,
+    GOVERN_ID,
+    GUARD_DOGS_ID,
+    LABYRINTH_ID,
     LIFE_IN_THE_CITY_ID,
+    LOST_IN_CROWDS_ID,
+    MAGNUM_ID,
+    MINION_TAP_ID,
+    MONKEY_WRENCH_ID,
+    ORGANIZED_RESISTANCE_ID,
+    PRETERNATURAL_ID,
     QUI_VIVE_ID,
+    RAVEN_SPY_ID,
+    THEO_BELL_ID,
+    VILLEIN_ID,
+    WARRENS_ID,
     WIDER_VIEW_ID,
-} from './catalog.ts'
-import { MONKEY_WRENCH_ID } from './brujah.ts'
-import { WARRENS_ID } from './warrens.ts'
-import { ORGANIZED_RESISTANCE_ID } from './brujahReaction.ts'
-import { GUARD_DOGS_ID } from './animalismReaction.ts'
-import { MAGNUM_ID, RAVEN_SPY_ID } from './attachment.ts'
-import { PRETERNATURAL_ID } from './putOn.ts'
-import { LABYRINTH_ID } from './labyrinth.ts'
-import { ALINE_ID } from './aline.ts'
-import { THEO_BELL_ID } from './brujahAction.ts'
+} from '../cardIds.ts'
 
 function findEffect<T extends Effect['type']>(
     effects: Effect[],

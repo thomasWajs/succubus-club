@@ -8,7 +8,6 @@ import {
 } from '@/shared/const/model.ts'
 import { Disciplines } from '@/shared/types/resources.ts'
 import { DeckList } from '@/shared/types/gateway.ts'
-import { GOVERN_ID, VILLEIN_ID } from '@/shared/cardImpl/cardIds.ts'
 import { chooseThroughView } from '@/shared/bot/playerView.ts'
 import { GovernDeck } from '@/shared/bot/decks.ts'
 import { applyOption, getDecisionPoint } from '@/shared/bot/referee.ts'
@@ -28,6 +27,7 @@ import {
 import { sealLibrary } from './bounce.ts'
 import { VILLEIN_DECK } from './catalog.ts'
 import { Scenario, ScenarioFailure, expectEqual } from './helpers.ts'
+import { GOVERN_ID, VILLEIN_ID } from '../cardIds.ts'
 
 /**
  * The influence phase: which vampire comes out, in which order, and when the pool says stop. The

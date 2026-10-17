@@ -17,6 +17,7 @@ import {
 } from './helpers.ts'
 import { getCombatDecision } from './combatCards.ts'
 import { cardOptionsOf, createBrujahFight, playCardOption } from './brujah.ts'
+import { DUST_UP_ID, GRAPPLE_ID, PURSUIT_ID, QUICKNESS_ID, TASTE_OF_VITAE_ID } from '../cardIds.ts'
 
 // The player with the impulse chooses the option of the type that the test accepts
 function decideCombat<T extends CombatCardOption['type']>(
@@ -40,16 +41,6 @@ const countOptions = (fight: Fight, type: CombatCardOption['type']) =>
     getCombatDecision(fight, getCombat(fight).impulsePlayer).options.filter(
         option => option.type == type,
     ).length
-
-const QUICKNESS_ID = '101532'
-
-const PURSUIT_ID = '101523'
-
-const DUST_UP_ID = '100597'
-
-const GRAPPLE_ID = '100959'
-
-const TASTE_OF_VITAE_ID = '101945'
 
 export const BRUJAH_COMBAT_SCENARIOS: Scenario[] = [
     {

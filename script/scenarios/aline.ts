@@ -16,10 +16,8 @@ import {
     passUntilActionOver,
 } from './events.ts'
 import { createCatalogBleed } from './catalog.ts'
-import { ATIENA_ID } from './brujah.ts'
 import { Scenario, ScenarioFailure, expectEqual, readySpecific } from './helpers.ts'
-
-export const ALINE_ID = '201576'
+import { ALINE_ID, ATIENA_ID } from '../cardIds.ts'
 
 type AlineGame = ReturnType<typeof createEventBleed> & { aline: Vampire }
 

@@ -2,13 +2,6 @@ import { Player } from '@/shared/model/Player.ts'
 import { Vampire } from '@/shared/model/Card.ts'
 import { TurnPhase, TurnSequence } from '@/shared/const/model.ts'
 import { DeckList } from '@/shared/types/gateway.ts'
-import {
-    ASYLUM_HUNTING_GROUND_ID,
-    BLOOD_DOLL_ID,
-    ELDER_LIBRARY_ID,
-    MINION_TAP_ID,
-    VILLEIN_ID,
-} from '@/shared/cardImpl/cardIds.ts'
 import { chooseThroughView } from '@/shared/bot/playerView.ts'
 import { applyOption, getDecisionPoint } from '@/shared/bot/referee.ts'
 import { UtilityAgent } from '@/shared/bot/agents/utilityAgent.ts'
@@ -27,11 +20,7 @@ import {
     holdOnly,
 } from './assessment.ts'
 import { sealLibrary } from './bounce.ts'
-import { BARRENS_ID, LIFE_IN_THE_CITY_ID, WIDER_VIEW_ID } from './catalog.ts'
-import { GUARDIAN_ANGEL_ID } from './guardianAngel.ts'
-import { KRCG_ID } from './krcg.ts'
-import { LABYRINTH_ID } from './labyrinth.ts'
-import { LENNY_ID, NOSFERATU_DECK } from './nosferatu.ts'
+import { NOSFERATU_DECK } from './nosferatu.ts'
 import {
     Scenario,
     ScenarioFailure,
@@ -40,17 +29,30 @@ import {
     findCard,
     readySpecific,
 } from './helpers.ts'
+import {
+    ALINE_ID,
+    ASYLUM_HUNTING_GROUND_ID,
+    BARRENS_ID,
+    BLOOD_DOLL_ID,
+    ELDER_LIBRARY_ID,
+    GUARDIAN_ANGEL_ID,
+    KRCG_ID,
+    LABYRINTH_ID,
+    LENNY_ID,
+    LIFE_IN_THE_CITY_ID,
+    MINION_TAP_ID,
+    THEO_BELL_ID,
+    VESSEL_ID,
+    VILLEIN_ID,
+    WARZONE_ID,
+    WIDER_VIEW_ID,
+} from '../cardIds.ts'
 
 /**
  * The master phase and the unlock phase of the utility agent: which master card is played and on which vampire,
  * which blood is moved to the pool, which vampire a hunting ground feeds. Four Methuselahs with no minion for
  * the others, so the numbers can be read.
  */
-
-const VESSEL_ID = '102113'
-const WARZONE_ID = '102150'
-const THEO_BELL_ID = '201613'
-const ALINE_ID = '201576'
 
 const MASTER_DECK = <DeckList>{
     ...NOSFERATU_DECK,

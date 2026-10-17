@@ -38,8 +38,8 @@ import {
 } from './combatModel.ts'
 import { Scenario, attachInPlay, expectEqual } from './helpers.ts'
 import { addMinions, assessAs, createRing, expectClose, holdOnly } from './assessment.ts'
-import { ROUNDHOUSE_ID } from './brujah.ts'
-import { MAGNUM_ID, findAnyCard } from './attachment.ts'
+import { findAnyCard } from './attachment.ts'
+import { MAGNUM_ID, ROUNDHOUSE_ID } from '../cardIds.ts'
 
 /**
  * The position of a combat: the default policy of the playouts, the hands believed of the others, and

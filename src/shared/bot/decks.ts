@@ -1,20 +1,12 @@
-import {
-    ASYLUM_HUNTING_GROUND_ID,
-    BEHIND_YOU_ID,
-    DEFLECTION_ID,
-    ELDER_LIBRARY_ID,
-    GOVERN_ID,
-    LOST_IN_CROWDS_ID,
-} from '@/shared/cardImpl/cardIds.ts'
 import { DeckList } from '@/shared/types/gateway.ts'
 
 export const GovernDeck = <DeckList>{
-    [ASYLUM_HUNTING_GROUND_ID]: 1,
-    [BEHIND_YOU_ID]: 8,
-    [DEFLECTION_ID]: 8,
-    [ELDER_LIBRARY_ID]: 1,
-    [GOVERN_ID]: 32,
-    [LOST_IN_CROWDS_ID]: 12,
+    '100108': 1, // Asylum Hunting Ground
+    '100149': 8, // Behind You!
+    '100518': 8, // Deflection
+    '100620': 1, // Elder Library
+    '100845': 32, // Govern the Unaligned
+    '101125': 12, // Lost in Crowds
 
     '201634': 1,
     '201626': 1,

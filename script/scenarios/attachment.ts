@@ -39,6 +39,7 @@ import {
 } from './helpers.ts'
 import { createHumanTable, humanDeclares } from './humanAction.ts'
 import { getCombatDecision } from './combatCards.ts'
+import { IVORY_BOW_ID, MAGNUM_ID, RAVEN_SPY_ID } from '../cardIds.ts'
 
 /**
  * Attachment: an equipment or a retainer a bot plays stays in play attached to the minion that
@@ -46,12 +47,7 @@ import { getCombatDecision } from './combatCards.ts'
  * bearer a strike ( .44 Magnum ), a retainer gives life counters and intercept ( Raven Spy ).
  */
 
-export const MAGNUM_ID = '100001'
-
-export const RAVEN_SPY_ID = '101550'
-
 // A unique equipment, which the catalog does not describe
-const IVORY_BOW_ID = '101014'
 
 export const SPY_INFERIOR: DisciplineUse[] = [
     { discipline: Discipline.Animalism, level: DisciplineLevel.INFERIOR },

@@ -1,7 +1,6 @@
 import { MinionActionType } from '@/shared/types/state.ts'
 import { Discipline, DisciplineLevel } from '@/shared/const/model.ts'
 import { Disciplines } from '@/shared/types/resources.ts'
-import { LOST_IN_CROWDS_ID } from '@/shared/cardImpl/cardIds.ts'
 import { createPlayerView, chooseThroughView } from '@/shared/bot/playerView.ts'
 import { findOption } from '@/shared/bot/helpers.ts'
 import { MalkavDeck, GovernDeck } from '@/shared/bot/decks.ts'
@@ -24,17 +23,17 @@ import { findAnyCard } from './attachment.ts'
 import { sealLibrary } from './bounce.ts'
 import { minionDecisionOf } from './plan.ts'
 import { Scenario, ScenarioFailure, expectEqual } from './helpers.ts'
+import { modifierLevel, passUntilDecides } from './catalog.ts'
+import { AUSPEX_INFERIOR } from './reaction.ts'
+import { blockBoard, blockWindow } from './block.ts'
 import {
     BONDING_ID,
     CONDITIONING_ID,
     FACELESS_NIGHT_ID,
-    modifierLevel,
-    passUntilDecides,
-} from './catalog.ts'
-import { KRCG_ID } from './krcg.ts'
-import { AUSPEX_INFERIOR } from './reaction.ts'
-import { LABYRINTH_ID } from './labyrinth.ts'
-import { blockBoard, blockWindow } from './block.ts'
+    KRCG_ID,
+    LABYRINTH_ID,
+    LOST_IN_CROWDS_ID,
+} from '../cardIds.ts'
 
 /**
  * Modifier decision: my minion bleeds my prey and I decide the stealth and bleed cards. Three Methuselahs,

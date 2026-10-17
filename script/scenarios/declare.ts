@@ -18,14 +18,11 @@ import {
     mustRefuse,
     readyVampire,
 } from './helpers.ts'
+import { ALASTOR_ID, ANARCHIST_UPRISING_ID } from '../cardIds.ts'
 
 /**
  * The engine refuses invalid bot declarations (canDeclare), never a human's.
  */
-
-const ALASTOR_ID = '100038'
-
-const ANARCHIST_UPRISING_ID = '100059'
 
 export const DECLARE_SCENARIOS: Scenario[] = [
     {

@@ -2,13 +2,6 @@ import { Player } from '@/shared/model/Player.ts'
 import { Vampire } from '@/shared/model/Card.ts'
 import { Discipline, DisciplineLevel, TurnPhase, TurnSequence } from '@/shared/const/model.ts'
 import { DeckList } from '@/shared/types/gateway.ts'
-import {
-    BEHIND_YOU_ID,
-    BLOOD_DOLL_ID,
-    DEFLECTION_ID,
-    ELDER_LIBRARY_ID,
-    VILLEIN_ID,
-} from '@/shared/cardImpl/cardIds.ts'
 import { chooseThroughView, createPlayerView } from '@/shared/bot/playerView.ts'
 import { getDecisionPoint } from '@/shared/bot/referee.ts'
 import { UtilityAgent } from '@/shared/bot/agents/utilityAgent.ts'
@@ -19,19 +12,25 @@ import { createLedger, getPlayerLedger, TableLedger } from '@/shared/bot/utility
 import { HandEvaluator } from '@/shared/bot/utility/hand.ts'
 import { Ring, MinionSetup, addMinions, createRing, holdOnly } from './assessment.ts'
 import { sealLibrary } from './bounce.ts'
+import { attemptBlock, createCatalogBleed } from './catalog.ts'
+import { findAnyCard } from './attachment.ts'
+import { LABYRINTH_DECK } from './labyrinth.ts'
+import { NOSFERATU_DECK } from './nosferatu.ts'
+import { Scenario, ScenarioFailure, expectEqual, findCard } from './helpers.ts'
 import {
     BARRENS_ID,
+    BEHIND_YOU_ID,
+    BLOOD_DOLL_ID,
     CLOAK_ID,
     CONDITIONING_ID,
+    DEFLECTION_ID,
+    ELDER_LIBRARY_ID,
+    LABYRINTH_ID,
+    LENNY_ID,
     LIFE_IN_THE_CITY_ID,
+    VILLEIN_ID,
     WIDER_VIEW_ID,
-    attemptBlock,
-    createCatalogBleed,
-} from './catalog.ts'
-import { findAnyCard } from './attachment.ts'
-import { LABYRINTH_DECK, LABYRINTH_ID } from './labyrinth.ts'
-import { LENNY_ID, NOSFERATU_DECK } from './nosferatu.ts'
-import { Scenario, ScenarioFailure, expectEqual, findCard } from './helpers.ts'
+} from '../cardIds.ts'
 
 /**
  * The hand of the utility agent: which card is cycled in the discard phase, which one goes when the hand is too

@@ -3,7 +3,6 @@ import { Player } from '@/shared/model/Player.ts'
 import { GameState } from '@/shared/state/gameState.ts'
 import { Discipline, DisciplineLevel, OUST_POOL_GAIN } from '@/shared/const/model.ts'
 import { Disciplines } from '@/shared/types/resources.ts'
-import { DEFLECTION_ID, LOST_IN_CROWDS_ID } from '@/shared/cardImpl/cardIds.ts'
 import { getMinionStrength, getMinionIntercept } from '@/shared/cardImpl/catalog/attached.ts'
 import { createPlayerView } from '@/shared/bot/playerView.ts'
 import { createHeadlessGame } from '../harness.ts'
@@ -48,14 +47,22 @@ import {
     readyVampire,
 } from './helpers.ts'
 import { emptyHand } from './bounce.ts'
-import { MAGNUM_ID, RAVEN_SPY_ID, SPY_INFERIOR, findAnyCard } from './attachment.ts'
-import { PRETERNATURAL_ID } from './putOn.ts'
-import { GUARDIAN_ANGEL_ID } from './guardianAngel.ts'
-import { LABYRINTH_DECK, LABYRINTH_ID } from './labyrinth.ts'
-import { LENNY_ID } from './nosferatu.ts'
-import { QUI_VIVE_ID } from './catalog.ts'
-import { ORGANIZED_RESISTANCE_ID } from './brujahReaction.ts'
-import { KRCG_DECK, KRCG_ID } from './krcg.ts'
+import { SPY_INFERIOR, findAnyCard } from './attachment.ts'
+import { LABYRINTH_DECK } from './labyrinth.ts'
+import { KRCG_DECK } from './krcg.ts'
+import {
+    DEFLECTION_ID,
+    GUARDIAN_ANGEL_ID,
+    KRCG_ID,
+    LABYRINTH_ID,
+    LENNY_ID,
+    LOST_IN_CROWDS_ID,
+    MAGNUM_ID,
+    ORGANIZED_RESISTANCE_ID,
+    PRETERNATURAL_ID,
+    QUI_VIVE_ID,
+    RAVEN_SPY_ID,
+} from '../cardIds.ts'
 
 /**
  * Table assessment: the effective minion, the snapshot of the table as a

@@ -1,11 +1,5 @@
 import { Vampire } from '@/shared/model/Card.ts'
 import { OUST_POOL_GAIN } from '@/shared/const/model.ts'
-import {
-    BLOOD_DOLL_ID,
-    ASYLUM_HUNTING_GROUND_ID,
-    MINION_TAP_ID,
-    VILLEIN_ID,
-} from '@/shared/cardImpl/cardIds.ts'
 import { AttachDeck } from '../attachDeck.ts'
 import { MalkavDeck } from '@/shared/bot/decks.ts'
 import { DeckList } from '@/shared/types/gateway.ts'
@@ -25,8 +19,15 @@ import {
     snapshotAs,
 } from './assessment.ts'
 import { emptyHand } from './bounce.ts'
-import { LIFE_IN_THE_CITY_ID, MINION_TAP_DECK, VILLEIN_DECK } from './catalog.ts'
+import { MINION_TAP_DECK, VILLEIN_DECK } from './catalog.ts'
 import { planAs } from './plan.ts'
+import {
+    ASYLUM_HUNTING_GROUND_ID,
+    BLOOD_DOLL_ID,
+    LIFE_IN_THE_CITY_ID,
+    MINION_TAP_ID,
+    VILLEIN_ID,
+} from '../cardIds.ts'
 
 /**
  * Bloat: what each Methuselah takes back from the blood bank, and what it

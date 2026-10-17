@@ -1,4 +1,3 @@
-import { LOST_IN_CROWDS_ID } from '@/shared/cardImpl/cardIds.ts'
 import {
     armTrigger,
     bleed,
@@ -12,7 +11,7 @@ import {
 } from '@/shared/cardImpl/catalog/builders.ts'
 
 export const MODIFIER_CARDS = [
-    defineCard(LOST_IN_CROWDS_ID, 'Lost in Crowds', [
+    defineCard('101125', 'Lost in Crowds', [
         { kind: 'modifier', requires: discipline('obf', 'inferior'), effects: [stealth(1)] },
         { kind: 'modifier', requires: discipline('obf', 'superior'), effects: [stealth(2)] },
     ]),

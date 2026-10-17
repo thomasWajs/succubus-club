@@ -10,13 +10,13 @@ import { getDecidingPlayer, getDecisionPoint, applyOption } from '@/shared/bot/r
 import { optionsOfType } from '@/shared/bot/types.ts'
 import { Scenario, ScenarioFailure, expectEqual, must, readyVampire } from './helpers.ts'
 import {
-    FACELESS_NIGHT_ID,
     attemptBlock,
     createCatalogBleed,
     modifierLevel,
     modifierOptionsOf,
     passUntilDecides,
 } from './catalog.ts'
+import { FACELESS_NIGHT_ID } from '../cardIds.ts'
 
 // The names of the events announced from now on, until stop() is called
 function watchEvents(): { names: string[]; stop: () => void } {

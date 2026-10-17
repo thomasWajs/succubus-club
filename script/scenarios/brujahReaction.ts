@@ -7,7 +7,7 @@ import { BrujahDeck } from '@/shared/bot/decks.ts'
 import { applyOption, getDecisionPoint, getDecidingPlayer } from '@/shared/bot/referee.ts'
 import { DecisionPoint, optionsOfType } from '@/shared/bot/types.ts'
 import { attemptBlock, createCatalogBleed, passUntilDecides } from './catalog.ts'
-import { ATIENA_ID, OCTANE_ID, RAYNE_ID, createWarzoneTurn } from './brujah.ts'
+import { createWarzoneTurn } from './brujah.ts'
 import {
     Scenario,
     ScenarioFailure,
@@ -19,16 +19,16 @@ import {
 import { decideWith, emptyHand } from './bounce.ts'
 import { createMinionPhase, getActionOptions } from './torpor.ts'
 import { countMasterOptions, countUnlockEffects, getMasterDecision } from './master.ts'
-
-export const ORGANIZED_RESISTANCE_ID = '102230'
-
-const SHOW_OF_FORCE_ID = '101772'
-
-const CARFAX_ID = '100297'
-
-const ARIANE_ID = '200132'
-
-const ELEN_ID = '201585'
+import {
+    ARIANE_ID,
+    ATIENA_ID,
+    CARFAX_ID,
+    ELEN_ID,
+    OCTANE_ID,
+    ORGANIZED_RESISTANCE_ID,
+    RAYNE_ID,
+    SHOW_OF_FORCE_ID,
+} from '../cardIds.ts'
 
 // A bleed against a prey that holds Organized Resistance, a baron ( Atiena ) and a locked Anarch
 function createResistance(baronLocked: boolean) {

@@ -1,10 +1,4 @@
 import {
-    ASYLUM_HUNTING_GROUND_ID,
-    ELDER_LIBRARY_ID,
-    MINION_TAP_ID,
-    VILLEIN_ID,
-} from '@/shared/cardImpl/cardIds.ts'
-import {
     aMinion,
     aVampire,
     bleedIntercept,
@@ -27,7 +21,7 @@ import {
 } from '@/shared/cardImpl/catalog/builders.ts'
 
 export const MASTER_CARDS = [
-    defineCard(ELDER_LIBRARY_ID, 'Elder Library', [
+    defineCard('100620', 'Elder Library', [
         { kind: 'master', staysInPlay: 'standalone', effects: [handSize(1)] },
     ]),
     defineCard('100135', 'Barrens, The', [
@@ -54,7 +48,7 @@ export const MASTER_CARDS = [
         },
     ]),
     // The hunting ground rule ( one hunting ground per vampire ) is ignored
-    defineCard(ASYLUM_HUNTING_GROUND_ID, 'Asylum Hunting Ground', [
+    defineCard('100108', 'Asylum Hunting Ground', [
         {
             kind: 'master',
             staysInPlay: 'standalone',
@@ -84,15 +78,15 @@ export const MASTER_CARDS = [
     ]),
     // Any amount of blood of a vampire you control, in torpor too. The +1 pool for each Villein on the target
     // comes from the Villein
-    defineCard(MINION_TAP_ID, 'Minion Tap', [
+    defineCard('101217', 'Minion Tap', [
         { kind: 'master', onPlay: { target: 'vampireWithBlood', effects: [bloodToPool] } },
     ]),
     // Put on a vampire that holds blood ( in torpor too ), 2 to 5 blood of it become pool. The cost of +1 pool
     // is for each Villein already on the vampire, and for a Minion Tap played on it. A vampire with 0 blood
     // is a legal target of the card but never worth it: it is not offered
-    defineCard(VILLEIN_ID, 'Villein', [
+    defineCard('102121', 'Villein', [
         {
-            ...putOnMinion(aVampire(), [raisePlayCost(1, MINION_TAP_ID, VILLEIN_ID)]),
+            ...putOnMinion(aVampire(), [raisePlayCost(1, '101217', '102121')]),
             onPlay: { target: 'vampireWithBlood', effects: [bloodToPoolBetween(2, 5)] },
         },
     ]),

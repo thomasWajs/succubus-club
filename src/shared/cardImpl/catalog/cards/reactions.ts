@@ -1,4 +1,3 @@
-import { DEFLECTION_ID } from '@/shared/cardImpl/cardIds.ts'
 import {
     actionTargetsYou,
     actorIsFromPredator,
@@ -28,7 +27,7 @@ import {
 const BOUNCE_WHEN = [duringBleed, actionTargetsYou, afterBlocksDeclined, reactorIsVampire]
 
 export const REACTION_CARDS = [
-    defineCard(DEFLECTION_ID, 'Deflection', [
+    defineCard('100518', 'Deflection', [
         {
             kind: 'reaction',
             requires: discipline('dom', 'inferior'),

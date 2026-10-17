@@ -10,7 +10,6 @@ import {
     LEAVE_TORPOR_COST,
     DisciplineLevel,
 } from '@/shared/const/model.ts'
-import { GOVERN_ID } from '@/shared/cardImpl/cardIds.ts'
 import { findOption } from '@/shared/bot/helpers.ts'
 import {
     createBleedAction,
@@ -45,6 +44,7 @@ import {
     getBounceOption,
     sealLibrary,
 } from './bounce.ts'
+import { GOVERN_ID } from '../cardIds.ts'
 
 /**
  * A human acts, the bots block

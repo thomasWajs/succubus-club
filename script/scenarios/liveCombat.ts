@@ -19,9 +19,10 @@ import {
     giveCard,
     passUntil,
 } from './helpers.ts'
-import { ROUNDHOUSE_ID, createBrujahFight } from './brujah.ts'
+import { createBrujahFight } from './brujah.ts'
 import { getCombatDecision } from './combatCards.ts'
 import { emptyHand } from './bounce.ts'
+import { ROUNDHOUSE_ID } from '../cardIds.ts'
 
 /**
  * The plan of a combat played from the engine, and the gate before an action that starts one: the

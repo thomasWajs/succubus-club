@@ -1,4 +1,3 @@
-import { FAR_MASTERY_ID } from '@/shared/cardImpl/cardIds.ts'
 import {
     ActionCardImplementation,
     ActionModifierCardImplementation,
@@ -65,7 +64,7 @@ for (const def of CARD_DEFS) {
 
 export const ACTION_CARD_IMPLEMENTATIONS: CardImplementationRegistry<ActionCardImplementation> = {
     ...fromCatalog('action', actionImplementation),
-    [FAR_MASTERY_ID]: FarMastery,
+    '100703': FarMastery, // Far Mastery,
 }
 
 export const ACTION_MODIFIER_CARD_IMPLEMENTATIONS: CardImplementationRegistry<ActionModifierCardImplementation> =

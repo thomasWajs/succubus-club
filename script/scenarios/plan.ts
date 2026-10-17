@@ -1,7 +1,6 @@
 import { Player } from '@/shared/model/Player.ts'
 import { MinionActionType } from '@/shared/types/state.ts'
 import { TurnSequence, TurnPhase, Discipline, DisciplineLevel } from '@/shared/const/model.ts'
-import { LOST_IN_CROWDS_ID } from '@/shared/cardImpl/cardIds.ts'
 import { createPlayerView, chooseThroughView } from '@/shared/bot/playerView.ts'
 import { GovernDeck, MalkavDeck } from '@/shared/bot/decks.ts'
 import { getDecisionPoint, getDecidingPlayer, applyOption } from '@/shared/bot/referee.ts'
@@ -16,7 +15,7 @@ import { DecisionPoint, DecisionKind, optionsOfType, BotOption } from '@/shared/
 import { Ring, addMinions, assessAs, createRing, expectClose, holdOnly } from './assessment.ts'
 import { Scenario, ScenarioFailure, expectEqual } from './helpers.ts'
 import { PassiveAgent } from './torpor.ts'
-import { CLOAK_ID, QUI_VIVE_ID } from './catalog.ts'
+import { CLOAK_ID, LOST_IN_CROWDS_ID, QUI_VIVE_ID } from '../cardIds.ts'
 
 /**
  * Turn plan: who stays unlocked to defend, who acts and with what. The

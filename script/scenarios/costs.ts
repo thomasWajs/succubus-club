@@ -1,6 +1,5 @@
 import { MinionActionType } from '@/shared/types/state.ts'
 import { DisciplineLevel } from '@/shared/const/model.ts'
-import { GOVERN_ID } from '@/shared/cardImpl/cardIds.ts'
 import { createHeadlessGame } from '../harness.ts'
 import { GovernDeck } from '@/shared/bot/decks.ts'
 import { applyOption, getDecidingPlayer } from '@/shared/bot/referee.ts'
@@ -16,6 +15,7 @@ import {
     readyVampire,
 } from './helpers.ts'
 import { PassiveAgent, createMinionPhase, getActionOptions } from './torpor.ts'
+import { GOVERN_ID } from '../cardIds.ts'
 
 /**
  * Costs of action cards. No implemented action card has a cost, so Govern the Unaligned

@@ -1,4 +1,3 @@
-import { BEHIND_YOU_ID } from '@/shared/cardImpl/cardIds.ts'
 import {
     additionalStrike,
     beforeRange,
@@ -22,7 +21,7 @@ import {
 } from '@/shared/cardImpl/catalog/builders.ts'
 
 export const COMBAT_CARDS = [
-    defineCard(BEHIND_YOU_ID, 'Behind You!', [
+    defineCard('100149', 'Behind You!', [
         {
             kind: 'combat',
             requires: discipline('obf', 'inferior'),

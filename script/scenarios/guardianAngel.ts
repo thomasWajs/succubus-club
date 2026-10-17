@@ -24,8 +24,7 @@ import { getCombatDecision } from './combatCards.ts'
 import { createDollTurn, playDoll } from './putOn.ts'
 import { getMasterDecision } from './master.ts'
 import { createCatalogBleed } from './catalog.ts'
-
-export const GUARDIAN_ANGEL_ID = '100866'
+import { GUARDIAN_ANGEL_ID } from '../cardIds.ts'
 
 // A fight where the defending vampire carries a Guardian Angel, in the damage resolution
 function createAngelFight(regular: number, aggravated: number, defendingBlood = 3) {

@@ -4,7 +4,6 @@ import { botMutations } from '@/shared/state/botMutations.ts'
 import { createHandStrike } from '@/shared/state/combatState.ts'
 import { CombatStep, CombatRange } from '@/shared/types/state.ts'
 import { DisciplineLevel, Discipline } from '@/shared/const/model.ts'
-import { BEHIND_YOU_ID } from '@/shared/cardImpl/cardIds.ts'
 import { GovernAgent } from '../governAgent.ts'
 import { getDecisionPoint, applyOption } from '@/shared/bot/referee.ts'
 import { optionsOfType } from '@/shared/bot/types.ts'
@@ -20,6 +19,7 @@ import {
     must,
     passUntil,
 } from './helpers.ts'
+import { BEHIND_YOU_ID } from '../cardIds.ts'
 
 /**
  * Combat cards played from the hand (Behind You) and the Govern agent's choices.

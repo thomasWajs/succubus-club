@@ -6,12 +6,6 @@ import { botMutations } from '@/shared/state/botMutations.ts'
 import { MinionActionType, CombatStep } from '@/shared/types/state.ts'
 import { TurnSequence, TurnPhase, Discipline, DisciplineLevel } from '@/shared/const/model.ts'
 import { getAttachedCards } from '@/shared/state/attachments.ts'
-import {
-    MINION_TAP_ID,
-    VILLEIN_ID,
-    LOST_IN_CROWDS_ID,
-    ELDER_LIBRARY_ID,
-} from '@/shared/cardImpl/cardIds.ts'
 import { getMasterImplementation } from '@/shared/cardImpl/index.ts'
 import { findOption } from '@/shared/bot/helpers.ts'
 import { createHeadlessGame } from '../harness.ts'
@@ -37,35 +31,29 @@ import {
 import { decideWith, emptyHand, sealLibrary } from './bounce.ts'
 import { MasterTurn, countMasterOptions, findHeldCard, getMasterDecision } from './master.ts'
 import { getCombatDecision } from './combatCards.ts'
+import {
+    BARRENS_ID,
+    BONDING_ID,
+    CLOAK_ID,
+    CONDITIONING_ID,
+    ELDER_LIBRARY_ID,
+    EYES_OF_ARGUS_ID,
+    FACELESS_NIGHT_ID,
+    FORESHADOWING_ID,
+    LIFE_IN_THE_CITY_ID,
+    LOST_IN_CROWDS_ID,
+    MINION_TAP_ID,
+    QUI_VIVE_ID,
+    SWALLOWED_ID,
+    TELEPATHIC_ID,
+    VILLEIN_ID,
+    WIDER_VIEW_ID,
+} from '../cardIds.ts'
 
 /**
  * Cards described in the catalog ( the Malkavian precon ): conditions, the limited rule, plays of
  * several kinds, per level plays.
  */
-
-export const CONDITIONING_ID = '100401'
-
-export const BONDING_ID = '100236'
-
-const FORESHADOWING_ID = '100765'
-
-const SWALLOWED_ID = '101913'
-
-const TELEPATHIC_ID = '101949'
-
-export const CLOAK_ID = '100362'
-
-export const QUI_VIVE_ID = '101321'
-
-export const BARRENS_ID = '100135'
-
-export const WIDER_VIEW_ID = '102180'
-
-export const FACELESS_NIGHT_ID = '100687'
-
-export const EYES_OF_ARGUS_ID = '100680'
-
-export const LIFE_IN_THE_CITY_ID = '101104'
 
 // The influence phase of a player with Wider View in play and the transfers
 function createWiderViewTurn(transfers: number) {

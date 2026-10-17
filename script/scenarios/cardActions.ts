@@ -2,7 +2,6 @@ import { Player } from '@/shared/model/Player.ts'
 import { MinionActionType } from '@/shared/types/state.ts'
 import { Discipline, DisciplineLevel } from '@/shared/const/model.ts'
 import { Disciplines } from '@/shared/types/resources.ts'
-import { GOVERN_ID } from '@/shared/cardImpl/cardIds.ts'
 import { createPlayerView } from '@/shared/bot/playerView.ts'
 import { GovernDeck } from '@/shared/bot/decks.ts'
 import { DeckList } from '@/shared/types/gateway.ts'
@@ -17,11 +16,14 @@ import { sealLibrary } from './bounce.ts'
 import { minionDecisionOf, planAs } from './plan.ts'
 import { Scenario, ScenarioFailure, expectEqual } from './helpers.ts'
 import { DOMINATE_INFERIOR } from './reaction.ts'
-import { RAVEN_SPY_ID } from './attachment.ts'
-import { MURDER_OF_CROWS_ID } from './crows.ts'
-import { PRETERNATURAL_ID } from './putOn.ts'
-import { TORN_SIGNPOST_ID } from './brujah.ts'
-import { LINE_BRAWL_ID } from './brujahAction.ts'
+import {
+    GOVERN_ID,
+    LINE_BRAWL_ID,
+    MURDER_OF_CROWS_ID,
+    PRETERNATURAL_ID,
+    RAVEN_SPY_ID,
+    TORN_SIGNPOST_ID,
+} from '../cardIds.ts'
 
 /**
  * Action cards other than a bleed or a hunt: what each one is worth to the minion that plays it, in pool,

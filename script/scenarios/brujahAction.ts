@@ -14,10 +14,7 @@ import {
     readyVampire,
 } from './helpers.ts'
 import { emptyHand } from './bounce.ts'
-
-export const LINE_BRAWL_ID = '102229'
-
-export const THEO_BELL_ID = '201613'
+import { LINE_BRAWL_ID, THEO_BELL_ID } from '../cardIds.ts'
 
 // The minion phase of a player holding Line Brawl, with an Anarch vampire that has the disciplines
 // and a minion of the prey in play

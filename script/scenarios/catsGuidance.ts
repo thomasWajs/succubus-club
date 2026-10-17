@@ -9,12 +9,7 @@ import { MalkavDeck } from '@/shared/bot/decks.ts'
 import { applyOption, getDecidingPlayer, getDecisionPoint } from '@/shared/bot/referee.ts'
 import { stepBot } from '@/shared/bot/driver.ts'
 import { optionsOfType, DecisionPoint, DecisionKind } from '@/shared/bot/types.ts'
-import {
-    GUARD_DOGS_ID,
-    blockWithReaction,
-    passUntilCombat,
-    reactionOptions,
-} from './animalismReaction.ts'
+import { blockWithReaction, passUntilCombat, reactionOptions } from './animalismReaction.ts'
 import { attemptBlock, passUntilDecides } from './catalog.ts'
 import { decideWith } from './bounce.ts'
 import {
@@ -26,12 +21,11 @@ import {
     giveCard,
     must,
 } from './helpers.ts'
+import { CATS_GUIDANCE_ID, GUARD_DOGS_ID } from '../cardIds.ts'
 
 /**
  * The post block window: Cats' Guidance, played by the blocker once the combat of its block is over
  */
-
-export const CATS_GUIDANCE_ID = '100308'
 
 // The prey, a bot holding Cats' Guidance, blocks the bleed with its vampire: the combat starts
 export function createBlockCombat(level: DisciplineLevel, extra: string[] = []) {

@@ -8,10 +8,7 @@ import { applyOption } from '@/shared/bot/referee.ts'
 import { optionsOfType } from '@/shared/bot/types.ts'
 import { createCatalogBleed, passUntilDecides } from './catalog.ts'
 import { Scenario, ScenarioFailure, createdGames, expectEqual, readySpecific } from './helpers.ts'
-
-export const LENNY_ID = '201555'
-
-const DOWAGER_ID = '201545'
+import { DOWAGER_ID, LENNY_ID } from '../cardIds.ts'
 
 export const NOSFERATU_DECK = <DeckList>{ ...BrujahDeck, [LENNY_ID]: 1, [DOWAGER_ID]: 1 }
 

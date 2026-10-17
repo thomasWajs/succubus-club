@@ -4,21 +4,17 @@ import { MinionActionType } from '@/shared/types/state.ts'
 import { DisciplineLevel, Discipline } from '@/shared/const/model.ts'
 import { CARD_HEIGHT } from '@/shared/const/game.ts'
 import { getHost } from '@/shared/state/attachments.ts'
-import { FAR_MASTERY_ID } from '@/shared/cardImpl/cardIds.ts'
 import { GovernDeck } from '@/shared/bot/decks.ts'
 import { DeckList } from '@/shared/types/gateway.ts'
 import { applyOption } from '@/shared/bot/referee.ts'
 import { Turn, createMinionPhase, getActionOptions, resolveAction } from './torpor.ts'
 import { Scenario, ScenarioFailure, expectEqual, findCard, giveCard } from './helpers.ts'
+import { ABYSSAL_HUNTER_ID, CAMARILLA_VITAE_SLAVE_ID, FAR_MASTERY_ID } from '../cardIds.ts'
 
 /**
  * Far Mastery: the card proposes its own targets (a retainer at inferior, an ally at
  * superior), both controlled by another Methuselah.
  */
-
-const CAMARILLA_VITAE_SLAVE_ID = '100286'
-
-const ABYSSAL_HUNTER_ID = '100014'
 
 const HeistDeck = <DeckList>{
     ...GovernDeck,

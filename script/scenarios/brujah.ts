@@ -32,33 +32,24 @@ import { getCombatDecision } from './combatCards.ts'
 import { MasterTurn, countMasterOptions, countUnlockEffects, getMasterDecision } from './master.ts'
 import { createCatalogBleed, modifierOptionsOf, passUntilDecides } from './catalog.ts'
 import { createMinionPhase, getActionOptions, resolveAction } from './torpor.ts'
+import {
+    ATIENA_ID,
+    BAIT_AND_SWITCH_ID,
+    ENCHANT_KINDRED_ID,
+    MONKEY_WRENCH_ID,
+    OCTANE_ID,
+    RAYNE_ID,
+    ROUNDHOUSE_ID,
+    SLAM_ID,
+    TORN_SIGNPOST_ID,
+    VALERIYA_ID,
+    WARZONE_ID,
+} from '../cardIds.ts'
 
 /**
  * Cards described in the catalog ( the Brujah precon ): requirements of the cardbase, variable
  * costs, combat cards.
  */
-
-const ENCHANT_KINDRED_ID = '100640'
-
-export const MONKEY_WRENCH_ID = '101239'
-
-const BAIT_AND_SWITCH_ID = '102218'
-
-const WARZONE_ID = '102150'
-
-export const ROUNDHOUSE_ID = '102215'
-
-const SLAM_ID = '101798'
-
-export const TORN_SIGNPOST_ID = '101993'
-
-export const OCTANE_ID = '201609'
-
-export const ATIENA_ID = '201579'
-
-export const RAYNE_ID = '201610'
-
-const VALERIYA_ID = '201614'
 
 // A fight between two Brujah in the first round, the acting one holding the card
 export function createBrujahFight(

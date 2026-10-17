@@ -9,8 +9,7 @@ import { optionsOfType, DecisionKind } from '@/shared/bot/types.ts'
 import { attemptBlock, createCatalogBleed, passUntilDecides } from './catalog.ts'
 import { findAnyCard } from './attachment.ts'
 import { Scenario, expectEqual, summaryOf } from './helpers.ts'
-
-export const KRCG_ID = '101067'
+import { KRCG_ID } from '../cardIds.ts'
 
 export const KRCG_DECK = <DeckList>{ ...MalkavDeck, [KRCG_ID]: 2 }
 
