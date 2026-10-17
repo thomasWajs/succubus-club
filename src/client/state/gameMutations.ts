@@ -2,6 +2,7 @@ import { useBusStore, useGameBusStore } from '@/client/store/bus.ts'
 import { GameType, Invalid, VALID, Validity } from '@/shared/types/state.ts'
 import { broadcastGameMutation } from '@/client/multiplayer/room.ts'
 import { enqueueBotMutation } from '@/client/bot/mutationQueue.ts'
+import { foldAppliedMutation } from '@/client/bot/tableLedger.ts'
 import { gameMutations, PingCard } from '@/shared/state/gameMutations.ts'
 import {
     AnyGameMutation,
@@ -35,6 +36,9 @@ export function applyMutationIfValid(gameMutation: AnyGameMutation) {
 
         try {
             useHistoryStore().addGameMutation(gameMutation)
+            if (useGameStateStore().gameType == GameType.TrainBot) {
+                foldAppliedMutation(gameMutation)
+            }
 
             // Special handlings
             if (gameMutation instanceof PingCard) {

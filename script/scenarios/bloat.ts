@@ -256,11 +256,11 @@ export const BLOAT_SCENARIOS: Scenario[] = [
             holdOnly(ring, me, [])
             expectEqual(assessAs(ring, me).bloat[me.oid].pool, 0, 'no card, nothing')
             holdOnly(ring, me, [MINION_TAP_ID])
-            const { caution, bloodValue } = DEFAULT_PROFILE.plan
+            const { poolValue, bloodValue } = DEFAULT_PROFILE.plan
             const { turns } = assessAs(ring, me).bloat[me.oid]
             expectClose(
                 turns[0].pool,
-                (4 - DEFAULT_PROFILE.bloat.keep) * (caution - bloodValue),
+                (4 - DEFAULT_PROFILE.bloat.keep) * (poolValue - bloodValue),
                 'the blood of the richest, above what it keeps, less what the blood is worth',
             )
             expectEqual(turns[1].pool, 0, 'a card is played once')
@@ -273,14 +273,14 @@ export const BLOAT_SCENARIOS: Scenario[] = [
             const [me] = ring.players
             const [mine] = addMinions(ring, me, [{ blood: 8 }, { blood: 2 }])
             holdOnly(ring, me, [VILLEIN_ID])
-            const { caution, bloodValue } = DEFAULT_PROFILE.plan
+            const { poolValue, bloodValue } = DEFAULT_PROFILE.plan
             const { keep } = DEFAULT_PROFILE.bloat
             const pool = () => assessAs(ring, me).bloat[me.oid].turns[0].pool
-            expectClose(pool(), 5 * (caution - bloodValue), 'five of the eight')
+            expectClose(pool(), 5 * (poolValue - bloodValue), 'five of the eight')
             mine.blood = 4
             expectClose(
                 pool(),
-                (4 - keep) * (caution - bloodValue),
+                (4 - keep) * (poolValue - bloodValue),
                 'a vampire of 4 is not drained to 0: it keeps some',
             )
             mine.blood = keep
@@ -323,11 +323,11 @@ export const BLOAT_SCENARIOS: Scenario[] = [
             const [mine] = addMinions(ring, me, [{ blood: 8 }])
             mine.minionAttrs.capacity = 10
             const turns = () => assessAs(ring, me).bloat[me.oid].turns
-            const { caution, bloodValue } = DEFAULT_PROFILE.plan
+            const { poolValue, bloodValue } = DEFAULT_PROFILE.plan
             holdOnly(ring, me, [VILLEIN_ID, VILLEIN_ID])
             expectClose(
                 turns()[0].pool,
-                6 * (caution - bloodValue),
+                6 * (poolValue - bloodValue),
                 'two Villeins are trifles: both in one turn, 5 and then what is left of the 3 above the 2 it keeps',
             )
             expectEqual(turns()[1].pool, 0, 'and nothing is left for the next one')
@@ -349,7 +349,7 @@ export const BLOAT_SCENARIOS: Scenario[] = [
             )
             expectClose(
                 turns()[0].pool,
-                1 * (caution - bloodValue),
+                1 * (poolValue - bloodValue),
                 'the Villein takes the blood left',
             )
         },

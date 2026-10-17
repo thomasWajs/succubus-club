@@ -231,7 +231,7 @@ export const MASTER_PHASE_SCENARIOS: Scenario[] = [
         run() {
             const turn = masterTurn({ hand: [VILLEIN_ID], ready: [{ blood: 8 }, { blood: 4 }] })
             const { plan } = DEFAULT_PROFILE
-            expectClose(best(turn).pool, 5 * (plan.caution - plan.bloodValue), 'the pool gained')
+            expectClose(best(turn).pool, 5 * (plan.poolValue - plan.bloodValue), 'the pool gained')
             const pool = turn.me.pool
             const done = playPhase(turn)
             expectEqual(done.length, 1, 'plays')
@@ -273,21 +273,37 @@ export const MASTER_PHASE_SCENARIOS: Scenario[] = [
     {
         name: 'Master: a Blood Doll goes on the vampire that holds the most above the blood kept',
         run() {
-            const turn = masterTurn({ hand: [BLOOD_DOLL_ID], ready: [{ blood: 3 }, { blood: 7 }] })
-            const { plan, cards } = DEFAULT_PROFILE
+            const turn = masterTurn({ hand: [BLOOD_DOLL_ID], ready: [{ blood: 0 }, { blood: 7 }] })
+            const { plan, cards, master } = DEFAULT_PROFILE
             expectClose(
                 best(turn).carry,
-                cards.stay * (plan.caution - plan.bloodValue),
+                cards.stay * (plan.poolValue - plan.bloodValue),
                 'a blood a turn over the turns it serves',
             )
             expectPlay(playPhase(turn), 'Blood Doll', turn.vampires[1])
+            const poor = masterTurn({ hand: [BLOOD_DOLL_ID], ready: [{ blood: 0 }] })
+            expectClose(
+                best(poor).carry,
+                (master.regain * cards.stay - DEFAULT_PROFILE.bloat.keep) *
+                    (plan.poolValue - plan.bloodValue),
+                'a vampire with none counts the blood it will hunt, above what it keeps',
+            )
         },
     },
     {
-        name: 'Master: no Blood Doll on a vampire that holds nothing above the blood kept',
+        name: 'Master: a Blood Doll stays on its vampire for the game, so the blood it will carry is worth a play even from an empty vampire',
         run() {
-            const turn = masterTurn({ hand: [BLOOD_DOLL_ID], ready: [{ blood: 2 }] })
-            expectEqual(played(playPhase(turn)), '', 'plays')
+            const alone = masterTurn({ hand: [BLOOD_DOLL_ID], ready: [{ blood: 0 }] })
+            expectPlay(playPhase(alone), 'Blood Doll', alone.vampires[0])
+            const company = masterTurn({
+                hand: [BLOOD_DOLL_ID, WIDER_VIEW_ID],
+                ready: [{ blood: 0 }],
+            })
+            expectEqual(
+                played(playPhase(company)).startsWith('Blood Doll'),
+                true,
+                'with another card',
+            )
         },
     },
     {
@@ -296,8 +312,8 @@ export const MASTER_PHASE_SCENARIOS: Scenario[] = [
             const alone = masterTurn({ hand: [BLOOD_DOLL_ID], ready: [{ blood: 4 }] })
             expectPlay(playPhase(alone), 'Blood Doll', alone.vampires[0])
             const second = masterTurn({
-                hand: [BLOOD_DOLL_ID],
-                ready: [{ blood: 4 }],
+                hand: [BLOOD_DOLL_ID, WIDER_VIEW_ID],
+                ready: [{ blood: 3 }],
                 attached: [[0, BLOOD_DOLL_ID]],
             })
             expectEqual(played(playPhase(second)), 'move', 'no second Doll, the one in play moves')
@@ -370,7 +386,7 @@ export const MASTER_PHASE_SCENARIOS: Scenario[] = [
             const dolls = (predator: MinionSetup[]) =>
                 masterTurn({ hand: [BLOOD_DOLL_ID], ready: [{ blood: 4 }], predator })
             expectPlay(playPhase(dolls([])), 'Blood Doll')
-            expectEqual(played(playPhase(dolls(fighter(4)))), '', 'no Doll to carry what it needs')
+            expectPlay(playPhase(dolls(fighter(4))), 'Blood Doll')
             const doll = (predator: MinionSetup[]) =>
                 masterTurn({ ready: [{ blood: 3 }], attached: [[0, BLOOD_DOLL_ID]], predator })
             expectEqual(played(playPhase(doll([]))), 'move', 'a calm table')

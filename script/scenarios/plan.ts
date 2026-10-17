@@ -403,17 +403,19 @@ export const PLAN_SCENARIOS: Scenario[] = [
     {
         name: 'Turn plan: a rescue of the vampire of the one that bleeds my predator is made when it beats the minion bleeding, and is worth more the harder that vampire bleeds',
         run() {
+            // One ring, only the bleeds change: the worth of a rescue also depends on the capacity of the
+            // vampire, which is a random crypt card
+            const ring = createRing([GovernDeck, GovernDeck, GovernDeck, GovernDeck])
+            const [me, , other, predator] = ring.players
+            const [mine] = addMinions(ring, me, [{ blood: 5 }])
+            const [theirs, sibling] = addMinions(ring, other, [{ blood: 5 }, { blood: 5 }])
+            ring.gameState.moveCardToRegion(theirs, other.torpor)
+            addMinions(ring, predator, [{ bleed: 1 }])
+            holdOnly(ring, me, [])
             const board = (mineBleed: number, theirBleed: number) => {
-                const ring = createRing([GovernDeck, GovernDeck, GovernDeck, GovernDeck])
-                const [me, , other, predator] = ring.players
-                addMinions(ring, me, [{ bleed: mineBleed, blood: 5 }])
-                const [theirs] = addMinions(ring, other, [
-                    { bleed: theirBleed, blood: 5 },
-                    { bleed: theirBleed, blood: 5 },
-                ])
-                ring.gameState.moveCardToRegion(theirs, other.torpor)
-                addMinions(ring, predator, [{ bleed: 1 }])
-                holdOnly(ring, me, [])
+                mine.minionAttrs.bleed = mineBleed
+                theirs.minionAttrs.bleed = theirBleed
+                sibling.minionAttrs.bleed = theirBleed
                 const plan = planAs(ring, me)
                 const opening = assessAs(ring, me).rescues.find(
                     rescue => rescue.vampire.oid == theirs.oid,

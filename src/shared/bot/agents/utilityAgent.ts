@@ -23,6 +23,7 @@ import { judgeDiscard, judgeDiscardExcess } from '@/shared/bot/utility/hand.ts'
 import { judgeInfluence } from '@/shared/bot/utility/influence.ts'
 import { judgeMaster, judgeUnlock } from '@/shared/bot/utility/masterPhase.ts'
 import { judgeModifier } from '@/shared/bot/utility/modifierDecision.ts'
+import { noisyOption } from '@/shared/bot/utility/noise.ts'
 import { judgeReaction, judgeTrigger } from '@/shared/bot/utility/reactionDecision.ts'
 
 // Everything a decision may read, and nothing else: the view of the game ( in the decision ), what the
@@ -76,14 +77,20 @@ export class UtilityAgent implements BotAgent {
             deck: this.deck,
             profile: this.profile,
         })
+        const option = noisyOption(
+            choice.option,
+            choice.candidates ?? [],
+            decision.options,
+            this.profile.noise,
+        )
         this.explain?.({
             player: decision.player.name,
             kind: decision.kind,
-            chosen: choice.option,
+            chosen: option,
             candidates: choice.candidates ?? [],
-            note: choice.note,
+            note: option === choice.option ? choice.note : `noise | ${choice.note}`,
         })
-        return choice.option
+        return option
     }
 
     private decide(context: DecisionContext): Choice {

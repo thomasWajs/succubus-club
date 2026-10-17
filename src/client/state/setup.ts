@@ -1,6 +1,8 @@
 import { ORDERED_PLAYER_COLORS } from '@/shared/const/game.ts'
 import { BotRunner } from '@/client/bot/botRunner.ts'
-import { GovernAgent } from '@/shared/bot/agents/governAgent.ts'
+import { rebuildTableLedger, resetTableLedger } from '@/client/bot/tableLedger.ts'
+import { UtilityAgent } from '@/shared/bot/agents/utilityAgent.ts'
+import { ownDeckOf } from '@/shared/bot/utility/ownDeck.ts'
 import { BrujahDeck, GovernDeck, MalkavDeck, NosferatuDeck } from '@/shared/bot/decks.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { useCoreStore } from '@/client/store/core.ts'
@@ -25,7 +27,6 @@ import { Puppet } from '@/client/types.ts'
 import { CardRegionVisibility, RegionName } from '@/shared/const/model.ts'
 import { CardRegion } from '@/shared/model/CardRegion.ts'
 import { computePerimeterLayout, PLAY_AREA_CENTER } from '@/shared/state/freeTableLayout.ts'
-import { RandomAgent } from '@/shared/bot/agents/randomAgent.ts'
 
 export function resetState() {
     const core = useCoreStore()
@@ -40,6 +41,7 @@ export function resetState() {
     useGameStateStore().$reset()
     useHistoryStore().$reset()
     useGameBusStore().$reset()
+    resetTableLedger()
 
     core.gameIsStarted = false
     core.phaserIsReady = false
@@ -70,20 +72,16 @@ export function setupTrainGame() {
     gameState.usersToPlayer[core.userProfile.permanentId] = selfPlayer.oid
     setupPlayArea(gameState, selfPlayer, core.selfDeck.cards)
 
-    const bots = [
-        { Agent: RandomAgent, deck: NosferatuDeck },
-        { Agent: RandomAgent, deck: MalkavDeck },
-        { Agent: RandomAgent, deck: BrujahDeck },
-    ]
+    const botDecks = [NosferatuDeck, MalkavDeck, BrujahDeck]
     for (let i = 0; i < NB_BOTS; i++) {
         const botPlayer = gameState.createPlayer(
             `${BOT_NAME}${i + 1}`,
             ORDERED_PLAYER_COLORS[i + 1],
             `${BOT_PERM_ID}${i + 1}`,
         )
-        const bot = bots[i]
-        core.botRunners.push(new BotRunner(botPlayer.oid, new bot.Agent()))
-        setupPlayArea(gameState, botPlayer, bot.deck)
+        const deck = botDecks[i]
+        core.botRunners.push(new BotRunner(botPlayer.oid, new UtilityAgent(deck)))
+        setupPlayArea(gameState, botPlayer, deck)
     }
 
     // Random starting order
@@ -231,7 +229,8 @@ export function setupSavedGame(savedGame: DbSavedGame) {
             throw new Error(`Bot player not found`)
         }
 
-        core.botRunners = botPlayers.map(p => new BotRunner(p.oid, new GovernAgent()))
+        rebuildTableLedger(gameState.gameId)
+        core.botRunners = botPlayers.map(p => new BotRunner(p.oid, new UtilityAgent(ownDeckOf(p))))
     }
 }
 

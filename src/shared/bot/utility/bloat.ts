@@ -86,7 +86,7 @@ function cardIncome(
             ...taps.map(effect => Math.min(available, effect.max ?? available)),
         )
         const pool =
-            tapped * Math.max(0, plan.caution - plan.bloodValue) +
+            tapped * Math.max(0, plan.poolValue - plan.bloodValue) +
             play.effects.reduce(
                 (total, effect) => total + (effect.type == 'gainPool' ? effect.amount : 0),
                 0,
@@ -273,7 +273,7 @@ function bloodWorth(
         Math.max(0, blood - bloat.keep),
         minion.bloodMove * bloat.horizon + tappable,
     )
-    return plan.bloodValue * blood + Math.max(0, plan.caution - plan.bloodValue) * carried
+    return plan.bloodValue * blood + Math.max(0, plan.poolValue - plan.bloodValue) * carried
 }
 
 // What it is worth to the minion that its blood goes up by `delta` ( down when negative ), in pool. `bloat`

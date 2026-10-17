@@ -250,6 +250,30 @@ export const CARD_ACTION_SCENARIOS: Scenario[] = [
         },
     },
     {
+        name: 'Card actions: the block of an action is the share of the chances that the others take, not every block they could make',
+        run() {
+            const turn = cardTurn({
+                minions: [{ disciplines: DOMINATE_SUPERIOR }],
+                hand: [GOVERN_ID],
+                blockers: [{ intercept: 3, strength: 4 }],
+                uncontrolled: [[8, 0]],
+            })
+            const blood = (blockTrust: number) =>
+                cardValues(turn, {
+                    ...DEFAULT_PROFILE,
+                    cards: { ...DEFAULT_PROFILE.cards, blockTrust },
+                }).find(candidate => candidate.target == turn.me.vampiresInUncontrolled[0].oid)
+            const could = blood(0)
+            const seen = blood(1)
+            if (!could || !seen) {
+                throw new ScenarioFailure('The blood is not offered')
+            }
+            expectEqual(seen.value > could.value, true, 'it is blocked less than it could be')
+            expectEqual(seen.value < seen.unblocked, true, 'and still worth less than unblocked')
+            expectClose(seen.unblocked, could.unblocked, 'the worth if unblocked is the same')
+        },
+    },
+    {
         name: 'Card actions: a retainer is an investment, worth more on a bearer that lasts',
         run() {
             const worth = (blood: number) => {
@@ -345,8 +369,8 @@ export const CARD_ACTION_SCENARIOS: Scenario[] = [
             )
             const dear = { ...DEFAULT_PROFILE, plan: { ...DEFAULT_PROFILE.plan, spentCard: 3 } }
             expectEqual(worth([PRETERNATURAL_ID], dear) < alone, true, 'a dear card')
-            const long = { ...DEFAULT_PROFILE, cards: { ...DEFAULT_PROFILE.cards, stay: 6 } }
-            expectEqual(worth([PRETERNATURAL_ID], long) > alone, true, 'it serves longer')
+            const short = { ...DEFAULT_PROFILE, cards: { ...DEFAULT_PROFILE.cards, stay: 2 } }
+            expectEqual(worth([PRETERNATURAL_ID], short) < alone, true, 'it serves less')
         },
     },
     {

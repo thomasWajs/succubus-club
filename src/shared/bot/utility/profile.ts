@@ -88,6 +88,9 @@ export type HelpersPrior = {
 export type PlanWeights = {
     // A point of my own pool that I lose counts this many points of pool taken from my prey
     caution: number
+    // What a point of pool is worth against a point of blood when blood is turned into pool ( a Doll, a Villein,
+    // a hunt that fills the pool ), in pool: it stays at 1 whatever `caution` is
+    poolValue: number
     // What a minion kept unlocked is worth per turn against the actions that are not bleeds, if its intercept
     // stops all of them: it counts for the share of them it does stop
     guard: number
@@ -197,6 +200,9 @@ export type CardWeights = {
     perWeaponDamage: number
     // What a life counter of a retainer is worth, once: the damage it soaks is blood saved
     perLife: number
+    // How far the block of an action card is read from what the others have been seen to do: 0 trusts what their
+    // minions could block, 1 the share of the blocks they try
+    blockTrust: number
 }
 
 // How the vampires are brought out ( influence.ts ). Draft numbers
@@ -231,6 +237,11 @@ export type MasterWeights = {
     charge: number
     // What a play or a move of blood must bring me at least, in pool, to be made
     margin: number
+    // Blood a vampire is expected to put back each turn ( a hunt ), counted in what a Doll can carry over its stay
+    regain: number
+    // What a card that stays on a vampire for no pool is worth when it is the only master card of the hand: it
+    // leaves a place in the hand, like a discard
+    freeSlot: number
 }
 
 // How the hand is judged ( hand.ts ). Draft numbers
@@ -340,6 +351,7 @@ export const DEFAULT_PROFILE: BotProfile = {
     stakes: { dangerGain: 3, leaderGain: 1, usefulGain: 1, floor: 0.2 },
     plan: {
         caution: 1,
+        poolValue: 1,
         guard: 0.3,
         guardKinds: { hunt: 0.6, political: 3.5, other: 0.875 },
         cardAction: 1.5,
@@ -371,12 +383,13 @@ export const DEFAULT_PROFILE: BotProfile = {
         bloodOnUncontrolled: 3,
         crowd: 0.15,
         crowdFloor: 0.3,
-        stay: 3,
-        perStrength: 0.3,
+        stay: 6,
+        perStrength: 0.5,
         perDamage: 0.3,
         perPrevention: 0.15,
         perWeaponDamage: 0.15,
         perLife: 0.35,
+        blockTrust: 1,
     },
     influence: {
         horizon: 8,
@@ -390,7 +403,14 @@ export const DEFAULT_PROFILE: BotProfile = {
         margin: 0.5,
         lookahead: 10,
     },
-    master: { stay: 6, handSize: 0.4, charge: 0.4, margin: 0.25 },
+    master: {
+        stay: 6,
+        handSize: 0.4,
+        charge: 0.4,
+        margin: 0.25,
+        regain: 1,
+        freeSlot: 1,
+    },
     hand: {
         horizon: 2,
         unknown: 1,

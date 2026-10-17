@@ -1,5 +1,6 @@
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { isBotQueueIdle } from '@/client/bot/mutationQueue.ts'
+import { getTableLedger } from '@/client/bot/tableLedger.ts'
 import * as logging from '@/client/logging.ts'
 import { BOT_PAUSE_TIME } from '@/shared/const/bot.ts'
 import { stepBot } from '@/shared/bot/driver.ts'
@@ -45,7 +46,7 @@ export class BotRunner {
 
         const player = useGameStateStore().players[this.playerOid]
         try {
-            stepBot(player, this.agent)
+            stepBot(player, this.agent, { ledger: getTableLedger() })
         } catch (error) {
             logging.captureException(error)
         }

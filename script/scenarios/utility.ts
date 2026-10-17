@@ -14,6 +14,10 @@ import { applyOption, getDecidingPlayer, getDecisionPoint } from '@/shared/bot/r
 import { stepBot } from '@/shared/bot/driver.ts'
 import { getPlayerLedger } from '@/shared/bot/utility/ledger.ts'
 import { UtilityAgent } from '@/shared/bot/agents/utilityAgent.ts'
+import { ownDeckOf } from '@/shared/bot/utility/ownDeck.ts'
+import { noisyOption } from '@/shared/bot/utility/noise.ts'
+import { DEFAULT_PROFILE } from '@/shared/bot/utility/profile.ts'
+import { DeckList } from '@/shared/types/gateway.ts'
 import { serializeGameState } from '@/shared/serialization.ts'
 import { BotContext, BotAgent, BotOption, DecisionKind, optionsOfType } from '@/shared/bot/types.ts'
 import {
@@ -42,6 +46,9 @@ function withRecording(run: (recorder: MutationRecorder) => GameState): void {
         recorder.stop()
     }
 }
+
+const sortedDeck = (deck: DeckList) =>
+    Object.entries(deck).sort(([a], [b]) => Number(a) - Number(b))
 
 export const UTILITY_SCENARIOS: Scenario[] = [
     {
@@ -179,6 +186,100 @@ export const UTILITY_SCENARIOS: Scenario[] = [
                 expectEqual(recorder.history?.gameMutations.length, entries, 'history')
                 return gameState
             })
+        },
+    },
+    {
+        name: 'Decklist of a restored bot: the cards it owns, wherever they are, are its deck',
+        run() {
+            const { gameState, players } = createHeadlessGame([GovernDeck, MalkavDeck])
+            createdGames.push(gameState)
+            const agents = new Map(
+                players.map(player => [player.oid, new UtilityAgent(GovernDeck)]),
+            )
+            for (let i = 0; i < 60; i++) {
+                const player = getDecidingPlayer(gameState)
+                const agent = player && agents.get(player.oid)
+                if (!player || !agent) {
+                    break
+                }
+                stepBot(player, agent)
+            }
+            expectEqual(
+                JSON.stringify(sortedDeck(ownDeckOf(players[0]))),
+                JSON.stringify(sortedDeck(GovernDeck)),
+                'deck of the first bot',
+            )
+            expectEqual(
+                JSON.stringify(sortedDeck(ownDeckOf(players[1]))),
+                JSON.stringify(sortedDeck(MalkavDeck)),
+                'deck of the second bot',
+            )
+        },
+    },
+    {
+        name: 'Noise: temperature 0 keeps the chosen option, and a pick is never worse than offered and scored',
+        run() {
+            const chosen: BotOption = { type: 'endPhase' }
+            const near: BotOption = { type: 'endPhase' }
+            const far: BotOption = { type: 'endPhase' }
+            const better: BotOption = { type: 'endPhase' }
+            const unoffered: BotOption = { type: 'endPhase' }
+            const candidates = [
+                { option: better, score: 5, parts: {} },
+                { option: chosen, score: 2, parts: {} },
+                { option: near, score: 1.8, parts: {} },
+                { option: far, score: -40, parts: {} },
+                { option: unoffered, score: 1.9, parts: {} },
+            ]
+            const offered = [better, chosen, near, far]
+            for (let i = 0; i < 20; i++) {
+                expectEqual(
+                    noisyOption(chosen, candidates, offered, 0, () => i / 20),
+                    chosen,
+                    'temperature 0',
+                )
+            }
+            const picks = new Map<BotOption, number>()
+            for (let i = 0; i < 200; i++) {
+                const pick = noisyOption(chosen, candidates, offered, 0.5, () => i / 200)
+                picks.set(pick, (picks.get(pick) ?? 0) + 1)
+            }
+            expectEqual(picks.has(better), false, 'a better scored option is not in play')
+            expectEqual(picks.has(unoffered), false, 'an option that is not offered is not in play')
+            expectEqual(picks.has(far), false, 'an option far below is never picked')
+            expectEqual(picks.has(near), true, 'the near option is picked sometimes')
+            expectEqual(
+                (picks.get(chosen) ?? 0) > (picks.get(near) ?? 0),
+                true,
+                'chosen is the mode',
+            )
+            expectEqual(
+                noisyOption(near, candidates.slice(1, 2), offered, 0.5),
+                near,
+                'a chosen option that is not scored is kept',
+            )
+        },
+    },
+    {
+        name: 'Noise: a very noisy agent plays a whole opening without an option that was not offered',
+        run() {
+            const { gameState } = createHeadlessGame([GovernDeck, MalkavDeck])
+            createdGames.push(gameState)
+            const noisy = { ...DEFAULT_PROFILE, noise: 4 }
+            const agents = new Map(
+                gameState.orderedPlayers.map(player => [
+                    player.oid,
+                    new UtilityAgent(GovernDeck, noisy),
+                ]),
+            )
+            for (let i = 0; i < 300; i++) {
+                const player = getDecidingPlayer(gameState)
+                const agent = player && agents.get(player.oid)
+                if (!player || !agent) {
+                    break
+                }
+                stepBot(player, agent)
+            }
         },
     },
     {

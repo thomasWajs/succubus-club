@@ -56,6 +56,8 @@ const jobs =
             harness(4, 'utility,govern'),
             harness(5, 'utility,govern'),
             harness(4, 'utility,govern', 'govern', ['--check-ledger'], full ? 10 : 4),
+            harness(4, 'utility@noisy,govern', 'govern', ['--variant', 'noisy:noise=2']),
+            harness(4, 'utility@noisy,govern', 'malkav', ['--variant', 'noisy:noise=2']),
             harness(3, 'random', 'malkav'),
             harness(3, 'random', 'brujah'),
             harness(3, 'random', 'attach'),

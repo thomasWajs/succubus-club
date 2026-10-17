@@ -301,7 +301,7 @@ export class PlayValues {
     // The chance that the Methuselahs that may react block the action, and the fight that follows. The
     // stealth is the action's own, and the cards I hold that raise it count as if played
     private blockRisk(candidate: Candidate, actor: MinionProfile): BlockRisk {
-        const { table, densities, profile } = this.assessment
+        const { table, densities, profile, models } = this.assessment
         const { action } = candidate.option
         const stealth = getDefaultStealth(action)
         const kit = attackKitOf(table.me, [actor], densities[table.me.oid], profile)
@@ -313,7 +313,10 @@ export class PlayValues {
                 continue
             }
             const side = defenceOf(table, owner, 'general', densities[owner.oid])
-            const { blockedShare } = resolveAttack([{ bleed: 0, stealth }], side, kit)
+            // It can block, and it blocks the share of the chances that it has been seen to take
+            const willing = 1 - profile.cards.blockTrust * (1 - models[owner.oid].risks.blockRate)
+            const blockedShare =
+                resolveAttack([{ bleed: 0, stealth }], side, kit).blockedShare * willing
             if (blockedShare > 0) {
                 fight += open * blockedShare * this.fightAgainst(actor, owner)
             }

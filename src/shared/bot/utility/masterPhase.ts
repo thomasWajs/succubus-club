@@ -62,7 +62,7 @@ function gainOf(assessment: Assessment, vampire: MinionProfile, amount: number):
 // What `amount` blood that becomes pool is worth over the blood kept: a point of pool counts more than a point of blood
 function conversionOf(assessment: Assessment, amount: number): number {
     const { plan } = assessment.profile
-    return amount * Math.max(0, plan.caution - plan.bloodValue)
+    return amount * Math.max(0, plan.poolValue - plan.bloodValue)
 }
 
 function bloodOfAbility(ability: AbilitySummary): number {
@@ -162,11 +162,16 @@ function summaryOfPlay(option: BotOptionOf<'playMaster'>): PlaySummary | undefin
     return summarizeCard(option.card)?.plays.find(play => play.kind == 'master')
 }
 
+function mastersOf(options: BotOptionOf<'playMaster'>[]): number {
+    return new Set(options.map(option => option.card.oid)).size
+}
+
 function playValue(
     assessment: Assessment,
     values: PlayValues,
     option: BotOptionOf<'playMaster'>,
     standing: Standing,
+    masters: number,
 ): Judged | null {
     const play = summaryOfPlay(option)
     if (!play) {
@@ -213,9 +218,15 @@ function playValue(
             // What the carriers on it already move is spoken for
             const stock = Math.max(
                 0,
-                target.blood - keepOf(assessment, target) - target.bloodMove * profile.cards.stay,
+                target.blood +
+                    master.regain * profile.cards.stay -
+                    keepOf(assessment, target) -
+                    target.bloodMove * profile.cards.stay,
             )
             parts.carry = conversionOf(assessment, Math.min(carried * profile.cards.stay, stock))
+            if (poolCost <= 0 && masters <= 1) {
+                parts.slot = master.freeSlot
+            }
         }
         // An intercept that stays serves each bleed against me, and the bearer is one of the vampires that can block
         const held =
@@ -349,8 +360,10 @@ export function masterWorths(
 ): Map<CardOid, number> {
     const values = new PlayValues(assessment)
     const worths = new Map<CardOid, number>()
-    for (const option of getMasterCardOptions(player)) {
-        const judged = playValue(assessment, values, option, standing)
+    const options = getMasterCardOptions(player)
+    const masters = mastersOf(options)
+    for (const option of options) {
+        const judged = playValue(assessment, values, option, standing, masters)
         if (judged) {
             worths.set(option.card.oid, Math.max(worths.get(option.card.oid) ?? 0, judged.value))
         }
@@ -368,8 +381,10 @@ export function judgeMaster(
     standing: Standing,
 ): MasterJudgement {
     const values = new PlayValues(assessment)
-    const plays = optionsOfType(decision.options, 'playMaster').flatMap(
-        option => playValue(assessment, values, option, standing) ?? [],
+    const playable = optionsOfType(decision.options, 'playMaster')
+    const masters = mastersOf(playable)
+    const plays = playable.flatMap(
+        option => playValue(assessment, values, option, standing, masters) ?? [],
     )
     const moves = optionsOfType(decision.options, 'moveBlood').flatMap(
         option => moveValue(assessment, option) ?? [],
