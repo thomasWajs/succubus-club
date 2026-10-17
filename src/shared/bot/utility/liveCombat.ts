@@ -20,8 +20,8 @@ export type LiveCombatChoice = {
 }
 
 // None when the decision is not a combat window of mine, or the referee does not offer the move of the
-// plan ( the model and the engine are checked to agree, so it does not happen ): the caller plays the
-// rules of its fallback then
+// plan ( the model and the engine are checked to agree, so it does not happen ): the caller then
+// strikes with the hand, or passes
 export function chooseLiveCombat(
     decision: DecisionPoint,
     assessment: Assessment,

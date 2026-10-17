@@ -289,7 +289,7 @@ function judgePostBlock(decision: DecisionPoint, context: BlockContext): Reactio
 
 /**
  * The window of the Methuselah that reacts to an action of another one, or the window after its block.
- * Null when it is not mine to judge ( the base rules play it ).
+ * Null when it is not mine to judge ( the window is passed ).
  */
 export function judgeReaction(
     decision: DecisionPoint,

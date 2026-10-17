@@ -1,4 +1,3 @@
-import { GovernAgent } from '@/shared/bot/agents/governAgent.ts'
 import {
     BotAgent,
     BotContext,
@@ -46,10 +45,32 @@ type Choice = {
     candidates?: ExplainCandidate[]
 }
 
+// The options, by order of preference, that do nothing: where no judgement takes a window of these kinds
+// ( no action of another Methuselah to read, nothing to use ), it is passed
+const QUIET_OPTIONS: Partial<Record<DecisionKind, BotOption['type'][]>> = {
+    [DecisionKind.Cleanup]: ['cleanup'],
+    [DecisionKind.Influence]: ['endPhase'],
+    [DecisionKind.Trigger]: ['useTrigger', 'skipTrigger'],
+    [DecisionKind.ActionImpulse]: ['noModifier'],
+    [DecisionKind.ReactionImpulse]: ['noReaction', 'noBlock'],
+    [DecisionKind.PostBlock]: ['noReaction'],
+    [DecisionKind.TurnEnd]: ['passTurnEnd'],
+    [DecisionKind.Combat]: ['combatStrike', 'combatPass'],
+}
+
+function quietOption(decision: DecisionPoint): BotOption {
+    for (const type of QUIET_OPTIONS[decision.kind] ?? []) {
+        const option = decision.options.find(candidate => candidate.type == type)
+        if (option) {
+            return option
+        }
+    }
+    throw new Error(`No quiet option for a ${decision.kind} decision`)
+}
+
 /**
- * The utility bot. The scorer takes over decision
- * kind by decision kind; the kinds it does not handle yet go to the fallback agent ( the Govern rules
- * by default: the base agent never plays, so no game would end ). The minion phase is the turn plan's:
+ * The utility bot. Every decision kind is judged by a scorer; a window that none judges ( the action of
+ * another Methuselah that is not mine to read, a card that cannot be used ) is passed. The minion phase is the turn plan's:
  * who stays unlocked to defend, who bleeds, hunts, rescues or plays an action card, each valued in pool
  * ( cardActions.ts ), a combat starter only when the position of the fight allows it ( enterCombat.ts ). The windows of a combat are the plan's ( combatPlan.ts ),
  * the block attempts are a judgement of what they save and cost ( blockDecision.ts ), and the stealth
@@ -65,7 +86,6 @@ export class UtilityAgent implements BotAgent {
         readonly deck: DeckList,
         readonly profile: BotProfile = DEFAULT_PROFILE,
         private readonly explain?: ExplainSink,
-        private readonly fallback: BotAgent = new GovernAgent(),
     ) {}
 
     choose(decision: DecisionPoint, context?: BotContext): BotOption {
@@ -99,7 +119,7 @@ export class UtilityAgent implements BotAgent {
             const cycled = judgeCycle(decision, context.assessment, context.deck)
             return cycled ?
                     { ...cycled }
-                :   { option: this.fallback.choose(decision), note: 'nothing to use now' }
+                :   { option: quietOption(decision), note: 'nothing to use now' }
         }
         if (optionsOfType(decision.options, 'lockEffect').length > 0) {
             // The free discard of the turn goes before a card in play that throws a card away: it cannot wait
@@ -198,7 +218,7 @@ export class UtilityAgent implements BotAgent {
                 }
             }
         }
-        return { option: this.fallback.choose(context.decision), note: 'fallback rules' }
+        return { option: quietOption(context.decision), note: 'nothing to judge' }
     }
 
     private minionPhase(context: DecisionContext): Choice {

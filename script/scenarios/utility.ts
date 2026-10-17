@@ -2,7 +2,7 @@ import { GameState } from '@/shared/state/gameState.ts'
 import { DisciplineLevel } from '@/shared/const/model.ts'
 import { createPlayerView, chooseThroughView } from '@/shared/bot/playerView.ts'
 import { findOption } from '@/shared/bot/helpers.ts'
-import { GovernAgent } from '@/shared/bot/agents/governAgent.ts'
+import { GovernAgent } from '../governAgent.ts'
 import {
     MutationRecorder,
     recordMutations,

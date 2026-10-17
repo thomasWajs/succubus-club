@@ -23,7 +23,7 @@ import {
 import { MinionFilter } from '@/shared/cardImpl/catalog/types.ts'
 import { canDeclare } from '@/shared/state/minionActions.ts'
 import { createActionCardAction } from '@/shared/state/minionActionFactories.ts'
-import { GovernAgent } from '@/shared/bot/agents/governAgent.ts'
+import { GovernAgent } from '../governAgent.ts'
 import {
     createHeadlessGame,
     registerQueuedMutationTrigger,

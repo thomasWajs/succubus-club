@@ -5,7 +5,7 @@ import { createHandStrike } from '@/shared/state/combatState.ts'
 import { CombatStep, CombatRange } from '@/shared/types/state.ts'
 import { DisciplineLevel, Discipline } from '@/shared/const/model.ts'
 import { BEHIND_YOU_ID } from '@/shared/cardImpl/cardIds.ts'
-import { GovernAgent } from '@/shared/bot/agents/governAgent.ts'
+import { GovernAgent } from '../governAgent.ts'
 import { getDecisionPoint, applyOption } from '@/shared/bot/referee.ts'
 import { optionsOfType } from '@/shared/bot/types.ts'
 import {

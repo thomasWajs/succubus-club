@@ -17,7 +17,7 @@ import {
     recordMutations,
     registerSyncMutationTrigger,
 } from './harness.ts'
-import { GovernAgent } from '@/shared/bot/agents/governAgent.ts'
+import { GovernAgent } from './governAgent.ts'
 import { BrujahDeck, GovernDeck, MalkavDeck, NosferatuDeck } from '@/shared/bot/decks.ts'
 import { createPlayerView } from '@/shared/bot/playerView.ts'
 import { getDecidingPlayer, getDecisionPoint } from '@/shared/bot/referee.ts'

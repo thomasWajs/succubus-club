@@ -26,7 +26,7 @@ import {
 } from './harness.ts'
 import { createDiagnostics } from './diagnostics.ts'
 import { createCardUse } from './cardUse.ts'
-import { GovernAgent } from '@/shared/bot/agents/governAgent.ts'
+import { GovernAgent } from './governAgent.ts'
 import { RandomAgent } from '@/shared/bot/agents/randomAgent.ts'
 import { UtilityAgent } from '@/shared/bot/agents/utilityAgent.ts'
 import { DEFAULT_PROFILE } from '@/shared/bot/utility/profile.ts'

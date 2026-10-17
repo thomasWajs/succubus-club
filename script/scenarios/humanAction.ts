@@ -19,7 +19,7 @@ import {
     createRescueFromTorporAction,
     createActionCardAction,
 } from '@/shared/state/minionActionFactories.ts'
-import { GovernAgent } from '@/shared/bot/agents/governAgent.ts'
+import { GovernAgent } from '../governAgent.ts'
 import { createHeadlessGame } from '../harness.ts'
 import { GovernDeck } from '@/shared/bot/decks.ts'
 import { DeckList } from '@/shared/types/gateway.ts'

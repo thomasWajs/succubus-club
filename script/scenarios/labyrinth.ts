@@ -1,7 +1,7 @@
 import { Discipline, DisciplineLevel } from '@/shared/const/model.ts'
 import { getLockForActionOptions } from '@/shared/bot/cardOptions.ts'
 import { findOption } from '@/shared/bot/helpers.ts'
-import { GovernAgent } from '@/shared/bot/agents/governAgent.ts'
+import { GovernAgent } from '../governAgent.ts'
 import { DeckList } from '@/shared/types/gateway.ts'
 import { getDecisionPoint, applyOption } from '@/shared/bot/referee.ts'
 import { stepBot } from '@/shared/bot/driver.ts'

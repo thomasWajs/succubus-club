@@ -1,6 +1,6 @@
 import { Discipline, DisciplineLevel } from '@/shared/const/model.ts'
 import { getLockForReactionOptions } from '@/shared/bot/cardOptions.ts'
-import { GovernAgent } from '@/shared/bot/agents/governAgent.ts'
+import { GovernAgent } from '../governAgent.ts'
 import { MalkavDeck } from '@/shared/bot/decks.ts'
 import { DeckList } from '@/shared/types/gateway.ts'
 import { applyOption, getDecidingPlayer } from '@/shared/bot/referee.ts'

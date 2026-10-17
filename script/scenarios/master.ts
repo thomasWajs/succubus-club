@@ -16,7 +16,7 @@ import { MASTER_CARD_IMPLEMENTATIONS } from '@/shared/cardImpl/index.ts'
 import { getUnlockEffectOptions } from '@/shared/bot/cardOptions.ts'
 import { createPlayerView } from '@/shared/bot/playerView.ts'
 import { findOption } from '@/shared/bot/helpers.ts'
-import { GovernAgent } from '@/shared/bot/agents/governAgent.ts'
+import { GovernAgent } from '../governAgent.ts'
 import {
     createHeadlessGame,
     registerQueuedMutationTrigger,

@@ -15,7 +15,7 @@ export type ExplainEntry = {
     player: string
     kind: DecisionKind
     chosen: BotOption
-    // Best first. Empty while the choice is delegated to the base rules.
+    // Best first. Empty when nothing was weighed ( a window that is passed ).
     candidates: ExplainCandidate[]
     note?: string
 }
