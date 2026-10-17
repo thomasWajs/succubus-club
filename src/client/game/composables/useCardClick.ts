@@ -16,15 +16,53 @@ import {
     validateActionCardDeclaration,
     validateTargetDeclaration,
 } from '@/client/game/declaration.ts'
+import {
+    cancelStaging,
+    engineCardClick,
+    engineClaims,
+    staging,
+} from '@/client/engine/interaction.ts'
 import Pointer = Phaser.Input.Pointer
+import { useEngineMode } from '@/client/engine/mode.ts'
 
 const DOUBLE_CLICK_DELAY = 300
+// A press released farther than this ( in pixels ) is a drag, not a click
+const CLICK_SLOP = 6
 let lastClickTime = 0
+
+/**
+ * A game with the rules engine : the card pressed, read as a click once released without a drag.
+ * One press at a time, released by a single listener per scene : on POINTER_UP, and on
+ * POINTER_UP_OUTSIDE too, which Phaser emits instead when the button is released over anything
+ * but the canvas ( an HTML panel or button over the table, appearing as the card is pressed ). A
+ * listener waiting for the next POINTER_UP outlived such a release : that click was lost, and the
+ * next one ran the stale press as well as its own.
+ */
+let pressed: Card | null = null
+const listening = new WeakSet<Phaser.Scene>()
+
+function release(up: Pointer) {
+    const card = pressed
+    pressed = null
+    if (card && up.getDistance() < CLICK_SLOP) {
+        engineCardClick(card)
+    }
+}
+
+function pressCard(scene: Phaser.Scene, card: Card) {
+    if (!listening.has(scene)) {
+        listening.add(scene)
+        scene.input.on(Phaser.Input.Events.POINTER_UP, release)
+        scene.input.on(Phaser.Input.Events.POINTER_UP_OUTSIDE, release)
+    }
+    pressed = card
+}
 
 export function useCardClick(cardRef: Ref<Card>, invertLockOnDoubleClick: boolean) {
     const scene = useScene()
     const gameBus = useGameBusStore()
     const gameState = useGameStateStore()
+    const { isEngine } = useEngineMode()
 
     function onLeftClick(pointer: Pointer) {
         const card = cardRef.value
@@ -86,6 +124,24 @@ export function useCardClick(cardRef: Ref<Card>, invertLockOnDoubleClick: boolea
         }
 
         const card = cardRef.value
+
+        // A game with the rules engine : a click is read as a choice ( see engine/interaction.ts ),
+        // once released without a drag ; a right click cancels the choice under way
+        if (isEngine.value && card) {
+            if (pointer.rightButtonDown() && staging.value) {
+                cancelStaging()
+                return
+            }
+            if (pointer.leftButtonDown()) {
+                pressCard(scene, card)
+                // A card the engine's choice is about : no selection, and no double click ( a lock,
+                // itself read as a decision )
+                if (engineClaims(card)) {
+                    gameBus.setCloseUpCard(card, { pinned: true })
+                    return
+                }
+            }
+        }
 
         // Special case for target declaration :
         // left click will validate the target,

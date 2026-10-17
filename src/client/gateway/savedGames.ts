@@ -7,6 +7,7 @@ import { useGameBusStore } from '@/client/store/bus.ts'
 import { CommunicationMode, EMPTY_SEATING } from '@/shared/types/multiplayer.ts'
 import { GameType } from '@/shared/types/state.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
+import { useEngineMode } from '@/client/engine/mode.ts'
 
 const MAX_AUTO_SAVED_GAMES = 5
 const AUTO_SAVE_INTERVAL = 1000 * 60 * 2 // 1000 miliseconds * 60 seconds * 2 = 2 minutes
@@ -118,6 +119,11 @@ let intervalId: ReturnType<typeof setInterval> | null = null
 export function initAutoSaveGame() {
     // Disable saving on SCS for now
     if (isScsGame()) {
+        return
+    }
+    // A game run by the rules engine can't be resumed from a saved state ( yet ) :
+    // its state lives in the engine. It has its own replay export.
+    if (useEngineMode().isEngine.value) {
         return
     }
     intervalId = setInterval(autoSaveGame, AUTO_SAVE_INTERVAL)

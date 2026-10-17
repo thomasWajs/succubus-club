@@ -30,9 +30,14 @@ import { Card, Minion } from '@/shared/model/Card.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
 import { selfCanAttemptBlock } from '@/client/state/self.ts'
 import { getBlockingDecision } from '@/shared/state/actionState.ts'
+import { chooseEngineOption, engineCardOptions, engineOptionCards } from '@/client/engine/driver.ts'
+import { useEngineStore } from '@/client/store/engine.ts'
+import { minionMenuOptions, narrowStaging } from '@/client/engine/interaction.ts'
+import { useEngineMode } from '@/client/engine/mode.ts'
 
 const gameBus = useGameBusStore()
 const gameState = useGameStateStore()
+const { isEngine } = useEngineMode()
 const players = usePlayersStore()
 const { actionDeclarationEnabled } = useUIFeatures()
 const { singleCard, primedMinion } = useSelection(() => gameBus.selectedCards)
@@ -49,6 +54,8 @@ type FloatingActionData = {
 
 const CARD_ACTION_GAP = 10
 const CARD_ACTION_HEIGHT = 45
+// A small floating action ( see FloatingAction )
+const ENGINE_ACTION_HEIGHT = 26
 
 const focusedCard = computed(() => {
     if (
@@ -100,6 +107,10 @@ function readyToCallReferendum(card: Card): boolean {
 // block happens during another player's action, so it has its own gating.
 const blockingMinions = computed<Minion[]>(() => {
     const selfPlayer = players.selfPlayer
+    // With the rules engine : the minions it offers a block with
+    if (isEngine.value) {
+        return engineBlockers()
+    }
     if (
         gameBus.contextMenu.show ||
         gameBus.declaringTargetOrigin ||
@@ -125,7 +136,8 @@ const blockingMinions = computed<Minion[]>(() => {
 // set, it is the only minion that keeps a floating action ( to stop the block ).
 const selfBlockingMinion = computed<Minion | null>(() => {
     const selfPlayer = players.selfPlayer
-    if (!selfPlayer) {
+    // With the rules engine, a block attempt is not taken back
+    if (!selfPlayer || isEngine.value) {
         return null
     }
     const decision = getBlockingDecision(gameState, selfPlayer)
@@ -137,7 +149,8 @@ const floatingActions = computed<FloatingActionData[]>(() => {
 
     const card = focusedCard.value
     if (card) {
-        if (card.isEmbraceLike()) {
+        // A game with the rules engine : the engine makes the card a vampire ( see engine/projection.ts )
+        if (card.isEmbraceLike() && !isEngine.value) {
             actions.push(...getEmbraceLikeActions(card))
         }
         // Only a primed minion gets the action buttons, and focusedCard returns
@@ -167,8 +180,56 @@ const floatingActions = computed<FloatingActionData[]>(() => {
         }
     }
 
+    actions.push(...getEngineActions())
+
     return actions
 })
+
+// A game with the rules engine : its pending options about a card of the table, as buttons under
+// that card ( see engineCardOptions ), stacked
+function getEngineActions(): FloatingActionData[] {
+    if (
+        !isEngine.value ||
+        gameBus.contextMenu.show ||
+        gameBus.declaringTargetOrigin ||
+        gameBus.dragAttrs
+    ) {
+        return []
+    }
+    const actions: FloatingActionData[] = []
+    const stacked: Record<string, number> = {}
+    for (const { card, option, label } of engineCardOptions()) {
+        const positionning = getPositionning(card)
+        if (!positionning) {
+            continue
+        }
+        const { x, southActionsTop, cardActionGap } = positionning
+        const rank = stacked[card.oid] ?? 0
+        stacked[card.oid] = rank + 1
+        actions.push({
+            label,
+            left: x,
+            translate: 'translateX(-50%)',
+            top:
+                southActionsTop +
+                rank * (ENGINE_ACTION_HEIGHT * getScreenScale() + cardActionGap / 2),
+            small: true,
+            onClick: () => chooseEngineOption(option.index),
+        })
+    }
+    return actions
+}
+
+// The minions the engine offers a block with, now
+function engineBlockers(): Minion[] {
+    if (gameBus.contextMenu.show || gameBus.dragAttrs) {
+        return []
+    }
+    return (useEngineStore().pending?.options ?? [])
+        .filter(option => option.kind == 'declare_block')
+        .map(option => engineOptionCards(option)[0])
+        .filter((card): card is Minion => !!card?.isMinion())
+}
 
 function getPositionning(card: Card) {
     const scale = getScreenScale()
@@ -215,7 +276,7 @@ function getPositionning(card: Card) {
 }
 
 function getActingMinionActions(actingMinion: Minion): FloatingActionData[] {
-    if (!actionDeclarationEnabled.value) {
+    if (!actionDeclarationEnabled.value && !isEngine.value) {
         return []
     }
 
@@ -357,7 +418,45 @@ function getActingMinionActions(actingMinion: Minion): FloatingActionData[] {
         })
     }
 
-    return actions
+    return isEngine.value ? withEngineOptions(actingMinion, actions) : actions
+}
+
+/**
+ * A game with the rules engine : the menu's entries narrowed to what the engine offers ( see
+ * minionMenuOptions ), greyed when it offers nothing ; the actions the menu has no entry for
+ * under the minion.
+ */
+function withEngineOptions(minion: Minion, actions: FloatingActionData[]): FloatingActionData[] {
+    const menu = minionMenuOptions(minion)
+    const positionning = getPositionning(minion)
+    // None while a choice is under way : its buttons would cover the cards to pick
+    if (!menu || !positionning || useEngineStore().staging) {
+        return []
+    }
+    const engineActions = actions.map((action): FloatingActionData => {
+        const options = menu[action.label] ?? []
+        return {
+            ...action,
+            disabled: options.length == 0,
+            onClick: () => narrowStaging(options),
+        }
+    })
+    // With the entries SC's gating didn't build ( a bleed without a prey… ) : no option is out of reach
+    const built = new Set(actions.map(action => action.label))
+    const other = Object.entries(menu)
+        .filter(([label]) => !built.has(label))
+        .flatMap(([, options]) => options)
+    if (other.length > 0) {
+        engineActions.push({
+            // A lone one is taken at the click : named by what it does ( Lenelle's Become Anarch )
+            label: other.length == 1 ? (other[0].text ?? 'Other Actions') : 'Other Actions',
+            left: positionning.x,
+            translate: 'translateX(-50%)',
+            top: positionning.southActionsTop,
+            onClick: () => narrowStaging(other),
+        })
+    }
+    return engineActions
 }
 
 function getCallReferendumActions(card: Card): FloatingActionData[] {

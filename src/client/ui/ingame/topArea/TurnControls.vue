@@ -1,8 +1,13 @@
 <template>
     <div class="turn-controls">
-        <div class="turn">
+        <!-- With the rules engine, a new turn flashes here ( no notification over the table ) -->
+        <div
+            :key="isEngine ? gameState.turnNumber : 0"
+            class="turn"
+            :class="{ engine: isEngine }"
+        >
             <CommandButton
-                v-if="players.isPlayer"
+                v-if="players.isPlayer && manualControlsEnabled"
                 :command="commands.BackTurn"
             >
                 &lt;
@@ -13,11 +18,14 @@
                 :style="{ backgroundColor: gameState.activePlayer?.rgbaColor }"
                 class="active-player inline-player-name"
             >
-                {{ gameState.activePlayer?.shortName }}
+                {{ gameState.activePlayer?.shortName
+                }}<template v-if="isEngine && gameState.turnPhase">
+                    · {{ gameState.turnPhase }}</template
+                >
             </span>
 
             <CommandButton
-                v-if="players.isPlayer"
+                v-if="players.isPlayer && manualControlsEnabled"
                 :command="commands.AdvanceTurn"
             >
                 &gt;
@@ -30,7 +38,7 @@
 
         <div class="phases">
             <CommandButton
-                v-if="players.isPlayer"
+                v-if="players.isPlayer && manualControlsEnabled"
                 :command="commands.BackTurnPhase"
             />
 
@@ -46,7 +54,8 @@
                 <span
                     v-else
                     class="phase-box"
-                    @click="gameMutations.goToTurnPhase.actSelf({ index })"
+                    :class="{ 'read-only': !manualControlsEnabled }"
+                    @click="manualControlsEnabled && gameMutations.goToTurnPhase.actSelf({ index })"
                 >
                     <!-- Disambiguate Master and Minion with the second letter -->
                     {{ phase.charAt(0).toUpperCase()
@@ -55,7 +64,7 @@
             </template>
 
             <CommandButton
-                v-if="players.isPlayer"
+                v-if="players.isPlayer && manualControlsEnabled"
                 :command="commands.AdvanceTurnPhase"
             />
         </div>
@@ -70,10 +79,16 @@ import { TurnSequence } from '@/shared/const/model.ts'
 import { useCommands } from '@/client/game/composables/useCommands.ts'
 import CommandButton from '@/client/ui/ingame/CommandButton.vue'
 import TimerDisplay from '@/client/ui/ingame/topArea/TimerDisplay.vue'
+import { useEngineMode } from '@/client/engine/mode.ts'
+import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
 
 const gameState = useGameStateStore()
 const players = usePlayersStore()
 const commands = useCommands()
+
+// With the rules engine the phases are a read-only indicator : the fixed Pass ends them
+const { isEngine } = useEngineMode()
+const { manualControlsEnabled } = useUIFeatures()
 </script>
 
 <style lang="scss">
@@ -111,6 +126,17 @@ const commands = useCommands()
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+        }
+
+        // The phase beside the player's name : wider, the arrows hidden
+        &.engine {
+            animation: TurnStarts 1.5s ease-out;
+
+            .active-player {
+                width: auto;
+                max-width: 180px;
+                padding: 0 10px;
+            }
         }
 
         .game-button {
@@ -153,10 +179,17 @@ const commands = useCommands()
                 width: 70px;
                 opacity: 1;
             }
-            &:not(.active) {
+            &:not(.active):not(.read-only) {
                 cursor: pointer;
             }
         }
+    }
+}
+
+@keyframes TurnStarts {
+    0%,
+    40% {
+        background-color: rgba($light-teal, 0.6);
     }
 }
 </style>

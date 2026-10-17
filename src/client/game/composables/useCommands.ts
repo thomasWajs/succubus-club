@@ -10,9 +10,13 @@ import { resetCamera } from '@/client/game/camera.ts'
 import { useHistoryStore } from '@/client/store/history.ts'
 import { useCoreStore } from '@/client/store/core.ts'
 import { ALL_PLAYERS } from '@/shared/types/state.ts'
+import { useEngineStore } from '@/client/store/engine.ts'
+import { enginePassOption, passEngine, undoEngineStep } from '@/client/engine/driver.ts'
 import { startTargetDeclaration } from '@/client/game/declaration.ts'
 import { cancelMutation } from '@/client/state/gameMutations.ts'
 import { GRID_SIZE } from '@/shared/const/game.ts'
+import { useEngineMode } from '@/client/engine/mode.ts'
+import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
 import KeyCodes = Phaser.Input.Keyboard.KeyCodes
 
 const KEYCODE_EQUALS_PLUS_FIREFOX = 61
@@ -39,6 +43,8 @@ function createCommands(): Commands {
     const core = useCoreStore()
     const gameBus = useGameBusStore()
     const gameState = useGameStateStore()
+    const { isEngine } = useEngineMode()
+    const { manualControlsEnabled } = useUIFeatures()
     const players = usePlayersStore()
 
     // Initialize shortcuts object if it doesn't exist
@@ -122,7 +128,7 @@ function createCommands(): Commands {
             repr: index.toString(),
             keyCodes,
             isDisabled: () => {
-                return gameState.turnPhaseIndex == index
+                return !manualControlsEnabled.value || gameState.turnPhaseIndex == index
             },
             trigger: () => {
                 gameMutations.goToTurnPhase.actSelf({ index })
@@ -137,7 +143,7 @@ function createCommands(): Commands {
             repr: '↵',
             keyCodes: [KeyCodes.ENTER],
             isDisabled: () => {
-                return !!gameState.action || !!gameState.combat
+                return !manualControlsEnabled.value || !!gameState.action || !!gameState.combat
             },
             trigger: () => {
                 gameMutations.goToTurn.actSelf({ index: gameState.turnNumber + 1 })
@@ -145,7 +151,12 @@ function createCommands(): Commands {
         }),
         BackTurn: createCommand({
             isDisabled: () => {
-                return gameState.turnNumber == 1 || !!gameState.action || !!gameState.combat
+                return (
+                    !manualControlsEnabled.value ||
+                    gameState.turnNumber == 1 ||
+                    !!gameState.action ||
+                    !!gameState.combat
+                )
             },
             trigger: () => {
                 gameMutations.goToTurn.actSelf({ index: gameState.turnNumber - 1 })
@@ -157,7 +168,11 @@ function createCommands(): Commands {
             label: 'Next Phase',
             repr: '→',
             keyCodes: [KeyCodes.RIGHT, KeyCodes.SPACE],
+            // With the rules engine, the pass of the decision under way ( the fixed Pass button )
             isDisabled: () => {
+                if (isEngine.value) {
+                    return !enginePassOption()
+                }
                 return (
                     gameState.turnPhaseIndex >= TurnSequence.length - 1 ||
                     !!gameState.action ||
@@ -165,6 +180,10 @@ function createCommands(): Commands {
                 )
             },
             trigger: () => {
+                if (isEngine.value) {
+                    passEngine()
+                    return
+                }
                 gameMutations.goToTurnPhase.actSelf({ index: gameState.turnPhaseIndex + 1 })
             },
         }),
@@ -174,7 +193,12 @@ function createCommands(): Commands {
             repr: '←',
             keyCodes: [KeyCodes.LEFT],
             isDisabled: () => {
-                return gameState.turnPhaseIndex == 0 || !!gameState.action || !!gameState.combat
+                return (
+                    !manualControlsEnabled.value ||
+                    gameState.turnPhaseIndex == 0 ||
+                    !!gameState.action ||
+                    !!gameState.combat
+                )
             },
             trigger: () => {
                 gameMutations.goToTurnPhase.actSelf({ index: gameState.turnPhaseIndex - 1 })
@@ -430,10 +454,18 @@ function createCommands(): Commands {
             label: 'Cancel',
             repr: '⟵',
             keyCodes: [KeyCodes.BACKSPACE],
+            // With the rules engine : take back the user's last decision ( see Session::undo )
             isDisabled: () => {
+                if (isEngine.value) {
+                    return !useEngineStore().pending?.undo
+                }
                 return !useHistoryStore().nextCancellableMutation
             },
             trigger: () => {
+                if (isEngine.value) {
+                    undoEngineStep()
+                    return
+                }
                 const mutationEntry = useHistoryStore().nextCancellableMutation
                 if (mutationEntry) {
                     cancelMutation(mutationEntry)

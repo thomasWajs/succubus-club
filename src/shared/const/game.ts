@@ -46,6 +46,13 @@ export const CARD_OUTLINE_COLOR_HOVER = HIGHLIGHT_YELLOW
 export const CARD_OUTLINE_COLOR_SELECTED = 'rgb(140,70,255)'
 export const CARD_OUTLINE_COLOR_INDIRECT_HOVER = 'rgb(255, 228, 169)'
 export const ACTION_DECLARATION_OUTLINE_COLOR = 'rgb(70,150,255)'
+// A game with the rules engine : a candidate of the choice under way ( the target declaration's
+// blue ), and the card that choice is about
+export const CARD_GLOW_CANDIDATE_COLOR = ACTION_DECLARATION_OUTLINE_COLOR
+// White, apart from the hover outline's yellow : the card a choice is about
+export const CARD_GLOW_STAGED_COLOR = 'rgb(255,255,255)'
+// A minion that can act : the usable orange, thinner ( a card to play glows full )
+export const CARD_IN_PLAY_GLOW_ACTOR_OUTER_STRENGTH = 1.5
 
 export const CARD_GLOW_COLOR = 'rgb(180,90,40)'
 export const CARD_IN_HAND_GLOW_INNER_STRENGTH = 0
@@ -212,6 +219,20 @@ export const MARKERS_TEXT_STYLE = {
     fontStyle: 'bold',
     fontSize: '13px',
 }
+
+// A counted marker of the rules engine ( hostage, nightmare, torture, a lasting effect's
+// counters ) : a round chip, its count on it, one color per kind, its name on hover
+export const CHIP_RADIUS = 10
+export const CHIP_GAP = 2
+export const CHIP_TEXT_STYLE = {
+    color: 'black',
+    fontStyle: 'bold',
+    fontSize: '14px',
+}
+export const HOSTAGE_CHIP_FILL_COLOR = 'rgb(90,160,230)'
+export const NIGHTMARE_CHIP_FILL_COLOR = 'rgb(175,120,230)'
+export const TORTURE_CHIP_FILL_COLOR = 'rgb(230,130,175)'
+export const EFFECT_CHIP_FILL_COLOR = 'rgb(200,200,200)'
 
 /**
  * Wield Card Stack

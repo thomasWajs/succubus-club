@@ -1,7 +1,7 @@
 import { markRaw } from 'vue'
 import { acceptHMRUpdate } from 'pinia'
 import { defineOptionStore } from 'pinia-class-transformer'
-import { HistoryStore } from '@/shared/state/history.ts'
+import { HistoryStore, Transformer } from '@/shared/state/history.ts'
 import { MutationHistoryEntry } from '@/shared/types/history.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
 import { AnyGameMutation } from '@/shared/state/gameMutations.ts'
@@ -42,8 +42,9 @@ export class ClientHistoryStore extends HistoryStore {
         return null
     }
 
-    addGameMutation(gameMutation: AnyGameMutation) {
-        super.addGameMutation(gameMutation, markRaw)
+    // Always with markRaw ( the log entries are read-only )
+    addGameMutation(gameMutation: AnyGameMutation, _transformer?: Transformer, log = true) {
+        super.addGameMutation(gameMutation, markRaw, log)
     }
 }
 

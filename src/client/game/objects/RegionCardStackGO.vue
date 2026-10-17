@@ -74,7 +74,16 @@
         @pointerover="topCardInteractions.onPointerOver"
         @pointerout="topCardInteractions.onPointerOut"
         @pointerdown="topCardInteractions.onPointerDown"
-    />
+    >
+        <!-- With the rules engine : searched now ( a click opens it, its cards to choose glow ) -->
+        <FxGlow
+            v-if="searched || drawn"
+            :key="searched ? 'searched' : 'drawn'"
+            :color="searched ? Colors.CARD_GLOW_CANDIDATE.color : Colors.CARD_GLOW.color"
+            :outerStrength="CARD_IN_HAND_GLOW_OUTER_STRENGTH"
+            :innerStrength="CARD_IN_HAND_GLOW_INNER_STRENGTH"
+        />
+    </Image>
 
     <Rectangle
         ref="cardOutline"
@@ -102,9 +111,15 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import Phaser, { GameObjects } from 'phaser'
-import { Image, Rectangle, refObj, Text } from 'phavuer'
+import { FxGlow, Image, Rectangle, refObj, Text } from 'phavuer'
 import { Colors } from '@/client/colors.ts'
-import { CARD_IN_STACK_SCALE, CARD_OUTLINE_THICKNESS } from '@/shared/const/game.ts'
+import {
+    CARD_IN_HAND_GLOW_INNER_STRENGTH,
+    CARD_IN_HAND_GLOW_OUTER_STRENGTH,
+    CARD_IN_STACK_SCALE,
+    CARD_OUTLINE_THICKNESS,
+} from '@/shared/const/game.ts'
+import { drawnRegions, searchedRegions } from '@/client/engine/interaction.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { PhaserDataKey, RegionCategory } from '@/client/game/types.ts'
@@ -127,6 +142,11 @@ const { color, cardRegion, draw } = defineProps<{
 
 const players = usePlayersStore()
 const gameBus = useGameBusStore()
+
+// Searched by the engine's decision under way
+const searched = computed(() => searchedRegions.value.includes(cardRegion))
+// A draw from it offered now ( a click draws )
+const drawn = computed(() => drawnRegions.value.includes(cardRegion))
 
 const image = refObj<GameObjects.Image>()
 

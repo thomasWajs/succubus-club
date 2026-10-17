@@ -20,7 +20,7 @@
         />
     </Rectangle>
 
-    <!-- Region name displayed as text -->
+    <!-- Region name displayed as text ( over the cards where they fill the region ) -->
     <Text
         v-if="!cardRegion.is.table"
         ref="regionName"
@@ -57,9 +57,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, nextTick, watch } from 'vue'
 import Phaser, { GameObjects } from 'phaser'
-import { Line, Rectangle, Text } from 'phavuer'
+import { Line, Rectangle, refObj, Text } from 'phavuer'
 import { usePlayersStore } from '@/client/state/players.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { Colors } from '@/client/colors.ts'
@@ -81,14 +81,32 @@ import Color = Phaser.Display.Color
 const players = usePlayersStore()
 const gameBus = useGameBusStore()
 
-const { cardRegion } = defineProps<{
+const { cardRegion, labelOnTop = false } = defineProps<{
     x: number
     y: number
     width: number
     height: number
     color?: Color
     cardRegion: AnyCardRegion
+    // The name over the cards : a row they fill ( the uncontrolled vampires )
+    labelOnTop?: boolean
 }>()
+
+// The name over the cards ( labelOnTop ) : a container draws its children in order, depth aside,
+// and a card arriving is added last
+const regionName = refObj<GameObjects.Text>()
+watch(
+    () => cardRegion.cards.length,
+    () => {
+        if (labelOnTop) {
+            void nextTick(() => {
+                const text = regionName.value
+                text?.parentContainer?.bringToTop(text)
+            })
+        }
+    },
+    { immediate: true },
+)
 
 const highlightDropZone = computed(() => {
     return (

@@ -1,8 +1,32 @@
 <template>
     <CentralPanel
         class="referendum-infos"
-        title="Referendum"
+        :class="{ engine: isEngine }"
+        :title="isEngine && engine.terms.length > 0 ? undefined : 'Referendum'"
     >
+        <div
+            v-if="isEngine && engine.terms.length > 0"
+            class="referendum-terms"
+        >
+            <!-- The title on the first line ( the card, who calls it ) -->
+            <div
+                v-for="(line, i) in engine.terms"
+                :key="i"
+            >
+                <span
+                    v-if="i == 0"
+                    class="central-panel-title"
+                    >Referendum :
+                </span>
+                <EngineText :text="line" />
+            </div>
+            <div
+                v-if="engine.referendumText"
+                class="referendum-card-text"
+            >
+                {{ engine.referendumText }}
+            </div>
+        </div>
         <div class="referendum-body">
             <!--
             Left column : votes that don't come from a vampire, one row per
@@ -10,7 +34,11 @@
             own. Its width is content-driven and stable, which is what keeps the
             tally on the right from moving as the panel changes state.
             -->
-            <div class="methuselah-votes">
+            <!-- With the rules engine : only once such a vote is cast ( the Edge, a card ) -->
+            <div
+                v-if="!isEngine || methuselahVotesCast"
+                class="methuselah-votes"
+            >
                 <span class="methuselah-votes-title">Methuselah votes</span>
 
                 <span class="methuselah-votes-header">In favour</span>
@@ -30,6 +58,7 @@
                     <span class="methuselah-votes-cell">
                         <PropertyStepper
                             v-if="row.isSelf"
+                            :readOnly="!manualControlsEnabled"
                             :value="row.votes[VoteSide.InFavour]"
                             @change="changePlayerVotes(row.player, VoteSide.InFavour, $event)"
                         />
@@ -40,6 +69,7 @@
                     <span class="methuselah-votes-cell">
                         <PropertyStepper
                             v-if="row.isSelf"
+                            :readOnly="!manualControlsEnabled"
                             :value="row.votes[VoteSide.Against]"
                             @change="changePlayerVotes(row.player, VoteSide.Against, $event)"
                         />
@@ -75,7 +105,11 @@
                 it, its count is highlighted and the grant it earns is spelled
                 out at the end of the line.
                 -->
-                <div class="subreferendum">
+                <!-- With the rules engine : only with a priscus at the table -->
+                <div
+                    v-if="!isEngine || prisciAtTable"
+                    class="subreferendum"
+                >
                     <span class="subreferendum-title">Priscii</span>
 
                     <span
@@ -100,7 +134,10 @@
                     </span>
                 </div>
 
-                <div class="referendum-controls">
+                <div
+                    v-if="manualControlsEnabled"
+                    class="referendum-controls"
+                >
                     <!--
                     Fixed slots : the Interrupt button takes the place of the
                     Last call button, and the countdown takes the room between
@@ -167,6 +204,7 @@ import { ReferendumState, VoteSide } from '@/shared/types/state.ts'
 import {
     getLastCallRemainingTime,
     getPlayerVotes,
+    isBallotVampire,
     getSubReferendumWinner,
     getWinningSide,
     isLastCallOver,
@@ -177,12 +215,20 @@ import {
 import { Player } from '@/shared/model/Player.ts'
 import PropertyStepper from '@/client/ui/components/PropertyStepper.vue'
 import CentralPanel from '@/client/ui/ingame/topArea/central/CentralPanel.vue'
+import { useEngineStore } from '@/client/store/engine.ts'
+import EngineText from '@/client/ui/ingame/EngineText.vue'
+import { useEngineMode } from '@/client/engine/mode.ts'
+import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
 
 const props = defineProps<{
     referendum: ReferendumState
 }>()
 
 const gameState = useGameStateStore()
+// A game with the rules engine : the engine counts the votes ( see engine/projection.ts )
+const { isEngine } = useEngineMode()
+const { manualControlsEnabled } = useUIFeatures()
+const engine = useEngineStore()
 const players = usePlayersStore()
 
 /**
@@ -254,6 +300,15 @@ const winningSide = computed(() => (outcomeReached.value ? getWinningSide(props.
  */
 
 const subTally = computed(() => tallySubReferendum(props.referendum))
+// With the rules engine, the rows and lines shown only when they hold something
+const methuselahVotesCast = computed(() =>
+    methuselahVoteRows.value.some(
+        row => row.votes[VoteSide.InFavour] > 0 || row.votes[VoteSide.Against] > 0,
+    ),
+)
+const prisciAtTable = computed(() =>
+    players.orderedPlayers.some(player => player.vampiresReady.some(isBallotVampire)),
+)
 const subWinner = computed(() => getSubReferendumWinner(props.referendum))
 
 /**
@@ -278,6 +333,21 @@ function changePlayerVotes(player: Player, side: VoteSide, amount: number) {
 
 <style lang="scss">
 .central-panel.referendum-infos {
+    // What passing does, under the card's name
+    .referendum-card-text {
+        font-size: 12px;
+        font-style: italic;
+        opacity: 0.85;
+        max-width: 32rem;
+    }
+
+    // The panel's own dark text, a little larger than its dense table
+    .referendum-terms {
+        font-size: 14px;
+        text-align: center;
+        margin-bottom: 4px;
+    }
+
     // The central box is short, so this panel stays deliberately dense
     font-size: 13px;
     padding: 0.5rem 0.75rem;
@@ -467,6 +537,36 @@ function changePlayerVotes(player: Player, side: VoteSide, amount: number) {
         text-align: center;
         color: $blood-red;
         animation: ReferendumLastCallAppear 0.3s ease-out;
+    }
+}
+
+// With the rules engine the central box holds the decision and the cards played too : the
+// panel stays whole ( the tally in sight ), so it is denser : its title on the terms' first
+// line, the card's text over a few lines at most ( scrolled ), each side's count beside its label
+.central-panel.referendum-infos.engine {
+    flex-shrink: 0;
+    gap: 0.25rem;
+    padding: 0.25rem 0.75rem;
+
+    .referendum-terms {
+        margin-bottom: 0;
+    }
+
+    .referendum-card-text {
+        max-height: 3.6em;
+        overflow-y: auto;
+    }
+
+    .tally-side {
+        flex-direction: row;
+        justify-content: center;
+        align-items: baseline;
+        gap: 0.4rem;
+        padding: 0 4px;
+
+        .tally-amount {
+            font-size: 24px;
+        }
     }
 }
 

@@ -5,10 +5,11 @@
             v-if="players.isPlayer"
             class="game-mutations"
         >
+            <!-- Enabled by the command : the last mutation, or with the rules engine the user's last
+                 decision when it can be taken back -->
             <CommandButton
                 class="is-danger cancel-button"
                 :command="commands.Cancel"
-                :disabled="!history.nextCancellableMutation"
             >
                 Cancel
             </CommandButton>
@@ -53,14 +54,19 @@
                 ref="gameMenu"
                 label="Game"
             >
+                <!-- With the rules engine, its referendums and discards : not the free table's -->
                 <button
+                    v-if="manualControlsEnabled"
                     class="game-button"
                     :disabled="!!gameState.referendum"
                     @click="callReferendum"
                 >
                     Call Referendum
                 </button>
-                <CommandButton :command="commands.DiscardAtRandom">
+                <CommandButton
+                    v-if="manualControlsEnabled"
+                    :command="commands.DiscardAtRandom"
+                >
                     Discard At Random
                 </CommandButton>
                 <CommandButton :command="commands.ClearDeclaredTargets">
@@ -84,22 +90,65 @@
                 >
                     Secret Choice
                 </button>
+                <!-- The game's setup and every decision : to report a bug -->
+                <button
+                    v-if="isEngine"
+                    class="game-button"
+                    @click="exportReplay"
+                >
+                    Export Replay
+                </button>
             </PopupMenu>
         </div>
 
         <!-- Right-anchored controls, aligned under the phases block -->
         <div class="right-controls">
             <CommandButton
-                v-if="players.isPlayer"
+                v-if="players.isPlayer && manualControlsEnabled"
                 class="unlock-all-button"
                 :command="commands.UnlockAll"
             >
                 Unlock All
             </CommandButton>
 
+            <!-- With the rules engine : the pass of the decision under way, always here ( → / Space ),
+                 the engine's text in its title ( "Pass (no block)", "End the master phase" ) ; a
+                 pass that does something is also in the central box ( see isEffectPass ) -->
+            <CommandButton
+                v-if="players.isPlayer && isEngine"
+                class="engine-fixed-pass"
+                :command="commands.AdvanceTurnPhase"
+                :title="pass?.text"
+            >
+                Pass
+            </CommandButton>
+            <!-- A switch : its knob right and teal when on -->
+            <button
+                v-if="players.isPlayer && isEngine"
+                class="game-button engine-opportunities"
+                :class="{ on: engineOpportunities }"
+                role="switch"
+                :aria-checked="engineOpportunities"
+                :title="`Opportunities ${engineOpportunities ? 'on' : 'off'}. Off : wakes only on your prey's or predator's actions or those directed at you, cards usable at any time ( The Louvre, Paris ) only when you're asked anyway`"
+                @click="setEngineOpportunities(!engineOpportunities)"
+            >
+                Opp.
+                <span class="engine-switch"><span class="engine-switch-knob" /></span>
+            </button>
+
+            <!-- Why the last move on the table was no decision ( a game with the rules engine ), for a
+                 moment in place of the cards with an effect -->
+            <div
+                v-if="isEngine && engine.notice"
+                class="engine-notice"
+                :title="engine.notice"
+            >
+                {{ engine.notice }}
+            </div>
+
             <!-- Cards with an effect -->
             <div
-                v-if="glowInPlayEnabled"
+                v-else-if="glowInPlayEnabled"
                 class="cards-during-current-phase"
                 :class="{ 'has-effect': gameState.cardsDuringCurrentPhase.length > 0 }"
                 @click="pingCardsDuringCurrentPhase"
@@ -111,7 +160,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
@@ -120,20 +169,44 @@ import { resetFreeTableCamera } from '@/client/game/camera.ts'
 import { useCommands } from '@/client/game/composables/useCommands.ts'
 import CommandButton from '@/client/ui/ingame/CommandButton.vue'
 import PopupMenu from '@/client/ui/components/PopupMenu.vue'
-import { useHistoryStore } from '@/client/store/history.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
 import { rollRandomResult } from '@/client/state/gameMutations.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
+import { useEngineStore } from '@/client/store/engine.ts'
+import {
+    engineOpportunities,
+    engineReplay,
+    setEngineOpportunities,
+} from '@/client/engine/driver.ts'
+import { useEngineMode } from '@/client/engine/mode.ts'
 
 const gameState = useGameStateStore()
 const gameBus = useGameBusStore()
 const players = usePlayersStore()
-const history = useHistoryStore()
 const commands = useCommands()
 
-const { glowInPlayEnabled } = useUIFeatures()
+const { glowInPlayEnabled, manualControlsEnabled } = useUIFeatures()
 
 const gameMenu = ref<InstanceType<typeof PopupMenu> | null>(null)
+
+const { isEngine } = useEngineMode()
+const engine = useEngineStore()
+// The pass of the decision under way, if any
+const pass = computed(() => engine.pending?.options.find(option => option.kind == 'pass'))
+
+// The replay ( the game's setup and every decision ) reproduces the game in the engine
+async function exportReplay() {
+    gameMenu.value?.close()
+    const replay = await engineReplay()
+    if (!replay) {
+        return
+    }
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(new Blob([replay], { type: 'application/json' }))
+    link.download = `zero-vtes-replay-${new Date().toISOString().replace(/[:.]/g, '-')}.json`
+    link.click()
+    URL.revokeObjectURL(link.href)
+}
 
 function openSecretInterface() {
     gameMenu.value?.close()
@@ -180,11 +253,80 @@ function pingCardsDuringCurrentPhase() {
     // group's left edge lines up with the left edge of the phases block above.
     width: 262px;
 
+    .engine-fixed-pass {
+        // The pass fills the row
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        font-size: 15px;
+        font-weight: bold;
+        white-space: nowrap;
+    }
+
+    .engine-opportunities {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 11px;
+        padding: 0 6px;
+        white-space: nowrap;
+
+        .engine-switch {
+            position: relative;
+            width: 24px;
+            height: 12px;
+            background: $ash-grey;
+            transition: background 0.2s;
+        }
+
+        .engine-switch-knob {
+            position: absolute;
+            top: 1px;
+            left: 1px;
+            width: 10px;
+            height: 10px;
+            background: $ghost-white;
+            transition: left 0.2s;
+        }
+
+        &.on {
+            .engine-switch {
+                background: $lighter-teal;
+            }
+
+            .engine-switch-knob {
+                left: 13px;
+            }
+        }
+    }
+
     .unlock-all-button {
         // Grow to fill the space left of the cards indicator, so the button's
         // left edge aligns with .phases while staying adjacent to the cards.
         flex: 1;
         white-space: nowrap;
+    }
+}
+
+.engine-notice {
+    display: flex;
+    align-items: center;
+    max-width: 130px;
+    padding: 0 6px;
+    background-color: rgb(165, 25, 45);
+    color: white;
+    font-size: 11px;
+    font-weight: bold;
+    line-height: 1.1;
+    overflow: hidden;
+    animation: EngineNotice 0.3s ease-out;
+}
+
+@keyframes EngineNotice {
+    0% {
+        background-color: rgb(235, 90, 40);
     }
 }
 
