@@ -693,9 +693,10 @@ export const leftoverOptions = computed((): OptionView[] => {
 
 /**
  * A pass that does something ( Anarch Convert's "Gain 1 pool", "Keep him in play", "Stop
- * searching" ) : a choice like the others, in the central box beside them — the fixed Pass says
- * only "Pass". A plain pass ( "Pass (no block)", "End the minion phase" ) stays there alone.
+ * searching" ) : a choice like the others, in the central box beside them — the fixed button says
+ * only "Pass" or "Decline". A plain pass ( "Pass (no block)", "Decline to block", "End the minion phase" ) stays
+ * there alone.
  */
 export function isEffectPass(option: OptionView): boolean {
-    return option.kind == 'pass' && !/^(Pass\b|End the )/.test(option.text ?? '')
+    return option.kind == 'pass' && !/^(Pass\b|End the |Decline to block$)/.test(option.text ?? '')
 }

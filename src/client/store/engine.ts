@@ -18,6 +18,8 @@ export type EngineDecision = {
     votes?: VoteTotals | null
     // The combat under way, if any
     combat: EngineCombat | null
+    // Its pass declines to block
+    decline: boolean
 }
 
 export type EngineCombat = {

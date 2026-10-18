@@ -7,8 +7,10 @@
             <div class="acting-minion">
                 <span
                     :class="action.minionAction.actingMinion.isCrypt ? 'cryptCard' : 'libraryCard'"
+                    @mouseenter="hover(action.minionAction.actingMinion)"
+                    @mouseleave="hover(null)"
                 >
-                    {{ action.minionAction.actingMinion.name }} </span
+                    {{ minionName(action.minionAction.actingMinion) }} </span
                 >:
                 <template v-if="action.minionAction.type == MinionActionType.ActionCardFromHand">
                     {{ ActionVerb[action.minionAction.card.type as keyof typeof ActionVerb] + ' ' }}
@@ -27,7 +29,17 @@
                     </template>
                 </template>
                 <template v-if="action.minionAction.target">
-                    {{ ' on ' + selfSecureName(action.minionAction.target) }}
+                    on
+                    <span
+                        @mouseenter="hover(action.minionAction.target)"
+                        @mouseleave="hover(null)"
+                        >{{
+                            minionName(
+                                action.minionAction.target,
+                                selfSecureName(action.minionAction.target),
+                            )
+                        }}</span
+                    >
                 </template>
 
                 <template
@@ -37,7 +49,11 @@
                     "
                 >
                     Provided By
-                    {{ action.minionAction.card.name }}
+                    <span
+                        @mouseenter="hover(action.minionAction.card)"
+                        @mouseleave="hover(null)"
+                        >{{ action.minionAction.card.name }}</span
+                    >
                 </template>
             </div>
 
@@ -56,9 +72,14 @@
                         >
                             {{ decision.player.shortName }}
                         </strong>
-                        <template v-if="decision.minionName">
+                        <template v-if="decision.minion">
                             <strong>Block</strong> with
-                            <span class="cryptCard">{{ decision.minionName }}</span>
+                            <span
+                                class="cryptCard"
+                                @mouseenter="hover(decision.minion)"
+                                @mouseleave="hover(null)"
+                                >{{ minionName(decision.minion) }}</span
+                            >
                         </template>
                         <strong v-else> No Block </strong>
                     </div>
@@ -246,11 +267,13 @@ import DisciplineIcon from '@/client/ui/components/DisciplineIcon.vue'
 import CentralPanel from '@/client/ui/ingame/topArea/central/CentralPanel.vue'
 import { getBlockingDecision } from '@/shared/state/actionState.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
-import { LibraryCard } from '@/shared/model/Card.ts'
+import { Card, LibraryCard } from '@/shared/model/Card.ts'
+import { Player } from '@/shared/model/Player.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { actionButtons } from '@/client/engine/interaction.ts'
-import { chooseEngineOption } from '@/client/engine/driver.ts'
+import { chooseEngineOption, engineShortName } from '@/client/engine/driver.ts'
+import { hoverEngineCard } from '@/client/engine/cardNames.ts'
 
 const props = defineProps<{
     action: ActionState
@@ -261,6 +284,21 @@ const players = usePlayersStore()
 
 // A game with the rules engine : the engine plays the action out ( see engine/projection.ts )
 const isEngine = computed(() => gameState.gameType == GameType.Engine)
+
+// A game with the rules engine : a vampire named as its log names it ( "Morocco" ), the card
+// shown on hover
+function minionName(minion: Card | Player, name = minion.name): string {
+    // A name hidden from the user ( "Hidden Card" ) is not shortened
+    return isEngine.value && minion instanceof Card && minion.isCrypt && name == minion.name ?
+            engineShortName(name)
+        :   name
+}
+
+function hover(card: Card | Player | null | undefined) {
+    if (isEngine.value) {
+        hoverEngineCard(card instanceof Card ? card : null)
+    }
+}
 const buttons = actionButtons
 const gameBus = useGameBusStore()
 const { automaticCostPaymentEnabled } = useUIFeatures()
@@ -356,13 +394,13 @@ const selfDeclinedBlock = computed(
 const blockingDecisions = computed(() =>
     props.action.blockingDecisions.map(decision => ({
         player: decision.player,
-        minionName: decision.block === NO_BLOCK ? null : decision.block.name,
+        minion: decision.block === NO_BLOCK ? null : decision.block,
     })),
 )
 
 // The intercept only matters once a minion is actually attempting the block.
 const hasBlockingMinion = computed(() =>
-    blockingDecisions.value.some(decision => decision.minionName !== null),
+    blockingDecisions.value.some(decision => decision.minion !== null),
 )
 </script>
 

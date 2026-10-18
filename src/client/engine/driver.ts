@@ -131,6 +131,11 @@ export function enginePassOption(): OptionView | undefined {
     return useEngineStore().pending?.options.find(option => option.kind == 'pass')
 }
 
+// A vampire's name as the game's log says it ( "Morocco" ) : the central box's panels say it so
+export function engineShortName(name: string): string {
+    return running ? running.log.shortName(name) : name
+}
+
 export function passEngine() {
     const pass = enginePassOption()
     if (pass) {
@@ -180,6 +185,22 @@ function randomAmounts(allocation: Allocation): number[] {
         }
     }
     return amounts
+}
+
+// The user's pass declines to block ( the engine's "Decline to block", "Pass (no block)" ) : no
+// block attempted, or the user's attempt short of the stealth
+function declinesBlock(view: TableView, seat: number, window: Window): boolean {
+    const action = view.action
+    if (window != 'action_block' || !action || action.seat == seat) {
+        return false
+    }
+    if (action.step != 'attempt') {
+        return true
+    }
+    const attempting = view.seats
+        .find(other => other.seat == seat)
+        ?.ready.some(minion => minion.card.copy == action.blocker)
+    return !!attempting && action.intercept != null && action.intercept < action.stealth
 }
 
 // The combat under way, by its minions' names
@@ -522,6 +543,7 @@ export async function runEngine(host: EngineHost, projection: Projection) {
                 allocation: out.allocation,
                 votes: out.votes,
                 combat: combatOf(out.view, out.seat),
+                decline: declinesBlock(out.view, out.seat, out.window),
             }
             // The rest of a move worth several decisions
             const repeat = current.repeat

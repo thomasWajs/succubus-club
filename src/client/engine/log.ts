@@ -255,7 +255,7 @@ export class EngineLogBuilder {
     }
 
     // A vampire's short name : its first word, unless another vampire met starts with it
-    private shortName(name: string): string {
+    shortName(name: string): string {
         const first = firstWord(name)
         for (const other of this.cryptNames) {
             if (other != name && firstWord(other) == first) {
