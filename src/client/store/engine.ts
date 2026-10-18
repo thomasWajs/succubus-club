@@ -1,6 +1,7 @@
 import { acceptHMRUpdate, defineStore } from 'pinia'
 import type { Allocation, OptionView, VoteTotals, Window } from '@/client/engine/api.ts'
 import type { EngineChip } from '@/client/engine/labels.ts'
+import type { EngineLogEntry } from '@/client/engine/log.ts'
 
 export type EngineDecision = {
     decision: number
@@ -77,6 +78,13 @@ export const useEngineStore = defineStore('engine', {
         inCombat: false,
         // Why the user's last move on the table was no decision, for a moment ( beside the Pass )
         notice: '',
+        // The game's log ( see log.ts ) : its lines, the seats' colors
+        log: [] as EngineLogEntry[],
+        // Its lines added or grown, counted : the log follows them
+        logVersion: 0,
+        // The lines the user folded or unfolded, by key ( the others : open while under way )
+        logOpen: {} as Record<string, boolean>,
+        seatColors: [] as string[],
     }),
     actions: {
         // Shown a few seconds, a later one replacing it

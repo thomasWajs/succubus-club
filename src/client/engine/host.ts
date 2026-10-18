@@ -25,7 +25,7 @@ import { DeckList } from '@/shared/types/gateway.ts'
  * ended among them.
  */
 export type EngineOut =
-    | ({ type: 'decision'; events: string[]; actionEnded: boolean } & Decision)
+    | ({ type: 'decision'; events: Event[]; actionEnded: boolean } & Decision)
     | {
           type: 'decided'
           decision: number
@@ -33,7 +33,9 @@ export type EngineOut =
           window: Window
           // The option taken ( a pass, when it passed by itself )
           choice: OptionView
-          events: string[]
+          // The event telling it ( `decided`, `auto_passed` )
+          event: Event
+          events: Event[]
           actionEnded: boolean
           // Taken while an action is under way ( its declaration included )
           duringAction: boolean
@@ -41,7 +43,7 @@ export type EngineOut =
           // action this view is past ( the next one declared )
           view: TableView
       }
-    | { type: 'over'; vps: number[]; events: string[]; actionEnded: boolean; view: TableView }
+    | { type: 'over'; vps: number[]; events: Event[]; actionEnded: boolean; view: TableView }
 
 // The engine server : engine.krcg.org, or another one in development ( a local zvtes-server )
 export const ENGINE_SERVER = import.meta.env.VITE_ENGINE_SERVER ?? 'https://engine.krcg.org'
@@ -126,7 +128,7 @@ export class EngineHost {
     private queue: EngineOut[] = []
     private waiting: Waiter[] = []
     // Events told since the last message given to the driver
-    private told: string[] = []
+    private told: Event[] = []
     // An action ended among the events told since the last message given to the driver
     private actionEnded = false
     // An action under way, as the events tell it in order ( a view may be past them )
@@ -423,7 +425,7 @@ export class EngineHost {
         }
     }
 
-    private take(): { events: string[]; actionEnded: boolean } {
+    private take(): { events: Event[]; actionEnded: boolean } {
         const taken = { events: this.told, actionEnded: this.actionEnded }
         this.told = []
         this.actionEnded = false
@@ -435,7 +437,8 @@ export class EngineHost {
         for (const e of events) {
             if (e.kind == 'undone') {
                 this.queue = []
-                this.told = []
+                // Told on : the log takes back its lines
+                this.told = [e]
                 this.actionEnded = false
                 continue
             }
@@ -465,6 +468,7 @@ export class EngineHost {
                     seat: e.seat,
                     window: e.window,
                     choice,
+                    event: e,
                     ...this.take(),
                     duringAction: this.acting,
                     view: this.view as TableView,
@@ -475,9 +479,7 @@ export class EngineHost {
                 this.acting = false
                 this.actionEnded = true
             }
-            if (e.text) {
-                this.told.push(e.text)
-            }
+            this.told.push(e)
         }
     }
 

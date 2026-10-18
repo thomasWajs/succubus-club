@@ -25,13 +25,21 @@
                     {{ showArchive ? 'Showing full history' : 'View full history' }}
                 </button>
 
-                <LogLine
-                    v-for="(logEntry, index) in displayedLogEntries"
-                    :key="'logEntry-' + index"
-                    :logEntry="logEntry"
-                    :index="index"
+                <!-- A game with the rules engine : its own log, the chat among its lines -->
+                <EngineLog
+                    v-if="gameState.gameType == GameType.Engine"
+                    :logEntries="displayedLogEntries"
                     :showTime="showTime"
                 />
+                <template v-else>
+                    <LogLine
+                        v-for="(logEntry, index) in displayedLogEntries"
+                        :key="'logEntry-' + index"
+                        :logEntry="logEntry"
+                        :index="index"
+                        :showTime="showTime"
+                    />
+                </template>
             </div>
         </div>
 
@@ -198,6 +206,7 @@ import { useGameStateStore } from '@/client/store/gameState.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import LogLine from '@/client/ui/ingame/rightColumn/LogLine.vue'
+import EngineLog from '@/client/ui/ingame/rightColumn/EngineLog.vue'
 import { leaveGame } from '@/client/state/setup.ts'
 import { getAuthorColorRgba } from '@/shared/colors.ts'
 

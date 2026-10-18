@@ -21,7 +21,6 @@ import { strikeName, windowName } from '@/client/engine/labels.ts'
 import type { EngineOut } from '@/client/engine/host.ts'
 import { AnyCardRegion } from '@/shared/types/model.ts'
 import { EngineCombat, useEngineStore } from '@/client/store/engine.ts'
-import { useHistoryStore } from '@/client/store/history.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { getAuthorColorRgba } from '@/shared/colors.ts'
 import { Card, LibraryCard } from '@/shared/model/Card.ts'
@@ -32,11 +31,13 @@ import { Invalid, VALID, Validity } from '@/shared/types/state.ts'
 import { matchGesture, onCardLabel } from '@/client/engine/gestures.ts'
 import { autoplayStaging, narrowStaging } from '@/client/engine/interaction.ts'
 import { forgetCardNames, learnCardNames } from '@/client/engine/cardNames.ts'
+import { EngineLogBuilder } from '@/client/engine/log.ts'
+import { gameResources } from '@/shared/registries.ts'
 
 // Dev : the user's seat is played at random and nothing pauses, to run a whole game
 const AUTOPLAY = !!import.meta.env.VITE_ENGINE_AUTOPLAY
 // Pause after a bot's decision, to let the user follow what happens
-const BOT_DECISION_PAUSE = 450
+const BOT_DECISION_PAUSE = 500
 const BOT_PASS_PAUSE = 120
 
 // What the user answers : an option, taking back a step, a whole allocation, or all their votes one way
@@ -50,6 +51,7 @@ type Answer =
 type Running = {
     host: EngineHost
     projection: Projection
+    log: EngineLogBuilder
     answer: ((answer: Answer) => void) | null
     // A move worth several decisions ( influence 3 ) : the option to take again, by its card
     repeat: { kind: string; card: string | undefined; left: number } | null
@@ -402,44 +404,37 @@ function project(current: Running, out: EngineOut) {
     }
 }
 
-// A line of the log ; the same line again from the same author is counted, not repeated
-// ( "Transfer 1 pool to … ( ×3 )" )
-let lastLine: { authorName: string; text: string; times: number } | null = null
-
-function say(authorName: string, text: string, authorColorRgba?: string) {
-    const history = useHistoryStore()
-    const last = history.logEntries[history.logEntries.length - 1]
-    if (lastLine && last && lastLine.authorName == authorName && lastLine.text == text) {
-        lastLine.times++
-        history.logEntries.splice(-1, 1, { ...last, text: `${text} ( ×${lastLine.times} )` })
-        return
+// What happened since the previous message, told to the log ( see log.ts ) ; the seats' colors
+function tell(current: Running, out: EngineOut) {
+    const engine = useEngineStore()
+    if (engine.seatColors.length != out.view.seats.length) {
+        engine.seatColors = out.view.seats.map(seat =>
+            getAuthorColorRgba(current.projection.player(seat.seat).rgbaColor),
+        )
     }
-    lastLine = { authorName, text, times: 1 }
-    history.addChatMessage({ text, timestamp: new Date(), authorName, authorColorRgba })
-}
-
-// What happened since the previous message : an action's or a referendum's end, pool and blood moved,
-// cards drawn, combats…
-function tell(out: EngineOut) {
-    for (const event of out.events ?? []) {
-        say('Table', event)
+    current.log.learn(out.view)
+    for (const event of out.events) {
+        // The lines taken back : their folding goes with them
+        if (event.kind == 'undone') {
+            const engine = useEngineStore()
+            for (const key of Object.keys(engine.logOpen)) {
+                if (parseInt(key) >= event.to) {
+                    delete engine.logOpen[key]
+                }
+            }
+        }
+        current.log.event(event)
     }
-}
-
-// A decision, as the log tells it : its text ; a bare pass with the window it passes
-function decisionLine(out: Extract<EngineOut, { type: 'decided' }>): string {
-    const text = out.choice.text ?? ''
-    return text == 'Pass' ? `Pass ( ${windowName(out.window)} )` : text
 }
 
 function narrate(current: Running, out: EngineOut) {
-    tell(out)
+    tell(current, out)
     if (out.type != 'decided') {
         return
     }
+    current.log.event(out.event)
     const player = current.projection.player(out.seat)
-    const text = decisionLine(out)
-    say(player.name, text, getAuthorColorRgba(player.rgbaColor))
+    const text = out.choice.text ?? ''
     // A card played during an action : kept in sight until the action is over ( the user's own
     // decisions are not projected )
     if (out.actionEnded) {
@@ -461,7 +456,22 @@ function narrate(current: Running, out: EngineOut) {
 
 export async function runEngine(host: EngineHost, projection: Projection) {
     const engine = useEngineStore()
-    const current: Running = { host, projection, answer: null, repeat: null, deferred: null }
+    engine.log = []
+    engine.logVersion = 0
+    engine.logOpen = {}
+    engine.seatColors = []
+    const current: Running = {
+        host,
+        projection,
+        log: new EngineLogBuilder(
+            engine.log,
+            id => gameResources.cardbase[String(id)]?.name,
+            () => engine.logVersion++,
+        ),
+        answer: null,
+        repeat: null,
+        deferred: null,
+    }
     running?.host.close()
     running = current
     forgetCardNames()
@@ -481,7 +491,7 @@ export async function runEngine(host: EngineHost, projection: Projection) {
             }
             project(current, out)
             if (out.type != 'decided') {
-                tell(out)
+                tell(current, out)
             }
 
             if (out.type == 'over') {
@@ -574,11 +584,7 @@ export async function runEngine(host: EngineHost, projection: Projection) {
                 await host.undo()
                 // The decision taken back : out of the cards played too
                 engine.played = engine.played.filter(p => p.decision < out.decision - 1)
-                say(
-                    projection.player(out.seat).name,
-                    'Takes back their last decision',
-                    getAuthorColorRgba(projection.player(out.seat).rgbaColor),
-                )
+                current.log.say(out.seat, 'takes back their last decision')
                 continue
             }
             narrate(current, await host.answer(out.decision, answer.index))
