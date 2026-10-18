@@ -1,6 +1,6 @@
-/* zvtes protocol 1.6.0 (docs/protocol.md): generated from
+/* zvtes protocol 1.9.0 (docs/protocol.md): generated from
  * crates/api/schema.json by scripts/gen_ts.py, do not edit. */
-export const PROTOCOL_VERSION = '1.6.0'
+export const PROTOCOL_VERSION = '1.9.0'
 
 /**
  * A command as sent: an optional client id, echoed by an `error` it
@@ -84,7 +84,10 @@ export type GameSpec = {
     seats: SeatSpec[]
     /**
      * The deal's seed; the host picks one when absent (and records it).
-     * 32 bits: exact as a JSON number in every language.
+     * The server always draws its own, unless the request carries the
+     * admin token (a fixed deal for a playtest): a seed a player chose
+     * or guessed would let them replay the deal. 32 bits: exact as a
+     * JSON number in every language.
      */
     seed?: number | null
     /** In player turns; the engine's default when absent. */
@@ -244,6 +247,12 @@ export type ActionView = {
     card?: Card | null
     /** The Methuselahs who declined to block. */
     declined?: number[]
+    /**
+     * The attempt under way is short of the stealth and its Methuselah
+     * passed: blocks are not declined yet, and it declines unless the
+     * table helps the attempt before the round ends.
+     */
+    declining?: boolean
     intercept?: number | null
     kind: ActionKind
     /** Its mode (Disciplines, level) and X. */
@@ -281,6 +290,11 @@ export type AllocationError = 'none' | 'length' | 'total' | 'cap' | 'min_nonzero
 export type BotRecord = {
     /** "network" or a scripted style. */
     kind: string
+    /**
+     * A network's nudges by name, those not zero (records before 1.7.0
+     * have none).
+     */
+    nudges?: Record<string, number>
     profile: string
     seat: number
     /**
@@ -312,6 +326,14 @@ export type Card = {
      * visible copy holds, given as it comes into sight. With `id` only.
      */
     nth?: number | null
+    /**
+     * A minion's number among the minions of its name the viewer has
+     * met this game, from the second on ("War Ghoul (2)", whatever its
+     * deck), kept once given (an undo takes back those given since); none
+     * for the first, nor a ghoul token. On a minion in the view and on
+     * its entering or leaving play.
+     */
+    numbered?: number | null
 }
 
 /**
@@ -391,6 +413,11 @@ export type Decision = {
     allocation?: Allocation | null
     decision: number
     /**
+     * Why a minion phase offers no `pass`: what it must do before it ends
+     * (other minions' actions may wait too). Empty otherwise.
+     */
+    due?: Due[]
+    /**
      * The options shown (the seat's settings may hide some: indices keep
      * the engine's numbering).
      */
@@ -421,6 +448,18 @@ export type DisciplineLevel = {
     discipline: string
     superior: boolean
 }
+
+/**
+ * What a minion phase waits for (`Decision::due`): the minion that must
+ * hunt or take its mandatory action, the card taking control of its host.
+ */
+export type Due = {
+    copy: number
+    kind: DueKind
+}
+
+/** What a minion phase waits for before it may end (`Decision::due`). */
+export type DueKind = 'hunt' | 'action' | 'take_control' | 'unknown'
 
 /**
  * One thing an option does, to whom (docs/protocol.md §7): a curated
@@ -654,6 +693,22 @@ export type Event = {
           seat: number
       }
     | {
+          card: Card
+          kind: 'revealed'
+          seat: number
+      }
+    | {
+          card: Card
+          effects?: Effect[]
+          kind: 'resolved'
+          seat: number
+      }
+    | {
+          card: Card
+          kind: 'canceled'
+          seat: number
+      }
+    | {
           delta: number
           kind: 'pool'
           pool: number
@@ -766,6 +821,11 @@ export type GameResult = {
      */
     failure?: string | null
     reason: EndReason
+    /**
+     * The turn the game ended on (for a game a restart ended, the turn
+     * its record reads to); absent in records before 1.7.0.
+     */
+    turns?: number | null
     vp_halves: number[]
     winner?: number | null
 }
@@ -823,6 +883,9 @@ export type MarkerKind =
     | 'expelled'
     | 'corruption'
     | 'effect'
+    | 'red_list_mark'
+    | 'pact'
+    | 'out_of_play'
     | 'unknown'
 
 export type MinionKind = 'vampire' | 'ally' | 'token' | 'created' | 'unknown'
@@ -842,6 +905,8 @@ export type MinionView = {
     /** The Methuselah whose ash heap it goes to, when not its controller. */
     owner?: number | null
     title?: Title | null
+    /** Its traits as they stand (Black Hand gained included). */
+    traits?: Trait[]
 }
 
 /**
@@ -963,6 +1028,13 @@ export type OptionView = {
     actor?: number | null
     /** An amount: blood, pool, votes, X, points. */
     amount?: number | null
+    /**
+     * An ability's: what sets it apart from its source's other abilities,
+     * offered or not (its effects not all of them have, alike on every
+     * option of the ability, whatever its actor or target). Empty for a
+     * lone ability, or one its effects do not tell apart: then its number.
+     */
+    apart?: Effect[]
     /** The blood an ability moves onto (+) or off (−) the vampire it is on. */
     blood?: number | null
     /** The card played, used, taken, discarded or named. */
@@ -991,6 +1063,8 @@ export type OptionView = {
     target?: Target | null
     /** The option in English, when the seat's settings ask for text. */
     text?: string | null
+    /** An ability's: who uses it, a minion or the Methuselah with none. */
+    user?: User | null
     /** A clan, a Discipline, a circle chosen: its snake_case id. */
     value?: string | null
     /** Where a card chosen by name comes from (a search). */
@@ -1032,8 +1106,15 @@ export type Purpose =
     | 'move_off_burned_bearer'
     | 'secret_number'
     | 'search_equip_for'
+    | 'put_in_play_search'
+    | 'move_card_to_oldest'
+    | 'may_prevent_for_blood'
+    | 'shortfall_picks'
+    | 'may_unlock'
+    | 'give_card_to'
     | 'give_blood'
     | 'move_between'
+    | 'diablerie_equipment'
     | 'pay_or_burn'
     | 'lock_or_discard'
     | 'blood_or_burned'
@@ -1327,17 +1408,51 @@ export type Title = {
     /**
      * `primogen`, `prince`, `baron`, `justicar`, `inner_circle`,
      * `archbishop`, `bishop`, `cardinal`, `priscus`, `regent`, `magaji`,
-     * `independent` (named in `of`), `votes` (a title by its votes only).
+     * `independent` or `laibon` (a unique title named in `of`), `votes` (a
+     * title by its votes only).
      */
     id: string
     /**
      * The city (a prince, a baron, an archbishop), the clan (a justicar,
-     * the Inner Circle) or an independent title's name.
+     * the Inner Circle) or an independent or Laibon title's name.
      */
     of?: string | null
-    /** Its votes, when the title says them (`independent`, `votes`). */
+    /**
+     * Its votes, when the title says them (`independent`, `laibon`,
+     * `votes`).
+     */
     votes?: number | null
 }
+
+/**
+ * A minion's trait (rulebook "Traits"), printed or gained; a trait
+ * with a parameter (Slave, a circle) is not one of them.
+ */
+export type Trait =
+    | 'black_hand'
+    | 'infernal'
+    | 'red_list'
+    | 'blood_cursed'
+    | 'scarce'
+    | 'sterile'
+    | 'seraph'
+    | 'unknown'
+
+/**
+ * Who uses an ability: a minion (the option's `actor` when it has one,
+ * else the minion the card is on, the ally it is, the vampire whose text
+ * it is), or a Methuselah with none (a master's, a location's, a
+ * vampire's text its controller's prey uses).
+ */
+export type User =
+    | {
+          kind: 'methuselah'
+          seat: number
+      }
+    | {
+          copy: number
+          kind: 'minion'
+      }
 
 export type Views = 'decisions' | 'steps'
 
