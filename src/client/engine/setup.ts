@@ -84,7 +84,6 @@ export async function setupEngineGame(): Promise<() => void> {
     const nbSeats = ENGINE_NB_BOTS + 1
     const selfSeat = Math.floor(Math.random() * nbSeats)
     const spec: GameSpec = {
-        seed: Math.floor(Math.random() * 2 ** 32),
         time_limit: null,
         client: 'succubus-club',
         seats: Array.from({ length: nbSeats }, (_, seat) =>

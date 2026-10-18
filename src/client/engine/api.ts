@@ -1,6 +1,6 @@
-/* zvtes protocol 1.9.0 (docs/protocol.md): generated from
+/* zvtes protocol 2.1.0 (docs/protocol.md): generated from
  * crates/api/schema.json by scripts/gen_ts.py, do not edit. */
-export const PROTOCOL_VERSION = '1.9.0'
+export const PROTOCOL_VERSION = '2.1.0'
 
 /**
  * A command as sent: an optional client id, echoed by an `error` it
@@ -86,7 +86,8 @@ export type GameSpec = {
      * The deal's seed; the host picks one when absent (and records it).
      * The server always draws its own, unless the request carries the
      * admin token (a fixed deal for a playtest): a seed a player chose
-     * or guessed would let them replay the deal. 32 bits: exact as a
+     * or guessed would let them replay the deal. At most
+     * `SEED_MAX` (2^53 − 1), 53 bits: too many to try, exact as a
      * JSON number in every language.
      */
     seed?: number | null
@@ -127,6 +128,10 @@ export type SpecError =
       }
     | {
           error: 'time_limit'
+          max: number
+      }
+    | {
+          error: 'seed'
           max: number
       }
 
@@ -298,8 +303,8 @@ export type BotRecord = {
     profile: string
     seat: number
     /**
-     * Its sampling seed: replaying uses the recorded options, the seed
-     * re-simulates the bot.
+     * Its sampling seed (at most 2^53 − 1, `SEED_MAX`):
+     * replaying uses the recorded options, the seed re-simulates the bot.
      */
     seed: number
     temperature?: number | null
@@ -1179,6 +1184,7 @@ export type Purpose =
     | 'name_ash_pair'
     | 'may_put_on'
     | 'may_add_counter'
+    | 'may_store_aim'
     | 'may_torture'
     | 'may_gain_pool'
     | 'move_for_blood'
