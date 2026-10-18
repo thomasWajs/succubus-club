@@ -21,10 +21,11 @@ import { DeckList } from '@/shared/types/gateway.ts'
 
 /**
  * One step of the game for the driver : a decision of the user's, a decision taken ( by anyone, the
- * table after it ), or the end ; with the events told since the previous step.
+ * table after it ), or the end ; with the events told since the previous step, and whether an action
+ * ended among them.
  */
 export type EngineOut =
-    | ({ type: 'decision'; events: string[] } & Decision)
+    | ({ type: 'decision'; events: string[]; actionEnded: boolean } & Decision)
     | {
           type: 'decided'
           decision: number
@@ -33,9 +34,14 @@ export type EngineOut =
           // The option taken ( a pass, when it passed by itself )
           choice: OptionView
           events: string[]
+          actionEnded: boolean
+          // Taken while an action is under way ( its declaration included )
+          duringAction: boolean
+          // The table right after this decision : the events told with it, before it, may end an
+          // action this view is past ( the next one declared )
           view: TableView
       }
-    | { type: 'over'; vps: number[]; events: string[]; view: TableView }
+    | { type: 'over'; vps: number[]; events: string[]; actionEnded: boolean; view: TableView }
 
 // The engine server : engine.krcg.org, or another one in development ( a local zvtes-server )
 export const ENGINE_SERVER = import.meta.env.VITE_ENGINE_SERVER ?? 'https://engine.krcg.org'
@@ -121,6 +127,10 @@ export class EngineHost {
     private waiting: Waiter[] = []
     // Events told since the last message given to the driver
     private told: string[] = []
+    // An action ended among the events told since the last message given to the driver
+    private actionEnded = false
+    // An action under way, as the events tell it in order ( a view may be past them )
+    private acting = false
     private view: TableView | null = null
     private lastDecision = -1
     private answered = true
@@ -339,6 +349,7 @@ export class EngineHost {
         switch (m.type) {
             case 'joined':
                 this.view = m.view
+                this.acting = !!m.view.action
                 this.joined = m
                 this.wake()
                 break
@@ -347,10 +358,14 @@ export class EngineHost {
                     this.view = m.view
                 }
                 this.events(m.events)
+                if (m.view) {
+                    this.acting = !!m.view.action
+                }
                 break
             }
             case 'decision': {
                 this.view = m.view
+                this.acting = !!m.view.action
                 // Sent again ( a settings change, the game joined again ) : the one the user is
                 // answering stays, the one answered is
                 if (m.decision == this.lastDecision && (!this.answered || this.resent)) {
@@ -360,7 +375,7 @@ export class EngineHost {
                     o => o.type != 'decision' || o.decision != m.decision,
                 )
                 this.lastDecision = m.decision
-                this.push({ ...m, events: this.take() })
+                this.push({ ...m, ...this.take() })
                 break
             }
             case 'over':
@@ -370,7 +385,7 @@ export class EngineHost {
                 this.push({
                     type: 'over',
                     vps: m.vp_halves.map(v => v / 2),
-                    events: this.take(),
+                    ...this.take(),
                     view: m.view,
                 })
                 break
@@ -408,10 +423,11 @@ export class EngineHost {
         }
     }
 
-    private take(): string[] {
-        const told = this.told
+    private take(): { events: string[]; actionEnded: boolean } {
+        const taken = { events: this.told, actionEnded: this.actionEnded }
         this.told = []
-        return told
+        this.actionEnded = false
+        return taken
     }
 
     // One step's events : those before its decision are told with it, those after with the next
@@ -420,6 +436,7 @@ export class EngineHost {
             if (e.kind == 'undone') {
                 this.queue = []
                 this.told = []
+                this.actionEnded = false
                 continue
             }
             if (e.kind == 'decided' || e.kind == 'auto_passed') {
@@ -433,16 +450,30 @@ export class EngineHost {
                     e.kind == 'decided' ?
                         { ...e.choice, text: e.text ?? e.choice.text ?? '' }
                     :   { index: 0, kind: 'pass', text: 'Pass' }
+                // An action declared : an `action` effect naming it
+                if (
+                    choice.kind == 'take_action' ||
+                    (choice.effects ?? []).some(
+                        effect => effect.kind == 'action' && !!effect.action,
+                    )
+                ) {
+                    this.acting = true
+                }
                 this.push({
                     type: 'decided',
                     decision: e.decision,
                     seat: e.seat,
                     window: e.window,
                     choice,
-                    events: this.take(),
+                    ...this.take(),
+                    duringAction: this.acting,
                     view: this.view as TableView,
                 })
                 continue
+            }
+            if (e.kind == 'action_ends') {
+                this.acting = false
+                this.actionEnded = true
             }
             if (e.text) {
                 this.told.push(e.text)

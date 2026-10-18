@@ -381,8 +381,9 @@ function project(current: Running, out: EngineOut) {
         learnCardNames()
         // A block's combat under way, whoever decides now
         useEngineStore().inCombat = !!out.view.combat
-        // The cards played during the action, until it is over
-        if (!out.view.action) {
+        // The cards played during the action, until it is over ( a decided step's in `narrate` : its
+        // view may be past it )
+        if (out.type != 'decided' && (out.actionEnded || !out.view.action)) {
             useEngineStore().played = []
         }
         if (out.type != 'over') {
@@ -439,8 +440,12 @@ function narrate(current: Running, out: EngineOut) {
     const player = current.projection.player(out.seat)
     const text = decisionLine(out)
     say(player.name, text, getAuthorColorRgba(player.rgbaColor))
-    // A card played during an action : kept in sight until the action is over
-    if (out.choice.kind == 'play' && out.view.action) {
+    // A card played during an action : kept in sight until the action is over ( the user's own
+    // decisions are not projected )
+    if (out.actionEnded) {
+        useEngineStore().played = []
+    }
+    if (out.choice.kind == 'play' && out.duringAction) {
         useEngineStore().played.push({
             decision: out.decision,
             player: player.name,
