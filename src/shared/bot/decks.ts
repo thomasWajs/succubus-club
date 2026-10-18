@@ -55,15 +55,16 @@ export const MalkavDeck = <DeckList>{
     '201569': 1, // Sully
 }
 
-// The Brujah precon of reference without the cards the bot decks
-// drop for now: Delaying Tactics, Heroic Might, Fame, Guardian Angel, Haven Uncovered, Carver's Meat
-// Packing and Storage, Frontal Assault, 47th Street Royals, The Anarch Free Press ( replacements to
-// find ). The cards the engine cannot play yet stay in the deck: a bot never plays them.
+// The Brujah precon of reference restricted to the cards the catalog describes.
+// Not catalogued yet: Delaying Tactics, Fame, Haven Uncovered, Carver's Meat Packing and Storage,
+// Frontal Assault, 47th Street Royals, The Anarch Free Press ( replacements to find )
 export const BrujahDeck = <DeckList>{
     '100199': 4, // Blood Doll
     '100297': 1, // Carfax Abbey
     '100597': 4, // Dust Up
     '100640': 6, // Enchant Kindred
+    '100866': 1, // Guardian Angel
+    '100913': 2, // Heroic Might
     '100959': 6, // Immortal Grapple
     '101239': 2, // Monkey Wrench
     '101321': 2, // On the Qui Vive
@@ -92,15 +93,17 @@ export const BrujahDeck = <DeckList>{
 }
 
 // The Nosferatu precon of reference restricted to the cards
-// the catalog describes. Dropped: Creeping Sabotage, Fame, Guardian Angel, Haven Uncovered, The Labyrinth,
-// Protected District, Rebel, Smiling Jack, Underbridge Stray, Vessel, Warsaw Station, Larissa Moreira
+// the catalog describes. Not catalogued yet: Creeping Sabotage, Fame, Haven Uncovered, Protected District,
+// Rebel, Smiling Jack, Underbridge Stray, Warsaw Station
 export const NosferatuDeck = <DeckList>{
     '100301': 2, // Carrion Crows
     '100308': 4, // Cats' Guidance
     '100515': 6, // Deep Song
     '100863': 4, // Guard Dogs
+    '100866': 1, // Guardian Angel
     '100959': 4, // Immortal Grapple
     '100995': 4, // Instinctive Reaction
+    '101070': 1, // Labyrinth, The
     '101125': 4, // Lost in Crowds
     '101254': 2, // Murder of Crows
     '101321': 5, // On the Qui Vive
@@ -109,6 +112,7 @@ export const NosferatuDeck = <DeckList>{
     '101808': 1, // Slum Hunting Ground
     '101945': 4, // Taste of Vitae
     '102215': 8, // Roundhouse
+    '102113': 4, // Vessel
     '102216': 4, // Warrens, The
 
     '201534': 1, // Aunt Linda
@@ -116,6 +120,7 @@ export const NosferatuDeck = <DeckList>{
     '201537': 2, // Belinde
     '201545': 1, // Dowager, The
     '201549': 1, // Horace Radcliffe
+    '201553': 2, // Larissa Moreira
     '201555': 2, // Lenny Burkhead
     '201568': 1, // Ryan
     '201573': 1, // Wauneka
