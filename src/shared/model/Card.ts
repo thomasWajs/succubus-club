@@ -331,9 +331,12 @@ export class CryptCard extends Card {
 
         // Set from the default, not added to the current value: harmless if called twice
         const crypt = getCardDef(this)?.crypt
-        if (crypt?.bleed || crypt?.strength) {
+        if (crypt) {
             this.minionAttrs.bleed = DEFAULT_CARD_ATTRS.Bleed + (crypt.bleed ?? 0)
+            this.minionAttrs.stealth = DEFAULT_CARD_ATTRS.Stealth + (crypt.stealth ?? 0)
+            this.minionAttrs.intercept = DEFAULT_CARD_ATTRS.Intercept + (crypt.intercept ?? 0)
             this.minionAttrs.strength = DEFAULT_CARD_ATTRS.Strength + (crypt.strength ?? 0)
+            this.vampireAttrs.hunt = DEFAULT_CARD_ATTRS.Hunt + (crypt.hunt ?? 0)
         }
     }
 }

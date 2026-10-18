@@ -374,8 +374,14 @@ export type PlayOfKind<K extends CardKind> = Extract<Play, { kind: K }>
 export type CryptStatics = {
     // On top of the default bleed
     bleed?: number
+    // On top of the default stealth
+    stealth?: number
+    // On top of the default intercept
+    intercept?: number
     // On top of the default strength
     strength?: number
+    // On top of the default hunt
+    hunt?: number
     // Can enter combat with a minion of another Methuselah as a directed action
     canEnterCombat?: boolean
     // Added to the stealth of the actions that are not directed at another Methuselah
