@@ -10,7 +10,6 @@ import { createActionCardAction } from '@/shared/state/minionActionFactories.ts'
 import { resolveCost } from '@/shared/state/cardCosts.ts'
 import { getAutoPlayPosition, getPlayRegion } from '@/shared/state/cardPlacement.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
-import { LibraryCardType } from '@/shared/const/model.ts'
 
 /**
  * "Automatic cost payment" preference ( experimental ).
@@ -40,7 +39,7 @@ function applyAutomaticCost(card: Card, byMinion: Minion | undefined) {
     // Master played from hand : pay its pool cost. Only show the indicator if the
     // pool was actually spent ( the mutation is rejected when pool is too low ).
     // A variable "X" cost has no declared value here, so it resolves to 0.
-    if (card.type == LibraryCardType.Master) {
+    if (card.isType.master) {
         const poolCost = resolveCost(card.poolCost)
         if (poolCost > 0) {
             const paid = gameMutations.changePool.actSelf({
@@ -59,12 +58,7 @@ function applyAutomaticCost(card: Card, byMinion: Minion | undefined) {
     // costs actually spent are shown : a mutation is rejected when the minion has
     // not enough blood or the player not enough pool, and showing an unpaid cost
     // would be incoherent.
-    if (
-        byMinion &&
-        (card.type == LibraryCardType.ActionModifier ||
-            card.type == LibraryCardType.Reaction ||
-            card.type == LibraryCardType.Combat)
-    ) {
+    if (byMinion && (card.isType.actionModifier || card.isType.reaction || card.isType.combat)) {
         // A variable "X" cost has no declared value here, so it resolves to 0.
         const bloodCost = resolveCost(card.bloodCost)
         const poolCost = resolveCost(card.poolCost)

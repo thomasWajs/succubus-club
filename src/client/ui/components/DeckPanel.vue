@@ -383,7 +383,7 @@ import {
     getOrImportPrecon,
     getOrImportText,
     isUrlDeck,
-    refreshDeck,
+    refreshUrlDeck,
     selectDeck,
     validateDeckList,
 } from '@/client/gateway/deck.ts'
@@ -478,7 +478,7 @@ function loadFromHistory(deck: DbDeck) {
 }
 
 function refreshFromHistory(deck: DbDeck) {
-    loadDeck(() => refreshDeck(deck))
+    loadDeck(() => refreshUrlDeck(deck))
 }
 
 async function removeFromHistory(deck: DbDeck) {

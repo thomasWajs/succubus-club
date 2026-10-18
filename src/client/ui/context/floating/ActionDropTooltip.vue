@@ -13,7 +13,6 @@
 import { computed } from 'vue'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { LibraryCard } from '@/shared/model/Card.ts'
-import { ActionVerb } from '@/shared/const/model.ts'
 import { getCardRectangle, getScreenPoint, getScreenScale } from '@/client/game/utils.ts'
 
 const gameBus = useGameBusStore()
@@ -27,7 +26,7 @@ const content = computed(() => {
     return {
         // Action cards have a dedicated verb ; modifiers and reactions, which
         // are just played onto the minion, fall back to a generic "Plays".
-        verb: ActionVerb[card.type as keyof typeof ActionVerb] ?? 'Plays',
+        verb: card.actionVerb ?? 'Plays',
         cardName: card.name,
         minionName: minion.name,
     }

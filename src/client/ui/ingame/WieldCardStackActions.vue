@@ -24,7 +24,45 @@
             Shuffle
         </button>
 
-        <div v-if="players.isPlayer">
+        <div
+            v-if="canGiveControl"
+            class="mode-toggle"
+        >
+            <button
+                class="game-button"
+                :class="{ 'is-muted': mode != 'reveal' }"
+                @click="mode = 'reveal'"
+            >
+                Reveal
+            </button>
+            <button
+                class="game-button"
+                :class="{ 'is-muted': mode != 'control' }"
+                @click="mode = 'control'"
+            >
+                Control
+            </button>
+        </div>
+
+        <div v-if="canGiveControl && mode == 'control'">
+            <template v-if="isOwner">Give control to:</template>
+            <template v-else>Release control:</template>
+            <br />
+
+            <div class="reveal-grid">
+                <template
+                    v-for="player in controlTargets"
+                    :key="player.oid"
+                >
+                    <ControlButton
+                        :player="player"
+                        :cardRegion="cardRegion"
+                    />
+                </template>
+            </div>
+        </div>
+
+        <div v-else-if="players.isPlayer">
             Reveal
             <template v-if="gameBus.selectedCards.length > 0">
                 {{ gameBus.selectedCards.length }} Card(s)
@@ -32,7 +70,7 @@
             <template v-else>
                 {{ cardRegion.name }}
             </template>
-            to :
+            to:
             <br />
 
             <div class="reveal-grid">
@@ -64,14 +102,15 @@
 <script setup lang="ts">
 import { ALL_PLAYERS } from '@/shared/types/state.ts'
 import RevelationButton from '@/client/ui/ingame/RevelationButton.vue'
+import ControlButton from '@/client/ui/ingame/ControlButton.vue'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
-import { CSSProperties } from 'vue'
+import { computed, CSSProperties, ref } from 'vue'
 import { AnyCardRegion } from '@/shared/types/model.ts'
 import { shuffleCardRegion } from '@/client/state/gameMutations.ts'
 
-defineProps<{
+const { cardRegion } = defineProps<{
     cardRegion: AnyCardRegion
     actionsStyle: CSSProperties
 }>()
@@ -79,6 +118,33 @@ defineProps<{
 const gameState = useGameStateStore()
 const players = usePlayersStore()
 const gameBus = useGameBusStore()
+
+const mode = ref<'reveal' | 'control'>('reveal')
+
+const isOwner = computed(() => cardRegion.owner?.oid == players.selfPlayer?.oid)
+
+// Only the SCS enforces ownership, so handing over a stack makes sense there only.
+// The owner gives control, the holder can only hand it back.
+const canGiveControl = computed(
+    () =>
+        gameState.isStrictGame &&
+        !!players.selfPlayer &&
+        (isOwner.value || cardRegion.delegate?.oid == players.selfPlayer.oid),
+)
+
+const controlTargets = computed(() => {
+    const owner = cardRegion.owner
+    if (!owner) {
+        return []
+    }
+    // A delegate only sees themself, to release the control
+    if (!isOwner.value) {
+        return cardRegion.delegate ? [cardRegion.delegate] : []
+    }
+    return Array.from({ length: gameState.orderedPlayers.length - 1 }, (_, i) =>
+        players.getNthNeighbour(i + 1),
+    ).filter(player => player.oid != owner.oid)
+})
 </script>
 
 <style scoped lang="scss">
@@ -110,6 +176,12 @@ const gameBus = useGameBusStore()
 }
 
 .shuffle-button {
+    margin: 5px 0;
+}
+
+.mode-toggle {
+    display: grid;
+    grid-template-columns: 50% 50%;
     margin: 5px 0;
 }
 

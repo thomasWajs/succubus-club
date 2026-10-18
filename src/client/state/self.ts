@@ -8,7 +8,7 @@ import { usePlayersStore } from '@/client/state/players.ts'
 import { Card, LibraryCard } from '@/shared/model/Card.ts'
 import * as cardVisibility from '@/shared/state/cardVisibility.ts'
 import { secureName } from '@/shared/state/cardVisibility.ts'
-import { ACTION_TYPES, LibraryCardType, TurnPhase } from '@/shared/const/model.ts'
+import { TurnPhase } from '@/shared/const/model.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { GameType } from '@/shared/types/state.ts'
 import { playerCanAttemptBlock } from '@/shared/state/actionState.ts'
@@ -66,25 +66,16 @@ export function selfCanPlay(card: LibraryCard): boolean {
 
     const gameState = useGameStateStore()
     const players = usePlayersStore()
-    const resource = card.resource
-    // A card may have multiples types, we must check each of them
-    const types = resource.type.split('/') as LibraryCardType[]
-    for (const type of types) {
-        if (
-            (players.selfIsActive &&
-                ((gameState.turnPhase == TurnPhase.Master && type == LibraryCardType.Master) ||
-                    (gameState.turnPhase == TurnPhase.Minion &&
-                        (ACTION_TYPES.includes(type) || type == LibraryCardType.ActionModifier)) ||
-                    (gameState.turnPhase == TurnPhase.Discard && type == LibraryCardType.Event))) ||
-            (!players.selfIsActive &&
-                gameState.turnPhase == TurnPhase.Minion &&
-                type == LibraryCardType.Reaction) ||
-            (gameState.turnPhase == TurnPhase.Minion && type == LibraryCardType.Combat)
-        ) {
-            return true
-        }
-    }
-    return false
+    const isType = card.isType
+    return (
+        (players.selfIsActive &&
+            ((gameState.turnPhase == TurnPhase.Master && isType.master) ||
+                (gameState.turnPhase == TurnPhase.Minion &&
+                    (isType.anyAction || isType.actionModifier)) ||
+                (gameState.turnPhase == TurnPhase.Discard && isType.event))) ||
+        (!players.selfIsActive && gameState.turnPhase == TurnPhase.Minion && isType.reaction) ||
+        (gameState.turnPhase == TurnPhase.Minion && isType.combat)
+    )
 }
 
 export function selfCanAttemptBlock() {

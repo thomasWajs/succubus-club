@@ -1,5 +1,7 @@
 import { BaseModel } from '@/shared/model/BaseModel.ts'
 import {
+    ACTION_TYPES,
+    ActionVerb,
     DEFAULT_CARD_ATTRS,
     Discipline,
     DisciplineLevel,
@@ -114,7 +116,7 @@ export abstract class Card extends BaseModel implements PropertiesInPlay {
         if (takeoverOid) {
             return takeoverOid
         }
-        if (this instanceof LibraryCard && this.resource?.type === LibraryCardType.Master) {
+        if (this instanceof LibraryCard && this.isType.master) {
             return this.owner.oid
         }
         return this.region.owner?.oid ?? this.owner.oid
@@ -368,13 +370,45 @@ export class LibraryCard extends Card {
         return resource as LibraryCardResource
     }
 
+    // Raw type string, which may hold several types ( e.g. "Action/Combat" ).
     get type() {
         return this.resource?.type
+    }
+
+    // All the types of this card
+    get types(): LibraryCardType[] {
+        return (this.type?.split('/') ?? []) as LibraryCardType[]
     }
 
     // A few cards have two types ( "Action Modifier/Combat" ): the card is both
     hasType(type: LibraryCardType): boolean {
         return !!this.type && (this.type as string).split('/').includes(type)
+    }
+
+    // Shortcuts to check this card's types ( a card can have several )
+    get isType() {
+        const types = this.types
+        return {
+            master: types.includes(LibraryCardType.Master),
+            action: types.includes(LibraryCardType.Action),
+            politicalAction: types.includes(LibraryCardType.PoliticalAction),
+            ally: types.includes(LibraryCardType.Ally),
+            equipment: types.includes(LibraryCardType.Equipment),
+            retainer: types.includes(LibraryCardType.Retainer),
+            actionModifier: types.includes(LibraryCardType.ActionModifier),
+            reaction: types.includes(LibraryCardType.Reaction),
+            combat: types.includes(LibraryCardType.Combat),
+            event: types.includes(LibraryCardType.Event),
+            conviction: types.includes(LibraryCardType.Conviction),
+            power: types.includes(LibraryCardType.Power),
+            anyAction: types.some(type => ACTION_TYPES.includes(type)),
+        }
+    }
+
+    // Verb describing how this card is played as an action ( first action type found )
+    get actionVerb(): string | undefined {
+        const type = this.types.find(type => ACTION_TYPES.includes(type))
+        return type ? ActionVerb[type as keyof typeof ActionVerb] : undefined
     }
 
     // The card's raw cost, keeping the variable "X" as-is ( e.g. "burn X blood" ).
@@ -428,7 +462,7 @@ export class LibraryCard extends Card {
             return
         }
 
-        if (!this.minionAttrs && this.resource.type == LibraryCardType.Ally) {
+        if (!this.minionAttrs && this.isType.ally) {
             this.minionAttrs = new MinionAttributes()
         }
     }

@@ -239,7 +239,7 @@ function overlayClick(command: () => void) {
 }
 
 function moveToLibrary() {
-    gameMutations.moveCardToRegion.act(card.owner, {
+    gameMutations.moveCardToRegion.actSelf({
         card,
         fromCardRegion: card.region,
         toCardRegion: card.owner.library,
@@ -248,7 +248,7 @@ function moveToLibrary() {
 }
 
 function moveToHand() {
-    gameMutations.moveCardToRegion.act(card.owner, {
+    gameMutations.moveCardToRegion.actSelf({
         card,
         fromCardRegion: card.region,
         toCardRegion: card.owner.hand,
@@ -261,7 +261,7 @@ function moveIntoPlay() {
 }
 
 function moveToRemoved() {
-    gameMutations.moveCardToRegion.act(card.owner, {
+    gameMutations.moveCardToRegion.actSelf({
         card,
         fromCardRegion: card.region,
         toCardRegion: card.owner.removed,
@@ -270,7 +270,7 @@ function moveToRemoved() {
 }
 
 function moveToAshHeap() {
-    gameMutations.moveCardToRegion.act(card.owner, {
+    gameMutations.moveCardToRegion.actSelf({
         card,
         fromCardRegion: card.region,
         toCardRegion: card.owner.ashHeap,

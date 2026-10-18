@@ -288,7 +288,6 @@
                                         },
                                     ]"
                                 />
-                                <span class="new-badge">NEW</span>
                             </span>
                             <button
                                 class="create-room-btn"

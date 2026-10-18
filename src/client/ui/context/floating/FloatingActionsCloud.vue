@@ -24,7 +24,6 @@ import { useGameStateStore } from '@/client/store/gameState.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
 import { MinionActionType, NO_BLOCK } from '@/shared/types/state.ts'
 import { declareAction, startTargetDeclaration } from '@/client/game/declaration.ts'
-import { ACTION_TYPES } from '@/shared/const/model.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
 import { useSelection } from '@/client/game/composables/useSelection.ts'
 import { Card, Minion } from '@/shared/model/Card.ts'
@@ -240,9 +239,7 @@ function getActingMinionActions(actingMinion: Minion): FloatingActionData[] {
     const allVampiresInTorpor = Object.values(gameState.players).flatMap(
         player => player.vampiresInTorpor,
     )
-    const actionsInHand = actingMinion.controller.hand.cards.filter(card =>
-        card.type ? ACTION_TYPES.includes(card.type) : false,
-    )
+    const actionsInHand = actingMinion.controller.hand.cards.filter(card => card.isType.anyAction)
     const cardsInPlay = Object.values(gameState.cards).filter(card => card.isIn.controlled)
 
     if (isCardReady(actingMinion)) {

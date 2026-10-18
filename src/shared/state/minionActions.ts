@@ -3,7 +3,7 @@ import { Player } from '@/shared/model/Player.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
 import { botMutations } from '@/shared/state/botMutations.ts'
 import { payCardCosts } from '@/shared/state/cardCosts.ts'
-import { Discipline, LEAVE_TORPOR_COST, LibraryCardType, Sect } from '@/shared/const/model.ts'
+import { Discipline, LEAVE_TORPOR_COST, Sect } from '@/shared/const/model.ts'
 import {
     ActionCardFromHandAction,
     ActionModifier,
@@ -175,7 +175,7 @@ export function getPoliticalActionCard(action: MinionAction): LibraryCard | null
         return null
     }
     const card = action.card
-    return card instanceof LibraryCard && card.type == LibraryCardType.PoliticalAction ? card : null
+    return card instanceof LibraryCard && card.isType.politicalAction ? card : null
 }
 
 export function isPoliticalAction(action: MinionAction): boolean {

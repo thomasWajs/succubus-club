@@ -106,7 +106,6 @@ import {
     OVERLAY_BUTTON_SIZE,
 } from '@/shared/const/game.ts'
 import { Card, LibraryCard } from '@/shared/model/Card.ts'
-import { ACTION_TYPES } from '@/shared/const/model.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
 import { useCommands } from '@/client/game/composables/useCommands.ts'
@@ -244,7 +243,7 @@ function overlayClick(command: (card: Card) => void) {
 
 function playCardFromHand(card: Card) {
     const minion = primedMinion.value
-    if (minion && card instanceof LibraryCard && card.type && ACTION_TYPES.includes(card.type)) {
+    if (minion && card instanceof LibraryCard && card.isType.anyAction) {
         declareActionCardFromHand(minion, card)
         return
     }

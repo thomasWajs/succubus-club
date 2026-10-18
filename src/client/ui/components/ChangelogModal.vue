@@ -7,18 +7,6 @@
             <h2>What's New in v{{ latestChangelog.version }}</h2>
             <p class="release-date">Released on {{ latestChangelog.date }}</p>
 
-            <div class="free-table-warning">
-                <p class="free-table-warning-title">Free-Table mode has landed</p>
-                <p>
-                    You can now choose between structured mode (the original) and free-table mode.
-                </p>
-                <p>
-                    This update involved a major overhaul of the codebase, so bugs may pop up even
-                    in structured mode. Please don't hesitate to report any strange behavior you
-                    notice.
-                </p>
-            </div>
-
             <div class="changelog-content">
                 <div
                     v-if="latestChangelog.features && latestChangelog.features.length > 0"

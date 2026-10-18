@@ -1,7 +1,7 @@
 import { Player } from '@/shared/model/Player.ts'
 import { CardRegion } from '@/shared/model/CardRegion.ts'
 import { Card, Minion, PropertiesInPlay } from '@/shared/model/Card.ts'
-import { ActionVerb, Marker, TurnSequence } from '@/shared/const/model.ts'
+import { Marker, TurnSequence } from '@/shared/const/model.ts'
 import {
     CARD_LOG_PLACEHOLDER,
     CONTROLLED_ZONE_HEIGHT,
@@ -836,7 +836,7 @@ class MoveCard extends GameMutation<MoveCardParams> {
     }
 
     protected getStrictValidity(_gameState: GameState): Validity {
-        if (this.params.card.region.owner?.oid != this.author.oid) {
+        if (!this.params.card.region.isControlledBy(this.author)) {
             return Invalid(`Players can only move their own cards`)
         }
 
@@ -926,7 +926,10 @@ class MoveCardToRegion extends GameMutation<MoveCardToRegionParams> {
     }
 
     protected getStrictValidity(_gameState: GameState): Validity {
-        if (this.params.card.controllerOid != this.author.oid) {
+        if (
+            this.params.card.controllerOid != this.author.oid &&
+            !this.params.card.region.isControlledBy(this.author)
+        ) {
             return Invalid(`Players can only move their own cards`)
         }
 
@@ -1021,7 +1024,10 @@ class MoveToBottom extends GameMutation<MoveToBottomParams> {
     }
 
     protected getStrictValidity(_gameState: GameState): Validity {
-        if (this.params.card.controllerOid != this.author.oid) {
+        if (
+            this.params.card.controllerOid != this.author.oid &&
+            !this.params.card.region.isControlledBy(this.author)
+        ) {
             return Invalid(`Players can only move their own cards`)
         }
 
@@ -1403,6 +1409,71 @@ class TakeControl extends GameMutation<TakeControlParams> {
 }
 
 /**
+ * Give control of a card region ( stack ) to another player, who can then act on it
+ * ( move, shuffle ). A `controller` of undefined returns it to its owner.
+ */
+
+export interface TakeRegionControlParams extends GameMutationParams {
+    cardRegion: AnyCardRegion
+    controller: Player | undefined
+}
+
+class TakeRegionControl extends GameMutation<TakeRegionControlParams> {
+    readonly syncMode = MutationSyncMode.Ordered
+    declare public previousState: { controllerOid: PlayerOid | undefined }
+
+    protected get _versioningId(): VersioningId {
+        return `${VersioningTarget.TakeRegionControl}-${this.params.cardRegion.oid}`
+    }
+
+    getValidity() {
+        return this.params.cardRegion.owner ?
+                VALID
+            :   Invalid(`Cannot give control of ${this.params.cardRegion.name}`)
+    }
+
+    protected getStrictValidity(_gameState: GameState): Validity {
+        const { cardRegion, controller } = this.params
+        const isOwner = cardRegion.owner?.oid == this.author.oid
+        // The player holding the control may only hand it back
+        const isHandingBack = !controller && cardRegion.delegate?.oid == this.author.oid
+        if (!isOwner && !isHandingBack) {
+            return Invalid(`Players can only give control of their own stacks`)
+        }
+
+        return VALID
+    }
+
+    protected updateGameState(gameState: GameState) {
+        const { cardRegion, controller } = this.params
+        this.previousState.controllerOid = gameState.regionTakeovers[cardRegion.oid]
+        if (controller && controller.oid != cardRegion.owner?.oid) {
+            gameState.regionTakeovers[cardRegion.oid] = controller.oid
+        } else {
+            delete gameState.regionTakeovers[cardRegion.oid]
+        }
+    }
+
+    formatForLog() {
+        const { cardRegion, controller } = this.params
+        const owner = cardRegion.owner
+        return controller && controller.oid != owner?.oid ?
+                `${owner?.name} gives control of ${cardRegion.name} to ${controller.name}`
+            :   `Control of ${owner?.name}'s ${cardRegion.name} ends`
+    }
+
+    getCancelMutation(): AnyGameMutation {
+        return gameMutations.takeRegionControl.createCancelMutation(this, {
+            cardRegion: this.params.cardRegion,
+            controller:
+                this.previousState.controllerOid ?
+                    this.gameState.players[this.previousState.controllerOid]
+                :   undefined,
+        })
+    }
+}
+
+/**
  * Shuffle
  */
 
@@ -1426,7 +1497,7 @@ export class Shuffle extends GameMutation<ShuffleParams> {
     }
 
     protected getStrictValidity(_gameState: GameState): Validity {
-        if (this.params.cardRegion.owner?.oid != this.author.oid) {
+        if (!this.params.cardRegion.isControlledBy(this.author)) {
             return Invalid(`Players can only shuffle their own cards`)
         }
 
@@ -1630,9 +1701,9 @@ class DeclareAction extends GameMutation<DeclareActionParams> {
         let disciplines = ''
         if (
             this.params.minionAction.type == MinionActionType.ActionCardFromHand &&
-            this.params.minionAction.card.type
+            this.params.minionAction.card.actionVerb
         ) {
-            actionVerb = `${ActionVerb[this.params.minionAction.card.type as keyof typeof ActionVerb]} `
+            actionVerb = `${this.params.minionAction.card.actionVerb} `
             disciplines =
                 disciplineUsesImg(this.params.minionAction.usage.disciplines ?? []) +
                 usageXLog(this.params.minionAction.usage)
@@ -2519,6 +2590,7 @@ export const gameMutations = {
     setLock: defineMutation(SetLock),
     shuffle: defineMutation(Shuffle),
     takeControl: defineMutation(TakeControl),
+    takeRegionControl: defineMutation(TakeRegionControl),
     unlockAll: defineMutation(UnlockAll),
     unlockAllInverse: defineMutation(UnlockAllInverse),
 

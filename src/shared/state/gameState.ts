@@ -85,6 +85,12 @@ export class GameState {
     takeovers: Record<CardOid, PlayerOid> = {}
 
     /**
+     * Player temporarily allowed to act on a card region ( stack ) they don't own.
+     * Keyed by region oid. Absent means the owner acts on it.
+     */
+    regionTakeovers: Record<CardRegionOid, PlayerOid> = {}
+
+    /**
      * Cards attached to a minion ( equipment, retainers ): attached card oid -> minion oid.
      * An attached card stays in play in the region of its minion ( see attachments.ts ).
      */
