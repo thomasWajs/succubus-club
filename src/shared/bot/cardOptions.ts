@@ -1,6 +1,6 @@
 import { LibraryCard, Minion } from '@/shared/model/Card.ts'
 import { Player } from '@/shared/model/Player.ts'
-import { ACTION_TYPES, Discipline, DisciplineLevel, LibraryCardType } from '@/shared/const/model.ts'
+import { Discipline, DisciplineLevel } from '@/shared/const/model.ts'
 import {
     ActionCardFromHandAction,
     ActionModifier,
@@ -100,7 +100,7 @@ export function getActionCardOptions(
     if (!hasImplementation(ACTION_CARD_IMPLEMENTATIONS, card)) {
         return []
     }
-    if (!ACTION_TYPES.some(type => card.hasType(type))) {
+    if (!card.isType.anyAction) {
         return []
     }
     if (!canPayCosts(minion, card) || !canMinionPlay(minion, card)) {
@@ -165,7 +165,7 @@ export function getActionModifierOptions(
 ): ActionModifier[] {
     if (
         !hasImplementation(ACTION_MODIFIER_CARD_IMPLEMENTATIONS, card) ||
-        !card.hasType(LibraryCardType.ActionModifier)
+        !card.isType.actionModifier
     ) {
         return []
     }
@@ -260,7 +260,7 @@ export function getCombatCardOptions(minion: Minion): CombatCardOption[] {
         if (
             !(card instanceof LibraryCard) ||
             !hasImplementation(COMBAT_CARD_IMPLEMENTATIONS, card) ||
-            !card.hasType(LibraryCardType.Combat) ||
+            !card.isType.combat ||
             !canPayCosts(minion, card) ||
             !canMinionPlay(minion, card)
         ) {
@@ -359,7 +359,7 @@ export function getReactionCardOptions(minion: Minion): BotOptionOf<'playReactio
         if (
             !(card instanceof LibraryCard) ||
             !hasImplementation(REACTION_CARD_IMPLEMENTATIONS, card) ||
-            !card.hasType(LibraryCardType.Reaction) ||
+            !card.isType.reaction ||
             hasPlayedThisAction(minion.gameState, minion, card) ||
             !canPayCosts(minion, card) ||
             !canMinionPlay(minion, card)
@@ -401,7 +401,7 @@ export function getMasterCardOptions(player: Player): BotOptionOf<'playMaster'>[
     for (const card of player.hand.cards) {
         if (
             !(card instanceof LibraryCard) ||
-            card.type != LibraryCardType.Master ||
+            !card.isType.master ||
             !canPayPoolCost(player, card) ||
             !meetsRequirements(player, card) ||
             hasUniqueCopyInPlay(player, card)
@@ -477,11 +477,7 @@ export function getUnlockEffectOptions(player: Player): BotOptionOf<'unlockEffec
     const usedCards = player.gameState.turnResources.usedCards
 
     for (const card of player.controlledReadyCards) {
-        if (
-            !(card instanceof LibraryCard) ||
-            card.type != LibraryCardType.Master ||
-            usedCards.includes(card.oid)
-        ) {
+        if (!(card instanceof LibraryCard) || !card.isType.master || usedCards.includes(card.oid)) {
             continue
         }
         for (const vampire of getMasterImplementation(card, player)?.getUnlockEffectTargets() ??
@@ -499,7 +495,7 @@ export function getLockEffectOptions(player: Player): BotOptionOf<'lockEffect'>[
     for (const card of player.controlledReadyCards) {
         if (
             !(card instanceof LibraryCard) ||
-            card.type != LibraryCardType.Master ||
+            !card.isType.master ||
             !getMasterImplementation(card, player)?.hasLockAbility()
         ) {
             continue
@@ -522,7 +518,7 @@ export function getLockForActionOptions(
     return player.controlledReadyCards.flatMap(card =>
         (
             card instanceof LibraryCard &&
-            card.type == LibraryCardType.Master &&
+            card.isType.master &&
             getMasterImplementation(card, player)?.canLockForAction(actingMinion)
         ) ?
             [{ type: 'lockForAction' as const, card }]
@@ -539,7 +535,7 @@ export function getLockForReactionOptions(
     return player.controlledReadyCards.flatMap(card =>
         (
             card instanceof LibraryCard &&
-            card.type == LibraryCardType.Master &&
+            card.isType.master &&
             getMasterImplementation(card, player)?.canLockForReaction(blocker)
         ) ?
             [{ type: 'lockForReaction' as const, card, minion: blocker }]
@@ -550,7 +546,7 @@ export function getLockForReactionOptions(
 // The abilities paid with transfers of the master cards in play that the player controls
 export function getTransferEffectOptions(player: Player): BotOptionOf<'transferEffect'>[] {
     return player.controlledReadyCards.flatMap(card =>
-        card instanceof LibraryCard && card.type == LibraryCardType.Master ?
+        card instanceof LibraryCard && card.isType.master ?
             (getMasterImplementation(card, player)?.getTransferOptions() ?? []).map(option => ({
                 type: 'transferEffect' as const,
                 card,
@@ -564,7 +560,6 @@ export function getTransferEffectOptions(player: Player): BotOptionOf<'transferE
 // implementation is never played by a bot, so it is never found in play.
 export function isMasterDiscardedAfterUse(card: LibraryCard): boolean {
     return (
-        card.type == LibraryCardType.Master &&
-        getMasterImplementation(card, card.controller)?.staysInPlay === false
+        card.isType.master && getMasterImplementation(card, card.controller)?.staysInPlay === false
     )
 }

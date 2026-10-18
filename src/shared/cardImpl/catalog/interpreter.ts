@@ -15,7 +15,6 @@ import type {
 import { Card, CryptCard, LibraryCard, Minion, Vampire } from '@/shared/model/Card.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { GameState } from '@/shared/state/gameState.ts'
-import { LibraryCardType } from '@/shared/const/model.ts'
 import {
     canAddIntercept,
     canAddStealth,
@@ -398,7 +397,7 @@ class InterpretedModifier extends ActionModifierCardImplementation {
             return (
                 !!def &&
                 card instanceof LibraryCard &&
-                card.hasType(LibraryCardType.ActionModifier) &&
+                card.isType.actionModifier &&
                 playsOfKind(def, 'modifier').some(play => hasLimitedBleed(play.effects))
             )
         })

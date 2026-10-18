@@ -1,5 +1,4 @@
 import { Card, LibraryCard, Minion } from '@/shared/model/Card.ts'
-import { LibraryCardType } from '@/shared/const/model.ts'
 import { getAttachedCards } from '@/shared/state/attachments.ts'
 import { isBleed, isDirected } from '@/shared/state/minionActions.ts'
 import { getCardDef } from '@/shared/cardImpl/catalog/index.ts'
@@ -38,7 +37,7 @@ export function getAttachedEffects(card: Card): AttachedEffect[] {
 }
 
 export function isRetainer(card: Card): boolean {
-    return card instanceof LibraryCard && card.type == LibraryCardType.Retainer
+    return card instanceof LibraryCard && card.isType.retainer
 }
 
 // The retainers attached to the minion

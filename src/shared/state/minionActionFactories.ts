@@ -1,6 +1,5 @@
 import { LibraryCard, Minion } from '@/shared/model/Card.ts'
 import { Player } from '@/shared/model/Player.ts'
-import { ACTION_TYPES, LibraryCardType } from '@/shared/const/model.ts'
 import {
     ActionCardFromHandAction,
     ActionModifier,
@@ -72,7 +71,7 @@ export function createActionCardAction(
     actionCard: LibraryCard,
     usage: LibraryCardUsage,
 ): ActionCardFromHandAction {
-    if (!ACTION_TYPES.some(type => actionCard.hasType(type))) {
+    if (!actionCard.isType.anyAction) {
         throw new Error('ActionCardAction needs a LibraryCard with an action type')
     }
 
@@ -90,7 +89,7 @@ export function createActionModifier(
     usage: LibraryCardUsage,
     by?: Minion,
 ): ActionModifier {
-    if (!actionModifierCard.hasType(LibraryCardType.ActionModifier)) {
+    if (!actionModifierCard.isType.actionModifier) {
         throw new Error("ActionModifier needs a LibraryCard with type 'ActionModifier'")
     }
 

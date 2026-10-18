@@ -3,12 +3,7 @@ import { Player } from '@/shared/model/Player.ts'
 import { GameState } from '@/shared/state/gameState.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
 import { botMutations } from '@/shared/state/botMutations.ts'
-import {
-    LEAVE_TORPOR_COST,
-    LibraryCardType,
-    TurnPhase,
-    TurnSequence,
-} from '@/shared/const/model.ts'
+import { LEAVE_TORPOR_COST, TurnPhase, TurnSequence } from '@/shared/const/model.ts'
 import {
     ActionProperty,
     CombatState,
@@ -100,16 +95,10 @@ import {
  */
 
 // Cards that go to the ash heap once the action they were played in is over
-const ONE_SHOT_TYPES = [
-    LibraryCardType.Action,
-    LibraryCardType.PoliticalAction,
-    LibraryCardType.ActionModifier,
-    LibraryCardType.Reaction,
-    LibraryCardType.Combat,
-]
-
-// Cards that stay in play attached to a minion when the action that played them succeeds
-const ATTACHABLE_TYPES = [LibraryCardType.Equipment, LibraryCardType.Retainer]
+function isOneShot(card: LibraryCard): boolean {
+    const { action, politicalAction, actionModifier, reaction, combat } = card.isType
+    return action || politicalAction || actionModifier || reaction || combat
+}
 
 /**
  * Who has to decide
@@ -257,7 +246,10 @@ function decision(kind: DecisionKind, player: Player, options: BotOption[]): Dec
 }
 
 // Cards a bot plays out of its own turn, while someone else's action or combat is going on
-const OUT_OF_TURN_TYPES = [LibraryCardType.Combat, LibraryCardType.Reaction]
+function isOutOfTurnCard(card: LibraryCard): boolean {
+    const { combat, reaction } = card.isType
+    return combat || reaction
+}
 
 // A card attached to a minion is kept, whatever its type ( an action card put on a vampire ).
 // Out of its own turn a player only has the cards of the reactions and combats it took part in.
@@ -268,16 +260,15 @@ function getCleanupCards(gameState: GameState, player: Player): LibraryCard[] {
             card instanceof LibraryCard &&
             !isAttached(card) &&
             (ownTurn ?
-                ONE_SHOT_TYPES.some(type => card.hasType(type)) ||
-                isMasterDiscardedAfterUse(card) ||
-                isEquipmentOrRetainer(card)
-            :   OUT_OF_TURN_TYPES.some(type => card.hasType(type))),
+                isOneShot(card) || isMasterDiscardedAfterUse(card) || isEquipmentOrRetainer(card)
+            :   isOutOfTurnCard(card)),
     )
 }
 
 // An equipment or a retainer is only kept when the action that played it succeeded ( attached )
 function isEquipmentOrRetainer(card: LibraryCard): boolean {
-    return ATTACHABLE_TYPES.some(type => card.hasType(type))
+    const { equipment, retainer } = card.isType
+    return equipment || retainer
 }
 
 // A master card needs the master phase action of the turn, on top of its own cost
@@ -620,8 +611,7 @@ function drawToHandSize(player: Player): void {
 function playCardFromHand(player: Player, card: LibraryCard, byMinion?: Minion): void {
     const toCardRegion = getPlayRegion(player)
     const staysInPlay =
-        card.type == LibraryCardType.Master &&
-        getMasterImplementation(card, player)?.staysInPlay === true
+        card.isType.master && getMasterImplementation(card, player)?.staysInPlay === true
     const { x, y } =
         staysInPlay ?
             getPermanentMasterPosition(player, card, toCardRegion)

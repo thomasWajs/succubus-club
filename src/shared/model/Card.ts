@@ -380,11 +380,6 @@ export class LibraryCard extends Card {
         return (this.type?.split('/') ?? []) as LibraryCardType[]
     }
 
-    // A few cards have two types ( "Action Modifier/Combat" ): the card is both
-    hasType(type: LibraryCardType): boolean {
-        return !!this.type && (this.type as string).split('/').includes(type)
-    }
-
     // Shortcuts to check this card's types ( a card can have several )
     get isType() {
         const types = this.types
@@ -454,7 +449,7 @@ export class LibraryCard extends Card {
     // A master card whose first line says it is a trifle ( "Trifle.", "Master: unique trifle." ):
     // playing it gives back a master phase action, once per master phase
     get isTrifle(): boolean {
-        return this.hasType(LibraryCardType.Master) && /\btrifle\b/i.test(this.text.split('\n')[0])
+        return this.isType.master && /\btrifle\b/i.test(this.text.split('\n')[0])
     }
 
     initMinionAttrs() {

@@ -1,6 +1,5 @@
 import { Card, LibraryCard, Minion } from '@/shared/model/Card.ts'
 import { endAction } from '@/shared/state/actionState.ts'
-import { LibraryCardType } from '@/shared/const/model.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { GameState } from '@/shared/state/gameState.ts'
 import { getHost, syncAttachedCards } from '@/shared/state/attachments.ts'
@@ -74,9 +73,7 @@ export function finishBlock(gameState: GameState): void {
         controller.isBot &&
         !controller.isOusted &&
         blocker.isIn.ready &&
-        controller.hand.cards.some(
-            card => card instanceof LibraryCard && card.hasType(LibraryCardType.Reaction),
-        )
+        controller.hand.cards.some(card => card instanceof LibraryCard && card.isType.reaction)
     if (!canPlay) {
         endAction(gameState)
     }
