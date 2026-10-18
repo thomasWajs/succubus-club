@@ -28,7 +28,7 @@ export function createActionState(minionAction: MinionAction): ActionState {
         blockResolved: null,
         stealth: actingMinion.minionAttrs.stealth + actions.getDefaultStealth(minionAction),
         intercept: 0,
-        bleed: actingMinion.minionAttrs.bleed,
+        bleed: actingMinion.minionAttrs.bleed + actions.getForcedBleedBonus(minionAction),
         hunt: actingMinion.isVampire() ? actingMinion.vampireAttrs.hunt : 0,
         impulsePlayer: actingMinion.controller,
         declared: actingMinion.controller.isBot || actions.isDeclarationComplete(minionAction),

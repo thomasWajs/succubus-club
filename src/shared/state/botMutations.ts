@@ -1,5 +1,5 @@
 import { Player } from '@/shared/model/Player.ts'
-import { Card, Minion } from '@/shared/model/Card.ts'
+import { Card, LibraryCard, Minion, Vampire } from '@/shared/model/Card.ts'
 import {
     ActionModifier,
     ANY_PLAYER,
@@ -243,6 +243,10 @@ class SpendTransfers extends GameMutation<SpendTransfersParams> {
 
 interface MarkCardUsedParams extends PlayerParams {
     card: Card
+    // The times the card may be used in a turn ( 1 when omitted )
+    maxUses?: number
+    // The vampire that gains blood from the card, a hunting ground
+    groundVampire?: Vampire
 }
 
 class MarkCardUsed extends GameMutation<MarkCardUsedParams> {
@@ -258,17 +262,65 @@ class MarkCardUsed extends GameMutation<MarkCardUsedParams> {
     }
 
     getValidity(gameState: GameState) {
-        return gameState.turnResources.usedCards.includes(this.params.card.oid) ?
-                Invalid('Card already used this turn')
+        const { usedCards, groundVampires } = gameState.turnResources
+        const { card, maxUses = 1, groundVampire } = this.params
+        if (usedCards.filter(oid => oid == card.oid).length >= maxUses) {
+            return Invalid('Card already used this turn')
+        }
+        return groundVampire && groundVampires.includes(groundVampire.oid) ?
+                Invalid('The vampire already gained blood from a hunting ground this turn')
             :   VALID
     }
 
     protected updateGameState(gameState: GameState) {
-        gameState.turnResources.usedCards.push(this.params.card.oid)
+        const { card, groundVampire } = this.params
+        gameState.turnResources.usedCards.push(card.oid)
+        if (groundVampire) {
+            gameState.turnResources.groundVampires.push(groundVampire.oid)
+        }
     }
 
     formatForLog() {
         return `${CARD_LOG_PLACEHOLDER} is used`
+    }
+}
+
+/**
+ * Open or close the removal a card waits for after a draw: the bot then chooses which uncontrolled vampire
+ * leaves the game. Closed once the vampire is removed.
+ */
+
+interface SetPendingRemovalParams extends PlayerParams {
+    card: LibraryCard
+    open: boolean
+}
+
+class SetPendingRemoval extends GameMutation<SetPendingRemovalParams> {
+    _isUserCancellable = false
+    readonly syncMode = MutationSyncMode.Exclusive
+
+    get allowedPlayer() {
+        return this.params.player
+    }
+
+    get card() {
+        return this.params.card
+    }
+
+    getValidity(gameState: GameState) {
+        const waiting = gameState.pendingRemoval
+        if (this.params.open) {
+            return waiting ? Invalid('A removal is already pending') : VALID
+        }
+        return waiting?.card == this.params.card ? VALID : Invalid('No such pending removal')
+    }
+
+    protected updateGameState(gameState: GameState) {
+        gameState.pendingRemoval = this.params.open ? { card: this.params.card } : null
+    }
+
+    formatForLog() {
+        return null
     }
 }
 
@@ -658,6 +710,44 @@ class DeclareLockForAction extends GameMutation<DeclareLockForActionParams> {
 
     formatForLog() {
         return `${CARD_LOG_PLACEHOLDER} is locked for the action`
+    }
+}
+
+/**
+ * Action: A crypt ability of the acting minion is used ( "During a bleed action, ..." ): once per action, like
+ * a card the minion plays. The acting player keeps the impulse.
+ */
+
+interface DeclareCryptAbilityParams extends GameMutationParams {
+    minion: Minion
+}
+
+class DeclareCryptAbility extends GameMutation<DeclareCryptAbilityParams> {
+    _isUserCancellable = false
+    readonly syncMode = MutationSyncMode.Exclusive
+
+    get allowedPlayer() {
+        return this.gameState.activePlayer
+    }
+
+    get card() {
+        return this.params.minion
+    }
+
+    getValidity(gameState: GameState) {
+        return gameState.action ? VALID : Invalid('Must be applied during an action')
+    }
+
+    protected updateGameState(gameState: GameState) {
+        if (!gameState.action) {
+            throw new Error('gameState.action is null')
+        }
+        markPlayedThisAction(gameState, this.params.minion, this.params.minion)
+        gameState.action.reactionsPassed = false
+    }
+
+    formatForLog() {
+        return `${CARD_LOG_PLACEHOLDER} uses its ability`
     }
 }
 
@@ -1175,6 +1265,7 @@ export const botMutations = {
     openTurnEnd: defineMutation(OpenTurnEnd),
     passTurnEnd: defineMutation(PassTurnEnd),
     resolvePendingTrigger: defineMutation(ResolvePendingTrigger),
+    setPendingRemoval: defineMutation(SetPendingRemoval),
     spendMasterPhaseAction: defineMutation(SpendMasterPhaseAction),
     spendTransfers: defineMutation(SpendTransfers),
 
@@ -1187,6 +1278,7 @@ export const botMutations = {
     ACTION_completeDeclaration: defineMutation(CompleteActionDeclaration),
     ACTION_declareActionModifier: defineMutation(DeclareActionModifier),
     ACTION_declareLockForAction: defineMutation(DeclareLockForAction),
+    ACTION_declareCryptAbility: defineMutation(DeclareCryptAbility),
     ACTION_declareReaction: defineMutation(DeclareReaction),
     ACTION_grantBlockManeuver: defineMutation(GrantBlockManeuver),
     ACTION_resolveAction: defineMutation(ResolveAction),

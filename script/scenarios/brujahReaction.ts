@@ -28,6 +28,7 @@ import {
     ORGANIZED_RESISTANCE_ID,
     RAYNE_ID,
     SHOW_OF_FORCE_ID,
+    WARZONE_ID,
 } from '../cardIds.ts'
 
 // A bleed against a prey that holds Organized Resistance, a baron ( Atiena ) and a locked Anarch
@@ -219,6 +220,59 @@ export const BRUJAH_REACTION_SCENARIOS: Scenario[] = [
         },
     },
     {
+        name: 'Carfax Abbey feeds a second Anarch while a baron is ready, and a vampire gains blood from one hunting ground a turn',
+        run() {
+            const turn = createWarzoneTurn(CARFAX_ID)
+            const { gameState, player, warzone: carfax } = turn
+            const warzone = giveCard(gameState, player, WARZONE_ID)
+            gameState.moveCardToRegion(carfax, player.ready)
+            gameState.turnPhaseIndex = TurnSequence.indexOf(TurnPhase.Unlock)
+            const octane = readySpecific(gameState, player, OCTANE_ID, 2)
+            const rayne = readySpecific(gameState, player, RAYNE_ID, 2)
+            const atiena = readySpecific(gameState, player, ATIENA_ID, 2)
+            for (const vampire of [octane, rayne, atiena]) {
+                vampire.minionAttrs.capacity = 11
+            }
+            const feed = (vampire: typeof octane) => {
+                const decision = getMasterDecision(turn)
+                const option = optionsOfType(decision.options, 'unlockEffect').find(
+                    candidate => candidate.vampire == vampire && candidate.card == carfax,
+                )
+                if (!option) {
+                    throw new ScenarioFailure(`${vampire.name} is not a target of Carfax Abbey`)
+                }
+                applyOption(decision, option)
+            }
+
+            // Atiena is the baron: a second Anarch gains, never the one that gained already
+            expectEqual(countUnlockEffects(turn), 3, 'three Anarchs to feed')
+            feed(octane)
+            expectEqual(countUnlockEffects(turn), 2, 'a second blood, the first vampire is out')
+            feed(rayne)
+            expectEqual([octane.blood, rayne.blood, atiena.blood].join(), '3,3,2', 'the blood')
+            expectEqual(countUnlockEffects(turn), 0, 'two bloods at most')
+
+            // Without a ready baron, one blood
+            gameState.setNewTurnResources()
+            gameState.turnResources.unlocked = true
+            atiena.vampireAttrs.title = ''
+            feed(octane)
+            expectEqual(countUnlockEffects(turn), 0, 'one blood without a baron')
+
+            // A vampire that gained from Carfax Abbey gets nothing from another hunting ground
+            gameState.setNewTurnResources()
+            gameState.turnResources.unlocked = true
+            gameState.moveCardToRegion(warzone, player.ready)
+            rayne.blood = 2
+            feed(octane)
+            const targets = optionsOfType(getMasterDecision(turn).options, 'unlockEffect')
+                .filter(option => option.card == warzone)
+                .map(option => option.vampire)
+            expectEqual(targets.includes(octane), false, 'octane gained from Carfax this turn')
+            expectEqual(targets.includes(rayne) && targets.includes(atiena), true, 'the others')
+        },
+    },
+    {
         name: 'Ariane has 1 stealth less on undirected actions',
         run() {
             const turn = createMinionPhase(5, 0, BrujahDeck)
@@ -275,6 +329,57 @@ export const BRUJAH_REACTION_SCENARIOS: Scenario[] = [
                 false,
                 'no end of phase',
             )
+        },
+    },
+    {
+        name: 'Elen Kamjian is free once she has made her forced bleed, and stuck if she bled with a card instead',
+        run() {
+            const stateAfter = (performed: string[]) => {
+                const turn = createMinionPhase(5, 0, BrujahDeck)
+                const elen = readySpecific(turn.gameState, turn.player, ELEN_ID, 4)
+                readyVampire(turn.gameState, turn.player, 3).lock()
+                turn.gameState.turnResources.performed[elen.oid] = performed
+                const decision = getDecisionPoint(turn.gameState, turn.player)
+                if (!decision) {
+                    throw new ScenarioFailure('No decision point')
+                }
+                return {
+                    acts: optionsOfType(decision.options, 'declareAction').some(
+                        option => option.action.actingMinion == elen,
+                    ),
+                    endsPhase: decision.options.some(option => option.type == 'endPhase'),
+                }
+            }
+            const forced = stateAfter([])
+            expectEqual(forced.acts, true, 'forced to bleed')
+            expectEqual(forced.endsPhase, false, 'no end of phase while forced')
+            const done = stateAfter(['bleed', 'basicBleed'])
+            expectEqual(done.acts, true, 'free after the forced bleed')
+            expectEqual(done.endsPhase, true, 'free to end the phase')
+            const stuck = stateAfter(['bleed'])
+            expectEqual(stuck.acts, false, 'stuck: a bleed card is not the forced bleed')
+            expectEqual(stuck.endsPhase, true, 'the phase can still end')
+        },
+    },
+    {
+        name: 'Elen Kamjian bleeds with +1 bleed when forced to by a locked minion, not otherwise',
+        run() {
+            const bleedOf = (locked: boolean) => {
+                const turn = createMinionPhase(5, 0, BrujahDeck)
+                const elen = readySpecific(turn.gameState, turn.player, ELEN_ID, 4)
+                if (locked) {
+                    readyVampire(turn.gameState, turn.player, 3).lock()
+                }
+                const { decision, options } = getActionOptions(turn, MinionActionType.Bleed)
+                const bleed = options.find(option => option.action.actingMinion == elen)
+                if (!bleed) {
+                    throw new ScenarioFailure('Elen cannot bleed')
+                }
+                applyOption(decision, bleed)
+                return turn.gameState.action?.bleed
+            }
+            expectEqual(bleedOf(false), 1, 'free bleed')
+            expectEqual(bleedOf(true), 2, 'forced bleed')
         },
     },
 ]

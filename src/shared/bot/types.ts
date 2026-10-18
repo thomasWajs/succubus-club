@@ -21,6 +21,8 @@ export enum DecisionKind {
     DiscardExcess = 'DiscardExcess',
     // An optional trigger of a card in play is pending: use it or not, before anything else goes on
     Trigger = 'Trigger',
+    // A card in play has drawn a crypt card: the controller chooses the uncontrolled vampire it removes from the game
+    Removal = 'Removal',
     ActionImpulse = 'ActionImpulse',
     ReactionImpulse = 'ReactionImpulse',
     // The combat of a block is over: the blocker's controller may play the reactions made for it
@@ -96,9 +98,14 @@ export type BotOption =
     // Locks a master card in play for the block attempt of one of its controller's minions, which gives
     // it its intercept ( KRCG News Radio ). Played like a reaction card: the acting player regains the impulse.
     | { type: 'lockForReaction'; card: LibraryCard; minion: Minion }
+    // The acting vampire discards a card of the hand for more bleed in its bleed action ( Larissa Moreira ).
+    // Played like an action modifier: the acting player keeps the impulse.
+    | { type: 'discardForBleed'; minion: Minion; discard: LibraryCard }
     // Uses an ability of a master card in play that is paid with transfers ( the ability is an
-    // index of the card's abilities ). Some remove a card of the uncontrolled region.
-    | { type: 'transferEffect'; card: LibraryCard; ability: number; removed?: CryptCard }
+    // index of the card's abilities ). One that draws a crypt card is followed by a Removal decision.
+    | { type: 'transferEffect'; card: LibraryCard; ability: number }
+    // The uncontrolled vampire a card removes from the game, once it has drawn ( Wider View )
+    | { type: 'removeUncontrolled'; card: LibraryCard; removed: CryptCard }
     // Uses the ability of a card put on a vampire ( a Blood Doll ) to move blood between the vampire
     // and the pool, in the master phase ( once per card and turn, no master phase action )
     | { type: 'moveBlood'; card: Card; vampire: Vampire; amount: number; toPool: boolean }

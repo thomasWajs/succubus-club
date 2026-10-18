@@ -12,6 +12,7 @@ import {
     ACTION_MODIFIER_CARD_IMPLEMENTATIONS,
     COMBAT_CARD_IMPLEMENTATIONS,
     REACTION_CARD_IMPLEMENTATIONS,
+    getCryptImplementation,
     getImplementation,
     getMasterImplementation,
     hasImplementation,
@@ -22,6 +23,7 @@ import { findPlay, getUsageOptions, playsOfKind } from '@/shared/cardImpl/catalo
 import { CardKind } from '@/shared/cardImpl/catalog/types.ts'
 import {
     getAttachedEffects,
+    getEquipment,
     getRetainers,
     isPlayForbiddenToMinion,
 } from '@/shared/cardImpl/catalog/attached.ts'
@@ -33,7 +35,7 @@ import {
     getOpposingCombatant,
 } from '@/shared/state/combatState.ts'
 import { hasPlayedThisAction, isAvailableToReact } from '@/shared/state/actionState.ts'
-import { canDeclare } from '@/shared/state/minionActions.ts'
+import { canDeclare, isBleed } from '@/shared/state/minionActions.ts'
 import {
     createActionCardAction,
     createActionModifier,
@@ -286,15 +288,17 @@ export function getCombatCardOptions(minion: Minion): CombatCardOption[] {
 }
 
 // What the cards in play add to a combat, with no card to play and nothing to pay: the strikes of
-// the weapons attached to the minion ( and their maneuver ), and the strikes aimed at the retainers
-// attached to the opposing minion. The referee keeps what fits the current step.
+// the weapons attached to the minion ( and their maneuver ), the strikes aimed at the retainers
+// attached to the opposing minion, and the strikes that burn its equipment. The referee keeps what fits
+// the current step.
 export function getAttachedCombatOptions(minion: Minion): CombatCardOption[] {
     const combat = minion.gameState.combat
     const combatant = combat && getCombatant(combat, minion)
     if (!combat || !combatant) {
         return []
     }
-    const retainers = getRetainers(getOpposingCombatant(combat, combatant).minion)
+    const opposing = getOpposingCombatant(combat, combatant).minion
+    const retainers = getRetainers(opposing)
     const options: CombatCardOption[] = []
 
     if (combatant.freeManeuvers > 0) {
@@ -310,6 +314,18 @@ export function getAttachedCombatOptions(minion: Minion): CombatCardOption[] {
                         amount: effect.amount,
                         aggravated,
                         source: weapon,
+                    })
+                }
+            }
+            if (effect.type == 'burnEquipmentStrike') {
+                for (const equipment of getEquipment(opposing)) {
+                    options.push({
+                        type: 'combatStrike',
+                        minion,
+                        strike: createStrike(`${weapon.name} burns ${equipment.name}`, {
+                            source: weapon,
+                            equipment,
+                        }),
                     })
                 }
             }
@@ -471,13 +487,12 @@ export function getMoveBloodOptions(
 }
 
 // The unlock-phase effects of the master cards in play that the player controls: one option
-// per card and target, for the cards not used yet this turn
+// per card and target ( a card that was used up this turn has no target )
 export function getUnlockEffectOptions(player: Player): BotOptionOf<'unlockEffect'>[] {
     const options: BotOptionOf<'unlockEffect'>[] = []
-    const usedCards = player.gameState.turnResources.usedCards
 
     for (const card of player.controlledReadyCards) {
-        if (!(card instanceof LibraryCard) || !card.isType.master || usedCards.includes(card.oid)) {
+        if (!(card instanceof LibraryCard) || !card.isType.master) {
             continue
         }
         for (const vampire of getMasterImplementation(card, player)?.getUnlockEffectTargets() ??
@@ -526,6 +541,35 @@ export function getLockForActionOptions(
     )
 }
 
+// A card "requires" a discipline when it is among those it asks for ( "Animalism", "Animalism & Fortitude",
+// "Animalism/Celerity" )
+export function requiresDiscipline(card: LibraryCard, discipline: Discipline): boolean {
+    return card.disciplines.some(name => name.split(' & ').includes(discipline))
+}
+
+// The cards of the hand the acting minion can discard for more bleed in its bleed action ( Larissa Moreira )
+export function getDiscardForBleedOptions(
+    player: Player,
+    actingMinion: Minion,
+): BotOptionOf<'discardForBleed'>[] {
+    const ability = getCryptImplementation(actingMinion)?.discardForBleed
+    const action = player.gameState.action?.minionAction
+    if (
+        !ability ||
+        actingMinion.controller != player ||
+        action?.actingMinion != actingMinion ||
+        !isBleed(action) ||
+        hasPlayedThisAction(player.gameState, actingMinion, actingMinion)
+    ) {
+        return []
+    }
+    return player.hand.cards.flatMap(card =>
+        card instanceof LibraryCard && requiresDiscipline(card, ability.discipline) ?
+            [{ type: 'discardForBleed' as const, minion: actingMinion, discard: card }]
+        :   [],
+    )
+}
+
 // The master cards in play that the player controls and can lock for the block attempt of the minion
 // ( "You can lock this card to give a minion you control +1 intercept" )
 export function getLockForReactionOptions(
@@ -547,10 +591,23 @@ export function getLockForReactionOptions(
 export function getTransferEffectOptions(player: Player): BotOptionOf<'transferEffect'>[] {
     return player.controlledReadyCards.flatMap(card =>
         card instanceof LibraryCard && card.isType.master ?
-            (getMasterImplementation(card, player)?.getTransferOptions() ?? []).map(option => ({
+            (getMasterImplementation(card, player)?.getTransferOptions() ?? []).map(ability => ({
                 type: 'transferEffect' as const,
                 card,
-                ...option,
+                ability,
+            }))
+        :   [],
+    )
+}
+
+// The uncontrolled vampires a card in play that has just drawn can remove from the game
+export function getRemovalOptions(player: Player): BotOptionOf<'removeUncontrolled'>[] {
+    return player.controlledReadyCards.flatMap(card =>
+        card instanceof LibraryCard && card.isType.master ?
+            (getMasterImplementation(card, player)?.getRemovalOptions() ?? []).map(removed => ({
+                type: 'removeUncontrolled' as const,
+                card,
+                removed,
             }))
         :   [],
     )

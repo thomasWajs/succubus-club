@@ -4,6 +4,8 @@ import {
     applyMove,
     CombatSim,
     cloneSim,
+    isAlive,
+    isBurnable,
     legalMoves,
     Move,
     Side,
@@ -62,15 +64,19 @@ function strikeMoves(sim: CombatSim, side: Side, fresh: boolean): StrikeMove[] {
     return legalMoves(probe).filter((move): move is StrikeMove => move.type == 'strike')
 }
 
-// The strike a combatant has chosen, as the model names it ( a retainer by its place )
+// The strike a combatant has chosen, as the model names it ( a retainer or an equipment by its place )
 function chosenStrike(combatant: SimCombatant): StrikeMove | null {
     if (!combatant.strike) {
         return null
     }
-    const { retainer, ...strike } = combatant.strike
+    const { retainer, equipment, ...strike } = combatant.strike
     return {
         type: 'strike',
-        strike: typeof retainer == 'number' ? { ...strike, retainer } : strike,
+        strike: {
+            ...strike,
+            ...(typeof retainer == 'number' ? { retainer } : {}),
+            ...(typeof equipment == 'number' ? { equipment } : {}),
+        },
     }
 }
 
@@ -101,7 +107,7 @@ function environmentOf(victim: SimCombatant, striker: SimCombatant): number {
     return (
         victim.environmentalDamage +
         striker.attached.reduce(
-            (total, card) => total + (!card.retainer || card.life > 0 ? card.environmental : 0),
+            (total, card) => total + (isAlive(card) ? card.environmental : 0),
             0,
         )
     )
@@ -146,6 +152,8 @@ function hit(
             const lost = Math.min(strike.damage, card?.life ?? 0)
             extra +=
                 lost * weights.loss.blood + (card && lost >= card.life ? weights.loss.retainer : 0)
+        } else if (strike.equipment !== undefined) {
+            extra += isBurnable(victim.attached[strike.equipment]) ? weights.loss.equipment : 0
         } else {
             extra += strike.stealBlood * weights.loss.blood * 2
             if (strike.aggravated) {

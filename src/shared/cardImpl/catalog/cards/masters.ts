@@ -47,7 +47,6 @@ export const MASTER_CARDS = [
             onPlay: { target: 'readyVampireBelowCapacity', effects: [gainBlood(1)] },
         },
     ]),
-    // The hunting ground rule ( one hunting ground per vampire ) is ignored
     defineCard('100108', 'Asylum Hunting Ground', [
         {
             kind: 'master',
@@ -61,7 +60,6 @@ export const MASTER_CARDS = [
             ],
         },
     ]),
-    // The second blood for another Anarch when a baron is ready is not modelled
     defineCard('100297', 'Carfax Abbey', [
         {
             kind: 'master',
@@ -71,6 +69,7 @@ export const MASTER_CARDS = [
                     activate: 'unlock',
                     target: 'readyVampireBelowCapacity',
                     sect: 'Anarch',
+                    extraWithBaron: true,
                     effects: [gainBlood(1)],
                 },
             ],
@@ -125,8 +124,7 @@ export const MASTER_CARDS = [
     defineCard('100866', 'Guardian Angel', [
         putOnMinion(aVampire({ ready: true }), [bleedIntercept(1), preventDamage(1), burnInTorpor]),
     ]),
-    // The hunting ground rule ( one hunting ground per vampire ) is ignored. The clan requirement
-    // is the cardbase's
+    // The clan requirement is the cardbase's
     defineCard('101808', 'Slum Hunting Ground', [
         {
             kind: 'master',

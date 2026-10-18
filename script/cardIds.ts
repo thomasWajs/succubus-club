@@ -38,6 +38,7 @@ export const INSTINCTIVE_REACTION_ID = '100995' // Instinctive Reaction
 export const IVORY_BOW_ID = '101014' // Ivory Bow
 export const KRCG_ID = '101067' // KRCG News Radio
 export const LABYRINTH_ID = '101070' // The Labyrinth
+export const LARISSA_ID = '201553' // Larissa Moreira
 export const LENNY_ID = '201555' // Lenny Burkhead
 export const LIFE_IN_THE_CITY_ID = '101104' // Life in the City
 export const LINE_BRAWL_ID = '102229' // Line Brawl

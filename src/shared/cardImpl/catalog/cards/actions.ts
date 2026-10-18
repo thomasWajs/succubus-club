@@ -3,6 +3,7 @@ import {
     attachToMinion,
     bleed,
     bleedAction,
+    burnEquipmentStrike,
     burnInTorpor,
     cannotPlay,
     defineCard,
@@ -79,15 +80,16 @@ export const ACTION_CARDS = [
             onePerMinion: true,
         }),
     ]),
-    // Put on the acting vampire ( one per vampire ), burned when it is in torpor. The strike that
-    // burns an equipment is not modelled. Superior: +2 strength and a 2R strike
+    // Put on the acting vampire ( one per vampire ), burned when it is in torpor. Gives a strike that
+    // burns an equipment. Superior: +2 strength and a 2R strike
     defineCard('100913', 'Heroic Might', [
-        attachToMinion([strength(1), burnInTorpor], discipline('pot', 'inferior'), {
-            effects: [stealth(3)],
-            onePerMinion: true,
-        }),
         attachToMinion(
-            [strength(2), weaponStrike(2, { ranged: true }), burnInTorpor],
+            [strength(1), burnEquipmentStrike, burnInTorpor],
+            discipline('pot', 'inferior'),
+            { effects: [stealth(3)], onePerMinion: true },
+        ),
+        attachToMinion(
+            [strength(2), burnEquipmentStrike, weaponStrike(2, { ranged: true }), burnInTorpor],
             discipline('pot', 'superior'),
             { effects: [stealth(3)], onePerMinion: true },
         ),

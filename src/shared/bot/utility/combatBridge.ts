@@ -40,6 +40,7 @@ function simStrikeOf(strike: CombatStrike, opposing: Card[]): SimStrike {
             stealBlood: strike.stealBlood,
         }),
         retainer: strike.retainer ? opposing.indexOf(strike.retainer) : undefined,
+        equipment: strike.equipment ? opposing.indexOf(strike.equipment) : undefined,
     }
 }
 
@@ -138,6 +139,7 @@ export function simOfCombat(
 
 export function strikeKey(strike: CombatStrike, opposing: Card[]): string {
     const retainer = strike.retainer ? opposing.indexOf(strike.retainer) : -1
+    const equipment = strike.equipment ? opposing.indexOf(strike.equipment) : -1
     return [
         strike.name,
         strike.damage,
@@ -150,6 +152,7 @@ export function strikeKey(strike: CombatStrike, opposing: Card[]): string {
         +strike.firstStrike,
         strike.stealBlood,
         retainer,
+        equipment,
     ].join(',')
 }
 
@@ -198,6 +201,7 @@ export function simStrikeKey(strike: SimStrike): string {
         +strike.firstStrike,
         strike.stealBlood,
         strike.retainer ?? -1,
+        strike.equipment ?? -1,
     ].join(',')
 }
 

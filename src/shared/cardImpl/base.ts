@@ -2,7 +2,7 @@ import { CryptCard, LibraryCard, Minion, Vampire } from '@/shared/model/Card.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { Invalid, LibraryCardUsage, VALID, Validity } from '@/shared/types/state.ts'
 import type { CombatCardEffect } from '@/shared/cardImpl/catalog/combatPlay.ts'
-import { DisciplineLevel } from '@/shared/const/model.ts'
+import { Discipline, DisciplineLevel } from '@/shared/const/model.ts'
 
 export type CryptCardImplementation = {
     // Added to the hand size of the controller while the vampire is ready
@@ -11,8 +11,12 @@ export type CryptCardImplementation = {
     canEnterCombat?: boolean
     // Added to the stealth of the actions that are not directed at another Methuselah
     undirectedStealth?: number
-    // Must bleed in the minion phase while the Methuselah controls a locked minion
-    mustBleedWhileMinionLocked?: boolean
+    // Must bleed in the minion phase while the Methuselah controls a locked minion, with this bonus
+    // on that bleed action
+    mustBleedWhileMinionLocked?: { bonus: number }
+    // During its own bleed action, the vampire can discard a card of the hand that requires the discipline,
+    // for this much more bleed
+    discardForBleed?: { discipline: Discipline; amount: number }
 }
 
 // The play context shared by the action, action modifier and combat cards: the
@@ -204,23 +208,34 @@ export abstract class MasterCardImplementation {
         return Invalid('The card has no ability to lock for a reaction')
     }
 
-    // The ways to use the abilities paid with transfers ( influence phase ): the index of the
-    // ability, and the uncontrolled card removed from the game when the ability does that
-    getTransferOptions(): { ability: number; removed?: CryptCard }[] {
+    // The abilities paid with transfers that can be used now ( influence phase ), by index
+    getTransferOptions(): number[] {
         return []
     }
 
-    applyTransferEffect(_ability: number, _removed?: CryptCard): Validity {
+    // An ability that draws a crypt card leaves a removal pending: see getRemovalOptions
+    applyTransferEffect(_ability: number): Validity {
         return Invalid('The card has no ability paid with transfers')
     }
 
+    // The uncontrolled vampires the card can remove from the game, once it has drawn: none when no removal
+    // is pending for it
+    getRemovalOptions(): CryptCard[] {
+        return []
+    }
+
+    applyRemoval(_removed: CryptCard): Validity {
+        return Invalid('The card has no vampire to remove')
+    }
+
     // The vampires the card can be used on during its controller's unlock phase, once the
-    // cards are unlocked ( "a ready vampire you control can gain 1 blood" ). Used at most once
-    // per turn: the caller checks it.
+    // cards are unlocked ( "a ready vampire you control can gain 1 blood" ): none once the card
+    // was used up this turn, and none for a vampire that gained blood from another hunting ground
     getUnlockEffectTargets(): Vampire[] {
         return []
     }
 
+    // Marks the card used and gives the vampire what the card says
     applyUnlockEffect(_vampire: Vampire): Validity {
         return Invalid('The card has no unlock effect')
     }

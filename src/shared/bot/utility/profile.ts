@@ -148,6 +148,8 @@ export type CombatWeights = {
     torporShare: number
     // What a retainer burned is worth
     retainerValue: number
+    // What an equipment burned by a strike is worth
+    equipmentValue: number
     // What a card played in a combat costs, in pool: it is not played for nothing
     cardCost: number
     // How much the plan of a combat fears the worst hand it was played against ( combatPlan.ts ): 0 judges a
@@ -242,6 +244,9 @@ export type MasterWeights = {
     // What a card that stays on a vampire for no pool is worth when it is the only master card of the hand: it
     // leaves a place in the hand, like a discard
     freeSlot: number
+    // How many uses of a card in play that draws from the crypt are counted as worth the first one over its stay: the
+    // region it improves gives less after each
+    draws: number
 }
 
 // How the hand is judged ( hand.ts ). Draft numbers
@@ -370,6 +375,7 @@ export const DEFAULT_PROFILE: BotProfile = {
         credit: 0.5,
         torporShare: 0.5,
         retainerValue: 1,
+        equipmentValue: 1.5,
         cardCost: 0.2,
         caution: 0.25,
         planDepth: 1,
@@ -410,6 +416,7 @@ export const DEFAULT_PROFILE: BotProfile = {
         margin: 0.25,
         regain: 1,
         freeSlot: 1,
+        draws: 2,
     },
     hand: {
         horizon: 2,

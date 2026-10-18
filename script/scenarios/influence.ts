@@ -1,3 +1,4 @@
+import { Vampire } from '@/shared/model/Card.ts'
 import { Player } from '@/shared/model/Player.ts'
 import {
     Discipline,
@@ -9,7 +10,7 @@ import {
 import { Disciplines } from '@/shared/types/resources.ts'
 import { DeckList } from '@/shared/types/gateway.ts'
 import { chooseThroughView } from '@/shared/bot/playerView.ts'
-import { GovernDeck } from '@/shared/bot/decks.ts'
+import { GovernDeck, MalkavDeck } from '@/shared/bot/decks.ts'
 import { applyOption, getDecisionPoint } from '@/shared/bot/referee.ts'
 import { UtilityAgent } from '@/shared/bot/agents/utilityAgent.ts'
 import { BotOption, DecisionKind } from '@/shared/bot/types.ts'
@@ -27,7 +28,7 @@ import {
 import { sealLibrary } from './bounce.ts'
 import { VILLEIN_DECK } from './catalog.ts'
 import { Scenario, ScenarioFailure, expectEqual } from './helpers.ts'
-import { GOVERN_ID, VILLEIN_ID } from '../cardIds.ts'
+import { GOVERN_ID, VILLEIN_ID, WIDER_VIEW_ID } from '../cardIds.ts'
 
 /**
  * The influence phase: which vampire comes out, in which order, and when the pool says stop. The
@@ -109,6 +110,37 @@ function playPhase(turn: InfluenceTurn, profile: BotProfile = DEFAULT_PROFILE): 
             throw new ScenarioFailure(`Unexpected ${option.type}`)
         }
         done.push([option.vampire.minionAttrs.capacity, option.amount])
+        applyOption(decision, option)
+    }
+    throw new ScenarioFailure('The influence phase does not end')
+}
+
+// The turn of a Methuselah with a Wider View in play, on the Malkavian deck ( the crypt the bot knows )
+function widerViewTurn(setup: InfluenceSetup): InfluenceTurn {
+    const turn = influenceTurn({ ...setup, deck: MalkavDeck, hand: [WIDER_VIEW_ID] })
+    const card = turn.me.hand.cards[0]
+    turn.ring.gameState.moveCardToRegion(card, turn.me.ready)
+    return turn
+}
+
+// Plays the phase with the utility agent, a removal included: what it did, one entry per option
+function playWiderView(turn: InfluenceTurn): string[] {
+    const agent = new UtilityAgent(MalkavDeck)
+    const done: string[] = []
+    for (let step = 0; step < 16; step++) {
+        const decision = getDecisionPoint(turn.ring.gameState, turn.me)
+        if (!decision) {
+            throw new ScenarioFailure('No decision')
+        }
+        const option: BotOption = chooseThroughView(decision, agent)
+        if (option.type == 'endPhase') {
+            return done
+        }
+        done.push(
+            option.type == 'transferEffect' ? `${option.type} ${option.ability}`
+            : option.type == 'influence' ? `influence ${option.vampire.minionAttrs.capacity}`
+            : option.type,
+        )
         applyOption(decision, option)
     }
     throw new ScenarioFailure('The influence phase does not end')
@@ -403,6 +435,63 @@ export const INFLUENCE_VALUE_SCENARIOS: Scenario[] = [
                 })
             expectEqual(playPhase(setup(4)).join(' '), '4,4', 'the 4 comes and blocks')
             expectEqual(playPhase(setup(5)).length, 0, 'the 5 cannot come this turn')
+        },
+    },
+    {
+        name: 'Influence: a region of vampires too big to come is improved by a Wider View, which removes the big one and keeps the card drawn',
+        run() {
+            const turn = widerViewTurn({
+                turn: 4,
+                uncontrolled: [
+                    [11, 0],
+                    [11, 0],
+                    [11, 0],
+                    [11, 0],
+                ],
+            })
+            const done = playWiderView(turn)
+            expectEqual(done[0], 'transferEffect 0', 'the draw comes first')
+            expectEqual(done[1], 'removeUncontrolled', 'then the removal')
+            const removed = turn.me.removed.cards.filter(card => card.isCrypt)
+            expectEqual(removed.length >= 1, true, 'a vampire is removed')
+            expectEqual(
+                removed.every(card => card.isCrypt && (card as Vampire).minionAttrs.capacity == 11),
+                true,
+                'the vampires removed are the big ones, not the cards drawn',
+            )
+        },
+    },
+    {
+        name: 'Influence: with a pool too low to bring anyone out, the 4 transfers that would be lost burn the Wider View for 2 pool',
+        run() {
+            const turn = widerViewTurn({
+                turn: 4,
+                pool: 1,
+                uncontrolled: [
+                    [5, 0],
+                    [5, 0],
+                    [5, 0],
+                    [5, 0],
+                ],
+            })
+            expectEqual(playWiderView(turn).join(', '), 'transferEffect 1', 'the burn')
+            expectEqual(turn.me.pool, 3, 'pool')
+        },
+    },
+    {
+        name: 'Influence: with 3 transfers the Wider View cannot be burned, and with no pool to bring anyone out a draw is not worth a transfer',
+        run() {
+            const turn = widerViewTurn({
+                turn: 3,
+                pool: 1,
+                uncontrolled: [
+                    [5, 0],
+                    [5, 0],
+                    [5, 0],
+                    [5, 0],
+                ],
+            })
+            expectEqual(playWiderView(turn).join(', '), '', 'nothing')
         },
     },
 ]

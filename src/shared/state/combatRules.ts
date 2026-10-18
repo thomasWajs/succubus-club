@@ -15,7 +15,8 @@ import {
  * torpor or burns, what a retainer is, how the combat is closed. The step machine, the strikes and the
  * damage are written once, here. Every function changes the combat it is given and returns the log lines.
  *
- * Not modelled: immunity to damage, destroy / steal equipment, damage prevention for retainers, diablerie.
+ * Not modelled: immunity to damage, steal equipment, destroy weapon, damage prevention for retainers,
+ * diablerie.
  */
 
 // Strikes resolve by tiers : "combat ends" first, then first strikes, then the rest.
@@ -24,7 +25,8 @@ const TIER_FIRST_STRIKE = 1
 const TIER_NORMAL = 2
 
 // What the rules need to know of a strike. `retainer` is the retainer of the opposing minion that it is
-// aimed at, whatever the host calls a retainer
+// aimed at, whatever the host calls a retainer. `equipment` is the equipment of the opposing minion that the
+// strike burns ( a strike that does nothing else ).
 export type StrikeBase = {
     name: string
     damage: number
@@ -41,9 +43,10 @@ export type StrikeBase = {
     // Blood ( or life ) moved from the opposing minion to the striking one
     stealBlood: number
     retainer?: unknown
+    equipment?: unknown
 }
 
-export type PlayStrike = Omit<StrikeBase, 'retainer'>
+export type PlayStrike = Omit<StrikeBase, 'retainer' | 'equipment'>
 
 // A strike that does nothing but what the overrides say
 export function newStrike(name: string, overrides: Partial<PlayStrike> = {}): PlayStrike {
@@ -139,6 +142,10 @@ export interface CombatHost {
     retainerValidity(opposing: CombatantBase, strike: StrikeBase): Validity
     // The damage of a strike aimed at a retainer of the target
     hitRetainer(target: CombatantBase, strike: StrikeBase, who: string, log: string[]): void
+    // Is the equipment a strike burns one of the opposing combatant
+    equipmentValidity(opposing: CombatantBase, strike: StrikeBase): Validity
+    // A strike burns the equipment of the target it is aimed at
+    burnEquipment(target: CombatantBase, strike: StrikeBase, who: string, log: string[]): void
     // The damage pending on the combatant is applied ( a bot ), or left to its player ( a human )
     settleDamage(combatant: CombatantBase, log: string[]): void
     // The combat is over
@@ -267,18 +274,24 @@ export function checkPass(combat: CombatBase | null): Validity {
     return VALID
 }
 
-// A strike aimed at a retainer needs a retainer attached to the opposing minion
+// A strike aimed at a retainer needs a retainer attached to the opposing minion, one that burns an
+// equipment needs an equipment of it
 function checkStrikeTarget(
     host: CombatHost,
     combat: CombatBase,
     combatant: CombatantBase | null,
     strike: StrikeBase,
 ): Validity {
-    if (strike.retainer === undefined) {
+    if (strike.retainer === undefined && strike.equipment === undefined) {
         return VALID
     }
     const opposing = combatant && opposingOf(combat, combatant)
-    return opposing ? host.retainerValidity(opposing, strike) : Invalid('No opposing minion')
+    if (!opposing) {
+        return Invalid('No opposing minion')
+    }
+    return strike.retainer === undefined ?
+            host.equipmentValidity(opposing, strike)
+        :   host.retainerValidity(opposing, strike)
 }
 
 // The maneuver of a weapon ( `weaponKey` ) comes with its strike, and is given once per combat
@@ -704,6 +717,10 @@ function resolveStrike(
     }
     if (strike.retainer !== undefined) {
         host.hitRetainer(target, strike, who, log)
+        return
+    }
+    if (strike.equipment !== undefined) {
+        host.burnEquipment(target, strike, who, log)
         return
     }
 

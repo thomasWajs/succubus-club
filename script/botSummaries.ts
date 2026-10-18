@@ -53,6 +53,7 @@ const FACTS_WITHOUT_ROLE: EffectType[] = [
     'lockTarget',
     'restrictPlay',
     'burnsInTorpor',
+    'burnEquipmentStrike',
     'burnSelf',
     'mustBleedWhileMinionLocked',
     'raisePlayCost',
@@ -63,7 +64,7 @@ const FACTS_WITHOUT_ROLE: EffectType[] = [
 const ENGINE_GAPS = [
     'Combat ends ( "the combat ends" ): no combat effect in the catalog, so no dodge-or-end card of that kind is valued',
     'Damage prevention as a combat card ( Fortitude ): only attached preventDamage exists',
-    'Aggravated damage from a hand strike, press other than grapple, burning or stealing equipment: no effect in the catalog',
+    'Aggravated damage from a hand strike, press other than grapple, stealing equipment, burning it from a combat card ( only an attached strike does ): no effect in the catalog',
     "Abilities of the opponents' cards in play that a human uses by hand leave no declaration: the bot only sees their lock state",
 ]
 

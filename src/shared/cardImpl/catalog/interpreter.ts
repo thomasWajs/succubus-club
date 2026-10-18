@@ -600,34 +600,22 @@ class InterpretedMaster extends MasterCardImplementation {
         )
     }
 
-    getTransferOptions(): { ability: number; removed?: CryptCard }[] {
-        const transfers = this.player.gameState.turnResources.transfers
+    getTransferOptions(): number[] {
+        const { transfers } = this.player.gameState.turnResources
         return this.transferAbilities.flatMap(({ ability, index }) => {
             if (transfers < ability.transfers) {
                 return []
             }
-            if (!ability.effects.some(effect => effect.type == 'drawCryptRemoveUncontrolled')) {
-                return [{ ability: index }]
-            }
-            if (this.player.crypt.isEmpty) {
-                return []
-            }
-            // One of the cards already there is removed; with none, the card drawn is
-            const uncontrolled = this.player.uncontrolled.cards.filter(
-                (card): card is CryptCard => card instanceof CryptCard,
+            const draws = ability.effects.some(
+                effect => effect.type == 'drawCryptRemoveUncontrolled',
             )
-            return uncontrolled.length > 0 ?
-                    uncontrolled.map(removed => ({ ability: index, removed }))
-                :   [{ ability: index }]
+            return draws && this.player.crypt.isEmpty ? [] : [index]
         })
     }
 
-    applyTransferEffect(abilityIndex: number, removed?: CryptCard): Validity {
+    applyTransferEffect(abilityIndex: number): Validity {
         const found = this.transferAbilities.find(({ index }) => index == abilityIndex)
-        const allowed = this.getTransferOptions().some(
-            option => option.ability == abilityIndex && option.removed == removed,
-        )
-        if (!found || !allowed) {
+        if (!found || !this.getTransferOptions().includes(abilityIndex)) {
             return Invalid('The ability cannot be used')
         }
         const { player } = this
@@ -641,25 +629,16 @@ class InterpretedMaster extends MasterCardImplementation {
         let validity: Validity = VALID
         for (const effect of found.ability.effects) {
             switch (effect.type) {
-                case 'drawCryptRemoveUncontrolled': {
-                    const drawn = player.crypt.firstCard
-                    if (removed) {
-                        validity = gameMutations.drawCrypt.act(player, { player })
+                case 'drawCryptRemoveUncontrolled':
+                    validity = gameMutations.drawCrypt.act(player, { player })
+                    if (validity.isValid) {
+                        validity = botMutations.setPendingRemoval.act(player, {
+                            player,
+                            card: this.card,
+                            open: true,
+                        })
                     }
-                    // The card drawn and removed right away never has to enter the uncontrolled region
-                    const gone = removed ?? drawn
-                    validity =
-                        validity.isValid ?
-                            gameMutations.moveCardToRegion.act(player, {
-                                card: gone,
-                                fromCardRegion: gone.region,
-                                toCardRegion: player.removed,
-                                x: 0,
-                                y: 0,
-                            })
-                        :   validity
                     break
-                }
                 case 'burnSelf':
                     validity = gameMutations.moveCardToRegion.act(player, {
                         card: this.card,
@@ -681,6 +660,34 @@ class InterpretedMaster extends MasterCardImplementation {
             }
         }
         return validity
+    }
+
+    // The card drawn is one of the uncontrolled vampires, and may be the one removed
+    getRemovalOptions(): CryptCard[] {
+        if (this.player.gameState.pendingRemoval?.card != this.card) {
+            return []
+        }
+        return this.player.uncontrolled.cards.filter(
+            (card): card is CryptCard => card instanceof CryptCard,
+        )
+    }
+
+    applyRemoval(removed: CryptCard): Validity {
+        if (!this.getRemovalOptions().includes(removed)) {
+            return Invalid('The vampire cannot be removed')
+        }
+        const { player } = this
+        const moved = gameMutations.moveCardToRegion.act(player, {
+            card: removed,
+            fromCardRegion: removed.region,
+            toCardRegion: player.removed,
+            x: 0,
+            y: 0,
+        })
+        if (!moved.isValid) {
+            return moved
+        }
+        return botMutations.setPendingRemoval.act(player, { player, card: this.card, open: false })
     }
 
     hasLockAbility(): boolean {
@@ -900,8 +907,27 @@ class InterpretedMaster extends MasterCardImplementation {
             )
     }
 
+    // Once a turn, twice for a card that says so while a baron is ready
+    private get unlockUses(): number {
+        const extra =
+            this.unlockAbility?.extraWithBaron &&
+            this.player.vampiresReady.some(
+                vampire => vampire.vampireAttrs.title.toLowerCase() == 'baron',
+            )
+        return extra ? 2 : 1
+    }
+
     getUnlockEffectTargets(): Vampire[] {
-        return this.unlockAbility ? this.readyVampiresBelowCapacity(this.unlockAbilitySect) : []
+        const { usedCards, groundVampires } = this.player.gameState.turnResources
+        if (
+            !this.unlockAbility ||
+            usedCards.filter(oid => oid == this.card.oid).length >= this.unlockUses
+        ) {
+            return []
+        }
+        return this.readyVampiresBelowCapacity(this.unlockAbilitySect).filter(
+            vampire => !(this.card.isHuntingGround && groundVampires.includes(vampire.oid)),
+        )
     }
 
     applyUnlockEffect(vampire: Vampire): Validity {
@@ -909,7 +935,13 @@ class InterpretedMaster extends MasterCardImplementation {
         if (!ability || !this.getUnlockEffectTargets().includes(vampire)) {
             return Invalid('The vampire cannot gain blood')
         }
-        return this.gainBlood(ability.effects, vampire)
+        const used = botMutations.markCardUsed.act(this.player, {
+            player: this.player,
+            card: this.card,
+            maxUses: this.unlockUses,
+            groundVampire: this.card.isHuntingGround ? vampire : undefined,
+        })
+        return used.isValid ? this.gainBlood(ability.effects, vampire) : used
     }
 }
 
@@ -964,12 +996,18 @@ export function masterImplementation(def: CardDef): MasterCardImplementationCons
 }
 
 export function cryptImplementation(def: CardDef): CryptCardImplementation {
-    const { handSize, canEnterCombat, undirectedStealth, mustBleedWhileMinionLocked } =
-        def.crypt ?? {}
+    const {
+        handSize,
+        canEnterCombat,
+        undirectedStealth,
+        mustBleedWhileMinionLocked,
+        discardForBleed,
+    } = def.crypt ?? {}
     return {
         handSizeBonus: handSize,
         canEnterCombat,
         undirectedStealth,
         mustBleedWhileMinionLocked,
+        discardForBleed,
     }
 }

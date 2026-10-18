@@ -4,7 +4,7 @@ import { CombatSim, SimCombatant, settled } from '@/shared/bot/utility/combatMod
 /**
  * What a combat costs a side, in pool: the blood it lost,
  * its worth if it goes to torpor or burns ( the same worth as in assessment.ts: its capacity and the cards
- * attached to it ), and the retainers it lost.
+ * attached to it ), and the retainers and the equipment it lost.
  */
 
 export type LossWeights = {
@@ -13,6 +13,8 @@ export type LossWeights = {
     // The share of its worth lost in torpor ( all of it, burned )
     torporShare: number
     retainer: number
+    // An equipment burned by a strike
+    equipment: number
 }
 
 export function lossWeightsOf(profile: BotProfile): LossWeights {
@@ -20,6 +22,7 @@ export function lossWeightsOf(profile: BotProfile): LossWeights {
         blood: profile.plan.bloodValue,
         torporShare: profile.combat.torporShare,
         retainer: profile.combat.retainerValue,
+        equipment: profile.combat.equipmentValue,
     }
 }
 
@@ -28,17 +31,20 @@ function worthOf(combatant: SimCombatant): number {
 }
 
 // What the combatant has lost since the combat began, as it is ( a copy settled by the caller if damage is
-// still pending ): blood ( a negative loss when it gained some ), its state, the retainers burned
+// still pending ): blood ( a negative loss when it gained some ), its state, the retainers and the equipment
+// burned
 export function lossOf(weights: LossWeights, combatant: SimCombatant): number {
     const state =
         combatant.state == 'burned' ? 1
         : combatant.state == 'torpor' ? weights.torporShare
         : 0
     const retainers = combatant.attached.filter(card => card.retainer && card.life <= 0).length
+    const equipment = combatant.attached.filter(card => card.burned).length
     return (
         (combatant.startBlood - combatant.blood) * weights.blood +
         state * worthOf(combatant) +
-        retainers * weights.retainer
+        retainers * weights.retainer +
+        equipment * weights.equipment
     )
 }
 

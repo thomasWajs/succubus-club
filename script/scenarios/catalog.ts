@@ -828,31 +828,60 @@ export const CATALOG_SCENARIOS: Scenario[] = [
         },
     },
     {
-        name: 'Wider View: 1 transfer draws a crypt card and removes an uncontrolled one from the game',
+        name: 'Wider View: 1 transfer draws a crypt card, then the removal is chosen among the uncontrolled vampires, the one drawn included',
         run() {
             const turn = createWiderViewTurn(2)
             const { gameState, player, decision } = turn
-            const options = optionsOfType(decision.options, 'transferEffect').filter(
-                option => option.ability == 0,
-            )
-            expectEqual(
-                options.length,
-                player.uncontrolled.length,
-                'one removal option per uncontrolled card',
-            )
-            expectEqual(
-                optionsOfType(decision.options, 'transferEffect').length,
-                options.length,
-                'the burn needs 4 transfers',
-            )
-            const removed = options[0].removed
+            const draws = optionsOfType(decision.options, 'transferEffect')
+            expectEqual(draws.length, 1, 'the draw is offered, the burn needs 4 transfers')
+            const before = [...player.uncontrolled.cards]
             const crypt = player.crypt.length
-            const uncontrolled = player.uncontrolled.length
-            applyOption(decision, options[0])
+            applyOption(decision, draws[0])
             expectEqual(gameState.turnResources.transfers, 1, 'transfers')
             expectEqual(player.crypt.length, crypt - 1, 'crypt')
-            expectEqual(player.uncontrolled.length, uncontrolled, 'uncontrolled: one in, one out')
-            expectEqual(removed?.isIn.removed, true, 'removed from the game')
+            expectEqual(player.uncontrolled.length, before.length + 1, 'the card drawn is in')
+            expectEqual(getDecidingPlayer(gameState), player, 'the controller decides')
+
+            const removal = getDecisionPoint(gameState, player)
+            if (removal?.kind != DecisionKind.Removal) {
+                throw new ScenarioFailure('The removal is not asked')
+            }
+            const options = optionsOfType(removal.options, 'removeUncontrolled')
+            expectEqual(options.length, before.length + 1, 'one option per uncontrolled vampire')
+            expectEqual(removal.options.length, options.length, 'nothing else is offered')
+            const drawn = options.find(option => !before.includes(option.removed))
+            if (!drawn) {
+                throw new ScenarioFailure('The card drawn cannot be removed')
+            }
+            applyOption(removal, drawn)
+            expectEqual(drawn.removed.isIn.removed, true, 'removed from the game')
+            expectEqual(player.uncontrolled.length, before.length, 'uncontrolled: as before')
+            expectEqual(gameState.pendingRemoval, null, 'nothing pending')
+            expectEqual(
+                getDecisionPoint(gameState, player)?.kind,
+                DecisionKind.Influence,
+                'back to the influence phase',
+            )
+        },
+    },
+    {
+        name: 'Wider View: the vampire removed is one of those that were uncontrolled, and nobody else removes it',
+        run() {
+            const turn = createWiderViewTurn(2)
+            const { gameState, player, decision } = turn
+            const first = [...player.uncontrolled.cards]
+            applyOption(decision, optionsOfType(decision.options, 'transferEffect')[0])
+            const removal = getDecisionPoint(gameState, player)
+            const other = gameState.competingPlayers.find(candidate => candidate != player)
+            expectEqual(other ? getDecisionPoint(gameState, other) : null, null, 'the other waits')
+            const options = removal ? optionsOfType(removal.options, 'removeUncontrolled') : []
+            const target = options.find(option => option.removed == first[0])
+            if (!removal || !target) {
+                throw new ScenarioFailure('The vampire cannot be removed')
+            }
+            applyOption(removal, target)
+            expectEqual(first[0].isIn.removed, true, 'removed from the game')
+            expectEqual(player.removed.length, 1, 'removed from the game: one')
         },
     },
     {
@@ -870,10 +899,13 @@ export const CATALOG_SCENARIOS: Scenario[] = [
             const draws = optionsOfType(decision.options, 'transferEffect').filter(
                 option => option.ability == 0,
             )
-            expectEqual(draws.length, 1, 'the card drawn is removed')
-            expectEqual(draws[0].removed, undefined, 'no removal choice')
+            expectEqual(draws.length, 1, 'the draw is offered')
             const crypt = player.crypt.length
             applyOption(decision, draws[0])
+            const removal = getDecisionPoint(gameState, player)
+            const options = removal ? optionsOfType(removal.options, 'removeUncontrolled') : []
+            expectEqual(options.length, 1, 'the card drawn is the only one to remove')
+            applyOption(removal ?? decision, options[0])
             expectEqual(player.crypt.length, crypt - 1, 'crypt')
             expectEqual(player.removed.length, 1, 'removed from the game')
             expectEqual(player.uncontrolled.length, 0, 'nothing uncontrolled')

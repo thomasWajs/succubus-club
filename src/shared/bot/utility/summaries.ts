@@ -1,5 +1,6 @@
 import { Card } from '@/shared/model/Card.ts'
 import { gameResources } from '@/shared/registries.ts'
+import { Discipline } from '@/shared/const/model.ts'
 import { EventName } from '@/shared/state/events.ts'
 import { KrcgId } from '@/shared/types/gateway.ts'
 import { CryptCardResource, Disciplines, LibraryCardResource } from '@/shared/types/resources.ts'
@@ -149,6 +150,8 @@ type EffectCore =
     | { type: 'moveBlood'; amount: number; phase: 'master' | 'unlock' }
     | { type: 'restrictPlay'; names: string[] }
     | { type: 'burnsInTorpor' }
+    // A strike of the bearer that burns an equipment of the opposing minion
+    | { type: 'burnEquipmentStrike' }
     | { type: 'handSize'; amount: number }
     | { type: 'discardFromHand' }
     | { type: 'drawCrypt' }
@@ -168,7 +171,9 @@ type EffectCore =
     | { type: 'undirectedStealth'; amount: number }
     | { type: 'directedIntercept'; amount: number }
     | { type: 'canEnterCombat' }
-    | { type: 'mustBleedWhileMinionLocked' }
+    | { type: 'mustBleedWhileMinionLocked'; bonus: number }
+    // In its own bleed action, a discard of a card of the hand that requires the discipline adds this much bleed
+    | { type: 'discardForBleed'; discipline: Discipline; amount: number }
 
 // An effect can hold only under conditions of its own, on top of those of the play
 export type Effect = EffectCore & { when?: Condition[] }
@@ -417,6 +422,8 @@ export function summarizeAttached(effects: AttachedEffect[]): Effect[] {
                 return { type: 'preventDamage', amount: effect.amount }
             case 'burnInTorpor':
                 return { type: 'burnsInTorpor' }
+            case 'burnEquipmentStrike':
+                return { type: 'burnEquipmentStrike' }
             case 'raisePlayCost':
                 return { type: 'raisePlayCost', cards: effect.cards, amount: effect.amount }
             default:
@@ -544,7 +551,13 @@ export function summarizeCrypt(crypt: CryptStatics): Effect[] {
         effects.push({ type: 'directedIntercept', amount: crypt.directedIntercept })
     }
     if (crypt.mustBleedWhileMinionLocked) {
-        effects.push({ type: 'mustBleedWhileMinionLocked' })
+        effects.push({
+            type: 'mustBleedWhileMinionLocked',
+            bonus: crypt.mustBleedWhileMinionLocked.bonus,
+        })
+    }
+    if (crypt.discardForBleed) {
+        effects.push({ type: 'discardForBleed', ...crypt.discardForBleed })
     }
     if (crypt.handSize) {
         effects.push({ type: 'handSize', amount: crypt.handSize })
@@ -591,6 +604,7 @@ function deriveRoles(
                 break
             case 'bleedBonus':
             case 'ownBleed':
+            case 'discardForBleed':
                 roles.add('bleedBonus')
                 break
             case 'gainBlood':
@@ -675,6 +689,7 @@ function deriveRoles(
             case 'lockTarget':
             case 'restrictPlay':
             case 'burnsInTorpor':
+            case 'burnEquipmentStrike':
             case 'burnSelf':
             case 'mustBleedWhileMinionLocked':
             case 'raisePlayCost':
@@ -914,6 +929,8 @@ export function describeEffect(effect: Effect): string {
                 return `cannot play ${effect.names.join(', ')}`
             case 'burnsInTorpor':
                 return 'burned in torpor'
+            case 'burnEquipmentStrike':
+                return 'strike: burn equipment'
             case 'handSize':
                 return `hand size ${describeNumber(effect.amount)}`
             case 'discardFromHand':
@@ -943,7 +960,9 @@ export function describeEffect(effect: Effect): string {
             case 'canEnterCombat':
                 return 'can enter combat as an action'
             case 'mustBleedWhileMinionLocked':
-                return 'must bleed while a minion is locked'
+                return `must bleed while a minion is locked, with ${describeNumber(effect.bonus)} bleed`
+            case 'discardForBleed':
+                return `discard a card of ${effect.discipline} for ${describeNumber(effect.amount)} bleed`
             default:
                 return unreachable(effect)
         }

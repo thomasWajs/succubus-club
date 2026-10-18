@@ -112,7 +112,13 @@ function simSnapshot(sim: CombatSim, side: Side): object {
                 {
                     strength: combatant.strength,
                     strike:
-                        strike ? simStrikeKey({ ...strike, retainer: retainerOf(strike) }) : null,
+                        strike ?
+                            simStrikeKey({
+                                ...strike,
+                                retainer: placeOf(strike.retainer),
+                                equipment: placeOf(strike.equipment),
+                            })
+                        :   null,
                     pending: [combatant.pendingDamage.regular, combatant.pendingDamage.aggravated],
                     bloodLost: combatant.bloodLost,
                     additionalStrikes: combatant.additionalStrikes,
@@ -128,8 +134,8 @@ function simSnapshot(sim: CombatSim, side: Side): object {
     }
 }
 
-function retainerOf(strike: NonNullable<SimCombatant['strike']>): number | undefined {
-    return typeof strike.retainer == 'number' ? strike.retainer : undefined
+function placeOf(target: unknown): number | undefined {
+    return typeof target == 'number' ? target : undefined
 }
 
 function combatSnapshot(combat: Combat, simSide: boolean): object | null {
@@ -357,6 +363,9 @@ function playCombat(combat: Combat, trace: boolean): number {
         count(chosen.key.split('|')[0])
         if (chosen.key.includes(' at ')) {
             count('strike at a retainer')
+        }
+        if (chosen.key.includes(' burns ')) {
+            count('strike that burns an equipment')
         }
         if (trace) {
             console.log(`  ${side}: ${chosen.key}`)

@@ -9,6 +9,7 @@ import { exact, resolveAttack } from '@/shared/bot/utility/attack.ts'
 import { attackersOf, defenceOf, toAttackers } from '@/shared/bot/utility/defence.ts'
 import { ExplainCandidate } from '@/shared/bot/utility/explain.ts'
 import { masterWorths, Standing } from '@/shared/bot/utility/masterPhase.ts'
+import { drawAbilityOf, drawWorth } from '@/shared/bot/utility/uncontrolled.ts'
 import { MinionProfile } from '@/shared/bot/utility/minionProfile.ts'
 import { isRoleLive, readyMinions } from '@/shared/bot/utility/snapshot.ts'
 import {
@@ -198,8 +199,8 @@ function needsOf(assessment: Assessment): Table {
     return { needs, bleeds, fights }
 }
 
-function standingOfTable(table: Table, cycle: number): Standing {
-    return { cycle, defence: table.needs.defence.worth, bleeds: table.bleeds }
+function standingOfTable(table: Table, cycle: number, draw = 0): Standing {
+    return { cycle, defence: table.needs.defence.worth, bleeds: table.bleeds, draw }
 }
 
 /**
@@ -303,13 +304,15 @@ export class HandEvaluator {
         this.needs = table.needs
         this.bleeds = table.bleeds
         this.fights = table.fights
+        const drawing = player.hand.cards.map(drawAbilityOf).find(ability => ability)
+        const draw = drawing ? drawWorth(assessment, deck, player, drawing.transfers) : 0
         const worths =
             (
                 player.hand.cards.some(card =>
                     summarizeCard(card)?.plays.some(play => play.kind == 'master'),
                 )
             ) ?
-                masterWorths(assessment, player, standingOfTable(table, 0))
+                masterWorths(assessment, player, standingOfTable(table, 0, draw))
             :   new Map<CardOid, number>()
         this.entries = player.hand.cards.flatMap(card =>
             card instanceof LibraryCard ?

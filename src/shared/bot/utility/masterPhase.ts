@@ -25,9 +25,10 @@ import { AbilitySummary, PlaySummary, summarizeCard } from '@/shared/bot/utility
 
 /**
  * What the cards that last are worth per turn, read from the hand: the charge of a card that throws cards away,
- * and what one use of an intercept against a bleed is worth with the bleeds of my predator to expect in a turn.
+ * and what one use of an intercept against a bleed is worth with the bleeds of my predator to expect in a turn, and
+ * what one draw from the crypt adds to my uncontrolled region.
  */
-export type Standing = { cycle: number; defence: number; bleeds: number }
+export type Standing = { cycle: number; defence: number; bleeds: number; draw: number }
 
 export type MasterJudgement = {
     option: BotOption
@@ -107,6 +108,9 @@ function chargeWorth(
     const { master } = assessment.profile
     if (ability.effects.some(effect => effect.type == 'discardFromHand')) {
         return standing.cycle * master.stay
+    }
+    if (ability.effects.some(effect => effect.type == 'drawCrypt')) {
+        return standing.draw * master.draws
     }
     const fits = readyMinions(assessment.table.me).filter(
         minion => !ability.minion || profileMatches(minion, ability.minion),

@@ -45,6 +45,16 @@ export function getRetainers(minion: Minion): Card[] {
     return getAttachedCards(minion).filter(isRetainer)
 }
 
+// Equipment cards only: a master or an action card put on a minion is not one
+export function isEquipment(card: Card): boolean {
+    return card instanceof LibraryCard && card.isType.equipment
+}
+
+// The equipment attached to the minion
+export function getEquipment(minion: Minion): Card[] {
+    return getAttachedCards(minion).filter(isEquipment)
+}
+
 // The intercept of the minion for the block attempt against the action in progress
 export function getMinionIntercept(minion: Minion): number {
     const action = minion.gameState.action?.minionAction

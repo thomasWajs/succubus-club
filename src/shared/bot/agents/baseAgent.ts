@@ -21,6 +21,8 @@ export abstract class BaseAgent implements BotAgent {
                 return this.discardExcess(decision)
             case DecisionKind.Trigger:
                 return this.trigger(decision)
+            case DecisionKind.Removal:
+                return this.removal(decision)
             case DecisionKind.ActionImpulse:
                 return this.actionImpulse(decision)
             case DecisionKind.ReactionImpulse:
@@ -63,6 +65,11 @@ export abstract class BaseAgent implements BotAgent {
             decision.options.find(option => option.type == 'useTrigger') ??
             findOption(decision.options, 'skipTrigger')
         )
+    }
+
+    // Mandatory: the first vampire by default
+    protected removal(decision: DecisionPoint): BotOption {
+        return decision.options[0]
     }
 
     // The other kinds default to doing nothing. Throws if the referee does not offer it.

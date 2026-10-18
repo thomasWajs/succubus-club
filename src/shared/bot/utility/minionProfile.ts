@@ -3,12 +3,21 @@ import { getAttachedCards } from '@/shared/state/attachments.ts'
 import {
     getAttachedEffects,
     getMinionStrength,
+    isEquipment,
     isRetainer,
 } from '@/shared/cardImpl/catalog/attached.ts'
-import { Disciplines } from '@/shared/types/resources.ts'
+import { gameResources } from '@/shared/registries.ts'
+import { DEFAULT_CARD_ATTRS } from '@/shared/const/model.ts'
+import { CryptCardResource, Disciplines } from '@/shared/types/resources.ts'
+import { KrcgId } from '@/shared/types/gateway.ts'
 import { CardOid, PlayerOid } from '@/shared/types/model.ts'
 import { MinionFilter } from '@/shared/cardImpl/catalog/types.ts'
-import { Effect, summarizeAttached, summarizeCard } from '@/shared/bot/utility/summaries.ts'
+import {
+    Effect,
+    summarizeAttached,
+    summarizeCard,
+    summarizeCardId,
+} from '@/shared/bot/utility/summaries.ts'
 
 /**
  * The effective minion: its crypt card plus what is attached to it ( equipment, retainers ). One
@@ -31,9 +40,15 @@ export type StrikeKit = {
 export type AttachedKit = {
     name: string
     retainer: boolean
+    // An equipment card: a strike can burn it
+    equipment: boolean
+    // The card was burned in the combat ( an equipment, by a strike ): it does nothing any more
+    burned: boolean
     // The life counters of a retainer
     life: number
     strikes: StrikeKit[]
+    // The card gives its bearer a strike that burns an equipment of the opposing minion
+    burnsEquipment: boolean
     // The damage that each of its effects prevents, once per combat in all
     prevention: number[]
     // The damage it inflicts on the opposing minion each round
@@ -93,7 +108,10 @@ function kitOf(card: Card): AttachedKit {
     return {
         name: card.name,
         retainer: isRetainer(card),
+        equipment: isEquipment(card),
+        burned: false,
         life: isRetainer(card) ? card.blood : 0,
+        burnsEquipment: effects.some(effect => effect.type == 'burnEquipmentStrike'),
         strikes: effects.flatMap(effect =>
             effect.type == 'weaponStrike' ?
                 [
@@ -134,6 +152,15 @@ export function profileMinion(minion: Minion): MinionProfile {
         )
 
     const weapons = attached.flatMap(effect => (effect.type == 'weaponStrike' ? [effect] : []))
+    // The bleed a vampire is forced to make when a minion of its Methuselah is locked
+    const forcedBleed = sum(crypt, effect =>
+        (
+            effect.type == 'mustBleedWhileMinionLocked' &&
+            minion.controller.minionsReady.some(other => other != minion && other.isLocked)
+        ) ?
+            effect.bonus
+        :   0,
+    )
     return {
         oid: minion.oid,
         name: minion.name,
@@ -149,7 +176,7 @@ export function profileMinion(minion: Minion): MinionProfile {
         blood: minion.blood,
         capacity: minion.minionAttrs.capacity,
         disciplines: minion.minionAttrs.disciplines,
-        bleed: minion.minionAttrs.bleed,
+        bleed: minion.minionAttrs.bleed + forcedBleed,
         hunt: minion.isVampire() ? minion.vampireAttrs.hunt : 0,
         bloodMove: sum(attached, effect => (effect.type == 'moveBlood' ? effect.amount : 0)),
         strength: getMinionStrength(minion),
@@ -178,6 +205,58 @@ export function profileMinion(minion: Minion): MinionProfile {
         attached: attachedCards.map(card => card.name),
         attachedKits: attachedCards.map(card => kitOf(card)),
         canEnterCombat: crypt.some(effect => effect.type == 'canEnterCombat'),
+    }
+}
+
+// A vampire of the crypt that nobody sees ( not in play, not drawn ): what the cardbase and the catalog say of the
+// card, as the vampire would be with no blood. Null when the cardbase does not know the id or it is not a vampire.
+export function profileCryptId(
+    id: KrcgId,
+    oid: CardOid,
+    controller: PlayerOid,
+): MinionProfile | null {
+    const resource = gameResources.cardbase[id]
+    if (!resource || !('capacity' in resource)) {
+        return null
+    }
+    const crypt = resource as CryptCardResource
+    const effects = summarizeCardId(id)?.cryptEffects ?? []
+    const bleed =
+        DEFAULT_CARD_ATTRS.Bleed + sum(effects, e => (e.type == 'ownBleed' ? e.amount : 0))
+    const stealth = sum(effects, e => (e.type == 'undirectedStealth' ? e.amount : 0))
+    const directed = sum(effects, e => (e.type == 'directedIntercept' ? e.amount : 0))
+    return {
+        oid,
+        name: crypt.name,
+        controller,
+        state: 'unlocked',
+        isVampire: true,
+        clan: crypt.clan,
+        sect: crypt.sect,
+        title: crypt.title,
+        blood: 0,
+        capacity: crypt.capacity,
+        disciplines: crypt.disciplines,
+        bleed,
+        hunt: DEFAULT_CARD_ATTRS.Hunt,
+        bloodMove: 0,
+        strength: DEFAULT_CARD_ATTRS.Strength,
+        undirectedStealth: stealth,
+        intercept: {
+            general: DEFAULT_CARD_ATTRS.Intercept,
+            directed: DEFAULT_CARD_ATTRS.Intercept + directed,
+            againstBleeds: DEFAULT_CARD_ATTRS.Intercept + directed,
+        },
+        life: 0,
+        prevention: [],
+        weaponStrikes: [],
+        freeManeuver: false,
+        environmentalDamage: 0,
+        forbiddenPlays: [],
+        burnsInTorpor: false,
+        attached: [],
+        attachedKits: [],
+        canEnterCombat: effects.some(effect => effect.type == 'canEnterCombat'),
     }
 }
 

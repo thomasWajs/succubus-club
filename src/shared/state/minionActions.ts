@@ -131,6 +131,22 @@ export function getBlockedStrengthBonus(action: MinionAction): number {
         :   0
 }
 
+// The bonus on a bleed action that a vampire is forced to make by a locked minion of its Methuselah
+// ( Elen Kamjian ). A bleed from a card is not that action.
+export function getForcedBleedBonus(action: MinionAction): number {
+    const { actingMinion } = action
+    const forced = getCryptImplementation(actingMinion)?.mustBleedWhileMinionLocked
+    return (
+            forced &&
+                action.type == MinionActionType.Bleed &&
+                actingMinion.controller.minionsReady.some(
+                    minion => minion != actingMinion && minion.isLocked,
+                )
+        ) ?
+            forced.bonus
+        :   0
+}
+
 function baseStealth(action: MinionAction): number {
     if (action.type == MinionActionType.ActionCardFromHand) {
         const implementation = tryGetImplementationACA(action)
@@ -468,12 +484,18 @@ function getBehaviour(action: MinionAction) {
  * What an action counts as for the limits of "once each turn, even if the minion unlocks": a bleed
  * ( the basic action or a card that is one ), a political action, an action card of the same name
  * from the hand, an action of the same card in play. The hunt, the combat and the torpor actions
- * have no limit.
+ * have no limit. The basic bleed action also leaves its own key: it is the bleed that a vampire is
+ * forced to make ( Elen Kamjian ), which a bleed card does not replace.
  */
+export const BASIC_BLEED_KEY = 'basicBleed'
+
 export function performedKeys(action: MinionAction): string[] {
     const keys: string[] = []
     if (isBleed(action)) {
         keys.push('bleed')
+    }
+    if (action.type == MinionActionType.Bleed) {
+        keys.push(BASIC_BLEED_KEY)
     }
     if (isPoliticalAction(action)) {
         keys.push('political')

@@ -49,14 +49,15 @@ import type { AttachedKit } from '@/shared/bot/utility/minionProfile.ts'
  * retainers as numbers ), and a combat card is turned into moves by the same function ( the catalog's
  * combatPlay.ts ): what this file adds is the list of the moves a side may make and the application
  * of one, on a copy, so a planner can search. Perfect information and no randomness: the cards a side
- * holds are given. Not modelled, as in the engine: immunity to damage, destroy / steal equipment, damage
- * prevention for retainers, diablerie.
+ * holds are given. Not modelled, as in the engine: immunity to damage, steal equipment, destroy weapon,
+ * damage prevention for retainers, diablerie.
  */
 
 export type Side = 'acting' | 'defending'
 
-// A strike at a retainer names it by its place among the cards attached to the opposing minion
-export type SimStrike = PlayStrike & { retainer?: number }
+// A strike at a retainer, or one that burns an equipment, names the card by its place among the cards
+// attached to the opposing minion
+export type SimStrike = PlayStrike & { retainer?: number; equipment?: number }
 
 // A combat card of the hand, with the plays of it that the minion can make ( one for each way it can be
 // declared )
@@ -145,8 +146,13 @@ export function cloneSim(sim: CombatSim): CombatSim {
  * What the rules ask of the simulation
  */
 
-function isAlive(card: AttachedKit): boolean {
-    return !card.retainer || card.life > 0
+// A retainer with no life left and an equipment burned are gone: they give nothing and are no target
+export function isAlive(card: AttachedKit): boolean {
+    return !card.burned && (!card.retainer || card.life > 0)
+}
+
+export function isBurnable(card: AttachedKit | undefined): card is AttachedKit {
+    return !!card?.equipment && !card.burned
 }
 
 // A class, not an object of closures: a host is made for every move of every playout
@@ -215,6 +221,22 @@ class SimHost implements CombatHost {
         if (card.life <= 0) {
             log.push(`${card.name} is burned`)
         }
+    }
+
+    equipmentValidity(opposing: SimCombatant, strike: SimStrike): Validity {
+        const card =
+            strike.equipment === undefined ? undefined : opposing.attached[strike.equipment]
+        return isBurnable(card) ? VALID : Invalid('Not an equipment of the opposing minion')
+    }
+
+    burnEquipment(target: SimCombatant, strike: SimStrike, who: string, log: string[]): void {
+        const card = strike.equipment === undefined ? undefined : target.attached[strike.equipment]
+        if (!isBurnable(card)) {
+            log.push(`${who} has no target: the equipment is gone`)
+            return
+        }
+        card.burned = true
+        log.push(`${who} burns ${card.name}`)
     }
 
     settleDamage(combatant: SimCombatant, log: string[]): void {
@@ -321,19 +343,37 @@ function cardMoves(sim: CombatSim, combatant: SimCombatant): Move[] {
 }
 
 // What the cards in play add, with no card to play and nothing to pay: the strikes of the weapons ( and
-// their maneuver ), the prevention, and the strikes aimed at the retainers of the opposing minion
+// their maneuver ), the prevention, the strikes aimed at the retainers of the opposing minion and the
+// ones that burn its equipment
 function attachedMoves(sim: CombatSim, combatant: SimCombatant): Move[] {
     const opposing = opposingOf(sim, combatant)
     const retainers = opposing.attached.flatMap((card, index) =>
         card.retainer && card.life > 0 ? [{ card, index }] : [],
+    )
+    const equipment = opposing.attached.flatMap((card, index) =>
+        isBurnable(card) ? [{ card, index }] : [],
     )
     const moves: Move[] = []
     if (combatant.freeManeuvers > 0) {
         moves.push({ type: 'maneuver', free: true })
     }
     combatant.attached.forEach((attached, index) => {
+        if (!isAlive(attached)) {
+            return
+        }
         // The weapon and the prevention of a card are once per combat, whoever the bearer is
         const key = `${combatant.side}:${index}`
+        if (attached.burnsEquipment) {
+            for (const { card, index: target } of equipment) {
+                moves.push({
+                    type: 'strike',
+                    strike: {
+                        ...newStrike(`${attached.name} burns ${card.name}`),
+                        equipment: target,
+                    },
+                })
+            }
+        }
         for (const amount of attached.prevention) {
             for (const aggravated of [false, true]) {
                 moves.push({ type: 'prevent', amount, aggravated, sourceKey: key })

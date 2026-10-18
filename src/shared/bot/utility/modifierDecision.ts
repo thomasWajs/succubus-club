@@ -1,3 +1,4 @@
+import { getCryptImplementation } from '@/shared/cardImpl/index.ts'
 import { getCardDef } from '@/shared/cardImpl/catalog/index.ts'
 import { findPlay } from '@/shared/cardImpl/catalog/requirements.ts'
 import { CardOid } from '@/shared/types/model.ts'
@@ -41,7 +42,10 @@ export type ModifierJudgement = {
 }
 
 type Source = {
-    option: BotOptionOf<'playModifier'> | BotOptionOf<'lockForAction'>
+    option:
+        | BotOptionOf<'playModifier'>
+        | BotOptionOf<'lockForAction'>
+        | BotOptionOf<'discardForBleed'>
     // A card is played once by a minion in an action
     key: string
     stealth: number
@@ -114,6 +118,20 @@ function sourcesOf(
                     bleed: 0,
                     inPlay: true,
                     cost: profile.modifier.abilityUse,
+                },
+            ]
+        }
+        if (option.type == 'discardForBleed') {
+            const ability = getCryptImplementation(option.minion)?.discardForBleed
+            // The card thrown away is replaced by a draw: it costs what it was worth to keep, less that draw
+            return [
+                {
+                    option,
+                    key: `discard:${option.discard.oid}`,
+                    stealth: 0,
+                    bleed: ability?.amount ?? 0,
+                    inPlay: false,
+                    cost: profile.plan.spentCard - (hand ? hand.flowOf(option.discard) : 0),
                 },
             ]
         }
@@ -369,7 +387,12 @@ export function judgeModifier(
         sources: sourcesOf(
             decision,
             assessment,
-            deck && decision.options.some(option => option.type == 'playModifier') ?
+            (
+                deck &&
+                    decision.options.some(
+                        option => option.type == 'playModifier' || option.type == 'discardForBleed',
+                    )
+            ) ?
                 new HandEvaluator(assessment, deck, decision.player)
             :   undefined,
         ),

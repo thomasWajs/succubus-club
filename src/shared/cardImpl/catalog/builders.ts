@@ -7,6 +7,7 @@ import {
     AdditionalStrikeEffect,
     AttachedEffect,
     BleedInterceptEffect,
+    BurnEquipmentStrikeEffect,
     BurnInTorporEffect,
     CannotPlayEffect,
     LifeEffect,
@@ -200,6 +201,8 @@ export function preventDamage(amount: number): PreventDamageEffect {
 }
 
 export const burnInTorpor: BurnInTorporEffect = { type: 'burnInTorpor' }
+
+export const burnEquipmentStrike: BurnEquipmentStrikeEffect = { type: 'burnEquipmentStrike' }
 
 export function weaponStrike(
     damage: number,

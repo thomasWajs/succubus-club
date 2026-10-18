@@ -452,6 +452,12 @@ export class LibraryCard extends Card {
         return this.isType.master && /\btrifle\b/i.test(this.text.split('\n')[0])
     }
 
+    // A master card whose first line says it is a hunting ground ( "Unique location. Hunting ground." ): a
+    // vampire gains blood from only one hunting ground each turn
+    get isHuntingGround(): boolean {
+        return this.isType.master && /(^|[.:;,] )hunting ground\b/i.test(this.text.split('\n')[0])
+    }
+
     initMinionAttrs() {
         if (!this.resource) {
             return

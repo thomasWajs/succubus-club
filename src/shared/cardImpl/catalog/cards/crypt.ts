@@ -5,18 +5,24 @@ import {
     defineCrypt,
     unlockSelf,
 } from '@/shared/cardImpl/catalog/builders.ts'
+import { Discipline } from '@/shared/const/model.ts'
 
 export const CRYPT_CARDS = [
     defineCrypt('201628', 'Jason "Son" Newberry', { bleed: 1 }),
+    // Playing cards that require a Tremere as if he were one is not modelled: no card of the catalog
+    // requires a Tremere
     defineCrypt('201634', 'Abraham Mellon', { handSize: 1 }),
     defineCrypt('201614', 'Valeriya Zinovieva', { strength: 1 }),
     defineCrypt('201613', 'Theo Bell', { strength: 1, canEnterCombat: true }),
     defineCrypt('200132', 'Ariane', { undirectedStealth: -1 }),
-    defineCrypt('201585', 'Elen Kamjian', { mustBleedWhileMinionLocked: true }),
+    defineCrypt('201585', 'Elen Kamjian', { mustBleedWhileMinionLocked: { bonus: 1 } }),
     defineCrypt('201555', 'Lenny Burkhead', { bleed: 1 }),
     // +1 intercept during directed actions ( when she attempts to block one )
     defineCrypt('201545', 'Dowager, The', { directedIntercept: 1 }),
-    // Larissa Moreira ( discard an [ani] card for +1 bleed ) is not modelled
+    // Only during a bleed action, before it resolves
+    defineCrypt('201553', 'Larissa Moreira', {
+        discardForBleed: { discipline: Discipline.Animalism, amount: 1 },
+    }),
     // Vanilla vampires: nothing to add to the cardbase
     defineCrypt('201537', 'Belinde', {}),
     defineCrypt('201549', 'Horace Radcliffe', {}),

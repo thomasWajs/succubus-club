@@ -19,6 +19,7 @@ import {
     GameType,
     KnownCards,
     LocationIndex,
+    PendingRemoval,
     PendingTrigger,
     ReferendumState,
     TargetDeclaration,
@@ -119,7 +120,8 @@ export class GameState {
         trifleGained: false, // a trifle already gave its extra master phase action this turn
         transfers: 1,
         dpa: DEFAULT_DPA, // discardPhaseActions
-        usedCards: [] as CardOid[], // cards whose once-per-turn effect was used
+        usedCards: [] as CardOid[], // cards whose once-per-turn effect was used, once for each use
+        groundVampires: [] as CardOid[], // the vampires that gained blood from a hunting ground
         usedTriggers: [] as string[], // `${card oid}:${trigger index}` of the triggers used
         // What each minion did this turn, by minion oid, as the keys of `performedKeys`: it stays
         // there when the minion unlocks ( a bleed, an action card, a political action is once a turn )
@@ -128,6 +130,9 @@ export class GameState {
 
     // The optional triggers waiting for a decision of a bot ( the first one is decided first )
     pendingTriggers: PendingTrigger[] = []
+
+    // The uncontrolled vampire a bot has still to choose to remove from the game, after a draw ( Wider View )
+    pendingRemoval: PendingRemoval | null = null
 
     // The bots that may still use a card in play at the end of the turn, which the active bot has ended but not
     // passed yet ( null: the turn is not ending )
@@ -339,6 +344,7 @@ export class GameState {
             transfers,
             dpa: DEFAULT_DPA,
             usedCards: [],
+            groundVampires: [],
             usedTriggers: [],
             performed: {},
         }

@@ -1,11 +1,16 @@
 import { Vampire } from '@/shared/model/Card.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
-import { createCombatState, createHandStrike } from '@/shared/state/combatState.ts'
-import { DisciplineUse, MinionActionType, CombatStep } from '@/shared/types/state.ts'
+import { botMutations } from '@/shared/state/botMutations.ts'
+import {
+    createCombatState,
+    createDodgeStrike,
+    createHandStrike,
+} from '@/shared/state/combatState.ts'
+import { DisciplineUse, MinionActionType, CombatRange, CombatStep } from '@/shared/types/state.ts'
 import { TurnSequence, TurnPhase, DisciplineLevel, Discipline } from '@/shared/const/model.ts'
 import { Disciplines } from '@/shared/types/resources.ts'
 import { getHost, isAttached } from '@/shared/state/attachments.ts'
-import { getCombatCardOptions } from '@/shared/bot/cardOptions.ts'
+import { getAttachedCombatOptions, getCombatCardOptions } from '@/shared/bot/cardOptions.ts'
 import {
     matchesMinionFilter,
     getAttachCandidates,
@@ -49,6 +54,7 @@ import {
     mustRefuse,
     passUntil,
     readyVampire,
+    strikeRoundToEnd,
 } from './helpers.ts'
 import { emptyHand, sealLibrary } from './bounce.ts'
 import { getMasterDecision } from './master.ts'
@@ -57,8 +63,11 @@ import { resolveAction } from './torpor.ts'
 import { getCombatDecision } from './combatCards.ts'
 import {
     BLOOD_DOLL_ID,
+    GUARDIAN_ANGEL_ID,
     HEROIC_MIGHT_ID,
+    MAGNUM_ID,
     PRETERNATURAL_ID,
+    RAVEN_SPY_ID,
     TORN_SIGNPOST_ID,
     VESSEL_ID,
 } from '../cardIds.ts'
@@ -645,6 +654,90 @@ export const PUT_ON_SCENARIOS: Scenario[] = [
                 ),
                 'a second copy',
             )
+        },
+    },
+    {
+        name: 'Heroic Might: its strike is aimed at each equipment of the opposing minion, at both levels, and at nothing else',
+        run() {
+            for (const use of [POTENCE_INFERIOR, POTENCE_SUPERIOR]) {
+                const fight = createFight(3, 3, AttachDeck)
+                const might = findCard(fight.actingPlayer, HEROIC_MIGHT_ID)
+                attachInPlay(might, fight.acting, { disciplines: use })
+                const ownMagnum = findCard(fight.actingPlayer, MAGNUM_ID)
+                attachInPlay(ownMagnum, fight.acting)
+                const magnum = findCard(fight.defendingPlayer, MAGNUM_ID)
+                attachInPlay(magnum, fight.defending)
+                const spy = findCard(fight.defendingPlayer, RAVEN_SPY_ID)
+                attachInPlay(spy, fight.defending, { life: 1 })
+                const angel = findCard(fight.defendingPlayer, GUARDIAN_ANGEL_ID)
+                attachInPlay(angel, fight.defending)
+
+                const aimed = getAttachedCombatOptions(fight.acting).flatMap(option =>
+                    option.type == 'combatStrike' && option.strike.equipment ? [option.strike] : [],
+                )
+                expectEqual(aimed.length, 1, 'strikes that burn an equipment')
+                expectEqual(aimed[0].equipment, magnum, 'the equipment of the opposing minion')
+                expectEqual(aimed[0].source, might, 'the card that gives the strike')
+                expectEqual(aimed[0].damage, 0, 'it hurts nobody')
+
+                passUntil(fight, CombatStep.Strike)
+                mustRefuse(
+                    botMutations.COMBAT_chooseStrike.act(fight.actingPlayer, {
+                        minion: fight.acting,
+                        strike: { ...aimed[0], equipment: ownMagnum },
+                    }),
+                    'a strike that burns an own equipment',
+                )
+                mustRefuse(
+                    botMutations.COMBAT_chooseStrike.act(fight.actingPlayer, {
+                        minion: fight.acting,
+                        strike: { ...aimed[0], equipment: angel },
+                    }),
+                    'a strike that burns a card that is not an equipment',
+                )
+            }
+        },
+    },
+    {
+        name: 'Heroic Might: the strike burns the equipment, which is used up to the point the strike resolves, a dodge or the long range stops it',
+        run() {
+            const setUp = () => {
+                const fight = createFight(3, 3, AttachDeck)
+                const might = findCard(fight.actingPlayer, HEROIC_MIGHT_ID)
+                attachInPlay(might, fight.acting, { disciplines: POTENCE_INFERIOR })
+                const magnum = findCard(fight.defendingPlayer, MAGNUM_ID)
+                attachInPlay(magnum, fight.defending)
+                const burn = getAttachedCombatOptions(fight.acting).flatMap(option =>
+                    option.type == 'combatStrike' && option.strike.equipment ? [option.strike] : [],
+                )[0]
+                const shot = getAttachedCombatOptions(fight.defending).flatMap(option =>
+                    option.type == 'combatStrike' && !option.strike.retainer ? [option.strike] : [],
+                )[0]
+                return { fight, magnum, burn, shot }
+            }
+
+            const hand = setUp()
+            strikeRoundToEnd(hand.fight, hand.burn)
+            expectEqual(hand.magnum.isIn.ashHeap, true, 'burned')
+            expectEqual(isAttached(hand.magnum), false, 'no longer attached')
+            expectEqual(getAttachedCombatOptions(hand.fight.defending).length, 0, 'no strike left')
+            expectEqual(hand.fight.defending.blood, 3, 'the burn hurts nobody')
+            expectEqual(hand.fight.acting.blood, 2, 'the hand strike of the opposing minion')
+
+            const shooting = setUp()
+            strikeRoundToEnd(shooting.fight, shooting.burn, shooting.shot)
+            expectEqual(shooting.magnum.isIn.ashHeap, true, 'burned while it is used')
+            expectEqual(shooting.fight.acting.blood, 1, 'the Magnum still struck')
+
+            const dodged = setUp()
+            strikeRoundToEnd(dodged.fight, dodged.burn, createDodgeStrike())
+            expectEqual(getHost(dodged.magnum), dodged.fight.defending, 'a dodge protects it')
+
+            const far = setUp()
+            passUntil(far.fight, CombatStep.Strike)
+            getCombat(far.fight).range = CombatRange.Long
+            strikeRoundToEnd(far.fight, far.burn)
+            expectEqual(getHost(far.magnum), far.fight.defending, 'no effect at long range')
         },
     },
     {

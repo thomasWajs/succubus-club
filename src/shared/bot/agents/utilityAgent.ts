@@ -24,6 +24,7 @@ import { judgeMaster, judgeUnlock } from '@/shared/bot/utility/masterPhase.ts'
 import { judgeModifier } from '@/shared/bot/utility/modifierDecision.ts'
 import { noisyOption } from '@/shared/bot/utility/noise.ts'
 import { judgeReaction, judgeTrigger } from '@/shared/bot/utility/reactionDecision.ts'
+import { judgeRemoval, judgeTransfers } from '@/shared/bot/utility/uncontrolled.ts'
 
 // Everything a decision may read, and nothing else: the view of the game ( in the decision ), what the
 // table did, and what the bot knows of itself. Plans are functions of this, no state is kept between
@@ -51,6 +52,7 @@ const QUIET_OPTIONS: Partial<Record<DecisionKind, BotOption['type'][]>> = {
     [DecisionKind.Cleanup]: ['cleanup'],
     [DecisionKind.Influence]: ['endPhase'],
     [DecisionKind.Trigger]: ['useTrigger', 'skipTrigger'],
+    [DecisionKind.Removal]: ['removeUncontrolled'],
     [DecisionKind.ActionImpulse]: ['noModifier'],
     [DecisionKind.ReactionImpulse]: ['noReaction', 'noBlock'],
     [DecisionKind.PostBlock]: ['noReaction'],
@@ -182,7 +184,15 @@ export class UtilityAgent implements BotAgent {
             }
         }
         if (context.decision.kind == DecisionKind.Influence) {
-            const judged = judgeInfluence(context.decision, context.assessment, context.deck)
+            const judged =
+                judgeTransfers(context.decision, context.assessment, context.deck) ??
+                judgeInfluence(context.decision, context.assessment, context.deck)
+            if (judged) {
+                return judged
+            }
+        }
+        if (context.decision.kind == DecisionKind.Removal) {
+            const judged = judgeRemoval(context.decision, context.assessment, context.deck)
             if (judged) {
                 return judged
             }

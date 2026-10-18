@@ -3,7 +3,11 @@ import { endAction } from '@/shared/state/actionState.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { GameState } from '@/shared/state/gameState.ts'
 import { getHost, syncAttachedCards } from '@/shared/state/attachments.ts'
-import { getEnvironmentalDamage, getMinionStrength } from '@/shared/cardImpl/catalog/attached.ts'
+import {
+    getEnvironmentalDamage,
+    getMinionStrength,
+    isEquipment,
+} from '@/shared/cardImpl/catalog/attached.ts'
 import { GRID_SIZE, TORPOR_ZONE_Y } from '@/shared/const/game.ts'
 import {
     CombatantMinion,
@@ -166,6 +170,22 @@ function hitRetainer(
     }
 }
 
+// The strike burns the equipment, unless it is gone from the opposing minion
+function burnEquipment(
+    gameState: GameState,
+    target: CombatantMinion,
+    equipment: Card,
+    who: string,
+    log: string[],
+): void {
+    if (getHost(equipment) != target.minion) {
+        log.push(`${who} has no target: ${equipment.name} is gone`)
+        return
+    }
+    gameState.moveCardToRegion(equipment, equipment.owner.ashHeap)
+    log.push(`${who} burns ${equipment.name}`)
+}
+
 // A human applies the damage to their own minion by hand ( or with the apply damage
 // move ): what is still pending when the window closes is dropped, not applied.
 function leaveDamageToHand(combatant: CombatantMinion, log: string[]): void {
@@ -205,6 +225,23 @@ function createHost(gameState: GameState): CombatHost {
         ) => {
             if (strike.retainer) {
                 hitRetainer(gameState, target, strike.retainer, strike.damage, who, log)
+            }
+        },
+        equipmentValidity: (opposing: CombatantMinion, strike: CombatStrike) =>
+            (
+                !strike.equipment ||
+                (isEquipment(strike.equipment) && getHost(strike.equipment) == opposing.minion)
+            ) ?
+                VALID
+            :   Invalid(`${strike.equipment?.name} is not an equipment of the opposing minion`),
+        burnEquipment: (
+            target: CombatantMinion,
+            strike: CombatStrike,
+            who: string,
+            log: string[],
+        ) => {
+            if (strike.equipment) {
+                burnEquipment(gameState, target, strike.equipment, who, log)
             }
         },
         settleDamage: (combatant: CombatantMinion, log: string[]) => {

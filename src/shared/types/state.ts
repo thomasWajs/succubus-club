@@ -81,6 +81,10 @@ export type ArmedTrigger = {
 // triggers of the card.
 export type PendingTrigger = { source: Minion; index: number }
 
+// A card in play that drew a crypt card and now waits for its controller to choose the uncontrolled
+// vampire to remove from the game ( a decision made after seeing the card drawn )
+export type PendingRemoval = { card: LibraryCard }
+
 export type ActionState = {
     minionAction: MinionAction
     blockingDecisions: BlockingDecision[]
@@ -185,11 +189,13 @@ export enum CombatRange {
 
 // What a minion does in the strike step: a hand strike, or whatever a card, a
 // weapon or an ability gives. A dodge is a strike that deals nothing.
-export type CombatStrike = Omit<StrikeBase, 'retainer'> & {
+export type CombatStrike = Omit<StrikeBase, 'retainer' | 'equipment'> & {
     // The card providing the strike, null for a hand strike
     source: Card | null
     // A retainer of the opposing minion the strike is aimed at, instead of the minion
     retainer?: Card
+    // An equipment of the opposing minion the strike burns, instead of hurting the minion
+    equipment?: Card
 }
 
 export type PendingDamage = {

@@ -58,7 +58,7 @@ type Accelerator = {
     amount: number
 }
 
-type Setup = {
+export type Setup = {
     assessment: Assessment
     // The transfers of each turn of mine to come, this one first
     schedule: number[]
@@ -310,7 +310,7 @@ function riskFloorOf(setup: Setup, arrivals: MinionProfile[]): number {
 }
 
 // Every order of every subset of the vampires, played: the plans that hold against the pool
-function plansOf(setup: Setup, vampires: MinionProfile[]): InfluencePlan[] {
+export function plansOf(setup: Setup, vampires: MinionProfile[]): InfluencePlan[] {
     const plans: InfluencePlan[] = []
     const holds = (order: MinionProfile[], run: Run | null): run is Run => {
         if (!run || run.spend > setup.pool - setup.crewFloor) {
@@ -351,7 +351,7 @@ function plansOf(setup: Setup, vampires: MinionProfile[]): InfluencePlan[] {
     return plans.toSorted((a, b) => b.value - a.value || a.spend - b.spend)
 }
 
-function setupOf(assessment: Assessment, deck: DeckList): Setup {
+export function setupOf(assessment: Assessment, deck: DeckList): Setup {
     const { table, profile } = assessment
     const cards = accelerationCardsOf(assessment, deck)
     const ready = readyMinions(table.me)

@@ -29,6 +29,7 @@ import { Densities } from '@/shared/bot/utility/defence.ts'
 import { newStrike } from '@/shared/state/combatRules.ts'
 import { combatRisk } from '@/shared/bot/utility/turnPlan.ts'
 import {
+    BURN_KIT,
     MAGNUM_KIT,
     retainerKit,
     simFight,
@@ -208,6 +209,25 @@ export const COMBAT_POSITION_SCENARIOS: Scenario[] = [
         },
     },
     {
+        name: 'Combat position: a strike that burns an equipment is chosen when the equipment is worth more than the hand strike, not when it is worth less',
+        run() {
+            const reply = (equipmentValue: number) => {
+                const sim = simPassUntil(
+                    simFight({ strength: 1, attached: [BURN_KIT] }, { attached: [MAGNUM_KIT] }),
+                    CombatStep.Strike,
+                )
+                const weights = {
+                    ...POLICY_WEIGHTS,
+                    loss: { ...POLICY_WEIGHTS.loss, equipment: equipmentValue },
+                }
+                const move = chooseMove(weights, sim)
+                return move.type == 'strike' && move.strike.equipment !== undefined
+            }
+            expectEqual(reply(3), true, 'an equipment worth 3 is burned')
+            expectEqual(reply(0.1), false, 'one worth almost nothing is not')
+        },
+    },
+    {
         name: 'Combat position: a press is played when the next round is favourable, an additional strike is played for the extra pair',
         run() {
             const pressed = (strength: number) => {
@@ -327,12 +347,9 @@ export const COMBAT_POSITION_SCENARIOS: Scenario[] = [
             expectClose(withRetainer(3).defending.loss, 3, 'at 3 pool', 0.001)
 
             const flamethrower: AttachedKit = {
+                ...MAGNUM_KIT,
                 name: 'Flamethrower',
-                retainer: false,
-                life: 0,
                 strikes: [{ damage: 3, ranged: false, aggravated: true, maneuver: false }],
-                prevention: [],
-                environmental: 0,
             }
             const burned = forecastFight(
                 fighterWith({ attachedKits: [flamethrower] }),

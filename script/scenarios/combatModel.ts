@@ -88,8 +88,11 @@ export function simMove(sim: CombatSim, test: (move: Move) => boolean, what: str
 export const MAGNUM_KIT: AttachedKit = {
     name: '.44 Magnum',
     retainer: false,
+    equipment: true,
+    burned: false,
     life: 0,
     strikes: [{ damage: 2, ranged: true, aggravated: false, maneuver: true }],
+    burnsEquipment: false,
     prevention: [],
     environmental: 0,
 }
@@ -97,11 +100,27 @@ export const MAGNUM_KIT: AttachedKit = {
 export const retainerKit = (name: string, life: number, environmental = 0): AttachedKit => ({
     name,
     retainer: true,
+    equipment: false,
+    burned: false,
     life,
     strikes: [],
+    burnsEquipment: false,
     prevention: [],
     environmental,
 })
+
+// A card put on the minion ( Heroic Might ) that gives it a strike that burns an equipment of the other
+export const BURN_KIT: AttachedKit = {
+    name: 'Heroic Might',
+    retainer: false,
+    equipment: false,
+    burned: false,
+    life: 0,
+    strikes: [],
+    burnsEquipment: true,
+    prevention: [],
+    environmental: 0,
+}
 
 export const CARD_USER = {
     disciplines: {} as Partial<Disciplines>,
@@ -293,6 +312,48 @@ export const COMBAT_MODEL_SCENARIOS: Scenario[] = [
             )
             expectEqual(second.defending.attached[1].life, 0, 'the retainer is burned')
             expectEqual(second.acting.blood, 3, 'only the hand strike: it inflicts no more')
+        },
+    },
+    {
+        name: 'Combat model: a strike that burns an equipment is aimed at an equipment of the opposing minion only, and a burned weapon gives no strike',
+        run() {
+            const base = simFight(
+                { attached: [BURN_KIT, MAGNUM_KIT] },
+                { attached: [MAGNUM_KIT, retainerKit('Raven Spy', 2), BURN_KIT] },
+            )
+            const burns = strikeMoves(simPassUntil(base, CombatStep.Strike)).filter(
+                move => move.strike.equipment !== undefined,
+            )
+            expectEqual(burns.length, 1, 'strikes that burn an equipment')
+            expectEqual(burns[0].strike.equipment, 0, 'the Magnum of the opposing minion')
+            expectEqual(burns[0].strike.name, 'Heroic Might burns .44 Magnum', 'its name')
+            expectEqual(burns[0].strike.damage, 0, 'it hurts nobody')
+
+            const after = simPassUntil(simStrikes(base, burns[0].strike), null)
+            expectEqual(after.defending.attached[0].burned, true, 'the Magnum is burned')
+            expectEqual(after.acting.attached[1].burned, false, 'the own Magnum is not touched')
+            expectEqual(after.defending.blood, 4, 'the burn hurts nobody')
+            expectEqual(base.defending.attached[0].burned, false, 'the combat it comes from')
+
+            const gone = simFight({}, { attached: [{ ...MAGNUM_KIT, burned: true }] })
+            expectEqual(
+                strikeMoves(simPassUntil(gone, CombatStep.Strike))
+                    .map(move => move.strike.name)
+                    .join(),
+                'Hand strike',
+                'a burned weapon gives no strike',
+            )
+            const bare = simFight(
+                { attached: [BURN_KIT] },
+                { attached: [{ ...MAGNUM_KIT, burned: true }] },
+            )
+            expectEqual(
+                strikeMoves(simPassUntil(bare, CombatStep.Strike)).some(
+                    move => move.strike.equipment !== undefined,
+                ),
+                false,
+                'a burned equipment is no target',
+            )
         },
     },
     {

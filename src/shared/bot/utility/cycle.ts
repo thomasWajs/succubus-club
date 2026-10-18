@@ -5,6 +5,7 @@ import { DeckList } from '@/shared/types/gateway.ts'
 import { DecisionKind, DecisionPoint, optionsOfType } from '@/shared/bot/types.ts'
 import { Standing } from '@/shared/bot/utility/masterPhase.ts'
 import { Assessment } from '@/shared/bot/utility/assessment.ts'
+import { drawAbilityOf, drawWorth } from '@/shared/bot/utility/uncontrolled.ts'
 import {
     discards,
     guards,
@@ -216,8 +217,9 @@ export function cycleWorthOf(
 }
 
 /**
- * What the cards of the master phase that last are worth per turn: the charge of those that throw cards away and the
- * intercept of those that give it, priced only when a card of the decision does one of them.
+ * What the cards of the master phase that last are worth per turn: the charge of those that throw cards away, the
+ * intercept of those that give it and the draw of those that draw from the crypt, priced only when a card of the
+ * decision does one of them.
  */
 export function standingOf(
     decision: DecisionPoint,
@@ -226,5 +228,10 @@ export function standingOf(
 ): Standing {
     const cards = optionsOfType(decision.options, 'playMaster').map(option => option.card)
     const cycle = cards.some(discards) ? cycleWorthOf(decision, assessment, deck) : 0
-    return cards.some(guards) ? standingFor(assessment, cycle) : { cycle, defence: 0, bleeds: 0 }
+    const drawing = cards.map(drawAbilityOf).find(ability => ability)
+    const draw = drawing ? drawWorth(assessment, deck, decision.player, drawing.transfers) : 0
+    return {
+        ...(cards.some(guards) ? standingFor(assessment, cycle) : { cycle, defence: 0, bleeds: 0 }),
+        draw,
+    }
 }

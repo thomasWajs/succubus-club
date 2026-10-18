@@ -220,6 +220,8 @@ export type BleedInterceptEffect = { type: 'bleedIntercept'; amount: number }
 export type PreventDamageEffect = { type: 'preventDamage'; amount: number }
 // The card is burned as soon as the bearer is in torpor
 export type BurnInTorporEffect = { type: 'burnInTorpor' }
+// A strike of the bearer that burns an equipment of the opposing minion ( close range, a dodge protects it )
+export type BurnEquipmentStrikeEffect = { type: 'burnEquipmentStrike' }
 // The cards with these ids cost the pool of their controller this much more to play on the bearer ( one
 // such card on the bearer: each one adds `amount` )
 export type RaisePlayCostEffect = { type: 'raisePlayCost'; cards: KrcgId[]; amount: number }
@@ -236,6 +238,7 @@ export type AttachedEffect =
     | EnvironmentalDamageEffect
     | PreventDamageEffect
     | BurnInTorporEffect
+    | BurnEquipmentStrikeEffect
 
 // The minions of the player a card can be put on ( "a Ventrue with capacity 8 or more" ). A
 // minion that is not a vampire has no clan, sect nor capacity condition to meet: it never fits one.
@@ -304,6 +307,8 @@ type UnlockAbility = {
     target: 'readyVampireBelowCapacity'
     // Only the vampires of this sect
     sect?: 'Anarch'
+    // Usable a second time, on another vampire, while the Methuselah controls a ready baron
+    extraWithBaron?: boolean
     effects: GainBloodEffect[]
 }
 
@@ -388,8 +393,12 @@ export type CryptStatics = {
     undirectedStealth?: number
     // Added to the intercept of the vampire when the action it attempts to block is directed
     directedIntercept?: number
-    // Must bleed in the minion phase while the Methuselah controls a locked minion
-    mustBleedWhileMinionLocked?: boolean
+    // Must bleed in the minion phase while the Methuselah controls a locked minion, with this bonus
+    // on that bleed action
+    mustBleedWhileMinionLocked?: { bonus: number }
+    // During its own bleed action, the vampire can discard a card of the hand that requires the discipline,
+    // for this much more bleed ( once per action, like every "During X, do Y" )
+    discardForBleed?: { discipline: Discipline; amount: number }
     // Hand size of the controller while the vampire is ready
     handSize?: number
     // What the vampire does when an event is announced ( optional ones are decisions )

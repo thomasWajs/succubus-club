@@ -172,13 +172,17 @@ export function describeOption(option: BotOption): string {
         case 'unlockEffect':
             return `unlockEffect ${option.card.name} -> ${option.vampire.name}`
         case 'transferEffect':
-            return `transferEffect ${option.card.name} #${option.ability}${option.removed ? ` removing ${option.removed.name}` : ''}`
+            return `transferEffect ${option.card.name} #${option.ability}`
+        case 'removeUncontrolled':
+            return `removeUncontrolled ${option.card.name} -> ${option.removed.name}`
         case 'moveBlood':
             return `moveBlood ${option.card.name} ${option.amount} ${option.toPool ? 'from' : 'to'} ${option.vampire.name}`
         case 'lockEffect':
             return `lockEffect ${option.card.name} -> discard ${option.discard.name}`
         case 'lockForAction':
             return `lockForAction ${option.card.name}`
+        case 'discardForBleed':
+            return `discardForBleed ${option.minion.name} -> discard ${option.discard.name}`
         case 'discardExcess':
             return `discardExcess ${option.card.name}`
         case 'useTrigger':

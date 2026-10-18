@@ -87,6 +87,8 @@ type MasterSetup = {
     pool?: number
     prey?: MinionSetup[]
     predator?: MinionSetup[]
+    // The capacity of every vampire of the uncontrolled region
+    uncontrolled?: number
 }
 
 type MasterTurn = { ring: Ring; me: Player; vampires: Vampire[] }
@@ -103,6 +105,9 @@ function masterTurn(setup: MasterSetup): MasterTurn {
     )
     for (const [index, ready] of setup.ready.entries()) {
         vampires[index].minionAttrs.capacity = ready.capacity ?? 8
+    }
+    for (const vampire of me.vampiresInUncontrolled) {
+        vampire.minionAttrs.capacity = setup.uncontrolled ?? vampire.minionAttrs.capacity
     }
     addMinions(ring, ring.players[1], setup.prey ?? [])
     addMinions(ring, ring.players[players - 1], setup.predator ?? [])
@@ -300,6 +305,7 @@ export const MASTER_PHASE_SCENARIOS: Scenario[] = [
             const company = masterTurn({
                 hand: [BLOOD_DOLL_ID, WIDER_VIEW_ID],
                 ready: [{ blood: 0 }],
+                uncontrolled: 4,
             })
             expectEqual(
                 played(playPhase(company)).startsWith('Blood Doll'),
@@ -317,6 +323,7 @@ export const MASTER_PHASE_SCENARIOS: Scenario[] = [
                 hand: [BLOOD_DOLL_ID, WIDER_VIEW_ID],
                 ready: [{ blood: 3 }],
                 attached: [[0, BLOOD_DOLL_ID]],
+                uncontrolled: 4,
             })
             expectEqual(played(playPhase(second)), 'move', 'no second Doll, the one in play moves')
         },
@@ -414,11 +421,30 @@ export const MASTER_PHASE_SCENARIOS: Scenario[] = [
         },
     },
     {
-        name: 'Master: Wider View is not played and its abilities are not used, the Barrens is played to cycle',
+        name: 'Master: a Wider View is played when the vampires of the uncontrolled region are too big to come, and not when a draw adds nothing',
         run() {
-            const wider = masterTurn({ hand: [WIDER_VIEW_ID], ready: [{ blood: 8 }] })
-            expectEqual(played(playPhase(wider)), '', 'Wider View')
-            const both = masterTurn({ hand: [BARRENS_ID, WIDER_VIEW_ID], ready: [{ blood: 8 }] })
+            const big = masterTurn({
+                hand: [WIDER_VIEW_ID],
+                ready: [{ blood: 8 }],
+                uncontrolled: 11,
+            })
+            expectPlay(playPhase(big), 'Wider View')
+            const small = masterTurn({
+                hand: [WIDER_VIEW_ID],
+                ready: [{ blood: 8 }],
+                uncontrolled: 4,
+            })
+            expectEqual(played(playPhase(small)), '', 'the region is as good as a draw')
+        },
+    },
+    {
+        name: 'Master: the Barrens is played to cycle a Wider View that a draw would not make worth playing',
+        run() {
+            const both = masterTurn({
+                hand: [BARRENS_ID, WIDER_VIEW_ID],
+                ready: [{ blood: 8 }],
+                uncontrolled: 4,
+            })
             expectEqual(played(playPhase(both)), 'Barrens, The', 'the Barrens')
         },
     },

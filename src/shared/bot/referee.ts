@@ -15,7 +15,7 @@ import {
     NO_REACTION,
     Validity,
 } from '@/shared/types/state.ts'
-import { canDeclare, applyActionModifier } from '@/shared/state/minionActions.ts'
+import { BASIC_BLEED_KEY, canDeclare, applyActionModifier } from '@/shared/state/minionActions.ts'
 import {
     createBleedAction,
     createEnterCombatAction,
@@ -63,12 +63,14 @@ import {
     getActionModifierOptions,
     getAttachedCombatOptions,
     getCombatCardOptions,
+    getDiscardForBleedOptions,
     getLockEffectOptions,
     getLockForActionOptions,
     getLockForReactionOptions,
     getMasterCardOptions,
     getMoveBloodOptions,
     getReactionCardOptions,
+    getRemovalOptions,
     getTransferEffectOptions,
     getUnlockEffectOptions,
     isMasterDiscardedAfterUse,
@@ -117,6 +119,11 @@ export function getDecidingPlayer(gameState: GameState): Player | null {
     const excess = gameState.competingPlayers.find(player => hasExcessCards(player))
     if (excess) {
         return excess
+    }
+    // A vampire to remove after a draw waits for the controller of the card, before anything else goes on
+    const removing = gameState.pendingRemoval?.card.controller
+    if (removing && !removing.isOusted) {
+        return removing
     }
     // An optional trigger waits for its controller, before the action or the combat goes on
     const pending = gameState.pendingTriggers.find(trigger => !trigger.source.controller.isOusted)
@@ -182,6 +189,10 @@ export function getDecisionPoint(gameState: GameState, player: Player): Decision
             player,
             player.hand.cards.map(card => ({ type: 'discardExcess', card })),
         )
+    }
+
+    if (gameState.pendingRemoval) {
+        return decision(DecisionKind.Removal, player, getRemovalOptions(player))
     }
 
     const pending = gameState.pendingTriggers.find(trigger => trigger.source.controller == player)
@@ -347,18 +358,18 @@ function minionPhaseOptions(player: Player): BotOption[] {
     const mandatoryHunts = valid.filter(
         action => action.type == MinionActionType.Hunt && action.actingMinion.blood == 0,
     )
-    // A vampire that must bleed while its Methuselah controls a locked minion ( Elen Kamjian ):
-    // it has no other action, as long as a bleed is possible
-    const mustBleed = (action: MinionAction) =>
-        getCryptImplementation(action.actingMinion)?.mustBleedWhileMinionLocked &&
-        player.minionsReady.some(minion => minion.isLocked)
+    // A vampire that must bleed while its Methuselah controls a locked minion ( Elen Kamjian ) has no
+    // other action until it has made the basic bleed action: a bleed card does not count, and it is
+    // stuck if it cannot bleed
+    const mustBleed = (minion: Minion) =>
+        !!getCryptImplementation(minion)?.mustBleedWhileMinionLocked &&
+        player.minionsReady.some(other => other.isLocked) &&
+        !(player.gameState.turnResources.performed[minion.oid] ?? []).includes(BASIC_BLEED_KEY)
     const mandatoryBleeds = valid.filter(
-        action => action.type == MinionActionType.Bleed && mustBleed(action),
+        action => action.type == MinionActionType.Bleed && mustBleed(action.actingMinion),
     )
-    const mandatoryBleeders = new Set(mandatoryBleeds.map(action => action.actingMinion))
     const free = valid.filter(
-        action =>
-            !mandatoryBleeders.has(action.actingMinion) || action.type == MinionActionType.Bleed,
+        action => action.type == MinionActionType.Bleed || !mustBleed(action.actingMinion),
     )
     const declarable = mandatoryHunts.length > 0 ? mandatoryHunts : free
 
@@ -413,7 +424,10 @@ function actionImpulseDecision(gameState: GameState, player: Player): DecisionPo
                 options.push({ type: 'playModifier', modifier })
             }
         }
-        options.push(...getLockForActionOptions(player, actingMinion))
+        options.push(
+            ...getLockForActionOptions(player, actingMinion),
+            ...getDiscardForBleedOptions(player, actingMinion),
+        )
     }
 
     options.push(...getLockEffectOptions(player), { type: 'noModifier' })
@@ -667,7 +681,6 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
             if (!implementation) {
                 throw new InvalidBotMove(`${option.card.name} has no unlock effect`)
             }
-            check(botMutations.markCardUsed.act(player, { player, card: option.card }), 'use card')
             check(implementation.applyUnlockEffect(option.vampire), 'unlock effect')
             break
         }
@@ -677,10 +690,16 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
             if (!implementation) {
                 throw new InvalidBotMove(`${option.card.name} has no ability paid with transfers`)
             }
-            check(
-                implementation.applyTransferEffect(option.ability, option.removed),
-                'transfer effect',
-            )
+            check(implementation.applyTransferEffect(option.ability), 'transfer effect')
+            break
+        }
+
+        case 'removeUncontrolled': {
+            const implementation = getMasterImplementation(option.card, player)
+            if (!implementation) {
+                throw new InvalidBotMove(`${option.card.name} has no vampire to remove`)
+            }
+            check(implementation.applyRemoval(option.removed), 'remove uncontrolled')
             break
         }
 
@@ -716,6 +735,38 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
                 'declare lock for action',
             )
             check(implementation.applyLockForAction(actingMinion), 'lock for action')
+            break
+        }
+
+        case 'discardForBleed': {
+            const ability = getCryptImplementation(option.minion)?.discardForBleed
+            const offered = getDiscardForBleedOptions(player, option.minion).some(
+                candidate => candidate.discard == option.discard,
+            )
+            if (!ability || !offered) {
+                throw new InvalidBotMove(`${option.discard.name} cannot be discarded for bleed`)
+            }
+            check(
+                botMutations.ACTION_declareCryptAbility.act(player, { minion: option.minion }),
+                'declare crypt ability',
+            )
+            check(
+                gameMutations.moveCardToRegion.act(player, {
+                    card: option.discard,
+                    fromCardRegion: option.discard.region,
+                    toCardRegion: option.discard.owner.ashHeap,
+                    x: 0,
+                    y: 0,
+                }),
+                'discard for bleed',
+            )
+            check(
+                gameMutations.ACTION_changeProperty.act(player, {
+                    propertyName: ActionProperty.Bleed,
+                    amount: ability.amount,
+                }),
+                'bleed of the action',
+            )
             break
         }
 

@@ -84,7 +84,7 @@ const weights = planWeightsOf(profile)
 // A policy that values the outcomes of a fight otherwise than the planner assumes: blood twice as dear, torpor
 // cheap, retainers dear, cards dear
 const RIVAL = {
-    loss: { blood: weights.policy.loss.blood * 2, torporShare: 0.2, retainer: 3 },
+    loss: { blood: weights.policy.loss.blood * 2, torporShare: 0.2, retainer: 3, equipment: 3 },
     card: 0.6,
 }
 
