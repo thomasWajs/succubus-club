@@ -184,10 +184,10 @@ function findFreeRowPosition(
     return findFreePlayPosition(cardRegion, card, startX, y)
 }
 
-// A vampire influenced out of the uncontrolled region : near the bottom of the ready
-// region ( not against its edge ), on the first free spot from the left, which is itself set
-// off the left edge.
-export function getInfluencedVampirePosition(
+// A minion that comes in play on its own ( a vampire influenced out of the uncontrolled region,
+// a recruited ally ) : near the bottom of the ready region ( not against its edge ), on the first
+// free spot from the left, which is itself set off the left edge.
+export function getNewMinionPosition(
     cardRegion: AnyCardRegion,
     card: Card,
 ): { x: number; y: number } {

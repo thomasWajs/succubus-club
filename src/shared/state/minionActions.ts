@@ -31,6 +31,7 @@ import {
     getImplementation,
 } from '@/shared/cardImpl/index.ts'
 import { startCombat } from '@/shared/state/combatState.ts'
+import { getNewMinionPosition } from '@/shared/state/cardPlacement.ts'
 
 // Returns the hand-written implementation for an action card, or null when the
 // card has none. A human can play any of the ~4000 cards, most of which fall here.
@@ -454,7 +455,16 @@ const behaviors: Behaviors = {
             implementation.resolve()
             // Only a bot's ally is recruited for now: a human puts it where they want
             if (implementation.recruit && action.actingMinion.controller.isBot) {
-                const recruited = botMutations.recruitAlly.act(action.actingMinion.controller, {
+                const player = action.actingMinion.controller
+                // The card was played near the recruiter: the new minion takes a free spot instead
+                const moved = gameMutations.moveCard.act(player, {
+                    card: action.card,
+                    ...getNewMinionPosition(action.card.region, action.card),
+                })
+                if (!moved.isValid) {
+                    throw new Error(`Cannot place ${action.card.name}: ${moved.reason}`)
+                }
+                const recruited = botMutations.recruitAlly.act(player, {
                     card: action.card,
                     version: implementation.recruit,
                 })

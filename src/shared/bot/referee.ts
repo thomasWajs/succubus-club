@@ -33,7 +33,7 @@ import {
 } from '@/shared/state/actionState.ts'
 import {
     getAutoPlayPosition,
-    getInfluencedVampirePosition,
+    getNewMinionPosition,
     getPermanentMasterPosition,
     getPlayRegion,
 } from '@/shared/state/cardPlacement.ts'
@@ -912,7 +912,7 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
                         card: vampire,
                         fromCardRegion: player.uncontrolled,
                         toCardRegion: player.ready,
-                        ...getInfluencedVampirePosition(player.ready, vampire),
+                        ...getNewMinionPosition(player.ready, vampire),
                     }),
                     'move vampire to ready',
                 )
