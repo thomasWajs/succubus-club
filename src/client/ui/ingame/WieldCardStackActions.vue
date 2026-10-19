@@ -22,6 +22,7 @@
             @click="shuffleCardRegion(cardRegion)"
         >
             Shuffle
+            {{ shuffleSelection.length ? `${shuffleSelection.length} cards` : cardRegion.name }}
         </button>
 
         <div
@@ -109,6 +110,7 @@ import { usePlayersStore } from '@/client/state/players.ts'
 import { computed, CSSProperties, ref } from 'vue'
 import { AnyCardRegion } from '@/shared/types/model.ts'
 import { shuffleCardRegion } from '@/client/state/gameMutations.ts'
+import { getShuffleSelection } from '@/client/utils.ts'
 
 const { cardRegion } = defineProps<{
     cardRegion: AnyCardRegion
@@ -120,6 +122,8 @@ const players = usePlayersStore()
 const gameBus = useGameBusStore()
 
 const mode = ref<'reveal' | 'control'>('reveal')
+
+const shuffleSelection = computed(() => getShuffleSelection(cardRegion))
 
 const isOwner = computed(() => cardRegion.owner?.oid == players.selfPlayer?.oid)
 

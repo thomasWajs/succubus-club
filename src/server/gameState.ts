@@ -42,7 +42,6 @@ import * as persistence from './persistence.ts'
 import { generateCardOid } from '@/shared/state/ids.ts'
 import { CardOid } from '@/shared/types/model.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
-import { shuffleArray } from '@/shared/utils.ts'
 import { GAME_STATE_VERSION } from '@/shared/const/multiplayer.ts'
 import { ClockCompare, VectorClock } from '@/shared/multiplayer/clock.ts'
 
@@ -437,10 +436,19 @@ export async function handleShuffleCardRegion(
 
         // Generate new OIDs for all cards in the region,
         // so users can't track the new positions
-        const newOidArray: CardOid[] = []
+        // A partial shuffle only renews the OIDs of the chosen cards
+        const subset =
+            message.cardsOid ?
+                message.cardsOid.filter(oid => cardRegion.cardsOid.includes(oid))
+            :   undefined
+        const chosenOids = new Set(subset ?? cardRegion.cardsOid)
+        const newOids = new Map<CardOid, CardOid>()
         for (const oldOid of cardRegion.cardsOid) {
+            if (!chosenOids.has(oldOid)) {
+                continue
+            }
             const newOid = generateCardOid()
-            newOidArray.push(newOid)
+            newOids.set(oldOid, newOid)
             const card = gameState.cards[oldOid]
             if (card) {
                 // Store a snapshot for history deserialization, under the old oid.
@@ -474,12 +482,14 @@ export async function handleShuffleCardRegion(
         }
 
         // Generate shuffled order with new OIDs
-        const shuffledOrder = shuffleArray(newOidArray)
+        const shuffledOrder = cardRegion
+            .generateShuffledCardsOrder(subset)
+            .map(oid => newOids.get(oid) ?? oid)
 
-        logger.debug(`Shuffled ${cardRegion.name}: ${shuffledOrder.length} cards`)
+        logger.debug(`Shuffled ${cardRegion.name}: ${newOids.size} cards`)
 
         // Serialize the shuffled cards
-        const serializedShuffledCards = shuffledOrder.map(newOid =>
+        const serializedShuffledCards = [...newOids.values()].map(newOid =>
             JSON.parse(JSON.stringify(gameState.cards[newOid])),
         )
 

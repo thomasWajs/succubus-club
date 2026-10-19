@@ -1,7 +1,7 @@
 import { Component, Raw } from 'vue'
 import { acceptHMRUpdate, defineStore } from 'pinia'
 import { Card, Minion } from '@/shared/model/Card.ts'
-import Phaser from 'phaser'
+
 import { Player } from '@/shared/model/Player.ts'
 import { SavingState } from '@/client/gateway/savedGames.ts'
 import { AlignmentGuide, LibraryCardUsage, MinionActionType } from '@/shared/types/state.ts'
@@ -9,7 +9,7 @@ import { CardGroup, CardInGame, DragAttrs, DragOver, PlayerInGame } from '@/clie
 import { CARD_COST_FX_DURATION, CARD_PING_DURATION } from '@/shared/const/game.ts'
 import { selfCanSeeOrPeek } from '@/client/state/self.ts'
 import { AnyCardRegion, CardOid, PlayerOid, Point2D } from '@/shared/types/model.ts'
-import Rectangle = Phaser.Geom.Rectangle
+import { rectFromCorners } from '@/client/utils.ts'
 
 export enum AlertState {
     Error = 'error',
@@ -26,24 +26,6 @@ export type AlertMessage = {
 
 let transitionTimer: ReturnType<typeof setTimeout> | null = null
 let columnTimer: ReturnType<typeof setTimeout> | null = null
-
-// Normalizes a drag's two opposite corners ( origin, current ) into a
-// positive-width/height Rectangle, regardless of drag direction.
-function rectFromCorners(origin: Point2D, current: Point2D): Rectangle {
-    let { x, y } = origin
-    let [width, height] = [current.x - x, current.y - y]
-
-    if (width < 0) {
-        x += width
-        width *= -1
-    }
-    if (height < 0) {
-        y += height
-        height *= -1
-    }
-
-    return new Rectangle(x, y, width, height)
-}
 
 export const useBusStore = defineStore('bus', {
     state: () => ({

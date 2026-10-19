@@ -61,9 +61,12 @@
         <ContextMenuButton
             v-if="firstCard.isIn.library || firstCard.isIn.crypt"
             :closeOnClick="true"
-            :cardAction="(card: Card) => shuffleCardRegion(card.region)"
+            :cardAction="
+                (card: Card) => (card == firstCard ? shuffleCardRegion(card.region) : undefined)
+            "
         >
             Shuffle
+            {{ shuffleSelectionSize ? `${shuffleSelectionSize} cards` : firstCard.region.name }}
         </ContextMenuButton>
 
         <CommandContextMenuButton
@@ -120,14 +123,20 @@ import AttributesSubmenu from '@/client/ui/context/menu/AttributesSubmenu.vue'
 import { minionCanAttemptBlock } from '@/shared/state/actionState.ts'
 import InfrequentMenuButtons from '@/client/ui/context/menu/InfrequentMenuButtons.vue'
 import { shuffleCardRegion } from '@/client/state/gameMutations.ts'
+import { computed } from 'vue'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { useCommands } from '@/client/game/composables/useCommands.ts'
 import { useSelection } from '@/client/game/composables/useSelection.ts'
+import { getShuffleSelection } from '@/client/utils.ts'
 
 const gameState = useGameStateStore()
 const gameBus = useGameBusStore()
 const commands = useCommands()
 const { firstCard, singleCard, singleMinion } = useSelection(() => gameBus.contextMenu.cards)
+
+const shuffleSelectionSize = computed(() =>
+    firstCard.value ? getShuffleSelection(firstCard.value.region).length : 0,
+)
 </script>
 
 <style lang="scss" scoped>

@@ -364,6 +364,8 @@ export type ScsGameMutationMessage = GameMutationMessage & {
 export type ScsShuffleCardRegionMessage = {
     type: MultiplayerMessageType.ShuffleCardRegion
     cardRegionOid: ObjectId
+    // Shuffle only these cards, among their own positions
+    cardsOid?: ObjectId[]
     globalVersion: LamportClockVersion
     version: VectorClockVersion
 }

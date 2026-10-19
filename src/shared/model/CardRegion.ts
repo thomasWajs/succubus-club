@@ -106,8 +106,16 @@ export class CardRegion<CardType extends Card> extends BaseModel {
         return this.cards[Math.floor(Math.random() * this.length)]
     }
 
-    generateShuffledCardsOrder() {
-        return shuffleArray([...this.cardsOid])
+    // With a subset, only those cards are shuffled, among the positions they occupy
+    generateShuffledCardsOrder(subset?: CardOid[]) {
+        if (subset) {
+            const chosen = new Set(subset)
+            const shuffled = shuffleArray(this.cardsOid.filter(oid => chosen.has(oid)))
+            let next = 0
+            return this.cardsOid.map(oid => (chosen.has(oid) ? shuffled[next++] : oid))
+        } else {
+            return shuffleArray([...this.cardsOid])
+        }
     }
 
     shuffle() {

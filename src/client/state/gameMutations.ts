@@ -28,6 +28,7 @@ import {
 } from '@/client/multiplayer/communication/scs.ts'
 import { getLogger } from '@/shared/registries.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
+import { getShuffleSelection } from '@/client/utils.ts'
 
 /**
  * Apply the mutation locally, if it's valid.
@@ -140,6 +141,8 @@ export function cancelMutation(mutationEntry: MutationHistoryEntry) {
  */
 
 export async function shuffleCardRegion(cardRegion: AnyCardRegion) {
+    const selection = getShuffleSelection(cardRegion)
+    const subset = selection.length ? selection : undefined
     const players = usePlayersStore()
     const history = useHistoryStore()
     const multiplayer = useMultiplayerStore()
@@ -167,7 +170,7 @@ export async function shuffleCardRegion(cardRegion: AnyCardRegion) {
                 return
             }
 
-            await sendShuffleRequest(cardRegion)
+            await sendShuffleRequest(cardRegion, subset)
             return
         }
     }
@@ -175,7 +178,7 @@ export async function shuffleCardRegion(cardRegion: AnyCardRegion) {
     // For other modes, use client-side shuffle
     gameMutations.shuffle.actSelf({
         cardRegion,
-        cardsOrder: cardRegion.generateShuffledCardsOrder(),
+        cardsOrder: cardRegion.generateShuffledCardsOrder(subset),
         previousCardsOrder: [...cardRegion.cardsOid],
     })
 }

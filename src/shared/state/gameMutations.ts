@@ -1663,9 +1663,10 @@ export class Shuffle extends GameMutation<ShuffleParams> {
     protected updateGameState(gameState: GameState) {
         // If shuffledCards provided (server-side shuffle with new OIDs)
         if (this.params.shuffledCards) {
-            // Move old cards to staleCards
+            // Move old cards to staleCards ( a partial shuffle keeps the other cards as is )
+            const keptOids = new Set(this.params.cardsOrder)
             for (const oldOid of this.params.previousCardsOrder) {
-                if (gameState.cards[oldOid]) {
+                if (!keptOids.has(oldOid) && gameState.cards[oldOid]) {
                     gameState.staleCards[oldOid] = gameState.cards[oldOid]
                     delete gameState.cards[oldOid]
                 }

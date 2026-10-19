@@ -20,7 +20,7 @@ import { useHistoryStore } from '@/client/store/history.ts'
 import { ensureGameRoom, receiveLaunchGame } from '@/client/multiplayer/room.ts'
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import { Communication } from '@/client/multiplayer/communication/index.ts'
-import { AnyCardRegion } from '@/shared/types/model.ts'
+import { AnyCardRegion, CardOid } from '@/shared/types/model.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
 import { applyGameResync, ensureClock, receiveRejectedMutation } from '@/client/multiplayer/sync.ts'
 import { useCoreStore } from '@/client/store/core.ts'
@@ -63,7 +63,7 @@ export async function onReceiveGameSync(message: ScsGameStateMessage) {
 /**
  * Send shuffle request to server
  */
-export async function sendShuffleRequest(cardRegion: AnyCardRegion) {
+export async function sendShuffleRequest(cardRegion: AnyCardRegion, cardsOid?: CardOid[]) {
     const core = useCoreStore()
     const players = usePlayersStore()
     const multiplayer = useMultiplayerStore()
@@ -79,6 +79,7 @@ export async function sendShuffleRequest(cardRegion: AnyCardRegion) {
     const message: ScsShuffleCardRegionMessage = {
         type: MultiplayerMessageType.ShuffleCardRegion,
         cardRegionOid: cardRegion.oid,
+        cardsOid,
         globalVersion: multiplayer.globalClock,
         version,
     }
