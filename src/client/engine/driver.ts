@@ -435,9 +435,15 @@ function tell(current: Running, out: EngineOut) {
     }
     current.log.learn(out.view)
     for (const event of out.events) {
+        // A hand looked at : shown until closed, the look ending with the action
+        if (event.kind == 'looked') {
+            engine.looked = {
+                seat: event.seat,
+                cards: event.cards.flatMap(card => (card.id != null ? [card.id] : [])),
+            }
+        }
         // The lines taken back : their folding goes with them
         if (event.kind == 'undone') {
-            const engine = useEngineStore()
             for (const key of Object.keys(engine.logOpen)) {
                 if (parseInt(key) >= event.to) {
                     delete engine.logOpen[key]
@@ -480,6 +486,7 @@ export async function runEngine(host: EngineHost, projection: Projection) {
     engine.log = []
     engine.logVersion = 0
     engine.logOpen = {}
+    engine.looked = null
     engine.seatColors = []
     const current: Running = {
         host,

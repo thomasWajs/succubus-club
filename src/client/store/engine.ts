@@ -67,6 +67,8 @@ export const useEngineStore = defineStore('engine', {
         referendumText: '',
         // The cards played during the action under way, by whom ( the log's line ), until it is over
         played: [] as { decision: number; player: string; text: string; option: OptionView }[],
+        // The last hand the user looked at ( SchreckNET ) : its seat and cards, until closed
+        looked: null as { seat: number; cards: number[] } | null,
         // The cards on their way to play ( limbo ), by oid : not in play yet
         limbo: [] as string[],
         // A minion's counted markers ( hostage, nightmare, torture, a lasting effect's counters ),

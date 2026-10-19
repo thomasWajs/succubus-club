@@ -179,6 +179,8 @@ export class EngineLogBuilder {
     // The crypt cards' names met : a short name is the first word only when no other starts with it
     private cryptNames = new Set<string>()
     private seatNames: string[] = []
+    // The seat the log is told to
+    private viewer: number | null = null
     // Each seat's prey, as the view tells it and ousts change it : whom a bleed targets by default
     private preys: number[] = []
     private matcher: RegExp | null = null
@@ -214,6 +216,7 @@ export class EngineLogBuilder {
     // The table as it stands : the minions and cards it shows, by copy
     learn(view: TableView) {
         this.seatNames = view.seats.map(seat => seat.name)
+        this.viewer = view.viewer ?? null
         if (view.decision > this.viewed) {
             this.viewed = view.decision
             this.preys = view.seats.map(seat => seat.prey)
@@ -505,6 +508,24 @@ export class EngineLogBuilder {
                     return
                 }
                 this.append(block.entry, [{ text: 'fails' }])
+                return
+            }
+            // A hand the user looked at : a top-level line, kept in sight when its action folds
+            case 'looked': {
+                const cards = e.cards.flatMap((card, i) => [
+                    ...(i > 0 ? [{ text: ', ' }] : []),
+                    this.cardSegment(card.id),
+                ])
+                this.line(
+                    this.viewer,
+                    [
+                        { text: 'looks at ' },
+                        this.seatSegment(e.seat),
+                        { text: "'s hand: " },
+                        ...(cards.length > 0 ? cards : [{ text: 'no card' }]),
+                    ],
+                    this.root,
+                )
                 return
             }
             case 'ousted':

@@ -36,6 +36,9 @@
         <!-- The cards played during the action ( a game with the rules engine ) -->
         <EnginePlayed v-if="gameState.gameType == GameType.Engine" />
 
+        <!-- A hand the user looked at ( a game with the rules engine ) -->
+        <EngineLooked v-if="gameState.gameType == GameType.Engine" />
+
         <!-- Referendum Infos -->
         <ReferendumInfos
             v-if="gameState.referendum"
@@ -92,6 +95,7 @@ import EngineChoices from '@/client/ui/ingame/topArea/central/EngineChoices.vue'
 import EngineHeader from '@/client/ui/ingame/topArea/central/EngineHeader.vue'
 import EngineFallback from '@/client/ui/ingame/topArea/central/EngineFallback.vue'
 import EnginePlayed from '@/client/ui/ingame/topArea/central/EnginePlayed.vue'
+import EngineLooked from '@/client/ui/ingame/topArea/central/EngineLooked.vue'
 import { GameType } from '@/shared/types/state.ts'
 import { useEngineStore } from '@/client/store/engine.ts'
 
