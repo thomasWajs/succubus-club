@@ -12,6 +12,7 @@ import {
     enterCombatTargetActs,
     gainBlood,
     lockTarget,
+    steal,
     stealPool,
     stealth,
     strength,
@@ -107,6 +108,21 @@ export const ACTION_CARDS = [
             requires: discipline('ani', 'superior'),
             target: 'vampireOfOtherMethuselah',
             effects: [lockTarget, enterCombatTargetActs],
+        },
+    ]),
+    // Inferior steals a retainer, superior an ally: the cards controlled by the other Methuselahs
+    defineCard('100703', 'Far Mastery', [
+        {
+            kind: 'action',
+            requires: discipline('dom', 'inferior'),
+            target: 'retainerOfOtherMethuselah',
+            effects: [stealth(1), steal],
+        },
+        {
+            kind: 'action',
+            requires: discipline('dom', 'superior'),
+            target: 'allyOfOtherMethuselah',
+            effects: [stealth(1), steal],
         },
     ]),
     defineCard('100640', 'Enchant Kindred', [

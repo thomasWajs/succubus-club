@@ -21,7 +21,14 @@ import { attackKitOf, defenceOf, interceptShare } from '@/shared/bot/utility/def
 import { costOfLunge } from '@/shared/bot/utility/equity.ts'
 import { MinionProfile, profileRecruit } from '@/shared/bot/utility/minionProfile.ts'
 import { MethuselahSnapshot, readyMinions, unlockedMinions } from '@/shared/bot/utility/snapshot.ts'
-import { Effect, PlaySummary, summarizeCard } from '@/shared/bot/utility/summaries.ts'
+import {
+    Effect,
+    PlaySummary,
+    summarizeAttached,
+    summarizeCard,
+} from '@/shared/bot/utility/summaries.ts'
+import { getAttachedEffects } from '@/shared/cardImpl/catalog/attached.ts'
+import { getHost } from '@/shared/state/attachments.ts'
 import { Candidate } from '@/shared/bot/utility/turnPlan.ts'
 
 /**
@@ -175,6 +182,14 @@ export class PlayValues {
                     worth += effect.amount * (profile.plan.caution + weight)
                     break
                 }
+                case 'steal': {
+                    const stolen = this.stealWorth(candidate, target, actor)
+                    if (stolen !== null) {
+                        described = true
+                        worth += stolen
+                    }
+                    break
+                }
                 default:
                     break
             }
@@ -192,6 +207,38 @@ export class PlayValues {
             worth -= this.lockedOut(play.summary.attached) * profile.plan.spentCard
         }
         return described ? worth : profile.plan.cardAction
+    }
+
+    // A retainer or an ally of another Methuselah that comes under my control: what it serves for in my hands, and what
+    // it served for in theirs, at the weight I give to what that Methuselah loses ( as for a pool steal ). An ally is
+    // read as a recruit at its full life. Null when the catalog does not describe the card
+    private stealWorth(
+        candidate: Candidate,
+        target: Card | Player | undefined,
+        actor: MinionProfile,
+    ): number | null {
+        if (!(target instanceof LibraryCard)) {
+            return null
+        }
+        const { table, stakes } = this.assessment
+        const weight = stakes[target.controller.oid]?.weight ?? 0
+        if (target.isType.ally) {
+            const recruit = summarizeCard(target)?.plays.find(play => play.recruit)
+            return recruit ? this.recruitWorth(candidate, target, recruit) * (1 + weight) : null
+        }
+        // The counters it has left, not those it came with
+        const effects = summarizeAttached(getAttachedEffects(target)).map(effect =>
+            effect.type == 'life' ? { ...effect, amount: target.blood } : effect,
+        )
+        const gain = this.attachedWorth(effects, actor)
+        if (gain === null) {
+            return null
+        }
+        const host = getHost(target)
+        const owner = table.others.find(other => other.oid == target.controller.oid)
+        const bearer = owner?.minions.find(minion => minion.oid == host?.oid)
+        const lost = bearer ? (this.attachedWorth(effects, bearer) ?? gain) : gain
+        return gain + lost * weight
     }
 
     // What an ally serves for over its stay: the attacks it stops at home ( the lunge of my predator with it among my

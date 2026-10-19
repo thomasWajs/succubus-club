@@ -12,7 +12,7 @@ import { SCENARIOS } from './scenarios/combat.ts'
 import { TORPOR_SCENARIOS } from './scenarios/torpor.ts'
 import { COST_SCENARIOS } from './scenarios/costs.ts'
 import { DECLARE_SCENARIOS } from './scenarios/declare.ts'
-import { FAR_MASTERY_SCENARIOS } from './scenarios/farMastery.ts'
+import { FAR_MASTERY_SCENARIOS, FAR_MASTERY_VALUE_SCENARIOS } from './scenarios/farMastery.ts'
 import { CARD_SCENARIOS } from './scenarios/combatCards.ts'
 import { HUMAN_DAMAGE_SCENARIOS } from './scenarios/humanDamage.ts'
 import { BOUNCE_SCENARIOS } from './scenarios/bounce.ts'
@@ -81,6 +81,7 @@ function runScenarios(filters: string[]): ScenarioResult[] {
         ...COST_SCENARIOS,
         ...DECLARE_SCENARIOS,
         ...FAR_MASTERY_SCENARIOS,
+        ...FAR_MASTERY_VALUE_SCENARIOS,
         ...CARD_SCENARIOS,
         ...HUMAN_DAMAGE_SCENARIOS,
         ...BOUNCE_SCENARIOS,

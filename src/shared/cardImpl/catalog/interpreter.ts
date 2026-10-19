@@ -26,6 +26,7 @@ import { getCombatant, getOpposingCombatant, startCombat } from '@/shared/state/
 import { resolveCost } from '@/shared/state/cardCosts.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
 import { botMutations } from '@/shared/state/botMutations.ts'
+import { getAutoPlayPosition, getPlayRegion } from '@/shared/state/cardPlacement.ts'
 import { canEnterCombatWith, isBleed } from '@/shared/state/minionActions.ts'
 import {
     ActionProperty,
@@ -251,9 +252,37 @@ class InterpretedAction extends ActionCardImplementation {
                 return this.player.gameState.competingPlayers
                     .filter(other => other != this.player)
                     .flatMap(other => other.vampiresReady)
+            case 'retainerOfOtherMethuselah':
+            case 'allyOfOtherMethuselah':
+                return this.player.gameState.competingPlayers
+                    .flatMap(other => other.ready.cards)
+                    .filter(card => this.canDeclareOn(card).isValid)
             default:
                 return []
         }
+    }
+
+    private canDeclareOn(target: Card): Validity {
+        switch (this.play?.target) {
+            case 'retainerOfOtherMethuselah':
+                return this.canSteal(target, 'retainer')
+            case 'allyOfOtherMethuselah':
+                return this.canSteal(target, 'ally')
+            default:
+                return Invalid('The action has no card to steal')
+        }
+    }
+
+    private canSteal(target: Card, kind: 'retainer' | 'ally'): Validity {
+        if (!target.isIn.ready) {
+            return Invalid('Target must be ready')
+        }
+        if (target.controller == this.player || target.controller.isOusted) {
+            return Invalid('Target must be controlled by another Methuselah')
+        }
+        return target instanceof LibraryCard && target.isType[kind] ?
+                VALID
+            :   Invalid(`Target must be a${kind == 'ally' ? 'n' : ''} ${kind}`)
     }
 
     canDeclare(): Validity {
@@ -290,6 +319,11 @@ class InterpretedAction extends ActionCardImplementation {
                 return target instanceof Card && target.isVampire() ?
                         canEnterCombatWith(this.minion, target)
                     :   Invalid('Target must be a vampire')
+            case 'retainerOfOtherMethuselah':
+            case 'allyOfOtherMethuselah':
+                return target instanceof Card ?
+                        this.canDeclareOn(target)
+                    :   Invalid('Target must be a card')
         }
     }
 
@@ -345,6 +379,35 @@ class InterpretedAction extends ActionCardImplementation {
                     effect.targetActs ? [target, this.minion] : [this.minion, target]
                 startCombat(this.player.gameState, acting, defending)
             }
+            if (effect.type == 'steal' && target instanceof Card) {
+                this.steal(target)
+            }
+        }
+    }
+
+    // The card comes to the play area of the acting Methuselah. An ally is a minion of its own, on some free
+    // space. A retainer is first moved next to the acting minion, and a bot's is attached to it.
+    private steal(target: Card) {
+        gameMutations.takeControl.act(this.player, { card: target, controller: this.player })
+        const isRetainer = this.play?.target == 'retainerOfOtherMethuselah'
+        const toCardRegion = getPlayRegion(this.player)
+        if (target.region != toCardRegion) {
+            const { x, y } = getAutoPlayPosition(
+                this.player,
+                target,
+                toCardRegion,
+                isRetainer ? this.minion : undefined,
+            )
+            gameMutations.moveCardToRegion.act(this.player, {
+                card: target,
+                fromCardRegion: target.region,
+                toCardRegion,
+                x,
+                y,
+            })
+        }
+        if (isRetainer && this.player.isBot) {
+            botMutations.attachCard.act(this.player, { card: target, minion: this.minion })
         }
     }
 }

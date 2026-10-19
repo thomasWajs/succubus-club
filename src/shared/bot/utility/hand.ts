@@ -64,6 +64,7 @@ const NEED_OF_ROLE: Partial<Record<Role, NeedKind>> = {
     combatStarter: 'combat',
     bleed: 'action',
     poolSteal: 'action',
+    steal: 'action',
     accelerate: 'action',
     sustain: 'action',
     poolGain: 'action',

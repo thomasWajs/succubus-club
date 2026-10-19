@@ -8,8 +8,25 @@ import { GovernDeck } from '@/shared/bot/decks.ts'
 import { DeckList } from '@/shared/types/gateway.ts'
 import { applyOption } from '@/shared/bot/referee.ts'
 import { Turn, createMinionPhase, getActionOptions, resolveAction } from './torpor.ts'
-import { Scenario, ScenarioFailure, expectEqual, findCard, giveCard } from './helpers.ts'
-import { ABYSSAL_HUNTER_ID, CAMARILLA_VITAE_SLAVE_ID, FAR_MASTERY_ID } from '../cardIds.ts'
+import { getDefaultStealth } from '@/shared/state/minionActions.ts'
+import { describeEffect } from '@/shared/bot/utility/summaries.ts'
+import { cardTurn, cardValues } from './cardActions.ts'
+import {
+    Scenario,
+    ScenarioFailure,
+    attachInPlay,
+    expectEqual,
+    findCard,
+    giveCard,
+    summaryOf,
+} from './helpers.ts'
+import {
+    ABYSSAL_HUNTER_ID,
+    CAMARILLA_VITAE_SLAVE_ID,
+    CARLTON_ID,
+    FAR_MASTERY_ID,
+    MURDER_OF_CROWS_ID,
+} from '../cardIds.ts'
 
 /**
  * Far Mastery: the card proposes its own targets (a retainer at inferior, an ally at
@@ -143,6 +160,88 @@ export const FAR_MASTERY_SCENARIOS: Scenario[] = [
                 false,
                 'still in the victim region',
             )
+        },
+    },
+]
+
+// The Methuselah right after the bot at a table of three holds the card in play: the scenario setup seals every
+// library, so the card is taken from the removed pile. A retainer is attached to the one minion its owner has
+function createValuedHeist(retainerLife: number) {
+    const turn = cardTurn({
+        minions: [{ disciplines: { [Discipline.Dominate]: DisciplineLevel.SUPERIOR }, blood: 5 }],
+        hand: [FAR_MASTERY_ID],
+        blockers: [{ blood: 5 }],
+        extra: [FAR_MASTERY_ID, MURDER_OF_CROWS_ID, CARLTON_ID],
+    })
+    const take = (id: string) => {
+        const card = turn.prey.removed.cards.find(
+            candidate => candidate.krcgId == id && candidate instanceof LibraryCard,
+        )
+        if (!(card instanceof LibraryCard)) {
+            throw new ScenarioFailure(`${id} is not in the removed pile`)
+        }
+        return card
+    }
+    const retainer = take(MURDER_OF_CROWS_ID)
+    attachInPlay(retainer, turn.prey.vampiresReady[0], { life: retainerLife })
+    const ally = take(CARLTON_ID)
+    turn.ring.gameState.moveCardToRegion(ally, turn.prey.ready)
+    ally.blood = 3
+    return { turn, retainer, ally }
+}
+
+export const FAR_MASTERY_VALUE_SCENARIOS: Scenario[] = [
+    {
+        name: 'Far Mastery: the card is described by the catalog, two plays with +1 stealth that steal a retainer and an ally',
+        run() {
+            const summary = summaryOf(FAR_MASTERY_ID)
+            expectEqual(
+                summary.plays.map(play => play.target).join(),
+                'retainerOfOtherMethuselah,allyOfOtherMethuselah',
+                'targets',
+            )
+            for (const play of summary.plays) {
+                expectEqual(
+                    play.effects.map(describeEffect).join('; '),
+                    'stealth +1; take control of the target',
+                    'effects',
+                )
+                expectEqual(play.roles.join(), 'steal', 'role')
+            }
+        },
+    },
+    {
+        name: 'Far Mastery: the action has stealth 1, the +1 stealth of the card',
+        run() {
+            const heist = createHeist(DisciplineLevel.INFERIOR)
+            const { farMastery } = getHeistOptions(heist)
+            expectEqual(getDefaultStealth(farMastery[0].option.action), 1, 'stealth')
+        },
+    },
+    {
+        name: 'Far Mastery: a retainer or an ally in play of another Methuselah is a play worth making',
+        run() {
+            const { turn } = createValuedHeist(2)
+            const plays = cardValues(turn).filter(play => play.name == 'Far Mastery')
+            expectEqual(plays.length, 2, 'a retainer at inferior, an ally at superior')
+            for (const play of plays) {
+                expectEqual(play.unblocked > 0, true, `${play.level} is worth ${play.unblocked}`)
+            }
+        },
+    },
+    {
+        name: 'Far Mastery: a retainer is worth the counters it has left',
+        run() {
+            const worth = (life: number) => {
+                const { turn, retainer } = createValuedHeist(life)
+                const target = retainer.oid
+                const play = cardValues(turn).find(candidate => candidate.target == target)
+                if (!play) {
+                    throw new ScenarioFailure('The steal of the retainer is not offered')
+                }
+                return play.unblocked
+            }
+            expectEqual(worth(3) > worth(1), true, 'two counters more')
         },
     },
 ]

@@ -31,6 +31,7 @@ import {
     EnterCombatEffect,
     EnvironmentalDamageEffect,
     LockTargetEffect,
+    StealEffect,
     StealPoolEffect,
     StrengthIfBlockedEffect,
     UnlockAndBlockEffect,
@@ -275,6 +276,7 @@ export function stealPool(amount: number): StealPoolEffect {
 export const enterCombat: EnterCombatEffect = { type: 'enterCombat' }
 export const enterCombatTargetActs: EnterCombatEffect = { type: 'enterCombat', targetActs: true }
 export const lockTarget: LockTargetEffect = { type: 'lockTarget' }
+export const steal: StealEffect = { type: 'steal' }
 
 export function environmentalDamage(amount: number): EnvironmentalDamageEffect {
     return { type: 'environmentalDamage', amount }

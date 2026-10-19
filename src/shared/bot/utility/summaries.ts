@@ -45,6 +45,8 @@ export const ROLES = [
     // Raises the stealth of an action, when played ( a modifier, a standing ability, a vampire )
     'stealth',
     'poolSteal',
+    // Takes control of a retainer or an ally of another Methuselah
+    'steal',
     'combatStarter',
     // Puts blood on a younger vampire of the uncontrolled region
     'accelerate',
@@ -128,6 +130,8 @@ type EffectCore =
     | { type: 'ownBleed'; amount: number }
     | { type: 'gainBlood'; amount: number }
     | { type: 'stealPool'; amount: number }
+    // The target card ( a retainer or an ally ) comes under my control
+    | { type: 'steal' }
     | { type: 'enterCombat'; targetActs: boolean }
     | { type: 'lockTarget' }
     | { type: 'strengthIfBlocked'; amount: number }
@@ -310,6 +314,9 @@ function summarizeActionEffects(effects: ActionEffect[]): Effect[] {
                 break
             case 'stealPool':
                 result.push({ type: 'stealPool', amount: effect.amount })
+                break
+            case 'steal':
+                result.push({ type: 'steal' })
                 break
             case 'enterCombat':
                 result.push({ type: 'enterCombat', targetActs: !!effect.targetActs })
@@ -632,6 +639,9 @@ function deriveRoles(
             case 'stealPool':
                 roles.add('poolSteal')
                 break
+            case 'steal':
+                roles.add('steal')
+                break
             case 'enterCombat':
             case 'canEnterCombat':
                 roles.add('combatStarter')
@@ -910,6 +920,8 @@ export function describeEffect(effect: Effect): string {
                 return `gain ${effect.amount} blood`
             case 'stealPool':
                 return `steal ${effect.amount} pool`
+            case 'steal':
+                return 'take control of the target'
             case 'enterCombat':
                 return effect.targetActs ? 'enter combat, the target acts first' : 'enter combat'
             case 'lockTarget':

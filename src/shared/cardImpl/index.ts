@@ -17,7 +17,6 @@ import {
     reactionImplementation,
 } from '@/shared/cardImpl/catalog/interpreter.ts'
 import { CardDef, CardKind } from '@/shared/cardImpl/catalog/types.ts'
-import { FarMastery } from '@/shared/cardImpl/farmastery.ts'
 import { LibraryCardUsage } from '@/shared/types/state.ts'
 import { KrcgId } from '@/shared/types/gateway.ts'
 import { Card, LibraryCard, Minion } from '@/shared/model/Card.ts'
@@ -62,10 +61,8 @@ for (const def of CARD_DEFS) {
     }
 }
 
-export const ACTION_CARD_IMPLEMENTATIONS: CardImplementationRegistry<ActionCardImplementation> = {
-    ...fromCatalog('action', actionImplementation),
-    '100703': FarMastery, // Far Mastery,
-}
+export const ACTION_CARD_IMPLEMENTATIONS: CardImplementationRegistry<ActionCardImplementation> =
+    fromCatalog('action', actionImplementation)
 
 export const ACTION_MODIFIER_CARD_IMPLEMENTATIONS: CardImplementationRegistry<ActionModifierCardImplementation> =
     fromCatalog('modifier', modifierImplementation)

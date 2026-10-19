@@ -107,7 +107,11 @@ export type LockTargetEffect = { type: 'lockTarget' }
 // If the action is blocked, the minion can gain this much strength in the first round of the
 // combat ( before the range )
 export type StrengthIfBlockedEffect = { type: 'strengthIfBlocked'; amount: number }
+// The acting Methuselah takes control of the target, a retainer ( brought next to the acting minion and
+// attached to it ) or an ally ( a minion of its own ), whatever the target kind of the play says
+export type StealEffect = { type: 'steal' }
 export type ActionEffect =
+    | StealEffect
     | StrengthIfBlockedEffect
     | StealthEffect
     | BleedEffect
@@ -193,6 +197,10 @@ export type ActionTarget =
     | 'youngerUncontrolledVampire'
     | 'minionOfOtherMethuselah'
     | 'vampireOfOtherMethuselah'
+    // A ready retainer or ally controlled by another Methuselah ( requirements do not apply to a card
+    // that is already in play )
+    | 'retainerOfOtherMethuselah'
+    | 'allyOfOtherMethuselah'
 
 // What a card attached to a minion does while it is attached ( equipment, retainer )
 // A strike of a fixed damage the bearer can choose in the strike step ( 'R': usable at long
