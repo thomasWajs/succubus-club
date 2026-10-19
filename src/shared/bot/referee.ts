@@ -66,6 +66,7 @@ import {
     getDiscardForBleedOptions,
     getLockEffectOptions,
     getLockForActionOptions,
+    getAllyBurnOptions,
     getLockForReactionOptions,
     getMasterCardOptions,
     getMoveBloodOptions,
@@ -271,7 +272,10 @@ function getCleanupCards(gameState: GameState, player: Player): LibraryCard[] {
             card instanceof LibraryCard &&
             !isAttached(card) &&
             (ownTurn ?
-                isOneShot(card) || isMasterDiscardedAfterUse(card) || isEquipmentOrRetainer(card)
+                isOneShot(card) ||
+                isMasterDiscardedAfterUse(card) ||
+                isEquipmentOrRetainer(card) ||
+                isFailedRecruit(card)
             :   isOutOfTurnCard(card)),
     )
 }
@@ -280,6 +284,12 @@ function getCleanupCards(gameState: GameState, player: Player): LibraryCard[] {
 function isEquipmentOrRetainer(card: LibraryCard): boolean {
     const { equipment, retainer } = card.isType
     return equipment || retainer
+}
+
+// An ally only gets its life when the recruit action succeeds: one with none left in the ready region
+// is the card of an action that failed
+function isFailedRecruit(card: LibraryCard): boolean {
+    return card.isType.ally && card.blood <= 0
 }
 
 // A master card needs the master phase action of the turn, on top of its own cost
@@ -487,7 +497,7 @@ function reactionImpulseDecision(gameState: GameState, player: Player): Decision
     if (blocker) {
         options.push(...getLockForReactionOptions(player, blocker))
     }
-    options.push(...getLockEffectOptions(player))
+    options.push(...getAllyBurnOptions(player), ...getLockEffectOptions(player))
 
     // Passing the impulse comes second: the block is decided first ( a block attempt, or "no block"
     // that lets the acting player play modifiers ), only then may the player pass without reacting
@@ -643,6 +653,20 @@ function playCardFromHand(player: Player, card: LibraryCard, byMinion?: Minion):
     )
 }
 
+// A card in play is burned: it goes to the ash heap of its owner
+function burnCard(player: Player, card: LibraryCard): void {
+    check(
+        gameMutations.moveCardToRegion.act(player, {
+            card,
+            fromCardRegion: card.region,
+            toCardRegion: card.owner.ashHeap,
+            x: 0,
+            y: 0,
+        }),
+        'burn',
+    )
+}
+
 function payCosts(minion: Minion, card: LibraryCard, x?: number): void {
     check(payCardCosts(minion, card, x), 'card cost')
 }
@@ -767,6 +791,32 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
                 }),
                 'bleed of the action',
             )
+            break
+        }
+
+        case 'burnAlly': {
+            const { card, effect, minion } = option
+            const action = gameState.action
+            check(
+                botMutations.ACTION_declareReaction.act(player, { reaction: card }),
+                'declare the ally ability',
+            )
+            burnCard(player, card)
+            if (effect.type == 'reduceBleed' && action) {
+                check(
+                    gameMutations.ACTION_changeProperty.act(player, {
+                        propertyName: ActionProperty.Bleed,
+                        amount: -Math.min(effect.amount, action.bleed),
+                    }),
+                    'reduce the bleed',
+                )
+            }
+            if (effect.type == 'unlockMinion' && minion) {
+                check(
+                    gameMutations.setLock.act(player, { card: minion, newValue: false }),
+                    'unlock the minion',
+                )
+            }
             break
         }
 
@@ -1029,6 +1079,12 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
                     break
                 case 'wake':
                     check(botMutations.ACTION_wake.act(player, { minion }), 'wake')
+                    if (effect.allyMissesUnlock && !minion.isVampire()) {
+                        check(
+                            botMutations.skipNextUnlock.act(player, { minion }),
+                            'an ally does not unlock next',
+                        )
+                    }
                     break
                 case 'unlock':
                     check(
@@ -1115,6 +1171,16 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
 
         case 'combatPress':
             playCombatCard(player, option.minion, option.card)
+            if (option.burn) {
+                const { ally, life } = option.burn
+                check(
+                    gameMutations.changeBlood.act(player, { card: ally, amount: -life }),
+                    'life of the ally',
+                )
+                if (ally.blood <= 0) {
+                    burnCard(player, ally)
+                }
+            }
             check(
                 botMutations.COMBAT_press.act(player, {
                     minion: option.minion,

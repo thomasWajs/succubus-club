@@ -202,6 +202,13 @@ export type CardWeights = {
     perWeaponDamage: number
     // What a life counter of a retainer is worth, once: the damage it soaks is blood saved
     perLife: number
+    // What a dodge once per combat is worth per turn, as often as the bearer fights
+    perDodge: number
+    // An ally: the turns it is expected to serve before it is lost, what each press it can burn life for is worth ( up
+    // to two ), and what burning it to unlock a minion is worth
+    allyStay: number
+    allyPress: number
+    allyUnlock: number
     // How far the block of an action card is read from what the others have been seen to do: 0 trusts what their
     // minions could block, 1 the share of the blocks they try
     blockTrust: number
@@ -395,6 +402,10 @@ export const DEFAULT_PROFILE: BotProfile = {
         perPrevention: 0.15,
         perWeaponDamage: 0.15,
         perLife: 0.35,
+        perDodge: 0.3,
+        allyStay: 4,
+        allyPress: 0.4,
+        allyUnlock: 0.6,
         blockTrust: 1,
     },
     influence: {

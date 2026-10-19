@@ -61,6 +61,7 @@ export function fightProfile(over: Partial<MinionProfile> = {}): MinionProfile {
         title: '',
         blood: 6,
         capacity: 8,
+        worth: 8,
         disciplines: {},
         bleed: 1,
         hunt: 1,
@@ -78,6 +79,7 @@ export function fightProfile(over: Partial<MinionProfile> = {}): MinionProfile {
         attached: [],
         attachedKits: [],
         canEnterCombat: false,
+        pressBurn: 0,
         ...over,
     }
 }

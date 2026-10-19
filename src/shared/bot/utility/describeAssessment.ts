@@ -22,6 +22,9 @@ function describeMinionProfile(minion: MinionProfile): string {
     if (minion.intercept.againstBleeds != minion.intercept.general) {
         parts.push(`int vs bleeds ${minion.intercept.againstBleeds}`)
     }
+    if (!minion.isVampire) {
+        parts.push(`ally worth ${minion.worth}`)
+    }
     if (minion.life > 0) {
         parts.push(`life ${minion.life}`)
     }

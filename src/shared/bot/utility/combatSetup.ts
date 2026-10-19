@@ -4,6 +4,7 @@ import {
     CombatSim,
     newCombatSim,
     Side,
+    SimAlly,
     SimCard,
     SimCombatant,
 } from '@/shared/bot/utility/combatModel.ts'
@@ -117,6 +118,25 @@ export type CombatantSetup = {
     strengthBonus?: number
     // The maneuvers it plays without a card ( a reaction played when it blocked )
     freeManeuvers?: number
+    // The allies of its Methuselah, apart from itself: the ones that can burn life for a press count
+    allies?: MinionProfile[]
+}
+
+// The allies that can burn life for a press, as the sim knows them
+export function pressAlliesOf(allies: MinionProfile[]): SimAlly[] {
+    return allies.flatMap(ally =>
+        ally.pressBurn > 0 && ally.state != 'torpor' && ally.blood > 0 ?
+            [
+                {
+                    key: ally.oid,
+                    name: ally.name,
+                    life: ally.blood,
+                    burn: ally.pressBurn,
+                    worth: ally.worth,
+                },
+            ]
+        :   [],
+    )
 }
 
 export function combatantOf(setup: CombatantSetup, side: Side): SimCombatant {
@@ -132,10 +152,13 @@ export function combatantOf(setup: CombatantSetup, side: Side): SimCombatant {
         blood: profile.blood,
         startBlood: profile.blood,
         capacity: profile.capacity,
+        worth: profile.worth,
         pool: setup.pool,
         attached: profile.attachedKits.map(kit => ({ ...kit })),
         cards: [...combatCards(profile, setup.hand), ...(setup.extraCards ?? [])],
         spent: 0,
+        allies: pressAlliesOf(setup.allies ?? []),
+        allyLost: 0,
     }
 }
 

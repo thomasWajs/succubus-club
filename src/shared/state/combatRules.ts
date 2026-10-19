@@ -44,6 +44,8 @@ export type StrikeBase = {
     stealBlood: number
     retainer?: unknown
     equipment?: unknown
+    // A strike a card in play gives once per combat ( an ally's dodge ): the key of that use
+    onceKey?: string
 }
 
 export type PlayStrike = Omit<StrikeBase, 'retainer' | 'equipment'>
@@ -119,6 +121,8 @@ export type CombatBase = {
     weaponManeuvers: string[]
     // The keys of the attached cards that prevented damage in this combat ( once per combat )
     attachedPreventions: string[]
+    // The keys of the strikes of cards in play already chosen in this combat ( `StrikeBase.onceKey` )
+    usedOnce: string[]
     // The combat ends after the end of round step
     isOver: boolean
 }
@@ -198,6 +202,7 @@ export function newCombatFields<Owner>(owner: Owner): Omit<
         environmentalApplied: false,
         weaponManeuvers: [],
         attachedPreventions: [],
+        usedOnce: [],
         isOver: false,
     }
 }
@@ -354,6 +359,9 @@ export function checkChooseStrike(
     }
     if (strike && combat.handStrikesOnly && !strike.isHand) {
         return Invalid('Only hand strikes can be used this round')
+    }
+    if (strike?.onceKey && combat.usedOnce.includes(strike.onceKey)) {
+        return Invalid('This strike was already used in this combat')
     }
     const target = strike ? checkStrikeTarget(host, combat, combatant, strike) : VALID
     if (!target.isValid) {
@@ -963,6 +971,9 @@ export function chooseStrike(
     const name = host.name(combatant)
     const log = [`${name} strikes: ${strike.name}`]
     combatant.strike = strike
+    if (strike.onceKey) {
+        combat.usedOnce.push(strike.onceKey)
+    }
     if (additional) {
         combatant.additionalStrikes++
         combatant.limitedAdditionalGained ||= additional.limited

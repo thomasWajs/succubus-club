@@ -20,6 +20,7 @@ import {
     reactorTitled,
     reactorUntitled,
     wake,
+    wakeAllyStaysLocked,
     yourBlockStands,
 } from '@/shared/cardImpl/catalog/builders.ts'
 
@@ -41,9 +42,12 @@ export const REACTION_CARDS = [
             effects: [changeTarget({ lockReactor: false })],
         },
     ]),
-    // The ally clause of On the Qui Vive ( no unlock at the next unlock phase ) is not modelled
     defineCard('101321', 'On the Qui Vive', [
-        { kind: 'reaction', when: [minionLocked, oncePerUnlock], effects: [wake] },
+        {
+            kind: 'reaction',
+            when: [minionLocked, oncePerUnlock],
+            effects: [wakeAllyStaysLocked],
+        },
     ]),
     // Inferior: also only worth playing once a block attempt stands ( a later attempt overwrites
     // the intercept of the action )

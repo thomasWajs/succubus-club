@@ -198,6 +198,10 @@ class InterpretedAction extends ActionCardImplementation {
         return this.play?.staysInPlay == 'onMinion'
     }
 
+    get recruit() {
+        return this.play?.recruit
+    }
+
     get attachedLife() {
         return (this.play?.attached ?? []).reduce(
             (sum, effect) => (effect.type == 'life' ? sum + effect.amount : sum),
@@ -526,7 +530,11 @@ class InterpretedReaction extends ReactionCardImplementation {
                             [{ type: 'intercept', amount: effect.amount }]
                         :   []
                 case 'wake':
-                    return [{ type: 'wake' }]
+                    return [
+                        effect.allyMissesUnlock ?
+                            { type: 'wake', allyMissesUnlock: true }
+                        :   { type: 'wake' },
+                    ]
                 case 'changeTarget':
                     return this.player.gameState.competingPlayers
                         .filter(other => other != this.player && other != actingPlayer)

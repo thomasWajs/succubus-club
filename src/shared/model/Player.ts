@@ -197,8 +197,11 @@ export class Player extends BaseModel {
         ]
     }
 
+    // A bot's ally with no life is no minion: the card of a recruit that is not done yet or that failed
     get minionsReady() {
-        return this.ready.cards.filter(c => c.isMinion()) as Minion[]
+        return this.ready.cards.filter(
+            c => c.isMinion() && !(this.isBot && c instanceof LibraryCard && c.blood <= 0),
+        ) as Minion[]
     }
 
     get minionsReadyUnlocked() {

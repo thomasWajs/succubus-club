@@ -57,7 +57,7 @@ export const MalkavDeck = <DeckList>{
 
 // The Brujah precon of reference restricted to the cards the catalog describes.
 // Not catalogued yet: Delaying Tactics, Fame, Haven Uncovered, Carver's Meat Packing and Storage,
-// Frontal Assault, 47th Street Royals, The Anarch Free Press ( replacements to find )
+// Frontal Assault, The Anarch Free Press ( replacements to find )
 export const BrujahDeck = <DeckList>{
     '100199': 4, // Blood Doll
     '100297': 1, // Carfax Abbey
@@ -76,6 +76,7 @@ export const BrujahDeck = <DeckList>{
     '101993': 5, // Torn Signpost
     '102150': 1, // Warzone Hunting Ground
     '102215': 4, // Roundhouse
+    '102217': 1, // 47th Street Royals
     '102218': 2, // Bait and Switch
     '102229': 6, // Line Brawl
     '102230': 6, // Organized Resistance
@@ -94,7 +95,8 @@ export const BrujahDeck = <DeckList>{
 
 // The Nosferatu precon of reference restricted to the cards
 // the catalog describes. Not catalogued yet: Creeping Sabotage, Fame, Haven Uncovered, Protected District,
-// Rebel, Smiling Jack, Underbridge Stray, Warsaw Station
+// Rebel, Smiling Jack, Warsaw Station. Left out on purpose: Vessel ( 4 in the precon ),
+// the bot games stall with it ( 9 of 15 games hit the turn limit, 1 without )
 export const NosferatuDeck = <DeckList>{
     '100301': 2, // Carrion Crows
     '100308': 4, // Cats' Guidance
@@ -111,8 +113,8 @@ export const NosferatuDeck = <DeckList>{
     '101550': 2, // Raven Spy
     '101808': 1, // Slum Hunting Ground
     '101945': 4, // Taste of Vitae
+    '102065': 2, // Underbridge Stray
     '102215': 8, // Roundhouse
-    '102113': 4, // Vessel
     '102216': 4, // Warrens, The
 
     '201534': 1, // Aunt Linda

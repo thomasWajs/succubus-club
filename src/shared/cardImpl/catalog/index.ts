@@ -1,6 +1,7 @@
 import { Card, LibraryCard } from '@/shared/model/Card.ts'
 import { KrcgId } from '@/shared/types/gateway.ts'
 import { ACTION_CARDS } from '@/shared/cardImpl/catalog/cards/actions.ts'
+import { ALLIES_CARDS } from '@/shared/cardImpl/catalog/cards/allies.ts'
 import { COMBAT_CARDS } from '@/shared/cardImpl/catalog/cards/combat.ts'
 import { CRYPT_CARDS } from '@/shared/cardImpl/catalog/cards/crypt.ts'
 import { MASTER_CARDS } from '@/shared/cardImpl/catalog/cards/masters.ts'
@@ -20,6 +21,7 @@ export const CARD_DEFS: CardDef[] = [
     ...ACTION_CARDS,
     ...EQUIPMENTS_CARDS,
     ...RETAINERS_CARDS,
+    ...ALLIES_CARDS,
     ...MODIFIER_CARDS,
     ...COMBAT_CARDS,
     ...REACTION_CARDS,

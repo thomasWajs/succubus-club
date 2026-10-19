@@ -22,6 +22,16 @@ export const PoolDeck = <DeckList>{
     '100199': 8, // Blood Doll
 }
 
+// The Govern deck with allies to recruit, to play them in the harness
+export const AllyDeck = <DeckList>{
+    ...GovernDeck,
+    '102065': 8, // Underbridge Stray
+    '100298': 8, // Carlton Van Wyk
+    '102217': 8, // 47th Street Royals
+    '200017': 2, // Aeron
+    '200013': 2, // Adhiambo
+}
+
 // The Govern deck with the Animalism cards that hurt, to fight with them in the harness
 export const CrowsDeck = <DeckList>{
     ...GovernDeck,

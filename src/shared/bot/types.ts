@@ -8,6 +8,7 @@ import {
     PendingTrigger,
 } from '@/shared/types/state.ts'
 import { ReactionCardEffect } from '@/shared/cardImpl/base.ts'
+import type { AllyBurnEffect } from '@/shared/cardImpl/catalog/types.ts'
 import type { TableLedger } from '@/shared/bot/utility/ledger.ts'
 
 export enum DecisionKind {
@@ -98,6 +99,10 @@ export type BotOption =
     // Locks a master card in play for the block attempt of one of its controller's minions, which gives
     // it its intercept ( KRCG News Radio ). Played like a reaction card: the acting player regains the impulse.
     | { type: 'lockForReaction'; card: LibraryCard; minion: Minion }
+    // Burns an ally in play for what it does to the action in progress ( 47th Street Royals reduces a bleed against
+    // its controller, Underbridge Stray unlocks a minion ). Played like a reaction card: the acting player regains
+    // the impulse. `minion` is the one it unlocks.
+    | { type: 'burnAlly'; card: LibraryCard; effect: AllyBurnEffect; minion?: Minion }
     // The acting vampire discards a card of the hand for more bleed in its bleed action ( Larissa Moreira ).
     // Played like an action modifier: the acting player keeps the impulse.
     | { type: 'discardForBleed'; minion: Minion; discard: LibraryCard }
@@ -150,7 +155,14 @@ export type BotOption =
     | ManeuverOption
     // A press to continue, or the cancellation of the opposing one
     // A granted press is the one a card played earlier gave: no card to play
-    | { type: 'combatPress'; minion: Minion; card?: LibraryCard; granted?: boolean }
+    // `burn`: the press an ally gives by burning life ( Underbridge Stray ): no card to play
+    | {
+          type: 'combatPress'
+          minion: Minion
+          card?: LibraryCard
+          granted?: boolean
+          burn?: { ally: LibraryCard; life: number }
+      }
     // Only offered in the window after a pair of strikes
     | { type: 'combatAdditionalStrike'; minion: Minion; limited: boolean; card?: LibraryCard }
     | GrappleOption

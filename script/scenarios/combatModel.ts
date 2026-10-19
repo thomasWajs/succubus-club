@@ -37,10 +37,13 @@ function simCombatant(side: Side, over: Partial<SimCombatant> = {}): SimCombatan
         blood,
         startBlood: blood,
         capacity: 10,
+        worth: 10,
         pool: 10,
         attached: [],
         cards: [],
         spent: 0,
+        allies: [],
+        allyLost: 0,
         ...over,
     }
 }
@@ -95,6 +98,7 @@ export const MAGNUM_KIT: AttachedKit = {
     burnsEquipment: false,
     prevention: [],
     environmental: 0,
+    dodge: false,
 }
 
 export const retainerKit = (name: string, life: number, environmental = 0): AttachedKit => ({
@@ -107,6 +111,7 @@ export const retainerKit = (name: string, life: number, environmental = 0): Atta
     burnsEquipment: false,
     prevention: [],
     environmental,
+    dodge: false,
 })
 
 // A card put on the minion ( Heroic Might ) that gives it a strike that burns an equipment of the other
@@ -120,6 +125,7 @@ export const BURN_KIT: AttachedKit = {
     burnsEquipment: true,
     prevention: [],
     environmental: 0,
+    dodge: false,
 }
 
 export const CARD_USER = {

@@ -87,8 +87,9 @@ export type SetStrengthEffect = { type: 'setStrength'; amount: number }
 // A bounce: the acting minion's controller is never the new target. The reacting vampire is
 // locked when the card says so.
 export type ChangeTargetEffect = { type: 'changeTarget'; lockReactor: boolean }
-// The reacting minion wakes until the end of the action
-export type WakeEffect = { type: 'wake' }
+// The reacting minion wakes until the end of the action. An ally that wakes with `allyMissesUnlock`
+// does not unlock at its next unlock phase.
+export type WakeEffect = { type: 'wake'; allyMissesUnlock?: boolean }
 // The reacting minion is unlocked ( it may then attempt to block )
 export type UnlockReactorEffect = { type: 'unlock' }
 // The reacting minion gets a maneuver in the combat resulting from its block, if it blocks. It
@@ -222,6 +223,10 @@ export type PreventDamageEffect = { type: 'preventDamage'; amount: number }
 export type BurnInTorporEffect = { type: 'burnInTorpor' }
 // A strike of the bearer that burns an equipment of the opposing minion ( close range, a dodge protects it )
 export type BurnEquipmentStrikeEffect = { type: 'burnEquipmentStrike' }
+// A dodge strike the bearer can choose, once per combat ( an ally's own "once each combat, can strike: dodge" )
+export type DodgeOnceEffect = { type: 'dodgeOnce' }
+// An intercept bonus for the bearer, only against an action of a vampire
+export type VampireInterceptEffect = { type: 'vampireIntercept'; amount: number }
 // The cards with these ids cost the pool of their controller this much more to play on the bearer ( one
 // such card on the bearer: each one adds `amount` )
 export type RaisePlayCostEffect = { type: 'raisePlayCost'; cards: KrcgId[]; amount: number }
@@ -239,6 +244,8 @@ export type AttachedEffect =
     | PreventDamageEffect
     | BurnInTorporEffect
     | BurnEquipmentStrikeEffect
+    | DodgeOnceEffect
+    | VampireInterceptEffect
 
 // The minions of the player a card can be put on ( "a Ventrue with capacity 8 or more" ). A
 // minion that is not a vampire has no clan, sect nor capacity condition to meet: it never fits one.
@@ -333,10 +340,41 @@ type PlayBase = {
     when?: Condition[]
 }
 
+// What a version of an ally changes to the numbers printed on its first line ( "[ANI] As above, but this ally
+// has 2 life and 1 strength" )
+export type AllyVersion = {
+    life?: number
+    strength?: number
+    bleed?: number
+}
+
+// What burning an ally does
+export type AllyBurnEffect =
+    // "reduce a bleed against you by N"
+    | { type: 'reduceBleed'; amount: number }
+    // "unlock a ready minion you control"
+    | { type: 'unlockMinion' }
+
+// Something an ally in play lets its controller do
+export type AllyAbility =
+    // "You can burn this ally to ..." in the window of an action. `against` says which actions: 'bleedAtYou' a
+    // bleed aimed at its controller, 'actionAtYou' an action directed at its controller or at a card they control.
+    | {
+          activate: 'burnInReaction'
+          against: 'bleedAtYou' | 'actionAtYou'
+          effect: AllyBurnEffect
+      }
+    // "This ally can burn N life to give a minion you control 1 press": in a combat, in a window where a press is played
+    | { activate: 'burnLifeForPress'; life: number }
+
 export type ActionPlay = PlayBase &
     AttachFields & {
         kind: 'action'
         target: ActionTarget
+        // The action recruits the ally the card is: once it succeeds the card is a minion in play
+        recruit?: AllyVersion
+        // What the ally can do once in play ( `attached` is what it does as if attached to itself )
+        allyAbilities?: AllyAbility[]
         // 'onMinion': once the action succeeds the card stays in play, attached to a minion
         // ( equipment, retainer, "put this card on this vampire" ). Discarded by default.
         staysInPlay?: 'onMinion'

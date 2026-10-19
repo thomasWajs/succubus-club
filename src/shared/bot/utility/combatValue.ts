@@ -3,8 +3,8 @@ import { CombatSim, SimCombatant, settled } from '@/shared/bot/utility/combatMod
 
 /**
  * What a combat costs a side, in pool: the blood it lost,
- * its worth if it goes to torpor or burns ( the same worth as in assessment.ts: its capacity and the cards
- * attached to it ), and the retainers and the equipment it lost.
+ * its worth if it goes to torpor or burns ( the same worth as in assessment.ts: its capacity, or what an ally
+ * cost and does, and the cards attached to it ), and the retainers and the equipment it lost.
  */
 
 export type LossWeights = {
@@ -27,12 +27,12 @@ export function lossWeightsOf(profile: BotProfile): LossWeights {
 }
 
 function worthOf(combatant: SimCombatant): number {
-    return combatant.capacity + combatant.attached.length
+    return combatant.worth + combatant.attached.length
 }
 
 // What the combatant has lost since the combat began, as it is ( a copy settled by the caller if damage is
 // still pending ): blood ( a negative loss when it gained some ), its state, the retainers and the equipment
-// burned
+// burned, the life of the allies burned for presses
 export function lossOf(weights: LossWeights, combatant: SimCombatant): number {
     const state =
         combatant.state == 'burned' ? 1
@@ -44,7 +44,8 @@ export function lossOf(weights: LossWeights, combatant: SimCombatant): number {
         (combatant.startBlood - combatant.blood) * weights.blood +
         state * worthOf(combatant) +
         retainers * weights.retainer +
-        equipment * weights.equipment
+        equipment * weights.equipment +
+        combatant.allyLost
     )
 }
 

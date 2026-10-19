@@ -54,6 +54,7 @@ const FACTS_WITHOUT_ROLE: EffectType[] = [
     'restrictPlay',
     'burnsInTorpor',
     'burnEquipmentStrike',
+    'dodgeOnce',
     'burnSelf',
     'mustBleedWhileMinionLocked',
     'raisePlayCost',

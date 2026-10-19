@@ -28,7 +28,8 @@ import {
 } from '@/shared/state/actionState.ts'
 import { emitEvent } from '@/shared/state/events.ts'
 import { syncAttachedCards } from '@/shared/state/attachments.ts'
-import { Trigger } from '@/shared/cardImpl/catalog/types.ts'
+import { AllyVersion, Trigger } from '@/shared/cardImpl/catalog/types.ts'
+import { parseAllyStats } from '@/shared/model/allyStats.ts'
 import { getTriggerKey } from '@/shared/state/triggers.ts'
 import type { AdditionalStrikeGain } from '@/shared/state/combatRules.ts'
 import {
@@ -162,6 +163,54 @@ class AttachCard extends GameMutation<AttachCardParams> {
             minion: previous?.isMinion() ? previous : undefined,
             disciplines: this.previousState.disciplines,
         })
+    }
+}
+
+/**
+ * The recruit ally action succeeded: the card, already in the ready region, becomes a minion with its life
+ * counters from the blood bank. It cannot act again this turn ( it can block ).
+ */
+
+interface RecruitAllyParams extends GameMutationParams {
+    card: LibraryCard
+    // What the level of the play changes to the numbers printed on the card
+    version: AllyVersion
+}
+
+class RecruitAlly extends GameMutation<RecruitAllyParams> {
+    _isUserCancellable = false
+    readonly syncMode = MutationSyncMode.Ordered
+
+    protected get _versioningId(): VersioningId {
+        return `${VersioningTarget.Attachment}-${this.params.card.oid}`
+    }
+
+    get card() {
+        return this.params.card
+    }
+
+    getValidity() {
+        const { card } = this.params
+        if (!card.isType.ally || !card.isMinion()) {
+            return Invalid('Only an ally can be recruited')
+        }
+        return card.isIn.ready ? VALID : Invalid('The recruited ally must be in the ready region')
+    }
+
+    protected updateGameState(gameState: GameState) {
+        const { card, version } = this.params
+        if (!card.isMinion()) {
+            return
+        }
+        const printed = parseAllyStats(card.text)
+        card.blood = version.life ?? printed.life
+        card.minionAttrs.strength = version.strength ?? printed.strength
+        card.minionAttrs.bleed = version.bleed ?? printed.bleed
+        gameState.turnResources.recruited.push(card.oid)
+    }
+
+    formatForLog() {
+        return `${CARD_LOG_PLACEHOLDER} is recruited`
     }
 }
 
@@ -468,6 +517,34 @@ class MarkPlayedSinceUnlock extends GameMutation<MarkPlayedSinceUnlockParams> {
 
     formatForLog() {
         return `${CARD_LOG_PLACEHOLDER} played ${this.params.card.name}`
+    }
+}
+
+/**
+ * An ally does not unlock at its next unlock phase ( On the Qui Vive ). Forgotten at that unlock phase.
+ */
+
+class SkipNextUnlock extends GameMutation<WakeParams> {
+    _isUserCancellable = false
+    readonly syncMode = MutationSyncMode.Exclusive
+
+    get allowedPlayer() {
+        // The reacting player is not the active one
+        return ANY_PLAYER
+    }
+
+    get card() {
+        return this.params.minion
+    }
+
+    protected updateGameState(gameState: GameState) {
+        if (!gameState.skipNextUnlock.includes(this.params.minion.oid)) {
+            gameState.skipNextUnlock.push(this.params.minion.oid)
+        }
+    }
+
+    formatForLog() {
+        return `${CARD_LOG_PLACEHOLDER} will not unlock as normal`
     }
 }
 
@@ -1262,8 +1339,10 @@ export const botMutations = {
     attachCard: defineMutation(AttachCard),
     markCardUsed: defineMutation(MarkCardUsed),
     markPlayedSinceUnlock: defineMutation(MarkPlayedSinceUnlock),
+    skipNextUnlock: defineMutation(SkipNextUnlock),
     openTurnEnd: defineMutation(OpenTurnEnd),
     passTurnEnd: defineMutation(PassTurnEnd),
+    recruitAlly: defineMutation(RecruitAlly),
     resolvePendingTrigger: defineMutation(ResolvePendingTrigger),
     setPendingRemoval: defineMutation(SetPendingRemoval),
     spendMasterPhaseAction: defineMutation(SpendMasterPhaseAction),

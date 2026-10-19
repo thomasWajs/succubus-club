@@ -9,6 +9,8 @@ import { expandRequirement, UsageOption } from '@/shared/cardImpl/catalog/requir
 import {
     ActionEffect,
     ActionTarget,
+    AllyAbility,
+    AllyVersion,
     AttachedEffect,
     CardKind,
     CombatEffect,
@@ -68,6 +70,8 @@ export const ROLES = [
     'soak',
     // Stays on a minion
     'attachment',
+    // Becomes a minion of its own: an ally that a recruit action brings in
+    'ally',
     'master',
     'handSize',
     // Throws cards away to draw new ones, or cycles the crypt
@@ -115,7 +119,7 @@ type TriggerEffectCore = {
 type EffectCore =
     | { type: 'stealth'; amount: number }
     // Only for the blocks against bleeds aimed at the controller, when bleedsOnly
-    | { type: 'intercept'; amount: number; bleedsOnly: boolean }
+    | { type: 'intercept'; amount: number; bleedsOnly: boolean; vampiresOnly?: boolean }
     // The action is a bleed of this amount ( the bleed of the card, on top of the minion's own )
     | { type: 'bleedAction'; amount: number }
     // More bleed for a bleed that is happening ( limited: one such bonus per action ); 'X' for a variable cost
@@ -152,6 +156,8 @@ type EffectCore =
     | { type: 'burnsInTorpor' }
     // A strike of the bearer that burns an equipment of the opposing minion
     | { type: 'burnEquipmentStrike' }
+    // A dodge strike of the bearer, once per combat ( an ally )
+    | { type: 'dodgeOnce' }
     | { type: 'handSize'; amount: number }
     | { type: 'discardFromHand' }
     | { type: 'drawCrypt' }
@@ -223,6 +229,10 @@ export type PlaySummary = {
     // What it does while it is attached to a minion
     attached: Effect[]
     onePerMinion: boolean
+    // The play recruits the ally the card is: what this version changes to its printed numbers
+    recruit: AllyVersion | null
+    // What the ally lets its controller do once in play
+    allyAbilities: AllyAbility[]
     abilities: AbilitySummary[]
     roles: Role[]
 }
@@ -424,6 +434,15 @@ export function summarizeAttached(effects: AttachedEffect[]): Effect[] {
                 return { type: 'burnsInTorpor' }
             case 'burnEquipmentStrike':
                 return { type: 'burnEquipmentStrike' }
+            case 'dodgeOnce':
+                return { type: 'dodgeOnce' }
+            case 'vampireIntercept':
+                return {
+                    type: 'intercept',
+                    amount: effect.amount,
+                    bleedsOnly: false,
+                    vampiresOnly: true,
+                }
             case 'raisePlayCost':
                 return { type: 'raisePlayCost', cards: effect.cards, amount: effect.amount }
             default:
@@ -690,6 +709,7 @@ function deriveRoles(
             case 'restrictPlay':
             case 'burnsInTorpor':
             case 'burnEquipmentStrike':
+            case 'dodgeOnce':
             case 'burnSelf':
             case 'mustBleedWhileMinionLocked':
             case 'raisePlayCost':
@@ -744,6 +764,8 @@ export function summarizePlay(play: Play): PlaySummary {
         attachTo: null as MinionFilter | 'this' | null,
         attached: [] as Effect[],
         onePerMinion: false,
+        recruit: null as AllyVersion | null,
+        allyAbilities: [] as AllyAbility[],
         abilities: [] as AbilitySummary[],
     }
     const finish = (window: PlayWindow, effects: Effect[]): PlaySummary => {
@@ -765,6 +787,9 @@ export function summarizePlay(play: Play): PlaySummary {
         if (base.staysInPlay == 'onMinion') {
             roles.add('attachment')
         }
+        if (base.recruit) {
+            roles.add('ally')
+        }
         return { ...base, window, effects, roles: ROLES.filter(role => roles.has(role)) }
     }
 
@@ -775,6 +800,8 @@ export function summarizePlay(play: Play): PlaySummary {
             base.attachTo = play.attachTo ?? null
             base.attached = summarizeAttached(play.attached ?? [])
             base.onePerMinion = !!play.onePerMinion
+            base.recruit = play.recruit ?? null
+            base.allyAbilities = play.allyAbilities ?? []
             return finish('minionAction', summarizeActionEffects(play.effects))
         }
         case 'modifier': {
@@ -872,7 +899,7 @@ export function describeEffect(effect: Effect): string {
             case 'stealth':
                 return `stealth ${describeNumber(effect.amount)}`
             case 'intercept':
-                return `intercept ${describeNumber(effect.amount)}${effect.bleedsOnly ? ' against bleeds' : ''}`
+                return `intercept ${describeNumber(effect.amount)}${effect.bleedsOnly ? ' against bleeds' : ''}${effect.vampiresOnly ? ' against vampires' : ''}`
             case 'bleedAction':
                 return `bleed action ${effect.amount}`
             case 'bleedBonus':
@@ -903,6 +930,8 @@ export function describeEffect(effect: Effect): string {
                 return effect.toCloseOnly ? 'maneuver to close' : 'maneuver'
             case 'dodge':
                 return 'dodge'
+            case 'dodgeOnce':
+                return 'dodge once each combat'
             case 'handStrike':
                 return `hand strike, damage = strength ${describeNumber(effect.extraDamage)}${effect.undodgeable ? ', undodgeable' : ''}`
             case 'weaponStrike':
@@ -990,6 +1019,7 @@ export function describePlay(play: PlaySummary): string {
         ...(play.attached.length ?
             [`attached: ${play.attached.map(describeEffect).join('; ')}`]
         :   []),
+        ...play.allyAbilities.map(ability => `ally ability ${JSON.stringify(ability)}`),
         ...play.abilities.map(
             ability =>
                 `ability ${ability.activate} ( ${ability.windows.join('/')}${ability.locks ? ', locks' : ''}${ability.transfers ? `, ${ability.transfers} transfers` : ''} ): ${ability.effects.map(describeEffect).join('; ')}`,

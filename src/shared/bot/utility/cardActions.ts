@@ -1,4 +1,4 @@
-import { Card } from '@/shared/model/Card.ts'
+import { Card, LibraryCard } from '@/shared/model/Card.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { usageOptionKey } from '@/shared/cardImpl/catalog/requirements.ts'
 import { resolveCost } from '@/shared/state/cardCosts.ts'
@@ -6,14 +6,20 @@ import { getDefaultStealth } from '@/shared/state/minionActions.ts'
 import { getReactingPlayers } from '@/shared/state/actionState.ts'
 import { CardOid, ObjectId } from '@/shared/types/model.ts'
 import { MinionAction, MinionActionType } from '@/shared/types/state.ts'
-import { Assessment, outcomeOfTurn } from '@/shared/bot/utility/assessment.ts'
+import { Assessment, outcomeOfTurn, TurnOutcome } from '@/shared/bot/utility/assessment.ts'
 import { resolveAttack } from '@/shared/bot/utility/attack.ts'
 import { bloodChange } from '@/shared/bot/utility/bloat.ts'
 import { combatStartGain, combatStartOf } from '@/shared/bot/utility/enterCombat.ts'
-import { fightRisk } from '@/shared/bot/utility/combatPosition.ts'
+import {
+    fightRisk,
+    forecastFight,
+    myFighter,
+    netLoss,
+    theirFighter,
+} from '@/shared/bot/utility/combatPosition.ts'
 import { attackKitOf, defenceOf, interceptShare } from '@/shared/bot/utility/defence.ts'
 import { costOfLunge } from '@/shared/bot/utility/equity.ts'
-import { MinionProfile } from '@/shared/bot/utility/minionProfile.ts'
+import { MinionProfile, profileRecruit } from '@/shared/bot/utility/minionProfile.ts'
 import { MethuselahSnapshot, readyMinions, unlockedMinions } from '@/shared/bot/utility/snapshot.ts'
 import { Effect, PlaySummary, summarizeCard } from '@/shared/bot/utility/summaries.ts'
 import { Candidate } from '@/shared/bot/utility/turnPlan.ts'
@@ -62,17 +68,24 @@ export function cardPlayOf(action: MinionAction): CardPlay | null {
     }
 }
 
+// The ally a recruit brings in, as it would stand, and what it stops of the lunge of my predator each turn it is
+// home ( already in the value of the play: the plan that puts it among the blockers takes it off )
+export type AllyService = { profile: MinionProfile; perTurn: number }
+
 export type PlayValue = {
     // What the action is worth for my minion's turn, the block counted
     value: number
     // The same if no one blocks it: what a stealth card that beats the block saves
     unblocked: number
+    // A recruit: the ally and the part of the value that is its blocks
+    ally?: AllyService
 }
 
 type BlockRisk = { share: number; fight: number }
 
 export class PlayValues {
     private readonly values = new Map<Candidate, PlayValue>()
+    private readonly allies = new Map<Candidate, AllyService>()
     private readonly fights = new Map<string, number>()
     private lungeAsIs: number | undefined
 
@@ -131,6 +144,7 @@ export class PlayValues {
         return {
             value: worth * (1 - risk.share) - cost - risk.fight,
             unblocked: worth - cost,
+            ally: this.allies.get(candidate),
         }
     }
 
@@ -165,6 +179,9 @@ export class PlayValues {
                     break
             }
         }
+        if (play.summary.recruit && action.card instanceof LibraryCard) {
+            return this.recruitWorth(candidate, action.card, play.summary)
+        }
         const attached = this.attachedWorth(
             play.summary.attached,
             bearerOf(table.me, target, actor),
@@ -175,6 +192,65 @@ export class PlayValues {
             worth -= this.lockedOut(play.summary.attached) * profile.plan.spentCard
         }
         return described ? worth : profile.plan.cardAction
+    }
+
+    // What an ally serves for over its stay: the attacks it stops at home ( the lunge of my predator with it among my
+    // blockers, less the fights it is run into by the blocks it makes ), the actions it stops by its intercept, what its
+    // card gives to a fight, and each ability once. It blocks or it is burned, not both: the better of the two counts
+    private recruitWorth(candidate: Candidate, card: LibraryCard, summary: PlaySummary): number {
+        const { table, profile, idle, threat, densities } = this.assessment
+        const { cards } = profile
+        const ally = profileRecruit(card, summary, table.me.oid)
+        const home: Assessment = {
+            ...this.assessment,
+            table: { ...table, me: { ...table.me, minions: [...table.me.minions, ally] } },
+        }
+        this.lungeAsIs ??= lungeCostWithAllHome(this.assessment)
+        const saved = Math.max(0, this.lungeAsIs - lungeCostWithAllHome(home))
+        const { predator } = table
+        // The blocks it adds, each one a fight that the worst of the minions of my predator runs it into
+        const blocks = Math.max(0, homeOutcome(home).blocks - homeOutcome(this.assessment).blocks)
+        const fight =
+            predator ?
+                Math.max(
+                    0,
+                    ...unlockedMinions(predator).map(attacker =>
+                        netLoss(
+                            forecastFight(
+                                theirFighter(predator, densities[predator.oid], attacker),
+                                myFighter(table, ally),
+                                profile,
+                            ),
+                            'defending',
+                            profile,
+                        ),
+                    ),
+                )
+            :   0
+        const perTurn = Math.max(0, saved - blocks * fight)
+        const blocking = cards.allyStay * perTurn
+        this.allies.set(candidate, { profile: ally, perTurn })
+        const guard =
+            cards.allyStay *
+            profile.plan.guard *
+            interceptShare(ally.intercept.general, idle[table.me.oid] ?? [])
+        const gear = this.attachedWorth(
+            summary.attached.filter(effect => effect.type != 'intercept'),
+            ally,
+            cards.allyStay,
+        )
+        const bleed = predator ? (threat[predator.oid]?.bleed ?? 0) : 0
+        let once = 0
+        for (const ability of summary.allyAbilities) {
+            if (ability.activate == 'burnLifeForPress') {
+                once += cards.allyPress * Math.min(2, ally.blood / ability.life)
+            } else if (ability.effect.type == 'reduceBleed') {
+                once += Math.min(ability.effect.amount, bleed) * profile.plan.caution
+            } else {
+                once += cards.allyUnlock
+            }
+        }
+        return Math.max(blocking, once) + guard + (gear ?? 0)
     }
 
     // Blood put on a vampire that is not in play yet: it cuts the transfers that bringing it out will take, up to
@@ -242,6 +318,10 @@ export class PlayValues {
                     break
                 case 'life':
                     once += effect.amount * cards.perLife
+                    known = true
+                    break
+                case 'dodgeOnce':
+                    perTurn += cards.perDodge
                     known = true
                     break
                 default:
@@ -346,8 +426,13 @@ export class PlayValues {
 
 // What the lunge of my predator costs me when all my minions are home to block it
 function lungeCostWithAllHome(assessment: Assessment): number {
+    return costOfLunge(assessment, homeOutcome(assessment)).total
+}
+
+// The lunge of my predator with all my minions home
+function homeOutcome(assessment: Assessment): TurnOutcome {
     const reserved = readyMinions(assessment.table.me)
-    return costOfLunge(assessment, outcomeOfTurn(assessment, { actors: [], reserved })).total
+    return outcomeOfTurn(assessment, { actors: [], reserved })
 }
 
 // The minion that bears the card: the one it is put on, else the acting one

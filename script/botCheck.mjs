@@ -64,6 +64,7 @@ const jobs =
             harness(3, 'random', 'pool'),
             harness(3, 'utility,govern', 'pool'),
             harness(3, 'random', 'postblock'),
+            harness(3, 'random', 'ally'),
             ...(full ? [harness(4, 'random')] : []),
         ]
 

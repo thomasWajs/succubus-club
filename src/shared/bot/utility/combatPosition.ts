@@ -3,7 +3,13 @@ import { MinionProfile } from '@/shared/bot/utility/minionProfile.ts'
 import { MethuselahSnapshot, TableSnapshot } from '@/shared/bot/utility/snapshot.ts'
 import { Densities } from '@/shared/bot/utility/defence.ts'
 import { CombatSim, Side, SimCombatant } from '@/shared/bot/utility/combatModel.ts'
-import { CardFacts, cardFactsOf, combatCards, combatOf } from '@/shared/bot/utility/combatSetup.ts'
+import {
+    CardFacts,
+    cardFactsOf,
+    combatCards,
+    combatOf,
+    pressAlliesOf,
+} from '@/shared/bot/utility/combatSetup.ts'
 import { lossOf, lossWeightsOf } from '@/shared/bot/utility/combatValue.ts'
 import { playOut, PolicyWeights } from '@/shared/bot/utility/combatPolicy.ts'
 import {
@@ -33,6 +39,8 @@ export type Fighter = {
     hand: Hand
     strengthBonus?: number
     freeManeuvers?: number
+    // The other minions of its Methuselah in play: an ally among them may burn life for a press
+    allies?: MinionProfile[]
 }
 
 // What a side is expected to go through, over the hands drawn
@@ -89,6 +97,7 @@ function fighterKey(fighter: Fighter): string {
         profile.strength,
         profile.blood,
         profile.capacity,
+        profile.worth,
         profile.state,
         profile.isVampire,
         profile.clan,
@@ -100,6 +109,7 @@ function fighterKey(fighter: Fighter): string {
         Math.min(fighter.pool, MOST_POOL_USED),
         fighter.strengthBonus ?? 0,
         fighter.freeManeuvers ?? 0,
+        pressAlliesOf(fighter.allies ?? []),
         handKey(fighter),
     ])
 }
@@ -114,6 +124,7 @@ function setupOf(fighter: Fighter, profile: BotProfile, random: () => number) {
             isBelieved(hand) ? believedCards(fighter.profile, hand, profile.combat, random) : [],
         strengthBonus: fighter.strengthBonus,
         freeManeuvers: fighter.freeManeuvers,
+        allies: fighter.allies,
     }
 }
 
@@ -200,6 +211,7 @@ export function myFighter(table: TableSnapshot, minion: MinionProfile): Fighter 
         profile: minion,
         pool: me.pool,
         hand: { cards: me.hand.map(({ card }) => cardFactsOf(card)) },
+        allies: me.minions.filter(other => other.oid != minion.oid),
     }
 }
 
@@ -213,6 +225,7 @@ export function theirFighter(
         profile: minion,
         pool: owner.pool,
         hand: { size: owner.handSize, densities },
+        allies: owner.minions.filter(other => other.oid != minion.oid),
     }
 }
 

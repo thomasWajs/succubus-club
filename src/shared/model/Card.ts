@@ -11,6 +11,7 @@ import {
     TITLE_VOTES,
 } from '@/shared/const/model.ts'
 import { getCardDef } from '@/shared/cardImpl/catalog/index.ts'
+import { parseAllyStats } from '@/shared/model/allyStats.ts'
 import * as cardVisibility from '@/shared/state/cardVisibility.ts'
 import { GRID_SIZE } from '@/shared/const/game.ts'
 import { KrcgId } from '@/shared/types/gateway.ts'
@@ -28,8 +29,12 @@ import { gameResources } from '@/shared/registries.ts'
 export const UNKNOWN_MINION_ATTRS = 'UNKNOWN_MINION_ATTRS' as const
 export const UNKNOWN_VAMPIRE_ATTRS = 'UNKNOWN_VAMPIRE_ATTRS' as const
 
+// The capacity of an ally, which the rulebook only uses when it plays a card as a vampire. Its life
+// is the blood counter of the card.
+export const ALLY_CAPACITY = 1
+
 class MinionAttributes {
-    capacity = 0 // capacity for vampire, starting life for allies
+    capacity = 0
     disciplines = {} as Disciplines // Some allies can play card as a vampire with a discipline
 
     bleed = DEFAULT_CARD_ATTRS.Bleed
@@ -464,7 +469,11 @@ export class LibraryCard extends Card {
         }
 
         if (!this.minionAttrs && this.isType.ally) {
+            const { strength, bleed } = parseAllyStats(this.text)
             this.minionAttrs = new MinionAttributes()
+            this.minionAttrs.capacity = ALLY_CAPACITY
+            this.minionAttrs.strength = strength
+            this.minionAttrs.bleed = bleed
         }
     }
 }

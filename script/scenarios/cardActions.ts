@@ -45,7 +45,7 @@ type CardTurnSetup = {
     predatorHand?: string[]
 }
 
-function cardTurn(setup: CardTurnSetup) {
+export function cardTurn(setup: CardTurnSetup) {
     const deck = <DeckList>{
         ...GovernDeck,
         ...Object.fromEntries((setup.extra ?? []).map(id => [id, 2])),
@@ -77,10 +77,10 @@ function cardTurn(setup: CardTurnSetup) {
     return { ring, me, prey, minions }
 }
 
-type CardTurn = ReturnType<typeof cardTurn>
+export type CardTurn = ReturnType<typeof cardTurn>
 
 // The plays of the cards of the hand that the referee offers, with what each is worth
-function cardValues(turn: CardTurn, profile: BotProfile = DEFAULT_PROFILE) {
+export function cardValues(turn: CardTurn, profile: BotProfile = DEFAULT_PROFILE) {
     minionDecisionOf(turn.ring, turn.me)
     const view = createPlayerView(turn.ring.gameState, turn.me)
     try {

@@ -4,7 +4,8 @@
 //     the table, through its player view. The decks: govern, malkav, brujah, nosferatu. Defaults: 3
 //     players, govern, turn 12, seed 1.
 //   npm run bot:assess -- --sweep N [--seed N]
-//     the gate used by bot:check: plays N games of 2 to 5 players on the four decks and assesses the table
+//     the gate used by bot:check: plays N games of 2 to 5 players on the four decks ( every fifth one, 3 random
+//     agents on the ally deck, so that allies are in play ) and assesses the table
 //     for the player that decides, every few steps, failing on any number that is not finite, any chance
 //     outside 0 to 1, any weight below its floor, and any exception.
 import { readFileSync } from 'node:fs'
@@ -18,6 +19,8 @@ import {
     registerSyncMutationTrigger,
 } from './harness.ts'
 import { GovernAgent } from './governAgent.ts'
+import { AllyDeck } from './attachDeck.ts'
+import { RandomAgent } from '@/shared/bot/agents/randomAgent.ts'
 import { BrujahDeck, GovernDeck, MalkavDeck, NosferatuDeck } from '@/shared/bot/decks.ts'
 import { createPlayerView } from '@/shared/bot/playerView.ts'
 import { getDecidingPlayer, getDecisionPoint } from '@/shared/bot/referee.ts'
@@ -35,6 +38,7 @@ const DECKS: Record<string, DeckList> = {
     malkav: MalkavDeck,
     brujah: BrujahDeck,
     nosferatu: NosferatuDeck,
+    ally: AllyDeck,
 }
 
 function parseArgs(argv: string[]) {
@@ -206,7 +210,9 @@ setGameResources('cardbase', JSON.parse(readFileSync('public/assets/cardbase.jso
 registerSyncMutationTrigger()
 
 const args = parseArgs(process.argv.slice(2))
-const deckNames = Object.keys(DECKS)
+// The four decks the Govern rules play; the ally deck is played by random agents ( every fifth game of the sweep ),
+// the only ones that recruit allies
+const deckNames = ['govern', 'malkav', 'brujah', 'nosferatu']
 
 function playGame(
     seed: number,
@@ -216,11 +222,14 @@ function playGame(
         ledger: TableLedger,
     ) => void,
     maxTurns = 1000,
+    random = false,
 ) {
     Math.random = seededRandom(seed)
     const recorder = recordMutations({ history: false })
     const { gameState, players } = createHeadlessGame(decks)
-    const agents = new Map(players.map(player => [player.oid, new GovernAgent()]))
+    const agents = new Map(
+        players.map(player => [player.oid, random ? new RandomAgent() : new GovernAgent()]),
+    )
     playHeadlessGame(gameState, agents, {
         maxTurns,
         maxSteps: 100000,
@@ -234,8 +243,11 @@ if (args.sweep > 0) {
     let plans = 0
     const failures: string[] = []
     for (let game = 1; game <= args.sweep; game++) {
-        const players = 2 + (game % 4)
-        const names = Array.from({ length: players }, (_, i) => deckNames[(game + i) % 4])
+        const allies = game % 5 == 0
+        const players = allies ? 3 : 2 + (game % 4)
+        const names = Array.from({ length: players }, (_, i) =>
+            allies ? 'ally' : deckNames[(game + i) % 4],
+        )
         let steps = 0
         try {
             playGame(
@@ -303,6 +315,7 @@ if (args.sweep > 0) {
                     }
                 },
                 80,
+                allies,
             )
         } catch (error) {
             const reason = error instanceof Error ? error.stack : String(error)

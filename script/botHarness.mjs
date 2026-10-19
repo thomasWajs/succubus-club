@@ -31,7 +31,7 @@ import { RandomAgent } from '@/shared/bot/agents/randomAgent.ts'
 import { UtilityAgent } from '@/shared/bot/agents/utilityAgent.ts'
 import { DEFAULT_PROFILE } from '@/shared/bot/utility/profile.ts'
 import { BrujahDeck, GovernDeck, MalkavDeck, NosferatuDeck } from '@/shared/bot/decks.ts'
-import { AttachDeck, GuardDeck, PoolDeck, PostBlockDeck } from './attachDeck.ts'
+import { AllyDeck, AttachDeck, GuardDeck, PoolDeck, PostBlockDeck } from './attachDeck.ts'
 import { BOT_NAME } from '@/shared/const/bot.ts'
 import { MAX_PLAYERS } from '@/shared/const/model.ts'
 
@@ -47,6 +47,7 @@ const DECKS = {
     guard: GuardDeck,
     pool: PoolDeck,
     postblock: PostBlockDeck,
+    ally: AllyDeck,
 }
 
 const AGENTS = {

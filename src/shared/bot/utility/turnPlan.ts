@@ -9,7 +9,7 @@ import {
     TurnOutcome,
 } from '@/shared/bot/utility/assessment.ts'
 import { bloodChange } from '@/shared/bot/utility/bloat.ts'
-import { CardPlay, cardPlayOf, PlayValues } from '@/shared/bot/utility/cardActions.ts'
+import { AllyService, CardPlay, cardPlayOf, PlayValues } from '@/shared/bot/utility/cardActions.ts'
 import { fightRisk } from '@/shared/bot/utility/combatPosition.ts'
 import { interceptShare } from '@/shared/bot/utility/defence.ts'
 import { BleedGain, costOfLunge, gainOfBleeds, LungeCost } from '@/shared/bot/utility/equity.ts'
@@ -163,7 +163,14 @@ function rescueValue(assessment: Assessment, candidate: Candidate): number {
 
 // What a minion does when it does not bleed: hunt, rescue, or play a card. `unblocked` is the value if no
 // one blocks the action ( a hunt or a rescue is not weighed against the blocks )
-export type Idle = { kind: ActionKind; value: number; unblocked: number; candidate: Candidate }
+export type Idle = {
+    kind: ActionKind
+    value: number
+    unblocked: number
+    candidate: Candidate
+    // A recruit: the ally that comes in ( it blocks on the lunge that follows )
+    ally?: AllyService
+}
 
 export function idleOf(
     assessment: Assessment,
@@ -358,12 +365,14 @@ export function planTurn(input: PlanInput): TurnPlan {
                 claimsOf(idle.candidate).forEach(claim => taken.add(claim))
             }
         }
+        // A recruit puts its ally among the blockers of the lunge that follows: that turn of its blocks is the lunge's
+        const allies = doing.flatMap(one => (one.idle.ally ? [one.idle.ally] : []))
         const idle = doing.reduce((total, one) => total + one.idle.value, 0)
         const home = actors.filter(
             minion => !bleeders.includes(minion) && !doing.some(one => one.minion == minion),
         )
         const stay = bleeders.toSorted(blocker).slice(0, unlockCards)
-        const defence = [...stuck, ...kept, ...home, ...stay]
+        const defence = [...stuck, ...kept, ...home, ...stay, ...allies.map(ally => ally.profile)]
         const outcome: TurnOutcome = outcomeOfTurn(assessment, {
             actors: bleeders,
             reserved: defence,
@@ -394,7 +403,13 @@ export function planTurn(input: PlanInput): TurnPlan {
             cards,
             chanceToOust: outcome.chanceToOust,
             chanceOfBeingOusted: outcome.chanceOfBeingOusted,
-            equity: bleeds.total - combat + idle + guard - lunge.total - cards,
+            equity:
+                bleeds.total -
+                combat +
+                (idle - allies.reduce((total, ally) => total + ally.perTurn, 0)) +
+                guard -
+                lunge.total -
+                cards,
         }
     }
 

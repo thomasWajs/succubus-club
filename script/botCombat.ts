@@ -75,6 +75,7 @@ function engineSnapshot(combat: Combat, side: Side): object {
         pool: fighter.player.pool,
         spent: fighter.handAtStart - fighter.player.hand.length,
         life: fighter.attached.map(card => (isRetainer(card) ? Math.max(0, card.blood) : 0)),
+        ally: fighter.home ? Math.max(0, fighter.home.blood) : 0,
         combatant:
             combatant ?
                 {
@@ -107,6 +108,7 @@ function simSnapshot(sim: CombatSim, side: Side): object {
         pool: combatant.pool,
         spent: combatant.spent,
         life: combatant.attached.map(card => (card.retainer ? Math.max(0, card.life) : 0)),
+        ally: combatant.allies.reduce((total, ally) => total + Math.max(0, ally.life), 0),
         combatant:
             sim.closed ? null : (
                 {
@@ -226,6 +228,7 @@ function projection(sim: CombatSim) {
             (total, card) => total + (card.retainer ? Math.max(0, card.life) : 0),
             0,
         ),
+        ally: combatant.allies.reduce((total, ally) => total + Math.max(0, ally.life), 0),
     })
     return {
         round: sim.round,
@@ -366,6 +369,9 @@ function playCombat(combat: Combat, trace: boolean): number {
         }
         if (chosen.key.includes(' burns ')) {
             count('strike that burns an equipment')
+        }
+        if (chosen.key.includes('|burn ')) {
+            count('press from an ally at home')
         }
         if (trace) {
             console.log(`  ${side}: ${chosen.key}`)

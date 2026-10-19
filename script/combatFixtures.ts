@@ -2,15 +2,14 @@
 // ( vampires with disciplines and blood, attached weapons and retainers, a hand of combat cards, a pool ), and the
 // model combat described from the same minions and cards.
 import { readFileSync } from 'node:fs'
-import { Card, LibraryCard, Minion, Vampire } from '@/shared/model/Card.ts'
+import { Card, LibraryCard, Minion } from '@/shared/model/Card.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { GameState } from '@/shared/state/gameState.ts'
 import { botMutations } from '@/shared/state/botMutations.ts'
 import { registerLogger, setGameResources } from '@/shared/registries.ts'
 import { initWasmHasher } from '@/shared/hashing.ts'
 import { createCombatState } from '@/shared/state/combatState.ts'
-import { getAttachedCards } from '@/shared/state/attachments.ts'
-import { getAttachedEffects } from '@/shared/cardImpl/catalog/attached.ts'
+import { getAttachedEffects, getKitCards } from '@/shared/cardImpl/catalog/attached.ts'
 import { BrujahDeck } from '@/shared/bot/decks.ts'
 import { DeckList } from '@/shared/types/gateway.ts'
 import { Disciplines } from '@/shared/types/resources.ts'
@@ -22,6 +21,8 @@ import { cardFactsOf, combatOf } from '@/shared/bot/utility/combatSetup.ts'
 import { createHeadlessGame, registerSyncMutationTrigger } from './harness.ts'
 import {
     BEHIND_YOU_ID,
+    CARLTON_ID,
+    UNDERBRIDGE_STRAY_ID,
     GUARDIAN_ANGEL_ID,
     HEROIC_MIGHT_ID,
     MAGNUM_ID,
@@ -49,6 +50,8 @@ const CombatDeck = <DeckList>{
     [MURDER_OF_CROWS_ID]: 4,
     [GUARDIAN_ANGEL_ID]: 4,
     [HEROIC_MIGHT_ID]: 4,
+    [CARLTON_ID]: 4,
+    [UNDERBRIDGE_STRAY_ID]: 4,
     '100301': 4,
 }
 
@@ -77,10 +80,12 @@ export const between = (low: number, high: number) =>
 export type Fighter = {
     side: Side
     player: Player
-    minion: Vampire
+    minion: Minion
     // The attached cards at the start, in the order the model knows them
     attached: Card[]
     handAtStart: number
+    // An Underbridge Stray of its Methuselah at home, that may burn life for a press
+    home: Minion | null
 }
 
 function takeCard(player: Player, krcgId: string): LibraryCard {
@@ -123,7 +128,7 @@ function attach(card: LibraryCard, minion: Minion, disciplines?: DisciplineUse[]
     )
 }
 
-function equip(minion: Vampire): void {
+function equip(minion: Minion): void {
     const player = minion.controller
     const level = (discipline: Discipline) => minion.minionAttrs.disciplines[discipline] ?? 0
     if (Math.random() < 0.4) {
@@ -160,14 +165,44 @@ function sealLibrary(gameState: GameState, player: Player): void {
     }
 }
 
+// An ally in play, with its life: Carlton Van Wyk, whose card carries a strike, a dodge and an intercept
+function recruitCarlton(gameState: GameState, player: Player): Minion {
+    const card = takeCard(player, CARLTON_ID)
+    gameState.moveCardToRegion(card, player.ready)
+    const validity = botMutations.recruitAlly.act(player, { card, version: {} })
+    if (!validity.isValid || !card.isMinion()) {
+        throw new Difference(`Cannot recruit ${card.name}: ${validity.reason}`)
+    }
+    return card
+}
+
+// An Underbridge Stray at home with 1 or 2 life, apart from the fighter
+function recruitStray(gameState: GameState, player: Player): Minion {
+    const card = takeCard(player, UNDERBRIDGE_STRAY_ID)
+    gameState.moveCardToRegion(card, player.ready)
+    const validity = botMutations.recruitAlly.act(player, { card, version: {} })
+    if (!validity.isValid || !card.isMinion()) {
+        throw new Difference(`Cannot recruit ${card.name}: ${validity.reason}`)
+    }
+    card.blood = between(1, 2)
+    return card
+}
+
 function setUpFighter(gameState: GameState, player: Player, side: Side): Fighter {
-    const minion = player.vampiresInUncontrolled[0]
-    gameState.moveCardToRegion(minion, player.ready)
-    minion.blood = between(1, 8)
-    minion.minionAttrs.capacity = 10
-    minion.minionAttrs.strength = between(1, 2)
-    minion.minionAttrs.disciplines = randomDisciplines()
-    equip(minion)
+    let minion: Minion
+    if (Math.random() < 0.15) {
+        minion = recruitCarlton(gameState, player)
+    } else {
+        const vampire = player.vampiresInUncontrolled[0]
+        gameState.moveCardToRegion(vampire, player.ready)
+        vampire.blood = between(1, 8)
+        vampire.minionAttrs.capacity = 10
+        vampire.minionAttrs.strength = between(1, 2)
+        vampire.minionAttrs.disciplines = randomDisciplines()
+        equip(vampire)
+        minion = vampire
+    }
+    const home = Math.random() < 0.4 ? recruitStray(gameState, player) : null
     emptyHand(gameState, player)
     for (let i = between(1, 6); i > 0; i--) {
         const id = Math.random() < 0.2 ? BEHIND_YOU_ID : pick(COMBAT_CARDS)
@@ -182,8 +217,9 @@ function setUpFighter(gameState: GameState, player: Player, side: Side): Fighter
         side,
         player,
         minion,
-        attached: getAttachedCards(minion),
+        attached: getKitCards(minion),
         handAtStart: player.hand.length,
+        home,
     }
 }
 
@@ -204,6 +240,9 @@ export function createCombat(): Combat {
         hand: fighter.player.hand.cards.flatMap(card =>
             card instanceof LibraryCard ? [cardFactsOf(card)] : [],
         ),
+        allies: fighter.player.minionsReady
+            .filter(ally => ally != fighter.minion)
+            .map(profileMinion),
         ...extra,
     })
     const sim = combatOf(setupOf(acting, { strengthBonus }), setupOf(defending, { freeManeuvers }))

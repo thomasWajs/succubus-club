@@ -254,6 +254,9 @@ function canAct(minion: Minion): Validity {
     if (minion.isLocked) {
         return Invalid('Acting minion must be unlocked')
     }
+    if (minion.gameState.turnResources.recruited.includes(minion.oid)) {
+        return Invalid('An ally cannot act the turn it is recruited')
+    }
     return VALID
 }
 
@@ -316,7 +319,11 @@ const behaviors: Behaviors = {
     [MinionActionType.ActionInPlay]: NO_BEHAVIOUR,
 
     // Resolved by hand, not offered to bots yet
-    [MinionActionType.Diablerize]: NO_BEHAVIOUR,
+    [MinionActionType.Diablerize]: {
+        ...NO_BEHAVIOUR,
+        canDeclare: action =>
+            action.actingMinion.isVampire() ? VALID : Invalid('Only a vampire can diablerize'),
+    },
 
     [MinionActionType.LeaveTorpor]: {
         declare() {},
@@ -350,6 +357,9 @@ const behaviors: Behaviors = {
     [MinionActionType.RescueFromTorpor]: {
         declare() {},
         canDeclare(action: RescueFromTorporAction) {
+            if (!action.actingMinion.isVampire()) {
+                return Invalid('Only a vampire can rescue')
+            }
             const acting = canAct(action.actingMinion)
             if (!acting.isValid) {
                 return acting
@@ -442,6 +452,16 @@ const behaviors: Behaviors = {
             }
             const implementation = getImplementationACA(action)
             implementation.resolve()
+            // Only a bot's ally is recruited for now: a human puts it where they want
+            if (implementation.recruit && action.actingMinion.controller.isBot) {
+                const recruited = botMutations.recruitAlly.act(action.actingMinion.controller, {
+                    card: action.card,
+                    version: implementation.recruit,
+                })
+                if (!recruited.isValid) {
+                    throw new Error(`Cannot recruit ${action.card.name}: ${recruited.reason}`)
+                }
+            }
             // Only a bot's card is attached for now: a human puts it where they want
             if (implementation.attachesToMinion && action.actingMinion.controller.isBot) {
                 const player = action.actingMinion.controller

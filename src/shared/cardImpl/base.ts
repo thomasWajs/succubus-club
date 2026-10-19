@@ -2,6 +2,7 @@ import { CryptCard, LibraryCard, Minion, Vampire } from '@/shared/model/Card.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { Invalid, LibraryCardUsage, VALID, Validity } from '@/shared/types/state.ts'
 import type { CombatCardEffect } from '@/shared/cardImpl/catalog/combatPlay.ts'
+import type { AllyVersion } from '@/shared/cardImpl/catalog/types.ts'
 import { Discipline, DisciplineLevel } from '@/shared/const/model.ts'
 
 export type CryptCardImplementation = {
@@ -73,6 +74,11 @@ export abstract class ActionCardImplementation extends CardImplementation {
         return 0
     }
 
+    // The action recruits the ally the card is, with what this version changes to its printed numbers
+    get recruit(): AllyVersion | undefined {
+        return undefined
+    }
+
     // The strength the acting minion can gain in the first round if the action is blocked
     get blockedStrengthBonus(): number {
         return 0
@@ -106,8 +112,9 @@ export type ReactionCardEffect =
         | { type: 'changeTarget'; target: Player; lockMinion: boolean }
         // More intercept for the block attempt of the reacting player
         | { type: 'intercept'; amount: number }
-        // The reacting minion wakes: it may block and react while locked, until the end of the action
-        | { type: 'wake' }
+        // The reacting minion wakes: it may block and react while locked, until the end of the action.
+        // An ally with `allyMissesUnlock` then does not unlock at its next unlock phase.
+        | { type: 'wake'; allyMissesUnlock?: boolean }
         // A locked minion is unlocked and attempts to block, with more intercept
         | { type: 'unlockBlock'; target: Minion; intercept: number }
         // The reacting minion is unlocked ( it may then attempt to block )

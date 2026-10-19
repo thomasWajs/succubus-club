@@ -1560,6 +1560,12 @@ class UnlockAll extends PlayerMutation {
 
         for (const cardRegion of this.params.player.allCardRegions) {
             for (const card of cardRegion.cards) {
+                if (gameState.skipNextUnlock.includes(card.oid)) {
+                    gameState.skipNextUnlock = gameState.skipNextUnlock.filter(
+                        oid => oid != card.oid,
+                    )
+                    continue
+                }
                 if (card.isLocked) {
                     this.previousState.cards.push(card)
                 }

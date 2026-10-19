@@ -1,6 +1,6 @@
 import { Card } from '@/shared/model/Card.ts'
 import { Player } from '@/shared/model/Player.ts'
-import { getAttachedCards } from '@/shared/state/attachments.ts'
+import { getKitCards } from '@/shared/cardImpl/catalog/attached.ts'
 import { newStrike } from '@/shared/state/combatRules.ts'
 import { CombatantMinion, CombatState, CombatStrike } from '@/shared/types/state.ts'
 import { BotOption } from '@/shared/bot/types.ts'
@@ -21,8 +21,8 @@ export type CombatCards = { acting: Card[]; defending: Card[] }
 
 export function combatCardsOf(combat: CombatState): CombatCards {
     return {
-        acting: getAttachedCards(combat.acting.minion),
-        defending: getAttachedCards(combat.defending.minion),
+        acting: getKitCards(combat.acting.minion),
+        defending: getKitCards(combat.defending.minion),
     }
 }
 
@@ -79,9 +79,14 @@ export function simOfCombat(
                     profile: profileMinion(minion),
                     pool: minion.controller.pool,
                     hand: handOf(minion.controller),
+                    allies: minion.controller.minionsReady
+                        .filter(ally => ally != minion)
+                        .map(profileMinion),
                 },
                 side,
             ),
+            // A minion burned in the combat ( an ally with no life left ) is still read until the combat closes
+            ...(minion.isIn.ashHeap ? { state: 'burned' as const } : {}),
             strength: combatant.strength,
             strike:
                 combatant.strike ?
@@ -129,6 +134,7 @@ export function simOfCombat(
         environmentalApplied: combat.environmentalApplied,
         weaponManeuvers: attachedKeys(cards, combat.weaponManeuvers),
         attachedPreventions: attachedKeys(cards, combat.attachedPreventions),
+        usedOnce: attachedKeys(cards, combat.usedOnce),
         isOver: combat.isOver,
     }
 }
@@ -168,7 +174,7 @@ export function optionKey(option: BotOption, mine: Card[], opposing: Card[]): st
         case 'combatManeuver':
             return `maneuver|${option.strike ? strikeKey(option.strike, opposing) : '-'}|${index(option.weapon)}|${!!option.free}|${card}`
         case 'combatPress':
-            return `press|${!!option.granted}|${card}`
+            return `press|${!!option.granted}|${card}${option.burn ? `|burn ${option.burn.ally.oid}` : ''}`
         case 'combatAdditionalStrike':
             return `additionalStrike|${option.limited}|${card}`
         case 'combatGrapple':
@@ -217,7 +223,7 @@ export function moveKey(move: Move, me: SimCombatant): string {
         case 'maneuver':
             return `maneuver|${move.strike ? simStrikeKey(move.strike) : '-'}|${index(move.weaponKey)}|${!!move.free}|${card}`
         case 'press':
-            return `press|${!!move.granted}|${card}`
+            return `press|${!!move.granted}|${card}${move.ally === undefined ? '' : `|burn ${me.allies[move.ally].key}`}`
         case 'additionalStrike':
             return `additionalStrike|${move.limited}|${card}`
         case 'grapple':

@@ -488,7 +488,7 @@ function contextOf(assessment: Assessment): Context {
 function powerOf(snapshot: MethuselahSnapshot, profile: BotProfile, bloat: Bloat): number {
     const minions = snapshot.minions.reduce(
         (total, minion) =>
-            total + (minion.state == 'torpor' ? 0.5 : 1) * minion.capacity + minion.attached.length,
+            total + (minion.state == 'torpor' ? 0.5 : 1) * minion.worth + minion.attached.length,
         0,
     )
     // What it takes back from the blood bank over the turns looked ahead: a Methuselah that bloats grows

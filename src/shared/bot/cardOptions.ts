@@ -1,4 +1,4 @@
-import { LibraryCard, Minion } from '@/shared/model/Card.ts'
+import { Card, LibraryCard, Minion } from '@/shared/model/Card.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { Discipline, DisciplineLevel } from '@/shared/const/model.ts'
 import {
@@ -22,8 +22,10 @@ import { getCardDef } from '@/shared/cardImpl/catalog/index.ts'
 import { findPlay, getUsageOptions, playsOfKind } from '@/shared/cardImpl/catalog/requirements.ts'
 import { CardKind } from '@/shared/cardImpl/catalog/types.ts'
 import {
+    getAllyAbilities,
     getAttachedEffects,
     getEquipment,
+    getKitCards,
     getRetainers,
     isPlayForbiddenToMinion,
 } from '@/shared/cardImpl/catalog/attached.ts'
@@ -34,7 +36,11 @@ import {
     getCombatant,
     getOpposingCombatant,
 } from '@/shared/state/combatState.ts'
-import { hasPlayedThisAction, isAvailableToReact } from '@/shared/state/actionState.ts'
+import {
+    getBlockingMinion,
+    hasPlayedThisAction,
+    isAvailableToReact,
+} from '@/shared/state/actionState.ts'
 import { canDeclare, isBleed } from '@/shared/state/minionActions.ts'
 import {
     createActionCardAction,
@@ -304,8 +310,36 @@ export function getAttachedCombatOptions(minion: Minion): CombatCardOption[] {
     if (combatant.freeManeuvers > 0) {
         options.push({ type: 'combatManeuver', minion, free: true })
     }
-    for (const weapon of getAttachedCards(minion)) {
+    // An ally of the player burns life to give the minion a press. One that fights does not burn itself away.
+    for (const ally of minion.controller.minionsReady) {
+        for (const ability of ally instanceof LibraryCard ? getAllyAbilities(ally) : []) {
+            const fights = ally == combat.acting.minion || ally == combat.defending.minion
+            if (
+                ability.activate == 'burnLifeForPress' &&
+                ally instanceof LibraryCard &&
+                (fights ? ally.blood > ability.life : ally.blood >= ability.life)
+            ) {
+                options.push({
+                    type: 'combatPress',
+                    minion,
+                    burn: { ally, life: ability.life },
+                })
+            }
+        }
+    }
+    for (const weapon of getKitCards(minion)) {
         for (const effect of getAttachedEffects(weapon)) {
+            if (effect.type == 'dodgeOnce') {
+                options.push({
+                    type: 'combatStrike',
+                    minion,
+                    strike: createStrike(`${weapon.name} dodges`, {
+                        source: weapon,
+                        dodge: true,
+                        onceKey: weapon.oid,
+                    }),
+                })
+            }
             if (effect.type == 'preventDamage') {
                 for (const aggravated of [false, true]) {
                     options.push({
@@ -585,6 +619,46 @@ export function getLockForReactionOptions(
             [{ type: 'lockForReaction' as const, card, minion: blocker }]
         :   [],
     )
+}
+
+// The allies of the player that can be burned for the action in progress ( an action of another Methuselah, not
+// resolved yet ): reduce a bleed against the player, unlock one of their minions. The ally whose block attempt
+// stands is a combatant: it cannot be burned ( the Stray's text says so, the blocked bleed is stopped anyway )
+export function getAllyBurnOptions(player: Player): BotOptionOf<'burnAlly'>[] {
+    const { gameState } = player
+    const action = gameState.action
+    if (!action || action.blockResolved || action.minionAction.actingMinion.controller == player) {
+        return []
+    }
+    const { target } = action.minionAction
+    const bleedAtYou = isBleed(action.minionAction) && target == player && action.bleed > 0
+    const actionAtYou = target == player || (target instanceof Card && target.controller == player)
+    const blocker = getBlockingMinion(gameState)
+    const options: BotOptionOf<'burnAlly'>[] = []
+    for (const card of player.minionsReady) {
+        if (!(card instanceof LibraryCard)) {
+            continue
+        }
+        for (const ability of getAllyAbilities(card)) {
+            if (
+                ability.activate != 'burnInReaction' ||
+                !(ability.against == 'bleedAtYou' ? bleedAtYou : actionAtYou) ||
+                blocker == card
+            ) {
+                continue
+            }
+            if (ability.effect.type == 'unlockMinion') {
+                for (const minion of player.minionsReady) {
+                    if (minion != card && minion.isLocked) {
+                        options.push({ type: 'burnAlly', card, effect: ability.effect, minion })
+                    }
+                }
+            } else {
+                options.push({ type: 'burnAlly', card, effect: ability.effect })
+            }
+        }
+    }
+    return options
 }
 
 // The abilities paid with transfers of the master cards in play that the player controls

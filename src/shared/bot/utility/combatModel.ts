@@ -69,6 +69,10 @@ export type SimCard = {
     plays: CombatPlay[]
 }
 
+// An ally of the Methuselah at home that burns `burn` life to give the fighter a press ( Underbridge Stray ). `key` is
+// the oid of the card: the referee and the model tell it from another ally by it
+export type SimAlly = { key: string; name: string; life: number; burn: number; worth: number }
+
 export type SimCombatant = CombatantBase & {
     side: Side
     name: string
@@ -77,6 +81,8 @@ export type SimCombatant = CombatantBase & {
     blood: number
     startBlood: number
     capacity: number
+    // What losing it costs: the capacity of a vampire, what an ally cost and does
+    worth: number
     // The pool of its Methuselah: a card costs some, and has to leave some
     pool: number
     // The cards attached to it ( equipment and retainers ), the life of a retainer drops when it is struck
@@ -84,6 +90,9 @@ export type SimCombatant = CombatantBase & {
     // The combat cards of its hand still to play
     cards: SimCard[]
     spent: number
+    // The allies of its Methuselah that can burn life for a press, and what the press has cost it in worth so far
+    allies: SimAlly[]
+    allyLost: number
 }
 
 export type CombatSim = CombatBase & {
@@ -103,7 +112,7 @@ export type Move = Played &
         | { type: 'pass' }
         | { type: 'strike'; strike: SimStrike; additional?: AdditionalStrikeGain }
         | { type: 'maneuver'; strike?: SimStrike; weaponKey?: string; free?: boolean }
-        | { type: 'press'; granted?: boolean }
+        | { type: 'press'; granted?: boolean; ally?: number }
         | { type: 'additionalStrike'; limited: boolean }
         | { type: 'grapple'; press: boolean; closeNextRound: boolean }
         | { type: 'gainBlood'; amount: number }
@@ -126,6 +135,7 @@ function cloneCombatant(combatant: SimCombatant): SimCombatant {
         ...combatant,
         pendingDamage: { ...combatant.pendingDamage },
         attached: combatant.attached.map(card => ({ ...card })),
+        allies: combatant.allies.map(ally => ({ ...ally })),
     }
 }
 
@@ -139,6 +149,7 @@ export function cloneSim(sim: CombatSim): CombatSim {
         playedThisCombat: { ...sim.playedThisCombat },
         weaponManeuvers: [...sim.weaponManeuvers],
         attachedPreventions: [...sim.attachedPreventions],
+        usedOnce: [...sim.usedOnce],
     }
 }
 
@@ -374,6 +385,12 @@ function attachedMoves(sim: CombatSim, combatant: SimCombatant): Move[] {
                 })
             }
         }
+        if (attached.dodge) {
+            moves.push({
+                type: 'strike',
+                strike: { ...newStrike(`${attached.name} dodges`, { dodge: true }), onceKey: key },
+            })
+        }
         for (const amount of attached.prevention) {
             for (const aggravated of [false, true]) {
                 moves.push({ type: 'prevent', amount, aggravated, sourceKey: key })
@@ -459,6 +476,9 @@ export function legalMoves(sim: CombatSim): Move[] {
     }
     const candidates: Move[] = [
         { type: 'press', granted: true },
+        ...combatant.allies.flatMap((ally, index): Move[] =>
+            ally.life >= ally.burn ? [{ type: 'press', ally: index }] : [],
+        ),
         { type: 'strengthBonus' },
         ...cardMoves(sim, combatant),
         ...attachedMoves(sim, combatant),
@@ -472,6 +492,16 @@ export function legalMoves(sim: CombatSim): Move[] {
         moves.push({ type: 'pass' })
     }
     return moves
+}
+
+// The ally burns the life of the press: it is lost in worth by the share of its life that goes, all of it when it burns
+function burnForPress(combatant: SimCombatant, index: number): void {
+    const ally = combatant.allies[index]
+    combatant.allyLost += ally.worth * Math.min(1, ally.burn / ally.life)
+    ally.life -= ally.burn
+    if (ally.life <= 0) {
+        combatant.allies = combatant.allies.filter((_, place) => place != index)
+    }
 }
 
 // The card is played: it leaves the hand, the minion pays its blood and the Methuselah its pool
@@ -500,8 +530,13 @@ function moveOf(host: CombatHost, sim: CombatSim, combatant: SimCombatant, move:
             return takeStrengthBonus(host, sim, combatant)
         case 'maneuver':
             return playManeuver(host, sim, combatant, move)
-        case 'press':
-            return playPress(host, sim, combatant, move.granted)
+        case 'press': {
+            const log = playPress(host, sim, combatant, move.granted)
+            if (move.ally !== undefined) {
+                burnForPress(combatant, move.ally)
+            }
+            return log
+        }
         case 'strength':
             return setStrength(host, sim, combatant, move.amount)
         case 'environmentalDamage':

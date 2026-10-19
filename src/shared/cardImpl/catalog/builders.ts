@@ -5,11 +5,15 @@ import {
     ActionEffect,
     ActionPlay,
     AdditionalStrikeEffect,
+    AllyAbility,
+    AllyVersion,
     AttachedEffect,
     BleedInterceptEffect,
     BurnEquipmentStrikeEffect,
     BurnInTorporEffect,
     CannotPlayEffect,
+    DodgeOnceEffect,
+    VampireInterceptEffect,
     LifeEffect,
     PreventDamageEffect,
     RaisePlayCostEffect,
@@ -160,6 +164,30 @@ export function attachToMinion(
     }
 }
 
+// The recruit ally action: undirected, +1 stealth. The requirement is the one to recruit it ( the
+// discipline of the card ), not a discipline of the ally. `version` is what this level changes to the
+// life, strength and bleed printed on the card.
+export function recruitAlly(
+    requires?: Requirement,
+    version: AllyVersion = {},
+    what: {
+        // What the ally does in play, as if it were attached to itself ( its strikes, its intercept )
+        attached?: AttachedEffect[]
+        // What its controller can have it do ( burn it for an effect )
+        abilities?: AllyAbility[]
+    } = {},
+): ActionPlay {
+    return {
+        kind: 'action',
+        target: 'none',
+        requires,
+        recruit: version,
+        attached: what.attached,
+        allyAbilities: what.abilities,
+        effects: [stealth(1)],
+    }
+}
+
 // A master card that is put on a minion of the player ( "put this card on a vampire you control" )
 export function putOnMinion(
     to: MinionFilter,
@@ -203,6 +231,12 @@ export function preventDamage(amount: number): PreventDamageEffect {
 export const burnInTorpor: BurnInTorporEffect = { type: 'burnInTorpor' }
 
 export const burnEquipmentStrike: BurnEquipmentStrikeEffect = { type: 'burnEquipmentStrike' }
+
+export const dodgeOnce: DodgeOnceEffect = { type: 'dodgeOnce' }
+
+export function vampireIntercept(amount: number): VampireInterceptEffect {
+    return { type: 'vampireIntercept', amount }
+}
 
 export function weaponStrike(
     damage: number,
@@ -316,6 +350,7 @@ export function lockAt(at: EventName, who: 'eventBlocker'): TriggerEffect {
 }
 
 export const wake: WakeEffect = { type: 'wake' }
+export const wakeAllyStaysLocked: WakeEffect = { type: 'wake', allyMissesUnlock: true }
 export const unlockReactor: UnlockReactorEffect = { type: 'unlock' }
 export const blockManeuver: BlockManeuverEffect = { type: 'blockManeuver' }
 

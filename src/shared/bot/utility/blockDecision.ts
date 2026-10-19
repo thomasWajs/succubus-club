@@ -221,15 +221,16 @@ export function blockContextOf(player: Player, assessment: Assessment): BlockCon
     }
 }
 
-// What the action costs me when it lands as it stands: the cards of the acting side are played already
-export function landedCost(context: BlockContext): number {
+// What the action costs me when it lands as it stands: the cards of the acting side are played already. `reduced` is
+// what a card or an ally takes off the bleed
+export function landedCost(context: BlockContext, reduced = 0): number {
     const { assessment, bleed } = context
     if (bleed === null) {
         return guardOf(assessment, context.action.minionAction)
     }
     return costOfResult(
         assessment,
-        resolveAttack([{ bleed, stealth: 0 }], NOBODY_DEFENDS, {
+        resolveAttack([{ bleed: Math.max(0, bleed - reduced), stealth: 0 }], NOBODY_DEFENDS, {
             stealth: exact(0),
             bonus: exact(0),
             standingStealth: 0,

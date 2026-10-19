@@ -68,6 +68,7 @@ const NEED_OF_ROLE: Partial<Record<Role, NeedKind>> = {
     sustain: 'action',
     poolGain: 'action',
     attachment: 'action',
+    ally: 'action',
     punishBlock: 'other',
     cycling: 'other',
 }

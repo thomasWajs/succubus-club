@@ -7,6 +7,7 @@ import { Player } from '@/shared/model/Player.ts'
 import { KrcgId } from '@/shared/types/gateway.ts'
 import {
     ActionPlay,
+    AllyAbility,
     AttachedEffect,
     MasterPlay,
     MinionFilter,
@@ -28,6 +29,7 @@ function getAttachedPlay(card: Card): ActionPlay | MasterPlay | undefined {
     return (
         played ??
         playsOfKind(def, 'action').find(play => play.staysInPlay == 'onMinion') ??
+        playsOfKind(def, 'action').find(play => play.recruit) ??
         playsOfKind(def, 'master').find(play => play.staysInPlay == 'onMinion')
     )
 }
@@ -38,6 +40,27 @@ export function getAttachedEffects(card: Card): AttachedEffect[] {
 
 export function isRetainer(card: Card): boolean {
     return card instanceof LibraryCard && card.isType.retainer
+}
+
+// The cards whose effects the minion has: the cards attached to it, and an ally in play, which does what its
+// own card says as if it were attached to itself ( an ally in the ready region, with its life )
+export function getKitCards(minion: Minion): Card[] {
+    const attached = getAttachedCards(minion)
+    const ally =
+        minion instanceof LibraryCard &&
+        minion.isType.ally &&
+        minion.isIn.ready &&
+        getAttachedEffects(minion).length > 0
+    return ally ? [minion, ...attached] : attached
+}
+
+// What an ally in play lets its controller do
+export function getAllyAbilities(card: Card): AllyAbility[] {
+    if (!(card instanceof LibraryCard && card.isType.ally && card.isIn.ready)) {
+        return []
+    }
+    const play = getAttachedPlay(card)
+    return play && 'allyAbilities' in play ? (play.allyAbilities ?? []) : []
 }
 
 // The retainers attached to the minion
@@ -60,12 +83,16 @@ export function getMinionIntercept(minion: Minion): number {
     const action = minion.gameState.action?.minionAction
     const directed = action && isDirected(action) ? getCardDef(minion)?.crypt?.directedIntercept : 0
     const bleedAtController = !!action && isBleed(action) && action.target == minion.controller
-    return getAttachedCards(minion)
+    const byVampire = !!action?.actingMinion.isVampire()
+    return getKitCards(minion)
         .flatMap(getAttachedEffects)
         .reduce(
             (sum, effect) => {
                 if (effect.type == 'intercept') {
                     return sum + effect.amount
+                }
+                if (effect.type == 'vampireIntercept') {
+                    return byVampire ? sum + effect.amount : sum
                 }
                 return effect.type == 'bleedIntercept' && bleedAtController ?
                         sum + effect.amount
@@ -82,7 +109,7 @@ export function burnsInTorpor(card: Card): boolean {
 
 // The strength the minion starts a combat with
 export function getMinionStrength(minion: Minion): number {
-    return getAttachedCards(minion)
+    return getKitCards(minion)
         .flatMap(getAttachedEffects)
         .reduce(
             (sum, effect) => (effect.type == 'strength' ? sum + effect.amount : sum),
@@ -92,7 +119,7 @@ export function getMinionStrength(minion: Minion): number {
 
 // The environmental damage the retainers of the minion inflict on the opposing minion each round
 export function getEnvironmentalDamage(minion: Minion): number {
-    return getAttachedCards(minion)
+    return getKitCards(minion)
         .flatMap(getAttachedEffects)
         .reduce(
             (sum, effect) => (effect.type == 'environmentalDamage' ? sum + effect.amount : sum),
@@ -102,7 +129,7 @@ export function getEnvironmentalDamage(minion: Minion): number {
 
 // An attached card says the minion cannot play a card ( "cannot play cards named Torn Signpost" )
 export function isPlayForbiddenToMinion(minion: Minion, card: LibraryCard): boolean {
-    return getAttachedCards(minion)
+    return getKitCards(minion)
         .flatMap(getAttachedEffects)
         .some(effect => effect.type == 'cannotPlay' && effect.names.includes(card.name))
 }

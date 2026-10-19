@@ -33,6 +33,8 @@ import { LABYRINTH_SCENARIOS } from './scenarios/labyrinth.ts'
 import { KRCG_SCENARIOS } from './scenarios/krcg.ts'
 import { CROWS_SCENARIOS } from './scenarios/crows.ts'
 import { ATTACHMENT_SCENARIOS } from './scenarios/attachment.ts'
+import { ALLY_SCENARIOS } from './scenarios/allies.ts'
+import { ALLY_VALUE_SCENARIOS } from './scenarios/allyValues.ts'
 import { PUT_ON_SCENARIOS } from './scenarios/putOn.ts'
 import { GUARDIAN_ANGEL_SCENARIOS } from './scenarios/guardianAngel.ts'
 import { UTILITY_SCENARIOS } from './scenarios/utility.ts'
@@ -100,6 +102,8 @@ function runScenarios(filters: string[]): ScenarioResult[] {
         ...CROWS_SCENARIOS,
         ...ATTACHMENT_SCENARIOS,
         ...PUT_ON_SCENARIOS,
+        ...ALLY_SCENARIOS,
+        ...ALLY_VALUE_SCENARIOS,
         ...GUARDIAN_ANGEL_SCENARIOS,
         ...UTILITY_SCENARIOS,
         ...SUMMARY_SCENARIOS,

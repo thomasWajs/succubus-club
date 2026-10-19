@@ -122,6 +122,7 @@ export class GameState {
         dpa: DEFAULT_DPA, // discardPhaseActions
         usedCards: [] as CardOid[], // cards whose once-per-turn effect was used, once for each use
         groundVampires: [] as CardOid[], // the vampires that gained blood from a hunting ground
+        recruited: [] as CardOid[], // the allies recruited this turn: they cannot act before the next one
         usedTriggers: [] as string[], // `${card oid}:${trigger index}` of the triggers used
         // What each minion did this turn, by minion oid, as the keys of `performedKeys`: it stays
         // there when the minion unlocks ( a bleed, an action card, a political action is once a turn )
@@ -140,6 +141,9 @@ export class GameState {
 
     // The cards ( krcgId ) that a minion played since its last unlock phase, keyed by minion oid
     playedSinceUnlock: Record<CardOid, string[]> = {}
+
+    // The allies that stay locked at their next unlock phase ( woken by On the Qui Vive )
+    skipNextUnlock: CardOid[] = []
 
     /** Action and combat state for the bot **/
     action: ActionState | null = null
@@ -345,6 +349,7 @@ export class GameState {
             dpa: DEFAULT_DPA,
             usedCards: [],
             groundVampires: [],
+            recruited: [],
             usedTriggers: [],
             performed: {},
         }

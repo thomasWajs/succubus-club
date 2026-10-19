@@ -1,7 +1,11 @@
-import { Card, Minion } from '@/shared/model/Card.ts'
+import { ALLY_CAPACITY, Card, LibraryCard, Minion } from '@/shared/model/Card.ts'
+import { parseAllyStats } from '@/shared/model/allyStats.ts'
+import { resolveCost } from '@/shared/state/cardCosts.ts'
 import { getAttachedCards } from '@/shared/state/attachments.ts'
 import {
+    getAllyAbilities,
     getAttachedEffects,
+    getKitCards,
     getMinionStrength,
     isEquipment,
     isRetainer,
@@ -11,9 +15,10 @@ import { DEFAULT_CARD_ATTRS } from '@/shared/const/model.ts'
 import { CryptCardResource, Disciplines } from '@/shared/types/resources.ts'
 import { KrcgId } from '@/shared/types/gateway.ts'
 import { CardOid, PlayerOid } from '@/shared/types/model.ts'
-import { MinionFilter } from '@/shared/cardImpl/catalog/types.ts'
+import { AllyAbility, MinionFilter } from '@/shared/cardImpl/catalog/types.ts'
 import {
     Effect,
+    PlaySummary,
     summarizeAttached,
     summarizeCard,
     summarizeCardId,
@@ -53,6 +58,8 @@ export type AttachedKit = {
     prevention: number[]
     // The damage it inflicts on the opposing minion each round
     environmental: number
+    // A dodge strike it gives its bearer once per combat
+    dodge: boolean
 }
 
 export type MinionProfile = {
@@ -67,6 +74,8 @@ export type MinionProfile = {
     title: string
     blood: number
     capacity: number
+    // What losing it costs, in counters: the capacity of a vampire, what an ally cost and does ( allyWorth )
+    worth: number
     disciplines: Partial<Disciplines>
     // Its own bleed ( crypt text included ): what an action of it bleeds, before any card
     bleed: number
@@ -97,6 +106,8 @@ export type MinionProfile = {
     // The same, card by card
     attachedKits: AttachedKit[]
     canEnterCombat: boolean
+    // An ally that can burn this much life to give a minion of its controller a press ( 0: it cannot )
+    pressBurn: number
 }
 
 function sum(effects: Effect[], pick: (effect: Effect) => number): number {
@@ -104,13 +115,28 @@ function sum(effects: Effect[], pick: (effect: Effect) => number): number {
 }
 
 function kitOf(card: Card): AttachedKit {
-    const effects = summarizeAttached(getAttachedEffects(card))
+    return kitFrom(
+        card.name,
+        summarizeAttached(getAttachedEffects(card)),
+        isRetainer(card),
+        isEquipment(card),
+        isRetainer(card) ? card.blood : 0,
+    )
+}
+
+function kitFrom(
+    name: string,
+    effects: Effect[],
+    retainer: boolean,
+    equipment: boolean,
+    life: number,
+): AttachedKit {
     return {
-        name: card.name,
-        retainer: isRetainer(card),
-        equipment: isEquipment(card),
+        name,
+        retainer,
+        equipment,
         burned: false,
-        life: isRetainer(card) ? card.blood : 0,
+        life,
         burnsEquipment: effects.some(effect => effect.type == 'burnEquipmentStrike'),
         strikes: effects.flatMap(effect =>
             effect.type == 'weaponStrike' ?
@@ -130,12 +156,38 @@ function kitOf(card: Card): AttachedKit {
         environmental: sum(effects, effect =>
             effect.type == 'environmentalDamage' ? effect.amount : 0,
         ),
+        dodge: effects.some(effect => effect.type == 'dodgeOnce'),
     }
+}
+
+function pressBurnOf(abilities: AllyAbility[]): number {
+    for (const ability of abilities) {
+        if (ability.activate == 'burnLifeForPress') {
+            return ability.life
+        }
+    }
+    return 0
+}
+
+// What an ally is worth: the counters it cost, at least one, and a counter for what it can do ( each ability, a kit of
+// its own ). Draft numbers
+function allyWorth(card: LibraryCard, abilities: number, kit: boolean): number {
+    const cost = resolveCost(card.poolCost) + resolveCost(card.bloodCost)
+    return Math.max(1, cost) + abilities + (kit ? 1 : 0)
+}
+
+function worthOf(minion: Minion, kitCards: Card[]): number {
+    if (minion.isVampire() || !(minion instanceof LibraryCard)) {
+        return minion.minionAttrs.capacity
+    }
+    return allyWorth(minion, getAllyAbilities(minion).length, kitCards.includes(minion))
 }
 
 export function profileMinion(minion: Minion): MinionProfile {
     const attachedCards = getAttachedCards(minion)
-    const attached = attachedCards.flatMap(card => summarizeAttached(getAttachedEffects(card)))
+    // An ally in play carries its own card as a kit ( its strikes, its intercept )
+    const kitCards = getKitCards(minion)
+    const attached = kitCards.flatMap(card => summarizeAttached(getAttachedEffects(card)))
     const crypt = summarizeCard(minion)?.cryptEffects ?? []
 
     const general =
@@ -175,6 +227,7 @@ export function profileMinion(minion: Minion): MinionProfile {
         title: minion.isVampire() ? minion.vampireAttrs.title : '',
         blood: minion.blood,
         capacity: minion.minionAttrs.capacity,
+        worth: worthOf(minion, kitCards),
         disciplines: minion.minionAttrs.disciplines,
         bleed: minion.minionAttrs.bleed + forcedBleed,
         hunt: minion.isVampire() ? minion.vampireAttrs.hunt : 0,
@@ -203,8 +256,9 @@ export function profileMinion(minion: Minion): MinionProfile {
         ),
         burnsInTorpor: attached.some(effect => effect.type == 'burnsInTorpor'),
         attached: attachedCards.map(card => card.name),
-        attachedKits: attachedCards.map(card => kitOf(card)),
+        attachedKits: kitCards.map(card => kitOf(card)),
         canEnterCombat: crypt.some(effect => effect.type == 'canEnterCombat'),
+        pressBurn: pressBurnOf(minion instanceof LibraryCard ? getAllyAbilities(minion) : []),
     }
 }
 
@@ -236,6 +290,7 @@ export function profileCryptId(
         title: crypt.title,
         blood: 0,
         capacity: crypt.capacity,
+        worth: crypt.capacity,
         disciplines: crypt.disciplines,
         bleed,
         hunt: DEFAULT_CARD_ATTRS.Hunt,
@@ -257,6 +312,58 @@ export function profileCryptId(
         attached: [],
         attachedKits: [],
         canEnterCombat: effects.some(effect => effect.type == 'canEnterCombat'),
+        pressBurn: 0,
+    }
+}
+
+// The ally of the hand as it would stand once recruited by this play: its life, its numbers of that version, its kit
+export function profileRecruit(
+    card: LibraryCard,
+    play: PlaySummary,
+    controller: PlayerOid,
+): MinionProfile {
+    const printed = parseAllyStats(card.text)
+    const version = play.recruit ?? {}
+    const kit = play.attached
+    const general = sum(kit, effect =>
+        effect.type == 'intercept' && !effect.bleedsOnly ? effect.amount : 0,
+    )
+    const bleedsOnly = sum(kit, effect =>
+        effect.type == 'intercept' && effect.bleedsOnly ? effect.amount : 0,
+    )
+    const own = kitFrom(card.name, kit, false, false, 0)
+    return {
+        oid: card.oid,
+        name: card.name,
+        controller,
+        state: 'unlocked',
+        isVampire: false,
+        clan: '',
+        sect: '',
+        title: '',
+        blood: version.life ?? printed.life,
+        capacity: ALLY_CAPACITY,
+        worth: allyWorth(card, play.allyAbilities.length, kit.length > 0),
+        disciplines: {},
+        bleed: version.bleed ?? printed.bleed,
+        hunt: 0,
+        bloodMove: 0,
+        strength:
+            (version.strength ?? printed.strength) +
+            sum(kit, effect => (effect.type == 'strength' ? effect.amount : 0)),
+        undirectedStealth: 0,
+        intercept: { general, directed: general, againstBleeds: general + bleedsOnly },
+        life: 0,
+        prevention: own.prevention,
+        weaponStrikes: own.strikes,
+        freeManeuver: own.strikes.some(strike => strike.maneuver),
+        environmentalDamage: own.environmental,
+        forbiddenPlays: [],
+        burnsInTorpor: false,
+        attached: [],
+        attachedKits: kit.length > 0 ? [own] : [],
+        canEnterCombat: false,
+        pressBurn: pressBurnOf(play.allyAbilities),
     }
 }
 

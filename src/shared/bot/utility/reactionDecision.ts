@@ -1,4 +1,6 @@
+import { ReactionCardEffect } from '@/shared/cardImpl/base.ts'
 import { getMinionIntercept } from '@/shared/cardImpl/catalog/attached.ts'
+import { LibraryCard, Minion } from '@/shared/model/Card.ts'
 import { getBlockingMinion } from '@/shared/state/actionState.ts'
 import { getCardTriggers } from '@/shared/state/triggers.ts'
 import { MinionActionType } from '@/shared/types/state.ts'
@@ -59,6 +61,28 @@ function pass(decision: DecisionPoint, note: string, candidates: ExplainCandidat
         decision.options.find(candidate => candidate.type == 'noReaction') ??
         decision.options.find(candidate => candidate.type == 'noBlock')
     return option ? { option, candidates, note } : null
+}
+
+// What burning the ally costs me: the worth it has in play, in pool, and the card
+function burnCostOf(assessment: Assessment, option: BotOptionOf<'burnAlly'>): number {
+    const { table, profile } = assessment
+    const ally = table.me.minions.find(minion => minion.oid == option.card.oid)
+    return profile.plan.spentCard + (ally?.worth ?? 0) * profile.plan.caution
+}
+
+// What it costs me that a woken ally stays locked at my next unlock phase: it is no blocker of the attacks to come.
+// A vampire, or a card with no such clause, costs nothing
+function missedUnlockCost(
+    context: BlockContext,
+    effect: ReactionCardEffect,
+    minion: Minion,
+    card: LibraryCard,
+): number {
+    if (effect.type != 'wake' || !effect.allyMissesUnlock || minion.isVampire()) {
+        return 0
+    }
+    const ally = context.assessment.table.me.minions.find(profile => profile.oid == minion.oid)
+    return ally ? unlockGainOf(context.assessment, context.owner, context.actor, ally, card) : 0
 }
 
 // The pool a bleed of this size takes from the Methuselah, at the weight it has for me
@@ -132,7 +156,12 @@ function judgeWindow(
         const cost = costOfCard(profile, card, usage.x)
         const value =
             (effect.type == 'wake' || effect.type == 'unlock') && minion.isLocked ?
-                valueOfBlockBy(context, minion, getMinionIntercept(minion), cost)
+                valueOfBlockBy(
+                    context,
+                    minion,
+                    getMinionIntercept(minion),
+                    cost + missedUnlockCost(context, effect, minion, card),
+                )
             : effect.type == 'unlockBlock' ?
                 valueOfBlockBy(
                     context,
@@ -143,6 +172,20 @@ function judgeWindow(
             :   null
         if (value) {
             candidates.push({ option, score: value.score, parts: value.parts })
+        }
+    }
+    for (const option of optionsOfType(decision.options, 'burnAlly')) {
+        const { effect, minion } = option
+        if (effect.type == 'unlockMinion' && minion) {
+            const value = valueOfBlockBy(
+                context,
+                minion,
+                getMinionIntercept(minion),
+                burnCostOf(assessment, option),
+            )
+            if (value) {
+                candidates.push({ option, score: value.score, parts: value.parts })
+            }
         }
     }
     const bounce = bounceEstimate(context, noBlock)
@@ -158,6 +201,7 @@ function judgeWindow(
     const notes: Partial<Record<BotOption['type'], string>> = {
         block: `block with ${best.option.type == 'block' ? best.option.minion.name : ''}`,
         playReaction: 'a card lets a minion block',
+        burnAlly: 'an ally is burned to let a minion block',
         noBlock: 'a bounce card is worth more than a block',
     }
     return {
@@ -234,10 +278,20 @@ function judgeBounce(decision: DecisionPoint, context: BlockContext): ReactionJu
         (option): BotOptionOf<'playReaction'>[] =>
             option.effect.type == 'changeTarget' ? [option] : [],
     )
-    if (bleed === null || bounces.length == 0) {
+    const cuts = optionsOfType(decision.options, 'burnAlly').flatMap(
+        (option): BotOptionOf<'burnAlly'>[] =>
+            option.effect.type == 'reduceBleed' ? [option] : [],
+    )
+    if (bleed === null || bounces.length + cuts.length == 0) {
         return null
     }
     const landed = landedCost(context)
+    const cut = cuts.map((option): Candidate => {
+        const amount = option.effect.type == 'reduceBleed' ? option.effect.amount : 0
+        const gain = landed - landedCost(context, amount)
+        const cost = burnCostOf(assessment, option)
+        return { option, score: gain - cost, parts: { landed, gain, cost } }
+    })
     const candidates: Candidate[] = bounces.flatMap(option => {
         const { effect, minion, card, usage } = option
         if (effect.type != 'changeTarget') {
@@ -256,10 +310,17 @@ function judgeBounce(decision: DecisionPoint, context: BlockContext): ReactionJu
         const cost = costOfCard(profile, card, usage.x)
         return [{ option, score: landed + gain - lock - cost, parts: { landed, gain, lock, cost } }]
     })
-    const ranked = candidates.toSorted(byScore)
+    const ranked = [...candidates, ...cut].toSorted(byScore)
     const best = ranked[0]
     if (best && best.score > profile.reaction.margin) {
-        return { option: best.option, candidates: ranked, note: 'the bleed is bounced' }
+        return {
+            option: best.option,
+            candidates: ranked,
+            note:
+                best.option.type == 'burnAlly' ?
+                    'an ally is burned to cut the bleed'
+                :   'the bleed is bounced',
+        }
     }
     return pass(decision, 'a bounce is not worth it', ranked)
 }

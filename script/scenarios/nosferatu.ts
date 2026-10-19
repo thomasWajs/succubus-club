@@ -12,6 +12,7 @@ import { UtilityAgent } from '@/shared/bot/agents/utilityAgent.ts'
 import { createCatalogBleed, passUntilDecides } from './catalog.ts'
 import { Scenario, ScenarioFailure, createdGames, expectEqual, readySpecific } from './helpers.ts'
 import {
+    ATIENA_ID,
     CARRION_CROWS_ID,
     CATS_GUIDANCE_ID,
     DOWAGER_ID,
@@ -162,6 +163,7 @@ export const NOSFERATU_SCENARIOS: Scenario[] = [
                 discipline: Discipline.Presence,
                 level: DisciplineLevel.SUPERIOR,
                 cards: [CARRION_CROWS_ID],
+                bleederId: ATIENA_ID,
             })
             expectEqual(
                 optionsOfType(larissaDecision(other).options, 'discardForBleed').length,
