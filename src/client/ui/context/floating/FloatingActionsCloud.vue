@@ -58,10 +58,14 @@ const CARD_ACTION_HEIGHT = 45
 const ENGINE_ACTION_HEIGHT = 26
 
 const focusedCard = computed(() => {
+    if (gameBus.contextMenu.show || gameBus.declaringTargetOrigin || gameBus.dragAttrs) {
+        return
+    }
+    // With the rules engine : a minion it offers an action, whoever's turn it is ( Enkil Cog )
+    if (gameState.gameType == GameType.Engine && primedMinion.value) {
+        return primedMinion.value
+    }
     if (
-        gameBus.contextMenu.show ||
-        gameBus.declaringTargetOrigin ||
-        gameBus.dragAttrs ||
         gameState.action ||
         gameState.combat ||
         gameState.referendum ||
@@ -103,8 +107,10 @@ function readyToCallReferendum(card: Card): boolean {
 
 // Every ready minion of our own can attempt to block the ongoing action, no
 // selection needed, when we are an eligible blocker. This is distinct from
-// focusedCard, which only lives on our own turn with nothing in progress : a
-// block happens during another player's action, so it has its own gating.
+// focusedCard, which only lives on our own turn with nothing in progress ( with
+// the rules engine : wherever it offers the minion an action, Enkil Cog on
+// another's turn ) : a block happens during another player's action, so it has
+// its own gating.
 const blockingMinions = computed<Minion[]>(() => {
     const selfPlayer = players.selfPlayer
     // With the rules engine : the minions it offers a block with
