@@ -401,6 +401,7 @@ import { useCardTexture } from '@/client/game/composables/useCardTexture.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
 import { engineClaims, engineGlow, engineHighlight } from '@/client/engine/interaction.ts'
 import { useEngineStore } from '@/client/store/engine.ts'
+import { restoreAround } from '@/client/engine/stacks.ts'
 import type { ChipKind, EngineChip } from '@/client/engine/labels.ts'
 import Pointer = Phaser.Input.Pointer
 
@@ -835,6 +836,12 @@ function onPointerOver() {
 
 function onPointerOut() {
     outlineOut()
+
+    // Engine games : raised while hovered only, the stacks back in order
+    if (gameState.gameType == GameType.Engine) {
+        restoreAround(card)
+        return
+    }
 
     const overlappingCards = getOverlappingCards(card)
     // When not overing, always keep minions on top of other cards

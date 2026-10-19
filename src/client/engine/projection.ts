@@ -21,8 +21,22 @@ import { AnyCardRegion, CardOid, PlayerOid } from '@/shared/types/model.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
 import { generateCardOid } from '@/shared/state/ids.ts'
 import { DisciplineCode, DisciplineLevel, TurnPhase, TurnSequence } from '@/shared/const/model.ts'
-import { GRID_SIZE, TORPOR_ZONE_Y } from '@/shared/const/game.ts'
-import { findFreePlayPosition, getCardRectangle, getCardRectangleAt } from '@/client/game/utils.ts'
+import {
+    CARD_HEIGHT,
+    CARD_WIDTH,
+    GRID_SIZE,
+    PLAY_AREA_WIDTH,
+    PLAYER_BAR_HEIGHT,
+    TORPOR_ZONE_Y,
+} from '@/shared/const/game.ts'
+import {
+    findFreePlayPosition,
+    getCardRectangle,
+    getCardRectangleAt,
+    getCardScale,
+} from '@/client/game/utils.ts'
+import { RegionCategory } from '@/client/game/types.ts'
+import { restoreStack } from '@/client/engine/stacks.ts'
 import { createReferendumState } from '@/shared/state/referendumState.ts'
 import {
     BlockingDecision,
@@ -35,7 +49,6 @@ import {
 } from '@/shared/types/state.ts'
 import { useEngineStore } from '@/client/store/engine.ts'
 import { type EngineChip, minionMarkers } from '@/client/engine/labels.ts'
-import { useGameBusStore } from '@/client/store/bus.ts'
 import { nextTick } from 'vue'
 import Phaser from 'phaser'
 import type {
@@ -50,15 +63,22 @@ import type {
     Target,
 } from '@/client/engine/api.ts'
 
-// Where new cards land in the ready region : minions on a bottom row,
-// the other cards in play on a top row, the cards being played in the middle.
-const MINION_ROW_Y = 22 * GRID_SIZE
-const IN_PLAY_ROW_Y = 1 * GRID_SIZE
+// Where new cards land in the ready region, in three rows : the cards in play on no minion
+// on the top one ( below the player's bar and its pool ), the minions on the bottom one,
+// the middle one for more of both ( the minions from the left, the others from the
+// right ). The cards being played in the middle.
+const ROW_MARGIN = GRID_SIZE / 2
+const COLUMN_GAP = 4
 const LIMBO_ROW_Y = 10 * GRID_SIZE
 const CARD_SPACING_X = 9 * GRID_SIZE
-// A card on a minion peeks out from under it, below and to the right
-const ATTACHED_OFFSET_X = 2 * GRID_SIZE
-const ATTACHED_OFFSET_Y = 3 * GRID_SIZE
+// A card on another rises above it, its name strip ( the card image's top 60 / 500 ) showing
+const TITLE_RATIO = 60 / CARD_HEIGHT
+
+enum Row {
+    Top,
+    Middle,
+    Bottom,
+}
 
 const PHASES: Record<Phase, TurnPhase | null> = {
     unlock: TurnPhase.Unlock,
@@ -277,6 +297,15 @@ export class Projection {
         useEngineStore().limbo = [...placements]
             .filter(([, placement]) => placement.spot == Spot.Limbo)
             .flatMap(([copy]) => this.card(copy)?.oid ?? [])
+        const stacks: Record<CardOid, CardOid[]> = {}
+        for (const [copy, placement] of placements) {
+            const host = this.card(placement.host)
+            const card = this.card(copy)
+            if (placement.spot == Spot.Attached && host && card) {
+                ;(stacks[host.oid] ??= []).push(card.oid)
+            }
+        }
+        useEngineStore().stacks = stacks
         useEngineStore().chips = Object.fromEntries(
             [...placements].flatMap(([copy, placement]) => {
                 const oid = this.card(copy)?.oid
@@ -617,7 +646,12 @@ export class Projection {
             const to = placement.region
             const host = this.card(placement.host)
             // Just created ( placed already ) or moved below
-            if (placement.spot == Spot.Attached && host && before != spot) {
+            // A stack moved whole ( its bearer to torpor and back ) is remounted : put in order again
+            if (
+                placement.spot == Spot.Attached &&
+                host &&
+                (before != spot || card.region.oid != to.oid)
+            ) {
                 hosts.add(host.oid)
             }
             if (card.region.oid == to.oid) {
@@ -646,10 +680,7 @@ export class Projection {
         }
         // The hosts over the cards on them, once those are on the table
         if (hosts.size) {
-            void nextTick(() => {
-                const gameBus = useGameBusStore()
-                hosts.forEach(oid => gameBus.cardsInGame[oid]?.bringToTop())
-            })
+            void nextTick(() => hosts.forEach(restoreStack))
         }
     }
 
@@ -678,20 +709,30 @@ export class Projection {
             case Spot.Attached: {
                 const host = this.card(placement.host)
                 if (host && host.region.oid == region.oid) {
-                    return {
-                        x: host.x + ATTACHED_OFFSET_X * (rank + 1),
-                        y: host.y + ATTACHED_OFFSET_Y,
-                    }
+                    return this.stackPosition(card, placement, host)
                 }
-                return findFreePlayPosition(region, card, start, IN_PLAY_ROW_Y)
+                return rowPosition(card, region, [Row.Top, Row.Middle], true)
             }
             case Spot.Minion:
-                return findFreePlayPosition(region, card, start, MINION_ROW_Y)
+                return rowPosition(card, region, [Row.Bottom, Row.Middle], false)
             case Spot.Limbo:
                 return findFreePlayPosition(region, card, 24 * GRID_SIZE, LIMBO_ROW_Y)
             default:
-                return findFreePlayPosition(region, card, start, IN_PLAY_ROW_Y)
+                return rowPosition(card, region, [Row.Top, Row.Middle], true)
         }
+    }
+
+    // One name strip above the highest card already on the host, the first nearest it
+    private stackPosition(card: Card, placement: Placement, host: Card): { x: number; y: number } {
+        const title = CARD_HEIGHT * getCardScale(RegionCategory.Table, host.region) * TITLE_RATIO
+        const levels = [...this.placements]
+            .filter(([, other]) => other.host == placement.host)
+            .flatMap(([copy]) => this.card(copy) ?? [])
+            .filter(other => other.oid != card.oid && other.region.oid == host.region.oid)
+            // Those the user moved elsewhere don't count
+            .filter(other => other.x == host.x && other.y < host.y)
+            .map(other => other.y)
+        return { x: host.x, y: Math.min(host.y, ...levels) - title }
     }
 
     private setProperties(placements: Map<number, Placement>) {
@@ -985,4 +1026,49 @@ export function disciplineUses(mode: Mode | null | undefined): DisciplineUse[] {
             discipline: DisciplineCode[d.discipline],
             level: d.superior ? DisciplineLevel.SUPERIOR : DisciplineLevel.INFERIOR,
         }))
+}
+
+// The rows of a seat's ready region, for cards of its scale : under the player's bar,
+// above its separator, and halfway
+function rows(region: AnyCardRegion, cardHeight: number): Record<Row, number> {
+    const top = PLAYER_BAR_HEIGHT + ROW_MARGIN
+    const separatorY = region.owner?.separators.horizontalY ?? TORPOR_ZONE_Y
+    const bottom = Math.max(top, separatorY - ROW_MARGIN - cardHeight)
+    return { [Row.Top]: top, [Row.Middle]: (top + bottom) / 2, [Row.Bottom]: bottom }
+}
+
+// The first free slot of the rows, in order, from the left ( from the right on the middle row
+// for the cards in play on no minion ). Past them, the nearest spot free enough.
+function rowPosition(
+    card: Card,
+    region: AnyCardRegion,
+    order: Row[],
+    fromRight: boolean,
+): { x: number; y: number } {
+    const scale = getCardScale(RegionCategory.Table, region)
+    const width = CARD_WIDTH * scale
+    const area = width * CARD_HEIGHT * scale
+    const ys = rows(region, CARD_HEIGHT * scale)
+    // A slot holds the card locked ( turned from its top left corner, as wide as it is tall )
+    const height = CARD_HEIGHT * scale
+    const step = Math.ceil(height) + COLUMN_GAP
+    const slots = Math.max(1, Math.floor((PLAY_AREA_WIDTH - GRID_SIZE - height) / step) + 1)
+    const others = region.cards.filter(c => c.oid != card.oid).map(getCardRectangle)
+    for (const row of order) {
+        for (let i = 0; i < slots; i++) {
+            const slot = row == Row.Middle && fromRight ? slots - 1 - i : i
+            const x = GRID_SIZE + slot * step
+            const rect = getCardRectangleAt(region, x, ys[row])
+            // Rows touch : a shared edge is no overlap
+            const free = others.every(
+                other =>
+                    Phaser.Geom.Rectangle.Area(Phaser.Geom.Rectangle.Intersection(rect, other)) <
+                    area / 100,
+            )
+            if (free) {
+                return { x, y: ys[row] }
+            }
+        }
+    }
+    return findFreePlayPosition(region, card, GRID_SIZE, ys[order[0]])
 }

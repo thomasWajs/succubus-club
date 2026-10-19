@@ -74,6 +74,8 @@ export const useEngineStore = defineStore('engine', {
         // A minion's counted markers ( hostage, nightmare, torture, a lasting effect's counters ),
         // by oid : round chips on it, the count on them ( see minionMarkers )
         chips: {} as Record<string, EngineChip[]>,
+        // The cards on a card in play, by its oid : their oids ( see engine/stacks.ts )
+        stacks: {} as Record<string, string[]>,
         // During a bleed, its amount ( the engine's, a card's bleed too )
         bleed: null as number | null,
         // During an influence phase, the active seat's transfers left
