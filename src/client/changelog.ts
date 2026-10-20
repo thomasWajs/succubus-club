@@ -2,14 +2,11 @@ import { CURRENT_VERSION } from '@/shared/version.mjs'
 
 export const latestChangelog = {
     version: CURRENT_VERSION,
-    date: '2026-10-02',
+    date: '2026-10-20',
     features: [
-        "Everything's stable enough to leave beta status !",
-        'SCS: Prevent looking at an ousted player cards',
-        'Change card depth behaviour',
+        'In SCS, give control of a stack to another player ( 👉 Shroud of Decay )',
+        'Shuffle a subset of stacks ( 👉 Anatole, Prophet of Gehenna )',
+        'Always re-import a stored deck to avoid stale deck lists.',
     ],
-    bugfixes: [
-        'Improve roles & game rooms stability in the Lobby',
-        'Add scrollbar in the lobby chat within a game room',
-    ],
+    bugfixes: ['Retry card images that fail to load', 'Detection of multiple-type cards'],
 }
