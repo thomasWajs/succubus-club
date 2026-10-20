@@ -95,11 +95,20 @@ export function createHumanTable(
     return { gameState, human, others, acting, blockers, card }
 }
 
-export function humanDeclares(table: HumanTable, minionAction: MinionAction): void {
+export function declareOnly(table: HumanTable, minionAction: MinionAction): void {
     must(
         gameMutations.ACTION_declareAction.act(table.human, { minionAction }),
         `human ${minionAction.type}`,
     )
+}
+
+// The human declares, then presses "Pass impulse" once their modifier window is over. An action card
+// is not complete at declaration: it waits for its own "Declare" button.
+export function humanDeclares(table: HumanTable, minionAction: MinionAction): void {
+    declareOnly(table, minionAction)
+    if (table.gameState.action?.declared) {
+        decideWith(table.gameState, table.human, 'noModifier')
+    }
 }
 
 // The bot declines to block, which gives the impulse back to the human, who passes it again: the bot
@@ -118,6 +127,18 @@ function inTorpor(gameState: GameState, vampire: Vampire, blood: number): void {
 
 export const HUMAN_ACTION_SCENARIOS: Scenario[] = [
     {
+        name: 'a human action keeps the impulse after its declaration, the bot prey gets it when the human passes',
+        run() {
+            const table = createHumanTable(3)
+            const prey = table.others[0]
+            declareOnly(table, createHuntAction(table.acting))
+            expectEqual(table.gameState.action?.declared, true, 'a hunt is complete')
+            expectEqual(getDecidingPlayer(table.gameState), table.human, 'the human keeps it')
+            decideWith(table.gameState, table.human, 'noModifier')
+            expectEqual(getDecidingPlayer(table.gameState), prey, 'the prey decides')
+        },
+    },
+    {
         name: 'a human bleed hands the impulse to the bot prey as soon as it is declared',
         run() {
             const table = createHumanTable(3)
@@ -132,10 +153,22 @@ export const HUMAN_ACTION_SCENARIOS: Scenario[] = [
             const [prey, predator] = table.others
             humanDeclares(table, createHuntAction(table.acting))
             expectEqual(getDecidingPlayer(table.gameState), prey, 'the prey decides first')
-            // Its vampire does not intercept enough: the prey passes without a block
-            table.blockers[0].minionAttrs.intercept = 0
-            botPassesBothWindows(table, prey, new GovernAgent())
-            expectEqual(getDecidingPlayer(table.gameState), predator, 'the predator decides')
+            // Their vampires do not intercept enough: both pass without a block
+            for (const blocker of table.blockers) {
+                blocker.minionAttrs.intercept = 0
+            }
+            const agent = new GovernAgent()
+            expectEqual(stepBot(prey, agent)?.option.type, 'noBlock', 'the prey declines to block')
+            expectEqual(getDecidingPlayer(table.gameState), predator, 'the predator decides next')
+            expectEqual(stepBot(predator, agent)?.option.type, 'noBlock', 'the predator declines')
+            expectEqual(
+                getDecidingPlayer(table.gameState),
+                table.human,
+                'the human may play modifiers',
+            )
+            decideWith(table.gameState, table.human, 'noModifier')
+            expectEqual(stepBot(prey, agent)?.option.type, 'noReaction', 'the prey passes')
+            expectEqual(getDecidingPlayer(table.gameState), predator, 'the predator passes last')
         },
     },
     {
@@ -249,7 +282,7 @@ export const HUMAN_ACTION_SCENARIOS: Scenario[] = [
         run() {
             const table = createHumanTable(2)
             table.human.permId = 'Bot1'
-            humanDeclares(table, createBleedAction(table.acting, table.others[0]))
+            declareOnly(table, createBleedAction(table.acting, table.others[0]))
             expectEqual(getDecidingPlayer(table.gameState), table.human, 'the bleeder decides')
         },
     },

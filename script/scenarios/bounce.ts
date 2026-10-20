@@ -133,6 +133,11 @@ export function declineBlock(bounce: Bounce): DecisionPoint {
         'reaction offered before the block was declined',
     )
     applyOption(first, findOption(first.options, 'noBlock'))
+    // On an undirected action the predator decides its block before the acting player has the impulse back
+    const next = getDecidingPlayer(gameState)
+    if (next && next != bleeder) {
+        decideWith(gameState, next, 'noBlock')
+    }
     decideWith(gameState, bleeder, 'noModifier')
 
     const decision = getDecisionPoint(gameState, bled)

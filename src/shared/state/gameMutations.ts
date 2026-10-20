@@ -44,8 +44,7 @@ import {
     createActionState,
     endAction,
     getBlockingMinion,
-    humanActsOnBot,
-    passImpulse,
+    passImpulseAfterNoBlock,
     regainImpulse,
 } from '@/shared/state/actionState.ts'
 import { syncAttachedCards } from '@/shared/state/attachments.ts'
@@ -1695,10 +1694,6 @@ class DeclareAction extends GameMutation<DeclareActionParams> {
         ]
         gameState.action = createActionState(this.params.minionAction)
         actions.declare(this.params.minionAction)
-        // A bot may react (block) as soon as it knows everything about the action
-        if (gameState.action.declared && humanActsOnBot(this.params.minionAction)) {
-            passImpulse(gameState)
-        }
     }
 
     formatForLog() {
@@ -1891,7 +1886,11 @@ class DeclareBlock extends GameMutation<DeclareBlockParams> {
             gameState.action.intercept = 0
         }
 
-        regainImpulse(gameState)
+        if (block === NO_BLOCK && !getBlockingMinion(gameState)) {
+            passImpulseAfterNoBlock(gameState, blockingPLayer)
+        } else {
+            regainImpulse(gameState)
+        }
     }
 
     formatForLog() {

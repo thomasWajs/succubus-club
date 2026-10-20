@@ -241,6 +241,24 @@ export function regainImpulse(gameState: GameState): void {
     action.reactionsPassed = false
 }
 
+// A "no block" settles the block of that Methuselah only: the next one to react (the predator after the
+// prey of an undirected action) decides its own block before the acting player gets the impulse back
+export function passImpulseAfterNoBlock(gameState: GameState, decliner: Player): void {
+    const action = gameState.action
+    if (!action) return
+
+    const reactors = getReactingPlayers(action.minionAction)
+    const next = reactors
+        .slice(reactors.indexOf(decliner) + 1)
+        .find(player => !action.blockingDecisions.some(decision => decision.player == player))
+    if (reactors.includes(decliner) && next) {
+        action.impulsePlayer = next
+        action.reactionsPassed = false
+    } else {
+        regainImpulse(gameState)
+    }
+}
+
 // We don't handle cards ignoring normal impulse rules, like eagle's sight
 export function passImpulse(gameState: GameState): void {
     if (!gameState.action) return

@@ -324,9 +324,8 @@ function payActionCost() {
 
 const botDisplay = computed(() => props.action.minionAction.actingMinion.controller.isBot)
 
-// The bot only reacts once it holds the impulse. A built-in action hands it over when declared ;
-// afterwards the human passes it by hand ( after playing their modifiers ), and gets it back
-// whenever the bot did something.
+// The bot only reacts once it holds the impulse. The human passes it by hand after declaring
+// ( once their modifiers are played ), and gets it back whenever the bot did something.
 const humanActsOnBotAction = computed(
     () =>
         props.action.minionAction.actingMinion.controller == players.selfPlayer &&
