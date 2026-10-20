@@ -26,7 +26,7 @@ import {
 } from '@/shared/types/multiplayer.ts'
 import { ClientId, ConnectionInfo } from './types.ts'
 import { generateClientId } from '@/shared/state/ids.ts'
-import { getUser, handleSetUser, removeUser } from './users.ts'
+import { getUser, getUserConnection, handleSetUser, removeUser } from './users.ts'
 import { captureException } from './capture.ts'
 import logger from './logger.ts'
 import { cleanupOldGames } from './persistence.ts'
@@ -171,7 +171,7 @@ wsServer.on('connection', (webSocket: WebSocket, request) => {
                         setUserTimeout = null
                     }
 
-                    await handleSetUser(connection, message)
+                    disposeReplacedConnection(await handleSetUser(connection, message))
 
                     // A cron-job could call the cleanup periodically.
                     // For now, just clean on every user connection.
@@ -292,12 +292,30 @@ function startHeartbeat() {
 }
 
 /**
+ * Drop a stale connection whose user reconnected from elsewhere.
+ * Its room membership is released now, so its late 'close' event cannot affect the new connection.
+ */
+function disposeReplacedConnection(oldConnection: ConnectionInfo | undefined) {
+    if (!oldConnection) {
+        return
+    }
+    logger.info(`Replacing stale connection ${oldConnection.clientId}`)
+    leaveRoom(oldConnection)
+    oldConnection.roomId = null
+    oldConnection.permId = ''
+    try {
+        oldConnection.webSocket.close(4000, 'Replaced by a new connection')
+    } catch {}
+}
+
+/**
  * Handle player disconnection
  */
 export function handleDisconnect(connection: ConnectionInfo) {
     const user = getUser(connection.permId)
     leaveRoom(connection)
-    if (user) {
+    // A newer connection may have replaced this one under the same permId: leave it alone.
+    if (user && getUserConnection(user.permId) === connection) {
         removeUser(user.permId)
     }
     logger.info(`Player ${user?.name} disconnected`)

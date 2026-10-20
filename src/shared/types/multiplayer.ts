@@ -324,6 +324,7 @@ export type SetUserMessage = {
     permId: PermanentId
     name: string
     isReady: boolean
+    secret: string // Private to the client, proves ownership of the permId
 }
 
 export type ScsDeckMessage = DeckMessage & {

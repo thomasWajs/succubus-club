@@ -72,12 +72,13 @@ export function initSentryPiniaPlugin(pinia: Pinia) {
                 >
                 const history = transformedState.history as ReturnType<typeof useHistoryStore>
 
-                if (core.userProfile?.avatar) {
+                if (core.userProfile) {
                     transformedState.core = {
                         ...core,
                         userProfile: {
                             ...core.userProfile,
-                            avatar: '[stripped]',
+                            avatar: core.userProfile.avatar ? '[stripped]' : null,
+                            secret: '[stripped]',
                         },
                     }
                 }

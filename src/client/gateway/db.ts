@@ -48,6 +48,7 @@ export type UserPreferences = {
 export class DbUserProfile extends Entity<SuccubusDb> {
     id: number
     permanentId: PermanentId
+    secret?: string // Never shared with peers, proves to SCS that we own the permanentId
     playerName: string
     avatar: string | null
     avatarFirebaseId: AvatarId | null
@@ -61,6 +62,7 @@ export class DbUserProfile extends Entity<SuccubusDb> {
         if (!userProfile) {
             db.userProfile.add({
                 permanentId: crypto.randomUUID(),
+                secret: crypto.randomUUID() + crypto.randomUUID(),
                 playerName: DEFAULT_PLAYER_NAME,
                 avatar: null,
                 avatarFirebaseId: null,
@@ -75,6 +77,12 @@ export class DbUserProfile extends Entity<SuccubusDb> {
             if (!userProfile) {
                 throw new Error('Failed to create or retrieve user profile')
             }
+        }
+
+        // Profiles created before the secret existed get one now
+        if (!userProfile.secret) {
+            userProfile.secret = crypto.randomUUID() + crypto.randomUUID()
+            await db.userProfile.put(toRaw(userProfile))
         }
 
         // Set the Sentry User

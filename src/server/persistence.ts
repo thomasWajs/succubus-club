@@ -42,6 +42,7 @@ type RoomRow = {
 const ONE_HOUR = 60 * 60 * 1000
 const ONE_DAY = 24 * ONE_HOUR
 const TWO_WEEKS = 14 * ONE_DAY
+const USER_SECRET_TTL = ONE_DAY
 
 /**
  * Initialize SQLite database (single, long-lived connection)
@@ -82,6 +83,12 @@ export function cleanupOldGames() {
         if (deletedBans.changes > 0) {
             logger.info(`Cleaned up ${deletedBans.changes} expired bans`)
         }
+
+        const deleteStaleSecrets = db.prepare('DELETE FROM user_secrets WHERE lastSeen < ?')
+        const deletedSecrets = deleteStaleSecrets.run(Date.now() - USER_SECRET_TTL)
+        if (deletedSecrets.changes > 0) {
+            logger.info(`Cleaned up ${deletedSecrets.changes} stale user secrets`)
+        }
     } catch (error) {
         captureException(error)
     }
@@ -113,6 +120,14 @@ export function initTables() {
         CREATE TABLE IF NOT EXISTS bans (
             ip TEXT PRIMARY KEY,
             bannedUntil INTEGER NOT NULL
+        )
+    `)
+
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS user_secrets (
+            permId TEXT PRIMARY KEY,
+            secretHash TEXT NOT NULL,
+            lastSeen INTEGER NOT NULL DEFAULT 0
         )
     `)
 
@@ -288,6 +303,43 @@ export function loadActiveBans(): BanRecord[] {
     } catch (error) {
         captureException(error)
         return []
+    }
+}
+
+/**
+ * User secret persistence (hex SHA-256 of the secret, never the secret itself)
+ */
+
+export function loadUserSecretHash(permId: string): string | undefined {
+    try {
+        const stmt = db.prepare('SELECT secretHash FROM user_secrets WHERE permId = ?')
+        const row = stmt.get(permId) as { secretHash: string } | undefined
+        return row?.secretHash
+    } catch (error) {
+        captureException(error)
+        return undefined
+    }
+}
+
+/**
+ * Store the hash for a permId. Never overwrites an existing one.
+ */
+export function saveUserSecretHash(permId: string, secretHash: string): void {
+    try {
+        const stmt = db.prepare(
+            'INSERT OR IGNORE INTO user_secrets (permId, secretHash, lastSeen) VALUES (?, ?, ?)',
+        )
+        stmt.run(permId, secretHash, Date.now())
+    } catch (error) {
+        captureException(error)
+    }
+}
+
+export function touchUserSecret(permId: string): void {
+    try {
+        db.prepare('UPDATE user_secrets SET lastSeen = ? WHERE permId = ?').run(Date.now(), permId)
+    } catch (error) {
+        captureException(error)
     }
 }
 

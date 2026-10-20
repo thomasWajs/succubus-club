@@ -145,6 +145,7 @@ export const scsCommunication: ScsCommunication = {
             permId: multiplayer.selfUser.permId,
             name: multiplayer.selfUser.name,
             isReady: multiplayer.selfUser.isReady,
+            secret: useCoreStore().userProfile.secret ?? '',
         })
     },
 
