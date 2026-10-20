@@ -163,10 +163,11 @@ export const EVENT_SCENARIOS: Scenario[] = [
                 applyOption(next, pass)
             }
             expectEqual(getBlockingMinion(gameState), null, 'the failed block is resolved')
+            expectEqual(getDecidingPlayer(gameState), game.bled, 'the window reopens for the bled')
             // No block attempt stands: the stealth is not needed, the card is not offered
             const idle = getDecisionPoint(gameState, bleeder)
             expectEqual(
-                idle ? modifierOptionsOf(idle, FACELESS_NIGHT_ID).length : -1,
+                idle ? modifierOptionsOf(idle, FACELESS_NIGHT_ID).length : 0,
                 0,
                 'not offered after the failed block',
             )

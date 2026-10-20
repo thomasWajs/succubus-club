@@ -370,7 +370,9 @@ export const HUMAN_ACTION_SCENARIOS: Scenario[] = [
             }
             table.gameState.action.stealth = 2
             decideWith(table.gameState, table.human, 'noModifier')
-            stepBot(prey, agent)
+            expectEqual(stepBot(prey, agent)?.option.type, 'noReaction', 'the bot passes')
+            expectEqual(getDecidingPlayer(table.gameState), prey, 'the window reopens for the bot')
+            expectEqual(stepBot(prey, agent)?.option.type, 'noBlock', 'the bot declines to block')
             expectEqual(table.gameState.combat, null, 'no combat')
             expectEqual(table.gameState.action !== null, true, 'the human ends the action')
             expectEqual(getDecidingPlayer(table.gameState), table.human, 'the human decides')

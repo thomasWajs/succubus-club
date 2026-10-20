@@ -1033,7 +1033,7 @@ export class ResolveBlock extends GameMutation<EmptyParams> {
         else {
             this.previousState.isBlockSuccessful = false
             action.blockingDecisions = []
-            action.impulsePlayer = gameState.activePlayer
+            action.impulsePlayer = blockingMinion.controller
             action.intercept = 0
             emitEvent(gameState, {
                 type: 'blockFailed',
