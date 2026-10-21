@@ -1,6 +1,6 @@
 /**
  * Setup of a game played with the rules engine ( GameType.Engine ) :
- * the user against bots, the counterpart of setupTrainGame().
+ * the user against bots.
  */
 
 import { useCoreStore } from '@/client/store/core.ts'

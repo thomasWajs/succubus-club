@@ -38,8 +38,6 @@ export default [
         ignores: [
             // Exclude vite config files from type-aware linting
             'vite/**/*.ts',
-            // Temporarily exclude server from linting
-            'src/server/**/*.ts',
         ],
         languageOptions: {
             parser: vueParser,
@@ -123,12 +121,7 @@ export default [
     // Separate configuration for TypeScript files (non-Vue)
     {
         files: ['**/*.{ts,tsx}'],
-        ignores: [
-            'vite/**/*.ts',
-            '**/*.vue',
-            // Temporarily exclude server from linting
-            'src/server/**/*.ts',
-        ],
+        ignores: ['vite/**/*.ts', '**/*.vue'],
         languageOptions: {
             parser: typescriptParser,
             parserOptions: {
@@ -172,27 +165,6 @@ export default [
 
             // Allow empty object patterns for unused arguments
             'no-empty-pattern': 'off',
-
-            'import/group-exports': 'off',
-        },
-    },
-    // Configuration for API files (Node.js/server-side)
-    {
-        files: ['api/**/*.js', 'api/**/*.mjs', 'api/**/*.ts'],
-        languageOptions: {
-            ecmaVersion: 2023,
-            sourceType: 'module',
-            globals: globals.node,
-        },
-        rules: {
-            // Disable indentation rules
-            indent: 'off',
-
-            // Allow console usage in API files
-            'no-console': 'off',
-            'no-undef': 'error',
-            'prefer-const': 'error',
-            'no-var': 'error',
 
             'import/group-exports': 'off',
         },

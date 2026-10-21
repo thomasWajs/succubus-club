@@ -308,8 +308,7 @@ import { useBusStore } from '@/client/store/bus.ts'
 import { useCoreStore } from '@/client/store/core.ts'
 import { computed, ref } from 'vue'
 import UserAvatar from '@/client/ui/components/UserAvatar.vue'
-import { storeAvatar } from '@/client/gateway/user.ts'
-import { DbUserProfile, UserPreferences, WorldAlignment } from '@/client/gateway/db.ts'
+import { UserPreferences, WorldAlignment } from '@/client/gateway/db.ts'
 import { updateCommands, useCommands } from '@/client/game/composables/useCommands.ts'
 import { setupKeyboardHandlers } from '@/client/game/input.ts'
 import {
@@ -397,7 +396,6 @@ function handleFileUpload(event: Event) {
                     // Convert to data URL with good quality
                     core.userProfile.avatar = canvas.toDataURL('image/jpeg', 0.85)
                     await core.userProfile.save()
-                    await storeAvatar(core.userProfile as DbUserProfile)
                 }
             }
             img.src = e.target?.result as string

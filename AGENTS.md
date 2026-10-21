@@ -7,39 +7,36 @@ It covers project structure, coding standards, and commands for linting.
 
 ## 1. Project Overview
 Succubus Club is a TCG (Trading Card Game) web platform for playing V:TES in a browser.
-Multiplayer connection can be made either directly between clients through ably (Ably mode),
-or with an authoritative central server ("Succubus Club Server" ==> SCS mode).
+This is its bots-only edition: one player against bots, every game run by the zero-vtes
+rules engine on its server (`VITE_ENGINE_SERVER`, default `https://engine.krcg.org`), which
+the client reads through the engine's protocol only (`src/client/engine/`). Decks and
+preferences stay in the browser (IndexedDB).
 
 - **Root**: Configuration files (Vite, ESLint, TypeScript).
 - **src/client**: Browser client: Vue 3 + Phaser 3 + Phavuer game.
-- **src/server**: Server for SCS Mode: Node.js + WebSocket game server (using `ws`).
-- **src/shared**: Shared logic, models, and constants used by both client and server.
+- **src/shared**: Game logic, models, and constants.
 
 ## 2. Architecture & Data Flow
 
 ### Game State & Mutations (`src/shared/state`)
 - `gameState.ts` holds the authoritative game state. NEVER mutate it directly.
 - All state changes go through `GameMutation` subclasses in `gameMutations.ts`. Trigger them via the mutation trigger registry (`getMutationTrigger().act(...)` / `.actSelf(...)` from `@/shared/registries.ts`), never by writing to state fields.
-- `src/shared` must stay environment-agnostic (it runs on both client and server). It reaches the outside world only through the registries in `registries.ts` (logger, game resources, game state, mutation trigger), which the client and server each register at startup.
+- `src/shared` stays environment-agnostic. It reaches the outside world only through the registries in `registries.ts` (logger, game resources, game state, mutation trigger), which the client registers at startup.
+- In an engine game the table changes only through the engine: the user's moves are read as decisions (`src/client/engine/gestures.ts`), and the engine's answers are projected onto the table as mutations (`src/client/engine/driver.ts`).
 
 ### Client State Layer
-- `src/client/state/` adapts the shared state for the browser (e.g. `applyMutationLocally` in `gameMutations.ts`, `setup.ts`).
-- `src/client/store/` holds the reactive Pinia stores (`gameState.ts`, `history.ts`, `multiplayer.ts`, `core.ts`, `bus.ts`). Read reactive state from the stores, but change game state through mutations, not by writing to stores directly.
-
-### Multiplayer (`src/client/multiplayer`)
-- Two interchangeable transports implement the `Communication` interface (`communication/index.ts`):
-  - `communication/ably.ts` — Ably mode: peer-to-peer between clients, with client-side `encryption.ts`.
-  - `communication/scs.ts` — SCS mode: authoritative "Succubus Club Server" (`src/server`).
-- `sync.ts` broadcasts/receives `GameMutation`s and keeps clients consistent (vector/Lamport clocks, resync). Gameplay code should emit mutations and let this layer handle transport, not talk to Ably/SCS directly.
+- `src/client/state/` adapts the shared state for the browser (e.g. `dispatchMutation` in `gameMutations.ts`, `setup.ts`).
+- `src/client/store/` holds the reactive Pinia stores (`gameState.ts`, `history.ts`, `engine.ts`, `core.ts`, `bus.ts`). Read reactive state from the stores, but change game state through mutations, not by writing to stores directly.
 
 ### Client Layout (`src/client`)
 - `game/scenes/` — Phaser scenes (`Tabletop.vue`, `Preloader.vue`).
 - `game/objects/` — Phavuer game objects on the tabletop (`CardGO.vue`, `RegionGO.vue`, ...).
 - `ui/components/` — reusable UI components (modals, bars, avatars).
-- `ui/screen/` — full screens (`Lobby.vue`, `MainMenu.vue`, `Game.vue`).
+- `ui/screen/` — full screens (`MainMenu.vue`, `Game.vue`, `about/`).
 - `ui/ingame/` — in-game UI overlays (right column, menus, buttons).
 - `ui/context/` — context menus and floating actions.
-- `gateway/` — external data access and serialization.
+- `engine/` — the engine client: the server's protocol (`api.ts`, `host.ts`), the driver, the table as its interface.
+- `gateway/` — local storage (decks, preferences) and deck import.
 
 ## 3. General Rules
 - **Line Endings**: Always use LF line endings (never CRLF).
@@ -95,7 +92,7 @@ Commands are managed via `npm`. Run these from the project root.
 
 ## 9. Testing
 - **Test Suite**: Currently, there is no automated test suite configured in the repository.
-- **Live-testing**: Do not try to start vite, SCS server, or validate in-browser rendering (playwright or such other tools).
+- **Live-testing**: Do not try to start vite or validate in-browser rendering (playwright or such other tools).
 - **Code Quality**: When changes are made, use `npm run lint:check` and `npm run format:check` to ensure correct formatting.
 
 ## 10. AI Agent Specific Tips

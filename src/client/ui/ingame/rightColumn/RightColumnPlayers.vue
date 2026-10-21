@@ -4,7 +4,7 @@
             class="header"
             @click="isCollapsed = !isCollapsed"
         >
-            <span class="header-text">Connected ({{ connectedUsersCount }})</span>
+            <span class="header-text">Players ({{ Object.keys(gameState.players).length }})</span>
             <span
                 class="toggle-arrow"
                 :class="{ isCollapsed }"
@@ -20,7 +20,6 @@
                 :class="{
                     acting: player === gameState.activePlayer,
                     ousted: player.isOusted,
-                    disconnected: disconnectedPlayers[player.oid],
                 }"
             >
                 <span
@@ -51,82 +50,25 @@
                     🤖
                 </span>
                 <span
-                    v-else-if="disconnectedPlayers[player.oid]"
-                    class="role-icon"
-                >
-                    🔌
-                </span>
-                <span
                     v-else
                     class="role-icon"
                 >
                     👤
                 </span>
             </div>
-
-            <template v-if="gameState.gameType == GameType.Multiplayer">
-                <template v-if="multiplayer.judgeUsers.length > 0">
-                    <div class="separator">Judges</div>
-                    <div
-                        v-for="judge in multiplayer.judgeUsers"
-                        :key="judge.permId"
-                        class="player judge"
-                    >
-                        <span class="player-name">
-                            {{ judge.name }}
-                        </span>
-                    </div>
-                </template>
-
-                <template v-if="multiplayer.spectatorUsers.length > 0">
-                    <div class="separator">Spectators</div>
-                    <div
-                        v-for="spectator in multiplayer.spectatorUsers"
-                        :key="spectator.permId"
-                        class="player spectator"
-                    >
-                        <span class="player-name">
-                            {{ spectator.name }}
-                        </span>
-                    </div>
-                </template>
-            </template>
         </div>
     </div>
 </template>
 
 <script setup lang="ts">
 import { useGameStateStore } from '@/client/store/gameState.ts'
-import { computed, ref } from 'vue'
-import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
-import { GameType } from '@/shared/types/state.ts'
+import { ref } from 'vue'
 import { usePlayersStore } from '@/client/state/players.ts'
 
 const gameState = useGameStateStore()
-const multiplayer = useMultiplayerStore()
 const players = usePlayersStore()
 
 const isCollapsed = ref(true)
-
-const disconnectedPlayers = computed(() => {
-    if (gameState.gameType != GameType.Multiplayer) {
-        return {}
-    }
-
-    return Object.fromEntries(
-        Object.values(gameState.players).map(player => [
-            player.oid,
-            multiplayer.users[player.permId] === undefined,
-        ]),
-    )
-})
-
-const connectedUsersCount = computed(() => {
-    const playersCount = Object.values(gameState.players).filter(
-        player => !disconnectedPlayers.value[player.oid],
-    ).length
-    return playersCount + multiplayer.judgeUsers.length + multiplayer.spectatorUsers.length
-})
 </script>
 
 <style lang="scss" scoped>

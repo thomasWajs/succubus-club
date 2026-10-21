@@ -2,20 +2,27 @@
     <div class="about-panel">
         <h1>Contribute</h1>
         <p>
-            <strong>Source code</strong> : Freely available on
+            <strong>Source code</strong> : this edition on
             <a
-                href="https://github.com/thomasWajs/succubus-club/"
+                href="https://github.com/lionel-panhaleux/succubus-club/tree/zero-vtes-engine"
                 target="_blank"
             >
                 GitHub
             </a>
-            . Feel free to fork and contribute to the project.
+            , forked from
+            <a
+                href="https://github.com/thomasWajs/succubus-club/"
+                target="_blank"
+            >
+                Succubus Club
+            </a>
+            .
         </p>
 
         <p>
-            <strong>Bug reports</strong> : Use the widget in the bottom right corner or through
+            <strong>Bug reports</strong> :
             <a
-                href="https://github.com/thomasWajs/succubus-club/issues/"
+                href="https://github.com/lionel-panhaleux/succubus-club/issues/"
                 target="_blank"
             >
                 GitHub issues
@@ -23,22 +30,12 @@
         </p>
 
         <p>
-            <strong>Feature requests</strong> :
+            <strong>Feature requests</strong> : the same
             <a
-                href="https://github.com/thomasWajs/succubus-club/discussions"
+                href="https://github.com/lionel-panhaleux/succubus-club/issues/"
                 target="_blank"
             >
-                GitHub discussion
-            </a>
-        </p>
-
-        <p>
-            <strong>Want to chat ?</strong> :
-            <a
-                href="https://discord.com/users/502548674547810366"
-                target="_blank"
-            >
-                Reach out on Discord
+                GitHub issues
             </a>
         </p>
 

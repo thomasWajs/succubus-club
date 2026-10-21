@@ -44,7 +44,7 @@
         </div>
 
         <div
-            v-if="players.isPlayer || multiplayer.selfIsJudge"
+            v-if="players.isPlayer"
             class="chat-box"
         >
             <input
@@ -71,28 +71,6 @@
         class="tab menu"
         :class="{ enlarged: isEnlarged }"
     >
-        <button
-            class="game-button"
-            :disabled="gameBus.savingState != SavingState.None"
-            @click="saveGame(false)"
-        >
-            <template v-if="gameBus.savingState == SavingState.Saving"> 💾Saving... </template>
-            <template v-else-if="gameBus.savingState == SavingState.AutoSaving">
-                💾Auto-Saving...
-            </template>
-            <template v-else-if="gameBus.savingState == SavingState.Done"> 👍Save OK </template>
-            <template v-else-if="gameBus.savingState == SavingState.Error"> 😵Save Error </template>
-            <template v-else>Save Game</template>
-        </button>
-
-        <button
-            v-if="gameState.gameType == GameType.Multiplayer"
-            class="game-button"
-            @click="requestResyncGameState(true)"
-        >
-            Resync Game
-        </button>
-
         <button
             class="game-button"
             @click="bus.isUserProfilePanelOpen = true"
@@ -196,15 +174,12 @@
 
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
-import { useBusStore, useGameBusStore } from '@/client/store/bus.ts'
+import { useBusStore } from '@/client/store/bus.ts'
 import { useHistoryStore } from '@/client/store/history.ts'
-import { saveGame, SavingState } from '@/client/gateway/savedGames.ts'
 import { GameType } from '@/shared/types/state.ts'
-import { requestResyncGameState, sendChat } from '@/client/multiplayer/room.ts'
 import UserManual from '@/client/ui/ingame/rightColumn/UserManual.vue'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
-import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import LogLine from '@/client/ui/ingame/rightColumn/LogLine.vue'
 import EngineLog from '@/client/ui/ingame/rightColumn/EngineLog.vue'
 import { leaveGame } from '@/client/state/setup.ts'
@@ -213,9 +188,7 @@ import { getAuthorColorRgba } from '@/shared/colors.ts'
 const gameState = useGameStateStore()
 const players = usePlayersStore()
 const bus = useBusStore()
-const gameBus = useGameBusStore()
 const history = useHistoryStore()
-const multiplayer = useMultiplayerStore()
 
 /** Tab Management **/
 
@@ -302,30 +275,17 @@ function sendChatMessage() {
         return
     }
 
-    // A seated player chats under their player identity ( name + colour ). A judge has
-    // no player, so they chat under their user name with the default colour.
-    let authorName: string
-    let authorColorRgba: string | undefined
-    if (players.selfPlayer) {
-        authorName = players.selfPlayer.name
-        authorColorRgba = getAuthorColorRgba(players.selfPlayer.rgbaColor)
-    } else if (multiplayer.selfIsJudge) {
-        authorName = multiplayer.selfUser.name
-    } else {
+    if (!players.selfPlayer) {
         return
     }
+    const authorName = players.selfPlayer.name
+    const authorColorRgba = getAuthorColorRgba(players.selfPlayer.rgbaColor)
 
     const chatMessage = { text, timestamp: new Date(), authorName, authorColorRgba }
     chatMessageText.value = ''
     chatInput.value?.focus()
 
-    if (gameState.gameType == GameType.Multiplayer) {
-        // The transport echoes/delivers ( and, in SCS, the server sets the author ).
-        sendChat(chatMessage)
-    } else {
-        // Solo game ( trainbot / puppeteer ) : chat is local only.
-        history.addChatMessage(chatMessage)
-    }
+    history.addChatMessage(chatMessage)
 }
 
 /** Menu actions **/

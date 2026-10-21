@@ -1,9 +1,7 @@
 import Phaser from 'phaser'
 import { acceptHMRUpdate, defineStore } from 'pinia'
-import { Conductor } from '@/client/bot/conductor.ts'
 import { DbDeck, DbUserProfile } from '@/client/gateway/db.ts'
 import { shallowRef } from 'vue'
-import { storeAvatar } from '@/client/gateway/user.ts'
 import { initTabletopBackground } from '@/client/gateway/background.ts'
 
 const userProfile = await DbUserProfile.get()
@@ -14,10 +12,6 @@ await initTabletopBackground()
 let lastDeck = null as DbDeck | null
 if (userProfile.lastDeckId) {
     lastDeck = await DbDeck.get(userProfile.lastDeckId)
-}
-// User has an avatar, but it's not stored to firebase. We ned to upload it.
-if (userProfile.avatar && !userProfile.avatarFirebaseId) {
-    storeAvatar(userProfile)
 }
 
 // Keep the Phaser.Game instance non-reactive by storing it here instead of the store.
@@ -37,8 +31,6 @@ export const useCoreStore = defineStore('core', {
 
         userProfile,
         selfDeck: lastDeck as DbDeck | null,
-
-        conductor: null as Conductor | null,
     }),
     getters: {
         phaserGame(): Phaser.Game {

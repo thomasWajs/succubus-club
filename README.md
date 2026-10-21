@@ -2,35 +2,20 @@
 <img align="center" src="/public/assets/welcomeSign.png" />
 </p>
 
-## 🧛 Play Vampire: The Eternal Struggle in Your Browser
+## Play Vampire: The Eternal Struggle against bots in your browser
 
-Succubus Club is a platform for playing V:TES (Vampire: The Eternal Struggle) card game in a web browser.
-The project is built with modern web technologies and features real-time multiplayer gameplay.
+This is the bots-only edition of [Succubus Club](https://github.com/thomasWajs/succubus-club),
+the V:TES platform by Thomas Wajs. You play one seat against bots; the
+zero-vtes rules engine runs each game on its server (engine.krcg.org) and
+enforces the rules.
 
-## ⚔️ Features
+- **Browser-based**: no download, no account
+- **Your decks**: the preconstructed decks, your own list, or an import from VDB, vtesdecks or Amaranth
+- **Games recorded**: each game is recorded on the engine's server, anonymously, and kept two years to improve the engine and the bots
 
-- **Browser-Based**: No downloads required - play directly in your web browser
-- **No Account Required**: No registration required, no login required
-- **Multiplayer**: Either direct Peer2Peer communication, or central authoritative server
-- **Trainbot**: Rudimentary automaton to test the card flow of your decks
-- **Always up-to-date**: New cards and preconstructed are added without user intervention
-- **Optionnal Anti-Cheat**: Authoritative server ensure players cannot know hidden cards
+## Feedback and Support
 
-## 🚀 Getting Started
-
-1. Visit [Succubus Club](https://succubus-club.net/)
-2. No registration required
-3. Choose a preconstructed deck, load your own, or import from [VDB](https://github.com/smeea/vdb)
-4. Train against the bot or find opponents and start playing
-
-## 📜 Change log
-
-You can see the latest change by checking the [CHANGELOG](CHANGELOG.md).
-
-
-## 🆘 Feedback and Support
-
-If you encounter any issues or have suggestions, please use the in-game feedback tool or visit the [GitHub issues page](https://github.com/thomasWajs/succubus-club/issues/).
+Report issues on the [GitHub issues page](https://github.com/lionel-panhaleux/succubus-club/issues/).
 
 ## 🤓 For Developers
 
@@ -41,7 +26,7 @@ If you encounter any issues or have suggestions, please use the in-game feedback
 - **State Management**: [Pinia](https://pinia.vuejs.org/)
 - **Build Tool**: [Vite](https://vite.dev/)
 - **Scripting**: [Python](https://www.python.org/)
-- **Hosting**: Currently on Vercel, may change depending on needs
+- **Rules engine**: zero-vtes, reached over its protocol (`src/client/engine/`)
 
 ### Development
 
@@ -66,7 +51,6 @@ By transitivity, thanks to all the [people who have contributed to VDB](https://
 
 Thanks to the creator&contributors of those awesome libs who saved me tons of time and headache :
  - [laineus](https://github.com/laineus) for [Phavuer](https://github.com/laineus/phavuer)
- - [dmotz](https://github.com/dmotz) & [jeremyckahn](https://github.com/jeremyckahn) for [Trystero](https://github.com/dmotz/trystero)
  - [Phaser Studio](https://github.com/phaserjs) for [Phaser](https://github.com/phaserjs/phaser)
 
 A very special thanks to the crash-test team, who endured the pain of the buggy beta:

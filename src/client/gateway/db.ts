@@ -1,17 +1,7 @@
 import Dexie, { Entity, type EntityTable } from 'dexie'
 import { toRaw } from 'vue'
-import { GameType } from '@/shared/types/state.ts'
-import { setUser } from '@sentry/vue'
-import {
-    CommunicationMode,
-    PermanentId,
-    RoomId,
-    Seating,
-    SerializedGame,
-} from '@/shared/types/multiplayer.ts'
-import { AvatarId, Deck, DeckList } from '@/shared/types/gateway.ts'
-import { ConductorState } from '@/client/bot/conductor.ts'
-import { GameId } from '@/shared/types/model.ts' // If you know, you know ;-)
+import { PermanentId } from '@/shared/types/multiplayer.ts'
+import { Deck, DeckList } from '@/shared/types/gateway.ts'
 
 // If you know, you know ;-)
 export const DEFAULT_PLAYER_NAME = 'The Unnamed'
@@ -50,11 +40,8 @@ export class DbUserProfile extends Entity<SuccubusDb> {
     permanentId: PermanentId
     playerName: string
     avatar: string | null
-    avatarFirebaseId: AvatarId | null
     preferences: UserPreferences
     lastDeckId: number | null
-    lastMultiGameId: RoomId
-    lastMultiGameDate: Date | null
 
     static async get() {
         let userProfile = await db.userProfile.limit(1).first()
@@ -63,11 +50,8 @@ export class DbUserProfile extends Entity<SuccubusDb> {
                 permanentId: crypto.randomUUID(),
                 playerName: DEFAULT_PLAYER_NAME,
                 avatar: null,
-                avatarFirebaseId: null,
                 preferences: {},
                 lastDeckId: null,
-                lastMultiGameId: '',
-                lastMultiGameDate: new Date(),
             })
             userProfile = await db.userProfile.limit(1).first()
 
@@ -77,30 +61,12 @@ export class DbUserProfile extends Entity<SuccubusDb> {
             }
         }
 
-        // Set the Sentry User
-        setUser({
-            id: userProfile.permanentId,
-            username: userProfile.playerName,
-        })
-
         return userProfile
     }
 
     async save() {
         // toRaw is needed to save as a plain object, without reactivity wrappers
         await db.userProfile.put(toRaw(this))
-
-        // Update the Sentry User
-        setUser({
-            id: this.permanentId,
-            username: this.playerName,
-        })
-    }
-
-    async setLastMultiGame(roomId: RoomId) {
-        this.lastMultiGameId = roomId
-        this.lastMultiGameDate = new Date()
-        await this.save()
     }
 }
 
@@ -136,25 +102,6 @@ export class DbDeck extends Entity<SuccubusDb> implements Deck {
     }
 }
 
-export class DbSavedGame extends Entity<SuccubusDb> {
-    id: number
-    date: Date
-    name: string
-    isAutoSave: number // We cannot index boolean with Dexie, so fallback on 0=false / 1=true
-    gameType: GameType
-    roomId: RoomId
-    roomName: string
-    password: string
-    communication: CommunicationMode
-    isCasual: number // We cannot index boolean with Dexie, so fallback on 0=false / 1=true
-    allowSpectators: number // We cannot index boolean with Dexie, so fallback on 0=false / 1=true
-    seating: Seating
-    competingPlayers: PermanentId[]
-    gameId: GameId
-    game: SerializedGame
-    conductorState?: ConductorState
-}
-
 /**
  * A generic key-value store, handy for binary blobs (e.g. the custom tabletop
  * background) that don't belong in the frequently-saved user profile.
@@ -169,7 +116,6 @@ export class SuccubusDb extends Dexie {
     decks: EntityTable<DbDeck, 'id'>
     // The exclamation mark is here to fix a known Dexie + TypeScript issue
     // caused by Dexie's complex generic type chain.
-    savedGames!: EntityTable<DbSavedGame, 'id'>
     settings!: EntityTable<DbSetting, 'key'>
 
     constructor() {
@@ -182,9 +128,11 @@ export class SuccubusDb extends Dexie {
         this.version(2).stores({
             settings: 'key',
         })
+        this.version(3).stores({
+            savedGames: null,
+        })
         this.userProfile.mapToClass(DbUserProfile)
         this.decks.mapToClass(DbDeck)
-        this.savedGames.mapToClass(DbSavedGame)
         this.settings.mapToClass(DbSetting)
     }
 }

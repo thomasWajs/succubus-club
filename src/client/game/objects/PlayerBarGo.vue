@@ -85,7 +85,7 @@
 
     <!-- Ballots ( only shown when the player has at least one ) -->
     <Text
-        v-if="aidsEnabled && totalBallots >= 1"
+        v-if="totalBallots >= 1"
         :text="totalBallots + ' ballot'"
         :style="{
             color: '#000',
@@ -99,7 +99,6 @@
 
     <!-- Votes -->
     <Text
-        v-if="aidsEnabled"
         :text="totalVotes + ' vote'"
         :style="{
             color: '#000',
@@ -137,7 +136,6 @@ import { useGameBusStore } from '@/client/store/bus.ts'
 import ButtonGO from '@/client/game/objects/ButtonGO.vue'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
 import { getPlayerColor } from '@/client/game/utils.ts'
-import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
 import Color = Phaser.Display.Color
 
 const { x, y, width, height, color, player } = defineProps<{
@@ -151,7 +149,6 @@ const { x, y, width, height, color, player } = defineProps<{
 
 const players = usePlayersStore()
 const gameBus = useGameBusStore()
-const { aidsEnabled } = useUIFeatures()
 
 const playerColor = getPlayerColor(player).darken(20).desaturate(60)
 

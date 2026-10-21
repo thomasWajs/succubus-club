@@ -6,9 +6,7 @@
     >
         <!-- The Edge Hint -->
         <!-- Not with the rules engine : the Edge glows when its pool can be gained -->
-        <TheEdgeHint
-            v-if="aidsEnabled && centralContent.theEdge && gameState.gameType != GameType.Engine"
-        />
+        <TheEdgeHint v-if="centralContent.theEdge && gameState.gameType != GameType.Engine" />
 
         <!-- Declaration hint -->
         <DeclarationHint />
@@ -62,9 +60,6 @@
         <!-- The game over, every option as a last resort ( a game with the rules engine ) -->
         <EngineFallback v-if="gameState.gameType == GameType.Engine" />
 
-        <!-- Timer Setup -->
-        <TimerSetup v-if="centralContent.timer" />
-
         <!-- Next Turn -->
         <NextTurn v-if="centralContent.nextTurn" />
 
@@ -78,16 +73,13 @@ import { computed, onUnmounted, ref, watch } from 'vue'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
-import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import { TurnPhase } from '@/shared/const/model.ts'
-import { useTimer } from '@/shared/state/useTimer.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
 import TheEdgeHint from '@/client/ui/ingame/topArea/central/TheEdgeHint.vue'
 import DeclarationHint from '@/client/ui/ingame/topArea/central/DeclarationHint.vue'
 import SecretChoice from '@/client/ui/ingame/topArea/central/SecretChoice.vue'
 import ActionInfos from '@/client/ui/ingame/topArea/central/ActionInfos.vue'
 import ReferendumInfos from '@/client/ui/ingame/topArea/central/ReferendumInfos.vue'
-import TimerSetup from '@/client/ui/ingame/topArea/central/TimerSetup.vue'
 import NextTurn from '@/client/ui/ingame/topArea/central/NextTurn.vue'
 import TurnNotification from '@/client/ui/ingame/topArea/central/TurnNotification.vue'
 import EngineStaging from '@/client/ui/ingame/topArea/central/EngineStaging.vue'
@@ -105,21 +97,18 @@ const engine = useEngineStore()
 // A block's combat, in a game with the rules engine
 const engineCombat = computed(() => gameState.gameType == GameType.Engine && engine.inCombat)
 const players = usePlayersStore()
-const multiplayer = useMultiplayerStore()
-const timer = useTimer(gameState.gameId)
 
-const { aidsEnabled, turnNotificationEnabled } = useUIFeatures()
+const { turnNotificationEnabled } = useUIFeatures()
 
 /**
  * New turn notification
  *
  * When a new turn begins (turnNumber increases by 1), we briefly show an
  * eye-catching notification with the new active player. While it's visible it
- * takes over the central box, so timer-setup and TheEdgeHint are hidden.
+ * takes over the central box, so TheEdgeHint is hidden.
  */
 
 const TURN_NOTIFICATION_DURATION_LONG = 3500
-const TURN_NOTIFICATION_DURATION_SHORT = 1000
 const turnNotificationVisible = ref(false)
 let turnNotificationTimeout: ReturnType<typeof setTimeout> | undefined
 
@@ -136,10 +125,7 @@ watch(
             return
         }
 
-        const duration =
-            gameState.gameType == GameType.TrainBot ?
-                TURN_NOTIFICATION_DURATION_SHORT
-            :   TURN_NOTIFICATION_DURATION_LONG
+        const duration = TURN_NOTIFICATION_DURATION_LONG
 
         turnNotificationVisible.value = true
         clearTimeout(turnNotificationTimeout)
@@ -158,11 +144,6 @@ onUnmounted(() => clearTimeout(turnNotificationTimeout))
 
 const centralContent = computed(() => ({
     turnNotification: turnNotificationVisible.value,
-    timer:
-        !turnNotificationVisible.value &&
-        multiplayer.selfIsHost &&
-        !timer.timerChosen.value &&
-        gameState.timerStartTime === null,
     // Not with the rules engine : its Pass ends the discard phase
     nextTurn:
         gameState.turnPhase == TurnPhase.Discard &&

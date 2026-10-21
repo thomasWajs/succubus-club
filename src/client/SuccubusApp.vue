@@ -2,8 +2,6 @@
     <Alert />
     <UserPanel />
     <DeckPanel />
-    <SavedGamesPanel />
-    <UpdateModal />
 
     <div
         v-show="isLoading"
@@ -19,8 +17,6 @@ import { computed } from 'vue'
 import Alert from '@/client/ui/components/Alert.vue'
 import DeckPanel from '@/client/ui/components/DeckPanel.vue'
 import UserPanel from '@/client/ui/components/UserPanel.vue'
-import SavedGamesPanel from '@/client/ui/components/SavedGamesPanel.vue'
-import UpdateModal from '@/client/ui/components/UpdateModal.vue'
 import { useRoute } from 'vue-router'
 import { useCoreStore } from '@/client/store/core.ts'
 import { ROUTES } from '@/client/ui/router.ts'

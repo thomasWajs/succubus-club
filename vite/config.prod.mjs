@@ -1,5 +1,4 @@
 import { defineConfig } from 'vite'
-import { sentryVitePlugin } from '@sentry/vite-plugin'
 import baseConfig from './config.base'
 
 const phasermsg = () => {
@@ -20,15 +19,7 @@ const phasermsg = () => {
 
 export default defineConfig({
     ...baseConfig,
-    plugins: [
-        ...baseConfig.plugins,
-        phasermsg(),
-        sentryVitePlugin({
-            authToken: process.env.SENTRY_AUTH_TOKEN,
-            org: 'thomas-wajs',
-            project: 'succubus-club',
-        }),
-    ],
+    plugins: [...baseConfig.plugins, phasermsg()],
     logLevel: 'warning',
     build: {
         // target: "baseline-widely-available",

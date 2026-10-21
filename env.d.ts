@@ -5,11 +5,7 @@ interface ImportMetaEnv {
 
     readonly VITE_SENTRY_ENV?: string
     readonly VITE_SENTRY_DSN?: string
-    readonly SENTRY_HOST?: string
-    readonly SENTRY_PROJECT_IDS?: string
 
-    readonly VITE_FAST_TRACK_MULTIPLAYER?: string
-    readonly VITE_FAST_TRACK_TRAIN_GAME?: string
     readonly VITE_FAST_TRACK_ENGINE_GAME?: string
     readonly VITE_ENGINE_AUTOPLAY?: string
     readonly VITE_ENGINE_SERVER?: string

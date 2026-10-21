@@ -1,8 +1,5 @@
-import { useCoreStore } from '@/client/store/core.ts'
 import { useBusStore, useGameBusStore } from '@/client/store/bus.ts'
 import { GameType, Invalid, VALID, Validity } from '@/shared/types/state.ts'
-import { broadcastGameMutation } from '@/client/multiplayer/room.ts'
-import { enqueueBotMutation } from '@/client/bot/mutationQueue.ts'
 import {
     AnyGameMutation,
     createMutation,
@@ -11,8 +8,6 @@ import {
     GameMutationParams,
     gameMutations,
     PingCard,
-    ResolveAction,
-    ResolveBlock,
 } from '@/shared/state/gameMutations.ts'
 import { useHistoryStore } from '@/client/store/history.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
@@ -20,12 +15,6 @@ import { Player } from '@/shared/model/Player.ts'
 import { MutationHistoryEntry } from '@/shared/types/history.ts'
 import { deserializeGameMutation } from '@/shared/serialization.ts'
 import { AnyCardRegion } from '@/shared/types/model.ts'
-import { CommunicationMode } from '@/shared/types/multiplayer.ts'
-import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
-import {
-    sendRandomResultRequest,
-    sendShuffleRequest,
-} from '@/client/multiplayer/communication/scs.ts'
 import { getLogger } from '@/shared/registries.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { useEngineStore } from '@/client/store/engine.ts'
@@ -43,11 +32,6 @@ export function applyMutationIfValid(gameMutation: AnyGameMutation) {
             // The rules engine's table moves are narrated by the engine ( see engine/driver.ts )
             useHistoryStore().addGameMutation(gameMutation, undefined, !isEngineProjecting())
 
-            // Special handlings
-            if (gameMutation instanceof ResolveAction || gameMutation instanceof ResolveBlock) {
-                useCoreStore().conductor?.onActionResolve()
-            }
-
             if (gameMutation instanceof PingCard) {
                 // This one is kinda special : we update the game bus instead of the game state
                 useGameBusStore().pingCard(gameMutation.params.card.oid)
@@ -63,19 +47,7 @@ export function applyMutationIfValid(gameMutation: AnyGameMutation) {
 const ENGINE_USER_MUTATIONS = /^(moveCard|UI_.*)$/
 
 /**
- * In multiplayer, apply immediately.
- * With TrainBot, enqueue the mutation to maintain correct ordering.
- */
-export function applyMutationLocally(gameMutation: AnyGameMutation) {
-    if (useGameStateStore().gameType == GameType.TrainBot) {
-        enqueueBotMutation(gameMutation)
-    } else {
-        applyMutationIfValid(gameMutation)
-    }
-}
-
-/**
- * If the mutation is valid, apply it locally AND broadcast it to other players.
+ * If the mutation is valid, apply it.
  * Alert the user if the mutation is invalid.
  */
 export function dispatchMutation(gameMutation: AnyGameMutation) {
@@ -104,11 +76,7 @@ export function dispatchMutation(gameMutation: AnyGameMutation) {
         return validity
     }
 
-    applyMutationLocally(gameMutation)
-
-    if (gameState.gameType == GameType.Multiplayer) {
-        broadcastGameMutation(gameMutation)
-    }
+    applyMutationIfValid(gameMutation)
 
     return VALID
 }
@@ -162,12 +130,10 @@ export function cancelMutation(mutationEntry: MutationHistoryEntry) {
  * Shuffle Card Region
  */
 
-export async function shuffleCardRegion(cardRegion: AnyCardRegion) {
+export function shuffleCardRegion(cardRegion: AnyCardRegion) {
     const players = usePlayersStore()
     const history = useHistoryStore()
-    const multiplayer = useMultiplayerStore()
     const bus = useBusStore()
-    const gameState = useGameStateStore()
 
     if (!players.selfPlayer) {
         return
@@ -180,22 +146,6 @@ export async function shuffleCardRegion(cardRegion: AnyCardRegion) {
         return
     }
 
-    // For SCS mode, request server-side shuffle
-    if (gameState.gameType == GameType.Multiplayer) {
-        const gameRoom = multiplayer.currentGameRoom
-
-        if (gameRoom && gameRoom.communication == CommunicationMode.SCS) {
-            if (gameState.isStrictGame && cardRegion.owner?.oid != players.selfPlayer.oid) {
-                bus.alertWarning(`[Strict game] Players can only shuffle their own cards.`)
-                return
-            }
-
-            await sendShuffleRequest(cardRegion)
-            return
-        }
-    }
-
-    // For other modes, use client-side shuffle
     gameMutations.shuffle.actSelf({
         cardRegion,
         cardsOrder: cardRegion.generateShuffledCardsOrder(),
@@ -208,19 +158,6 @@ export async function shuffleCardRegion(cardRegion: AnyCardRegion) {
  */
 
 export function rollRandomResult(randomType: 'coin' | 'd6') {
-    const multiplayer = useMultiplayerStore()
-    const gameState = useGameStateStore()
-
-    // For SCS mode, request server-side random result
-    if (gameState.gameType == GameType.Multiplayer) {
-        const gameRoom = multiplayer.currentGameRoom
-        if (gameRoom && gameRoom.communication == CommunicationMode.SCS) {
-            sendRandomResultRequest(randomType)
-            return
-        }
-    }
-
-    // For other modes, generate the result client-side
     const max = randomType === 'coin' ? 2 : 6
     const result = Math.floor(Math.random() * max) + 1
     gameMutations.randomResult.actSelf({ randomType, result })

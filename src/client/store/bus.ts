@@ -3,7 +3,6 @@ import { acceptHMRUpdate, defineStore } from 'pinia'
 import { Card, Minion } from '@/shared/model/Card.ts'
 import Phaser from 'phaser'
 import { Player } from '@/shared/model/Player.ts'
-import { SavingState } from '@/client/gateway/savedGames.ts'
 import { AlignmentGuide, LibraryCardUsage, MinionActionType } from '@/shared/types/state.ts'
 import { CardGroup, CardInGame, DragAttrs, DragOver, PlayerInGame } from '@/client/game/types.ts'
 import { CARD_COST_FX_DURATION, CARD_PING_DURATION } from '@/shared/const/game.ts'
@@ -51,11 +50,8 @@ export const useBusStore = defineStore('bus', {
         isUserProfilePanelOpen: false,
         isDeckPanelOpen: false,
         deckPanelInitialTab: 'history' as string,
-        isSavedGamesPanelOpen: false,
 
         isResyncing: false,
-        hasBeenIdle: false,
-        updateAvailable: false,
     }),
     actions: {
         alertError(message: string, { dismissible = true, blockInteraction = false } = {}) {
@@ -199,9 +195,6 @@ export const useGameBusStore = defineStore('gameBus', {
             cardRegion: null as AnyCardRegion | null,
             searchString: '',
         },
-
-        /** Saving **/
-        savingState: SavingState.None,
     }),
 
     getters: {

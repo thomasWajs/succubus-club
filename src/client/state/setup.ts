@@ -1,36 +1,15 @@
-import { ORDERED_PLAYER_COLORS } from '@/shared/const/game.ts'
-import { GovernBot } from '@/client/bot/governBot.ts'
-import { Conductor } from '@/client/bot/conductor.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { useCoreStore } from '@/client/store/core.ts'
-import { EMPTY_SEATING, GameRoom } from '@/shared/types/multiplayer.ts'
-import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
-import { GameType } from '@/shared/types/state.ts'
-import { loadGame } from '@/client/gateway/serialization.ts'
-import { DbSavedGame } from '@/client/gateway/db.ts'
-import { initAutoSaveGame, stopAutoSaveGame } from '@/client/gateway/savedGames.ts'
 import router, { ROUTES } from '@/client/ui/router.ts'
 import { useHistoryStore } from '@/client/store/history.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
-import { resetSync } from '@/client/multiplayer/sync.ts'
 import { startClock, stopClock, useTimer } from '@/shared/state/useTimer.ts'
-import { generateCardRegionOid, generateGameId } from '@/shared/state/ids.ts'
-import { BOT_NAME, BOT_PERM_ID, NB_BOTS } from '@/shared/const/bot.ts'
-import { hasGameState, registerGameState } from '@/shared/registries.ts'
-import { shuffleArray } from '@/shared/utils.ts'
-import { leaveMultiplayer } from '@/client/multiplayer/lobby.ts'
-import { setupMultiplayerGameState, setupPlayArea } from '@/shared/state/setup.ts'
-import { Puppet } from '@/client/types.ts'
+import { hasGameState } from '@/shared/registries.ts'
 import { stopEngine } from '@/client/engine/driver.ts'
-import { CardRegionVisibility, RegionName } from '@/shared/const/model.ts'
-import { CardRegion } from '@/shared/model/CardRegion.ts'
-import { computePerimeterLayout, PLAY_AREA_CENTER } from '@/shared/state/freeTableLayout.ts'
 
 export function resetState() {
     const core = useCoreStore()
     const gameState = useGameStateStore()
-
-    resetSync()
 
     if (hasGameState(gameState.gameId)) {
         useTimer(gameState.gameId).resetTimer()
@@ -45,198 +24,6 @@ export function resetState() {
     core.gameIsStarted = false
     core.phaserIsReady = false
     core.gameStateIsReady = false
-    core.conductor = null
-}
-
-export function setupTrainGame() {
-    const core = useCoreStore()
-    const gameState = useGameStateStore()
-
-    if (!core.selfDeck) {
-        throw new Error(`No deck list`)
-    }
-
-    resetState()
-
-    // noinspection JSConstantReassignment
-    gameState.gameId = generateGameId()
-    gameState.gameType = GameType.TrainBot
-    registerGameState(gameState.gameId, gameState)
-
-    const selfPlayer = gameState.createPlayer(
-        core.userProfile.playerName,
-        ORDERED_PLAYER_COLORS[0],
-        core.userProfile.permanentId,
-    )
-    gameState.usersToPlayer[core.userProfile.permanentId] = selfPlayer.oid
-    setupPlayArea(gameState, selfPlayer, core.selfDeck.cards)
-
-    for (let i = 0; i < NB_BOTS; i++) {
-        const botPlayer = gameState.createPlayer(
-            `${BOT_NAME}${i + 1}`,
-            ORDERED_PLAYER_COLORS[i + 1],
-            `${BOT_PERM_ID}${i + 1}`,
-        )
-        const bot = new GovernBot(botPlayer)
-        if (i == 0) {
-            core.conductor = new Conductor(bot)
-        }
-        setupPlayArea(gameState, botPlayer, GovernBot.deckList)
-    }
-
-    // Random starting order
-    // noinspection JSConstantReassignment
-    gameState.turnOrder = shuffleArray(gameState.turnOrder)
-
-    gameState.setNewTurnResources()
-
-    core.gameStateIsReady = true
-}
-
-const FREE_TABLE_NB_OPPONENTS = 4
-
-export function setupFreeTableGame() {
-    const core = useCoreStore()
-    const gameState = useGameStateStore()
-
-    if (!core.selfDeck) {
-        throw new Error(`No deck list`)
-    }
-
-    resetState()
-
-    // noinspection JSConstantReassignment
-    gameState.gameId = generateGameId()
-    gameState.gameType = GameType.Puppeteer
-    gameState.isFreeTable = true
-    registerGameState(gameState.gameId, gameState)
-
-    gameState.table = new CardRegion(
-        gameState.gameId,
-        generateCardRegionOid(),
-        RegionName.Table,
-        CardRegionVisibility.VisibleToAll,
-    )
-    gameState.theEdgeWidgetPosition = { ...PLAY_AREA_CENTER }
-
-    const nbPlayers = FREE_TABLE_NB_OPPONENTS + 1
-
-    const selfPlayer = gameState.createPlayer(
-        core.userProfile.playerName,
-        ORDERED_PLAYER_COLORS[0],
-        core.userProfile.permanentId,
-    )
-    const selfLayout = computePerimeterLayout(nbPlayers, 0)
-    selfPlayer.widgetPosition = selfLayout.position
-    selfPlayer.widgetRotation = selfLayout.rotation
-    gameState.usersToPlayer[core.userProfile.permanentId] = selfPlayer.oid
-    setupPlayArea(gameState, selfPlayer, core.selfDeck.cards)
-
-    for (let i = 0; i < FREE_TABLE_NB_OPPONENTS; i++) {
-        const opponent = gameState.createPlayer(
-            `${BOT_NAME}${i + 1}`,
-            ORDERED_PLAYER_COLORS[i + 1],
-            `${BOT_PERM_ID}${i + 1}`,
-        )
-        const opponentLayout = computePerimeterLayout(nbPlayers, i + 1)
-        opponent.widgetPosition = opponentLayout.position
-        opponent.widgetRotation = opponentLayout.rotation
-        setupPlayArea(gameState, opponent, GovernBot.deckList)
-    }
-
-    gameState.setNewTurnResources()
-
-    core.gameStateIsReady = true
-}
-
-export function setupPuppeteerGame(puppets: Puppet[]) {
-    const core = useCoreStore()
-    const gameState = useGameStateStore()
-
-    resetState()
-
-    // noinspection JSConstantReassignment
-    gameState.gameId = generateGameId()
-    gameState.gameType = GameType.Puppeteer
-    registerGameState(gameState.gameId, gameState)
-
-    let firstPlayerOid: string | null = null
-
-    for (let i = 0; i < puppets.length; i++) {
-        const puppet = puppets[i]
-        const permId = i === 0 ? core.userProfile.permanentId : `puppeteer-${i}`
-        const player = gameState.createPlayer(puppet.name, ORDERED_PLAYER_COLORS[i], permId)
-        if (i === 0) {
-            firstPlayerOid = player.oid
-        }
-        setupPlayArea(gameState, player, puppet.deckList)
-    }
-
-    // Map user to first player so isPlayer = true (selfPlayer itself follows activePlayer in Puppeteer mode)
-    if (firstPlayerOid) {
-        gameState.usersToPlayer[core.userProfile.permanentId] = firstPlayerOid
-    }
-
-    // Random starting order
-    // noinspection JSConstantReassignment
-    gameState.turnOrder = shuffleArray(gameState.turnOrder)
-
-    gameState.setNewTurnResources()
-
-    core.gameStateIsReady = true
-}
-
-export function setupMultiplayerGame(gameRoom: GameRoom) {
-    const gameState = useGameStateStore()
-    const multiplayer = useMultiplayerStore()
-    const history = useHistoryStore()
-
-    if (!gameRoom.seating || gameRoom.seating == EMPTY_SEATING) {
-        throw new Error(`No seating in game room`)
-    }
-
-    // The host builds the game from its own local state and serializes it right after,
-    // so the room chat must survive the reset to be part of that authoritative snapshot.
-    // Other paths ( joiners, SCS host, reconnect ) restore chat from the snapshot they
-    // load, so they don't need this.
-    const chatEntries = history.chatLogEntries
-
-    resetState()
-    // noinspection JSConstantReassignment
-    gameState.isFreeTable = gameRoom.isFreeTable
-    const seatedUsers = gameRoom.seating.map(permId => multiplayer.users[permId])
-    setupMultiplayerGameState(gameState, seatedUsers, multiplayer.userDecks)
-
-    history.logEntries.push(...chatEntries)
-
-    useCoreStore().gameStateIsReady = true
-}
-
-export function setupSavedGame(savedGame: DbSavedGame) {
-    const gameState = useGameStateStore()
-    const core = useCoreStore()
-
-    resetState()
-    loadGame(savedGame.game)
-
-    // Resume the timer where it was at save time
-    useTimer(gameState.gameId).resumeTimer(savedGame.date)
-
-    if (savedGame.gameType == GameType.TrainBot) {
-        const botPlayer = gameState.orderedPlayers.find(p => p.name == `${BOT_NAME}1`)
-
-        if (!botPlayer) {
-            throw new Error(`Bot player not found`)
-        }
-
-        if (!savedGame.conductorState) {
-            throw new Error(`Saved Game has no conductor state`)
-        }
-
-        const bot = new GovernBot(botPlayer)
-        core.conductor = new Conductor(bot)
-        core.conductor.setConductorState(savedGame.conductorState)
-    }
 }
 
 export function startGame() {
@@ -251,10 +38,9 @@ export function startGame() {
 
     core.gameIsStarted = true
     router.push({ name: ROUTES.Game })
-    initAutoSaveGame()
 }
 
-export async function leaveGame(redirectToMenu: boolean = false) {
+export function leaveGame(redirectToMenu: boolean = false) {
     const core = useCoreStore()
 
     if (!core.gameIsStarted) {
@@ -262,8 +48,6 @@ export async function leaveGame(redirectToMenu: boolean = false) {
     }
 
     stopClock()
-    stopAutoSaveGame()
-    await leaveMultiplayer()
     resetState()
 
     if (redirectToMenu) {

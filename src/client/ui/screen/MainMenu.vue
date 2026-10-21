@@ -42,45 +42,9 @@
         <template v-else>
             <button
                 class="main-menu-button"
-                @click="goToLobby()"
-            >
-                Join Multiplayer Lobby
-            </button>
-
-            <button
-                class="main-menu-button"
-                @click="startTrainGame()"
-            >
-                Start A Training Game
-            </button>
-
-            <button
-                class="main-menu-button"
-                @click="startPuppeteerGame()"
-            >
-                Start a Puppeteer Game
-            </button>
-
-            <button
-                class="main-menu-button"
                 @click="startEngineGame()"
             >
                 Play against Bots (rules engine)
-            </button>
-
-            <button
-                class="main-menu-button"
-                @click="bus.isSavedGamesPanelOpen = true"
-            >
-                Load a saved game
-            </button>
-
-            <button
-                v-if="ENABLE_DEV_FREE_TABLE"
-                class="main-menu-button"
-                @click="startDevFreeTableGame()"
-            >
-                DEV FREE TABLE
             </button>
         </template>
     </div>
@@ -97,34 +61,19 @@
         />
     </a>
 
-    <IdleModal />
-    <ChangelogModal />
     <WelcomeModal />
-    <TrainBotDisclaimer ref="trainBotDisclaimerRef" />
-    <PuppeteerModal ref="puppeteerModalRef" />
 </template>
 
 <script setup lang="ts">
 import { useCoreStore } from '@/client/store/core.ts'
-import { joinLobby } from '@/client/multiplayer/lobby.ts'
-import {
-    setupFreeTableGame,
-    setupPuppeteerGame,
-    setupTrainGame,
-    startGame,
-} from '@/client/state/setup.ts'
+import { startGame } from '@/client/state/setup.ts'
 import { resumeEngineGame, setupEngineGame } from '@/client/engine/setup.ts'
 import { EngineGone, EngineTaken, savedEngineSeat } from '@/client/engine/host.ts'
-import { useRouter } from 'vue-router'
 import TopBar from '@/client/ui/components/TopBar.vue'
 import { waitUntil } from '@/shared/utils.ts'
 import { useBusStore } from '@/client/store/bus.ts'
 import { ROUTES } from '@/client/ui/router.ts'
 import WelcomeModal from '@/client/ui/components/WelcomeModal.vue'
-import ChangelogModal from '@/client/ui/components/ChangelogModal.vue'
-import TrainBotDisclaimer from '@/client/ui/components/TrainBotDisclaimer.vue'
-import PuppeteerModal from '@/client/ui/components/PuppeteerModal.vue'
-import IdleModal from '@/client/ui/components/IdleModal.vue'
 import { computed, ref } from 'vue'
 import * as logging from '@/client/logging.ts'
 import { isCrawler, screenBigEnough } from '@/client/game/display.ts'
@@ -134,11 +83,6 @@ import { InvalidDeck } from '@/shared/types/errors.ts'
 
 const core = useCoreStore()
 const bus = useBusStore()
-const router = useRouter()
-const trainBotDisclaimerRef = ref<InstanceType<typeof TrainBotDisclaimer> | null>(null)
-const puppeteerModalRef = ref<InstanceType<typeof PuppeteerModal> | null>(null)
-
-const ENABLE_DEV_FREE_TABLE = import.meta.env.VITE_ENABLE_DEV_FREE_TABLE
 
 /**
  *  Welcome Sign
@@ -159,43 +103,6 @@ const isAnniversary = computed(() => {
 /**
  *  Menu
  */
-
-async function goToLobby() {
-    joinLobby()
-    router.push({ name: ROUTES.Lobby })
-}
-
-async function startTrainGame() {
-    if (core.gameIsStarted) {
-        throw new Error(`Game is already started`)
-    }
-
-    if (!core.selfDeck) {
-        bus.alertWarning('You must select a deck before starting a game')
-        return
-    }
-
-    // Show disclaimer modal and wait for user to acknowledge
-    if (trainBotDisclaimerRef.value) {
-        await trainBotDisclaimerRef.value.showDisclaimer()
-    }
-
-    try {
-        setupTrainGame()
-        startGame()
-        // Trigger first bot turn manually
-        setTimeout(() => core.conductor?.runDecisionMaking(), 2000)
-    } catch (error) {
-        let message = 'An error occurred while starting the game'
-        if (error instanceof Error) {
-            message = `${message} : ${error.message}`
-        }
-        bus.alertError(message)
-        if (!(error instanceof InvalidDeck)) {
-            logging.captureException(error)
-        }
-    }
-}
 
 async function startEngineGame() {
     if (core.gameIsStarted) {
@@ -262,56 +169,6 @@ async function resumeEngine() {
     }
 }
 
-async function startDevFreeTableGame() {
-    if (core.gameIsStarted) {
-        throw new Error(`Game is already started`)
-    }
-
-    if (!core.selfDeck) {
-        bus.alertWarning('You must select a deck before starting a game')
-        return
-    }
-
-    try {
-        setupFreeTableGame()
-        startGame()
-    } catch (error) {
-        let message = 'An error occurred while starting the game'
-        if (error instanceof Error) {
-            message = `${message} : ${error.message}`
-        }
-        bus.alertError(message)
-        if (!(error instanceof InvalidDeck)) {
-            logging.captureException(error)
-        }
-    }
-}
-
-async function startPuppeteerGame() {
-    if (core.gameIsStarted) {
-        throw new Error(`Game is already started`)
-    }
-
-    const puppets = await puppeteerModalRef.value?.open()
-    if (!puppets) {
-        return
-    }
-
-    try {
-        setupPuppeteerGame(puppets)
-        startGame()
-    } catch (error) {
-        let message = 'An error occurred while starting the Puppeteer game'
-        if (error instanceof Error) {
-            message = `${message} : ${error.message}`
-        }
-        bus.alertError(message)
-        if (!(error instanceof InvalidDeck)) {
-            logging.captureException(error)
-        }
-    }
-}
-
 if (savedEngineSeat()) {
     waitUntil(() => core.resourcesAreReady, 500).then(() => {
         resumeEngine()
@@ -319,12 +176,6 @@ if (savedEngineSeat()) {
 } else if (import.meta.env.VITE_FAST_TRACK_ENGINE_GAME) {
     waitUntil(() => core.resourcesAreReady, 500).then(() => {
         startEngineGame()
-    })
-}
-
-if (import.meta.env.VITE_FAST_TRACK_TRAIN_GAME) {
-    waitUntil(() => core.resourcesAreReady, 500).then(() => {
-        startTrainGame()
     })
 }
 

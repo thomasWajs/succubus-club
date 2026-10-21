@@ -3,23 +3,16 @@
     "private": true,
     "type": "module",
     "dependencies": {
-        "@sentry/vue": "^9.46.0",
-        "ably": "^2.14.0",
-        "cbor-x": "^1.6.4",
         "dexie": "^4.2.1",
-        "firebase": "^12.4.0",
-        "idle-js": "^1.2.0",
         "phaser": "^3.90.0",
         "phavuer": "^0.19.6",
         "pinia": "^3.0.3",
         "pinia-class-transformer": "^3.2.3",
         "succubus-club-shared": "file:../shared",
         "unidecode": "^1.1.0",
-        "vue-router": "^4.5.1",
-        "websocket-ts": "^2.2.1"
+        "vue-router": "^4.5.1"
     },
     "devDependencies": {
-        "@types/idle-js": "^1.2.3",
         "@types/unidecode": "^1.1.0",
         "@vitejs/plugin-vue": "^6.0.1",
         "sass": "^1.93.2",

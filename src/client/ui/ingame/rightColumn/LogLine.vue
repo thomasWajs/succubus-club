@@ -93,7 +93,7 @@ import { useHistoryStore } from '@/client/store/history.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
-import { selfCanSeeOrPeek, selfIsJudge } from '@/client/state/self.ts'
+import { selfCanSeeOrPeek } from '@/client/state/self.ts'
 import { Card } from '@/shared/model/Card.ts'
 import { CARD_LOG_PLACEHOLDER } from '@/shared/const/game.ts'
 import { OID_PREFIX } from '@/shared/const/multiplayer.ts'
@@ -118,10 +118,6 @@ const selfHasVision = computed(() => {
     const vision = logEntry.playerVision
     if (!logEntry.card || !vision) {
         return false
-    }
-    // A judge oversees the game : they see every logged card
-    if (selfIsJudge()) {
-        return true
     }
     return vision.public || (players.selfPlayerOid && vision[players.selfPlayerOid])
 })
