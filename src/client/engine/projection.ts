@@ -59,6 +59,7 @@ import type {
     Mode,
     OptionView,
     Phase,
+    SlotRef,
     TableView,
     Target,
 } from '@/client/engine/api.ts'
@@ -224,11 +225,31 @@ export class Projection {
             case 'influence_out':
             case 'merge':
             case 'allocate_to_card':
-                return option.target?.kind == 'card' ?
+            case 'slot':
+                return (
+                    option.target?.kind == 'card' ?
                         { ...roles, card: this.card(option.target.copy), target: undefined }
+                    : option.slot ?
+                        { ...roles, card: this.uncontrolled(option.slot), target: undefined }
                     :   roles
+                )
         }
         return roles
+    }
+
+    // An uncontrolled vampire by its place : another seat's is face down, unnamed
+    private uncontrolled(slot: SlotRef): Card | undefined {
+        const player = this.player(slot.seat)
+        for (const [copy, at] of this.placements) {
+            if (
+                at.spot == Spot.Uncontrolled &&
+                at.player.oid == player.oid &&
+                at.rank == slot.slot
+            ) {
+                return this.card(copy)
+            }
+        }
+        return undefined
     }
 
     /**

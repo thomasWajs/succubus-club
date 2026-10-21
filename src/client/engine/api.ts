@@ -1,6 +1,6 @@
-/* zvtes protocol 2.2.0 (docs/protocol.md): generated from
+/* zvtes protocol 2.5.0 (docs/protocol.md): generated from
  * crates/api/schema.json by scripts/gen_ts.py, do not edit. */
-export const PROTOCOL_VERSION = '2.2.0'
+export const PROTOCOL_VERSION = '2.5.0'
 
 /**
  * A command as sent: an optional client id, echoed by an `error` it
@@ -354,6 +354,32 @@ export type CardRef = {
 }
 
 /**
+ * What made a `pool`, `blood` or `counters` change: a cost paid or an effect, of a
+ * card or of the rules.
+ */
+export type Cause = {
+    /** A card played or in play, or a minion (its action, its ability). */
+    card?: Card | null
+    kind: CauseKind
+    /** A rule of the game, with no card. */
+    rule?: CauseRule | null
+}
+
+export type CauseKind = 'cost' | 'effect' | 'unknown'
+
+export type CauseRule =
+    | 'diablerie'
+    | 'strikes'
+    | 'transfer'
+    | 'oust'
+    | 'edge'
+    | 'contest'
+    | 'disease'
+    | 'capacity'
+    | 'vote'
+    | 'unknown'
+
+/**
  * What identifies an option: two options of one decision never share a
  * key (copies alike in hand are one option). A record keeps each answer
  * by its key, with the engine's copy numbers: a later engine finds the
@@ -382,6 +408,12 @@ export type ChoiceKey = {
     minion?: number | null
     /** The mode a card is played in (`play`). */
     mode?: Mode | null
+    /**
+     * An uncontrolled vampire the option names, by its place (its card
+     * face down to the others: `target` names its copy only to who
+     * sees it).
+     */
+    slot?: SlotRef | null
     target?: Target | null
     /** A clan, a Discipline, a circle chosen: its snake_case id. */
     value?: string | null
@@ -585,6 +617,11 @@ export type Entry =
           by: By
           choice: ChoiceKey
           decision: number
+          /**
+           * The position it was taken on, 16 hex digits (§11; records
+           * before 2.4.0 have none).
+           */
+          digest?: string | null
           /** Every option offered was this choice. */
           forced?: boolean
           option: number
@@ -592,6 +629,8 @@ export type Entry =
           /** The options the seat was shown, when its settings hid some. */
           shown?: number[] | null
           type: 'decision'
+          /** The window it was asked in (records before 2.4.0 have none). */
+          window?: Window | null
       }
     | {
           at: number
@@ -672,7 +711,14 @@ export type Event = {
           choice: OptionView
           decision: number
           kind: 'decided'
+          /** What an effect asked the choice for, as its `decision` told it. */
+          purpose?: Purpose | null
           seat: number
+          /**
+           * The card (or minion, by its card) whose terms or effect it
+           * chose, as its `decision` told it.
+           */
+          source?: CardRef | null
           window: Window
       }
     | {
@@ -690,6 +736,14 @@ export type Event = {
           active: number
           kind: 'turn'
           turn: number
+      }
+    | {
+          kind: 'phase'
+          phase: Phase
+      }
+    | {
+          kind: 'transfers'
+          left: number
       }
     | {
           crypt: boolean
@@ -719,6 +773,7 @@ export type Event = {
           seat: number
       }
     | {
+          cause?: Cause | null
           delta: number
           kind: 'pool'
           pool: number
@@ -726,6 +781,7 @@ export type Event = {
       }
     | {
           blood: number
+          cause?: Cause | null
           delta: number
           kind: 'blood'
           minion: number
@@ -767,6 +823,44 @@ export type Event = {
           to?: Zone | null
       }
     | {
+          copy: number
+          kind: 'locked'
+          locked: boolean
+      }
+    | {
+          cause?: Cause | null
+          copy?: number | null
+          counters: number
+          delta: number
+          kind: 'counters'
+          slot?: SlotRef | null
+      }
+    | {
+          copy: number
+          kind: 'controller'
+          seat: number
+      }
+    | {
+          capacity?: number | null
+          kind: 'capacity'
+          minion: number
+      }
+    | {
+          kind: 'markers'
+          markers: Marker[]
+          minion: number
+      }
+    | {
+          kind: 'traits'
+          minion: number
+          traits: Trait[]
+      }
+    | {
+          kind: 'title'
+          minion: number
+          title?: Title | null
+      }
+    | {
           /** Goes to torpor (true) or leaves it. */
           enters: boolean
           kind: 'torpor'
@@ -783,6 +877,23 @@ export type Event = {
     | {
           kind: 'block_fails'
           minion: number
+      }
+    | {
+          acting: Card
+          action: ActionRef
+          kind: 'action_starts'
+          minion: MinionKind
+          seat: number
+      }
+    | {
+          acting: Card
+          kind: 'acting_changes'
+          minion: MinionKind
+          seat: number
+      }
+    | {
+          action: ActionView
+          kind: 'action_state'
       }
     | {
           acting: number
@@ -804,8 +915,16 @@ export type Event = {
           votes_for: number
       }
     | {
+          kind: 'referendum_state'
+          referendum: ReferendumView
+      }
+    | {
           kind: 'combat_begins'
           minions: number[]
+      }
+    | {
+          combat: CombatView
+          kind: 'combat_state'
       }
     | {
           kind: 'strike_declared'
@@ -895,6 +1014,7 @@ export type MarkerKind =
     | 'effect'
     | 'red_list_mark'
     | 'pact'
+    | 'taint'
     | 'out_of_play'
     | 'unknown'
 
@@ -1070,6 +1190,12 @@ export type OptionView = {
     minion?: number | null
     /** The mode a card is played in (`play`). */
     mode?: Mode | null
+    /**
+     * An uncontrolled vampire the option names, by its place (its card
+     * face down to the others: `target` names its copy only to who
+     * sees it).
+     */
+    slot?: SlotRef | null
     target?: Target | null
     /** The option in English, when the seat's settings ask for text. */
     text?: string | null
@@ -1111,7 +1237,6 @@ export type Player =
  * `source`, what the decision chooses. Open: a later engine adds more.
  */
 export type Purpose =
-    | 'discard_chosen'
     | 'move_card_to_titled'
     | 'move_off_burned_bearer'
     | 'secret_number'
@@ -1144,6 +1269,7 @@ export type Purpose =
     | 'avoid_damage'
     | 'discard_from_hand_of'
     | 'reorder'
+    | 'discard_chosen'
     | 'remove_from_ash'
     | 'discipline_search'
     | 'may_draw_extra'
@@ -1192,6 +1318,12 @@ export type Purpose =
     | 'may_store_aim'
     | 'may_torture'
     | 'may_gain_pool'
+    | 'may_gain_hand_size'
+    | 'ready_titled_left'
+    | 'name_master_discipline'
+    | 'name_ash_equipment'
+    | 'store_own_hand'
+    | 'buy_title'
     | 'move_for_blood'
     | 'redraw'
     | 'unknown'
@@ -1314,6 +1446,15 @@ export type SettingsPatch = {
     views?: Views | null
 }
 
+/**
+ * A vampire of `seat`'s uncontrolled region, by its position in the
+ * view's `uncontrolled`.
+ */
+export type SlotRef = {
+    seat: number
+    slot: number
+}
+
 export type SlotView = {
     /** A banished vampire, waiting to be influenced out again. */
     banished?: boolean
@@ -1355,6 +1496,7 @@ export type StrikeKind =
     | 'corrupt'
     | 'card_effect'
     | 'steal_weapon'
+    | 'burn_life'
     | 'unknown'
 
 export type StruckSide = {

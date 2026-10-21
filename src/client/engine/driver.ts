@@ -143,7 +143,7 @@ export function passEngine() {
     }
 }
 
-// The user takes back the previous step of the multi-step choice under way
+// The user takes back their last decision
 export function undoEngineStep() {
     if (useEngineStore().pending?.undo) {
         running?.answer?.({ undo: true })
@@ -404,9 +404,9 @@ function project(current: Running, out: EngineOut) {
         learnCardNames()
         // A block's combat under way, whoever decides now
         useEngineStore().inCombat = !!out.view.combat
-        // The cards played during the action, until it is over ( a decided step's in `narrate` : its
-        // view may be past it )
-        if (out.type != 'decided' && (out.actionEnded || !out.view.action)) {
+        // The cards played during the action, until its `action_ends` ( a decided step's in
+        // `narrate` : its view may be past it )
+        if (out.type != 'decided' && out.actionEnded) {
             useEngineStore().played = []
         }
         if (out.type != 'over') {
@@ -538,7 +538,7 @@ export async function runEngine(host: EngineHost, projection: Projection) {
             engine.status = ''
             engine.focus = []
             engine.staging = null
-            // An undo goes back past the passes taken by themselves : the cards played since go too
+            // An undo goes back past the bots' decisions and the passes : the cards played since go
             engine.played = engine.played.filter(p => p.decision < out.decision)
             engine.pending = {
                 decision: out.decision,
@@ -610,9 +610,8 @@ export async function runEngine(host: EngineHost, projection: Projection) {
                 continue
             }
             if ('undo' in answer) {
+                // The cards played since the decision taken back go as it is asked again
                 await host.undo()
-                // The decision taken back : out of the cards played too
-                engine.played = engine.played.filter(p => p.decision < out.decision - 1)
                 current.log.say(out.seat, 'takes back their last decision')
                 continue
             }

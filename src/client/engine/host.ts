@@ -131,8 +131,10 @@ export class EngineHost {
     private told: Event[] = []
     // An action ended among the events told since the last message given to the driver
     private actionEnded = false
-    // An action under way, as the events tell it in order ( a view may be past them )
+    // An action under way, from its `action_starts` to its `action_ends` ( a view may be past them ) ;
+    // from the view where no events tell it : the game joined, a position an undo went back to
     private acting = false
+    private undone = false
     private view: TableView | null = null
     private lastDecision = -1
     private answered = true
@@ -360,14 +362,18 @@ export class EngineHost {
                     this.view = m.view
                 }
                 this.events(m.events)
-                if (m.view) {
+                if (m.view && this.undone) {
                     this.acting = !!m.view.action
+                    this.undone = false
                 }
                 break
             }
             case 'decision': {
                 this.view = m.view
-                this.acting = !!m.view.action
+                if (this.undone) {
+                    this.acting = !!m.view.action
+                    this.undone = false
+                }
                 // Sent again ( a settings change, the game joined again ) : the one the user is
                 // answering stays, the one answered is
                 if (m.decision == this.lastDecision && (!this.answered || this.resent)) {
@@ -440,6 +446,7 @@ export class EngineHost {
                 // Told on : the log takes back its lines
                 this.told = [e]
                 this.actionEnded = false
+                this.undone = true
                 continue
             }
             if (e.kind == 'decided' || e.kind == 'auto_passed') {
@@ -453,15 +460,12 @@ export class EngineHost {
                     e.kind == 'decided' ?
                         { ...e.choice, text: e.text ?? e.choice.text ?? '' }
                     :   { index: 0, kind: 'pass', text: 'Pass' }
-                // An action declared : an `action` effect naming it
-                if (
+                // An action declared ( an action card played among its cards ) : announced next
+                const declares =
                     choice.kind == 'take_action' ||
                     (choice.effects ?? []).some(
                         effect => effect.kind == 'action' && !!effect.action,
                     )
-                ) {
-                    this.acting = true
-                }
                 this.push({
                     type: 'decided',
                     decision: e.decision,
@@ -470,10 +474,13 @@ export class EngineHost {
                     choice,
                     event: e,
                     ...this.take(),
-                    duringAction: this.acting,
+                    duringAction: this.acting || declares,
                     view: this.view as TableView,
                 })
                 continue
+            }
+            if (e.kind == 'action_starts') {
+                this.acting = true
             }
             if (e.kind == 'action_ends') {
                 this.acting = false
@@ -528,7 +535,7 @@ export class EngineHost {
         return this.next()
     }
 
-    // Take back the previous step of the multi-step choice under way ( when a decision says `undo` )
+    // Take back the user's last decision ( when a decision says `undo` ) : the bots' since with it
     async undo(): Promise<void> {
         this.send({ type: 'undo', decision: this.lastDecision })
         await this.settled()

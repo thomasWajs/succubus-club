@@ -134,6 +134,7 @@ const MARKER_NAMES: Partial<Record<MarkerKind, string>> = {
     disease: 'Disease',
     title_contested: 'Contested title',
     expelled: 'Expelled',
+    taint: 'Taint',
     effect: 'Effect',
 }
 
@@ -165,7 +166,8 @@ export function minionMarkers(markers: Marker[]): { chips: EngineChip[]; labels:
         ) {
             chips.push({ kind: marker.kind, n, name: markerName(marker) })
         } else {
-            labels.push(markerName(marker))
+            // A count with no chip of its own ( taint ) : on the label
+            labels.push(n > 0 ? `${markerName(marker)} (${n})` : markerName(marker))
         }
     }
     return { chips, labels }
