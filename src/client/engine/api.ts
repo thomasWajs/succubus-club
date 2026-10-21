@@ -802,6 +802,12 @@ export type Event = {
       }
     | {
           card: Card
+          from: ZoneRef2
+          kind: 'card_moves'
+          to: ZoneRef2
+      }
+    | {
+          card: Card
           /**
            * A lasting effect whose card is in the ash heap (a marker on
            * its minion), not a card of its own: no copy.
@@ -1404,6 +1410,12 @@ export type SeatView = {
     removed: Card[]
     seat: number
     torpor: MinionView[]
+    /**
+     * Library cards in the uncontrolled region with training counters
+     * (Web of Knives Recruit), out of play: `counters` the training
+     * counters.
+     */
+    training?: InPlayView[]
     uncontrolled: SlotView[]
     /**
      * Victory points, in halves of a point (a survivor at the time limit
@@ -1692,9 +1704,29 @@ export type Zone =
     | 'torpor'
     | 'in_play'
     | 'limbo'
+    | 'stored'
+    | 'training'
     | 'unknown'
 
 export type ZoneRef = {
+    seat: number
+    zone: Zone
+}
+
+/**
+ * A seat's zone, and the card or minion a card is on (stored on a card,
+ * in play on a minion).
+ */
+export type ZoneRef2 = {
+    /**
+     * The card it is stored on (`stored`), the minion it is on
+     * (`in_play`).
+     */
+    on?: number | null
+    /**
+     * The place's holder as the card moved: a zone's seat, a card's
+     * controller, a minion's (the minion's for a card on it).
+     */
     seat: number
     zone: Zone
 }
