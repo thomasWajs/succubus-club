@@ -36,6 +36,8 @@ import {
     StrengthIfBlockedEffect,
     UnlockAndBlockEffect,
     TransferEffect,
+    GainPoolEffect,
+    LockUseEffect,
     GainBloodEffect,
     BloodToPoolEffect,
     GainBloodFromDamageEffect,
@@ -51,6 +53,7 @@ import {
     ManeuverEffect,
     Play,
     ReactionEffect,
+    ReduceBleedEffect,
     Requirement,
     SetStrengthEffect,
     StealthEffect,
@@ -267,6 +270,10 @@ export function intercept(amount: number): InterceptEffect {
     return { type: 'intercept', amount }
 }
 
+export function reduceBleed(amount: number): ReduceBleedEffect {
+    return { type: 'reduceBleed', amount }
+}
+
 export const bleedAction: BleedActionEffect = { type: 'bleedAction' }
 
 export function stealPool(amount: number): StealPoolEffect {
@@ -333,18 +340,35 @@ export function actorIs(options: {
     other?: boolean
     controller?: 'self'
     sect?: 'Anarch'
+    clan?: string
+    titled?: boolean
 }): EventCondition {
     return { type: 'actorIs', ...options }
 }
 
+export const blockerIsBearer: EventCondition = { type: 'blockerIsBearer' }
+
 // The action of the event was not blocked
 export const actionSuccessful: EventCondition = { type: 'actionSuccessful' }
+export const actionIsHunt: EventCondition = { type: 'actionIs', kind: 'hunt' }
+export const actionIsUndirected: EventCondition = { type: 'actionIs', kind: 'undirected' }
 
 export function burnBlood(amount: number): TriggerCost {
     return { type: 'burnBlood', amount }
 }
 
+export const lockSelf: TriggerCost = { type: 'lockSelf' }
+
 export const unlockSelf: TriggerEffect = { type: 'unlock', who: 'self' }
+export const unlockActor: TriggerEffect = { type: 'unlock', who: 'actor' }
+
+export function gainBloodActor(amount: number): TriggerEffect {
+    return { type: 'gainBlood', who: 'actor', amount }
+}
+
+export function gainBloodBearer(amount: number): TriggerEffect {
+    return { type: 'gainBlood', who: 'bearer', amount }
+}
 
 // Locks the minion the event is about, when the later event is announced
 export function lockAt(at: EventName, who: 'eventBlocker'): TriggerEffect {
@@ -359,9 +383,19 @@ export const blockManeuver: BlockManeuverEffect = { type: 'blockManeuver' }
 export const drawCryptRemoveUncontrolled: TransferEffect = { type: 'drawCryptRemoveUncontrolled' }
 export const burnSelf: TransferEffect = { type: 'burnSelf' }
 
-export function gainPool(amount: number): TransferEffect {
+export function gainPool(amount: number): GainPoolEffect {
     return { type: 'gainPool', amount }
 }
+
+export function handSizeThisTurn(amount: number): LockUseEffect {
+    return { type: 'handSizeThisTurn', amount }
+}
+
+export function bloodToUncontrolled(amount: number): LockUseEffect {
+    return { type: 'bloodToUncontrolled', amount }
+}
+
+export const bloodPerHostage: LockUseEffect = { type: 'bloodPerHostage' }
 
 export const discardFromHand: DiscardFromHandEffect = { type: 'discardFromHand' }
 

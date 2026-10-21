@@ -1,8 +1,8 @@
 import { Minion } from '@/shared/model/Card.ts'
 import { GameState } from '@/shared/state/gameState.ts'
-import { MinionAction } from '@/shared/types/state.ts'
+import { ArmedTrigger, MinionAction } from '@/shared/types/state.ts'
 import { TriggerEffect } from '@/shared/cardImpl/catalog/types.ts'
-import { queueOptionalTriggers } from '@/shared/state/triggers.ts'
+import { meetsCondition, queueOptionalTriggers } from '@/shared/state/triggers.ts'
 
 /**
  * The named events: what the engine announces, at fixed points of the mutations that cause
@@ -10,13 +10,23 @@ import { queueOptionalTriggers } from '@/shared/state/triggers.ts'
  * The payloads are read-only data.
  */
 export type GameEvent =
+    // The action is declared: nobody has reacted yet
+    | { type: 'actionDeclared'; action: MinionAction }
+    // A minion attempts to block the action: the attempt is not resolved yet
+    | { type: 'blockDeclared'; action: MinionAction; blocker: Minion }
     // A block attempt failed ( the stealth is higher than the intercept ): the action goes on
     | { type: 'blockFailed'; action: MinionAction; blocker: Minion }
     // The action is about to resolve ( no block stands )
     | { type: 'actionResolving'; action: MinionAction }
     // The action is over. It is successful when it was not blocked: nobody blocked, or the blocks
     // failed ( it does not need to have had an effect ). A block that succeeded ends it unsuccessful.
-    | { type: 'actionResolved'; action: MinionAction; successful: boolean }
+    // The triggers armed in the action stay with this event: the action itself is gone
+    | {
+          type: 'actionResolved'
+          action: MinionAction
+          successful: boolean
+          armed: ArmedTrigger[]
+      }
 
 export type EventName = GameEvent['type']
 
@@ -45,6 +55,9 @@ function getEffectMinion(effect: TriggerEffect, event: GameEvent): Minion | null
     if (effect.type == 'lock' && event.type == 'blockFailed') {
         return event.blocker
     }
+    if (effect.type == 'unlock' && effect.who == 'actor') {
+        return event.action.actingMinion
+    }
     return null
 }
 
@@ -56,20 +69,27 @@ function getDeferral(effect: TriggerEffect): EventName | undefined {
 function applyEffect(effect: TriggerEffect, minion: Minion): void {
     if (effect.type == 'lock') {
         minion.lock()
+    } else if (effect.type == 'unlock') {
+        minion.unlock()
     }
 }
 
 // The triggers armed in the action in progress react to the event, then the effects that waited
 // for this event are applied. Only the action in progress is watched: an armed trigger lives with it.
 function runArmedTriggers(gameState: GameState, event: GameEvent): void {
-    for (const armed of gameState.action?.armedTriggers ?? []) {
+    const armedTriggers =
+        event.type == 'actionResolved' ? event.armed : (gameState.action?.armedTriggers ?? [])
+    for (const armed of armedTriggers) {
         const due = armed.deferred.filter(deferred => getDeferral(deferred.effect) == event.type)
         armed.deferred = armed.deferred.filter(deferred => !due.includes(deferred))
         for (const { effect, minion } of due) {
             applyEffect(effect, minion)
         }
 
-        if (armed.trigger.on != event.type) {
+        if (
+            armed.trigger.on != event.type ||
+            !(armed.trigger.when ?? []).every(condition => meetsCondition(condition, null, event))
+        ) {
             continue
         }
         for (const effect of armed.trigger.effects) {

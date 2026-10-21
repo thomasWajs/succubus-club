@@ -93,6 +93,10 @@ export type BotOption =
     // Uses the "lock this card to discard a card" ability of a master card in play ( the hand is
     // drawn back up )
     | { type: 'lockEffect'; card: LibraryCard; discard: LibraryCard }
+    // Locks a master card in play for an effect of its own ( Dreams of the Sphinx ), in the unlock phase or the discard
+    // phase of its controller: `ability` is an index of the abilities of the card, `target` the vampire of the
+    // uncontrolled region it is aimed at
+    | { type: 'lockUse'; card: LibraryCard; ability: number; target?: Vampire }
     // Locks a master card in play for the action in progress, which gives it its bonus ( The
     // Labyrinth ). Played like an action modifier: the acting player keeps the impulse.
     | { type: 'lockForAction'; card: LibraryCard }

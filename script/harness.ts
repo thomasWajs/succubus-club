@@ -149,6 +149,8 @@ function describeReactionEffect(effect: ReactionCardEffect): string {
             return `changeTarget -> ${effect.target.name}`
         case 'intercept':
             return `intercept +${effect.amount}`
+        case 'reduceBleed':
+            return `reduceBleed -${effect.amount}`
         case 'wake':
             return 'wake'
         case 'unlockBlock':

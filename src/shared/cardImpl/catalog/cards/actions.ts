@@ -21,6 +21,19 @@ import {
 } from '@/shared/cardImpl/catalog/builders.ts'
 
 export const ACTION_CARDS = [
+    // The Nosferatu requirement is the cardbase's. X is the number of copies in play ( the first costs 0 ).
+    // The prey burns the pool in the unlock phase of the controller, and any minion can burn the card
+    defineCard('102213', 'Creeping Sabotage', [
+        {
+            kind: 'action',
+            target: 'none',
+            staysInPlay: 'standalone',
+            xIsCopies: true,
+            burnable: true,
+            whileInPlay: [{ type: 'preyBurnsPool', amount: 1 }],
+            effects: [stealth(1)],
+        },
+    ]),
     defineCard('100845', 'Govern the Unaligned', [
         {
             kind: 'action',

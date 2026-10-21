@@ -87,6 +87,8 @@ export type SetStrengthEffect = { type: 'setStrength'; amount: number }
 // A bounce: the acting minion's controller is never the new target. The reacting vampire is
 // locked when the card says so.
 export type ChangeTargetEffect = { type: 'changeTarget'; lockReactor: boolean }
+// The bleed of the action ( aimed at the reacting Methuselah ) is reduced by this much, down to 0
+export type ReduceBleedEffect = { type: 'reduceBleed'; amount: number }
 // The reacting minion wakes until the end of the action. An ally that wakes with `allyMissesUnlock`
 // does not unlock at its next unlock phase.
 export type WakeEffect = { type: 'wake'; allyMissesUnlock?: boolean }
@@ -125,17 +127,35 @@ export type TriggerEffect =
     // The minion that failed its block is locked. With `at`, the lock waits for that event
     // ( the same action ) instead of being applied at once.
     | { type: 'lock'; who: 'eventBlocker'; at?: EventName }
-    // The card that has the trigger is unlocked
-    | { type: 'unlock'; who: 'self' }
+    // The card that has the trigger is unlocked, or the minion that acted
+    | { type: 'unlock'; who: 'self' | 'actor' }
+    // The minion that acted, or the minion the card is attached to, gains blood
+    | { type: 'gainBlood'; who: 'actor' | 'bearer'; amount: number }
+    // A trigger armed for the rest of the action in progress ( it also sees the end of the action )
+    | ArmTriggerEffect
 // What must hold for a trigger to count, about the event and the card that has the trigger
 export type EventCondition =
     // The minion that acted: another minion than the card ( `other` ), controlled by the same
-    // Methuselah ( `controller: 'self'` ), of this sect
-    | { type: 'actorIs'; other?: boolean; controller?: 'self'; sect?: 'Anarch' }
+    // Methuselah ( `controller: 'self'` ), of this sect or clan, with a title ( or without one )
+    | {
+          type: 'actorIs'
+          other?: boolean
+          controller?: 'self'
+          sect?: 'Anarch'
+          clan?: string
+          titled?: boolean
+      }
+    // The minion that attempts the block is the one the card is attached to ( blockDeclared )
+    | { type: 'blockerIsBearer' }
     // The action of the event ended successful: it was not blocked ( actionResolved )
     | { type: 'actionSuccessful' }
+    // The action of the event is a hunt, or is not directed at anyone ( a hunt, a recruit, an equip... )
+    | { type: 'actionIs'; kind: 'hunt' | 'undirected' }
 // Paid when an optional trigger is used
-export type TriggerCost = { type: 'burnBlood'; amount: number }
+export type TriggerCost =
+    | { type: 'burnBlood'; amount: number }
+    // The card with the trigger is locked ( it must be unlocked )
+    | { type: 'lockSelf' }
 // A card in play or a played card that reacts to an event, with the effects it has
 export type Trigger = {
     on: EventName
@@ -183,6 +203,7 @@ export type CombatEffect =
 export type UnlockAndBlockEffect = { type: 'unlockAndBlock'; sect: 'Anarch'; intercept: number }
 export type ReactionEffect =
     | ChangeTargetEffect
+    | ReduceBleedEffect
     | InterceptEffect
     | WakeEffect
     | UnlockAndBlockEffect
@@ -266,6 +287,9 @@ export type MinionFilter = {
     maxCapacity?: number
     // Not in torpor
     ready?: boolean
+    // The minions of the other Methuselahs, not the player's own ( "put this card on a ready vampire", for a card
+    // that only hurts its host )
+    whose?: 'other'
 }
 
 // What a card that stays on a minion says about how it is put there
@@ -278,6 +302,44 @@ type AttachFields = {
 
 export type StaysInPlay = 'discard' | 'onMinion' | 'standalone'
 
+// What a card that stays in play on its own does to the Methuselahs, in an unlock phase
+export type InPlayEffect =
+    // During the unlock phase of its controller, their prey burns this much pool
+    | { type: 'preyBurnsPool'; amount: number }
+    // During the unlock phase of its controller, this much pool is moved to counters on the card
+    | { type: 'poolToCounters'; amount: number }
+    // During the unlock phase of each other Methuselah, for each counter on the card they burn 1 pool or 1 blood
+    // of a vampire they control
+    | { type: 'othersBurnPerCounter' }
+    // After the minion the card is attached to goes to torpor, its controller burns this much pool
+    | { type: 'bearerTorporBurnsPool'; amount: number }
+    // During the unlock phase of each Methuselah, if the minion the card is attached to is in torpor, that Methuselah
+    // burns this much pool
+    | { type: 'unlockBurnsPoolWhileBearerInTorpor'; amount: number }
+    // The minions of the other Methuselahs can enter combat with the minion the card is on as a directed action, with
+    // this much stealth
+    | { type: 'bearerCanBeFought'; stealth: number }
+    // The minion the card is on can burn the card as a directed action at the Methuselah who played it, with this much
+    // stealth
+    | { type: 'bearerBurnsCard'; stealth: number }
+    // Each ready minion of the controller can enter combat with a minion of their prey as a directed action
+    | { type: 'combatWithPrey' }
+    // After a ready minion of the prey of the controller is burned or sent to torpor, the controller gains this much pool
+    | { type: 'poolWhenPreyLosesMinion'; amount: number }
+    // In the influence phase of its controller the card is burned, and the controller burns 1 pool for each ready minion
+    // of their prey
+    | { type: 'influenceBurnsSelfAndPoolPerPreyMinion' }
+    // After a vampire with a capacity of at most this goes to torpor, it gets a hostage counter. While the card is in
+    // play, a vampire with a hostage counter cannot leave torpor nor be diablerized
+    | { type: 'hostageOnTorpor'; maxCapacity: number }
+
+// What a card that stays in play on its own can have
+type StandingFields = {
+    whileInPlay?: InPlayEffect[]
+    // The minions of the other Methuselahs can burn the card as a directed action
+    burnable?: boolean
+}
+
 // Something a card in play does when the player chooses to
 export type MasterAbility =
     | UnlockAbility
@@ -285,6 +347,31 @@ export type MasterAbility =
     | TransferAbility
     | LockForActionAbility
     | LockForReactionAbility
+    | LockUseAbility
+    | FreeHostageAbility
+
+// "During any unlock phase, any ready vampire can burn 2 blood to burn the hostage counters of a vampire": once per turn
+// and card. The engine frees a hostage vampire of the player, paid by a ready vampire of theirs
+type FreeHostageAbility = { activate: 'freeHostage'; cost: number }
+
+// "You can lock this card to get +2 hand size until the end of the turn": usable while the card is unlocked, in the
+// phase of its controller's turn that `window` says, and it locks the card ( and adds a counter, see `lockCounters` )
+type LockUseAbility = {
+    activate: 'lockUse'
+    window: 'unlockPhase' | 'discardPhase' | 'masterPhase'
+    // Only while the Methuselah has the Edge
+    needsEdge?: boolean
+    effects: LockUseEffect[]
+}
+
+export type LockUseEffect =
+    // More cards in the hand until the end of the turn: drawn at once, discarded back at the end of the turn
+    | { type: 'handSizeThisTurn'; amount: number }
+    | GainPoolEffect
+    // Blood on a vampire of the uncontrolled region
+    | { type: 'bloodToUncontrolled'; amount: number }
+    // Blood on a ready vampire of the controller: as many as there are vampires with a hostage counter
+    | { type: 'bloodPerHostage' }
 
 // "You can lock this card to give a Nosferatu you control +1 stealth": usable while the card is
 // unlocked, in the action of a minion of the player that fits the filter, like an action modifier
@@ -310,11 +397,11 @@ type TransferAbility = {
     effects: TransferEffect[]
 }
 
+export type GainPoolEffect = { type: 'gainPool'; amount: number }
+
 export type TransferEffect =
     // Draw a card from the crypt, then remove a crypt card of the uncontrolled region from the game
-    | { type: 'drawCryptRemoveUncontrolled' }
-    | { type: 'burnSelf' }
-    | { type: 'gainPool'; amount: number }
+    { type: 'drawCryptRemoveUncontrolled' } | { type: 'burnSelf' } | GainPoolEffect
 
 type UnlockAbility = {
     // During the unlock phase, once the cards are unlocked ( once per turn )
@@ -376,16 +463,20 @@ export type AllyAbility =
     | { activate: 'burnLifeForPress'; life: number }
 
 export type ActionPlay = PlayBase &
-    AttachFields & {
+    AttachFields &
+    StandingFields & {
         kind: 'action'
         target: ActionTarget
         // The action recruits the ally the card is: once it succeeds the card is a minion in play
         recruit?: AllyVersion
         // What the ally can do once in play ( `attached` is what it does as if attached to itself )
         allyAbilities?: AllyAbility[]
+        // The X of the blood cost is the number of copies of the card the player controls
+        xIsCopies?: boolean
         // 'onMinion': once the action succeeds the card stays in play, attached to a minion
-        // ( equipment, retainer, "put this card on this vampire" ). Discarded by default.
-        staysInPlay?: 'onMinion'
+        // ( equipment, retainer, "put this card on this vampire" ). 'standalone': it stays in play on its own.
+        // Discarded by default.
+        staysInPlay?: 'onMinion' | 'standalone'
         // The minion it is put on: the acting one ( 'this' ), or one the player chooses ( the
         // target of the action, which then has target 'none' )
         attachTo?: 'this' | MinionFilter
@@ -405,7 +496,8 @@ export type CombatPlay = PlayBase & { kind: 'combat'; effects: CombatEffect[] }
 export type ConditionalReactionEffect = ReactionEffect & { when?: Condition[] }
 export type ReactionPlay = PlayBase & { kind: 'reaction'; effects: ConditionalReactionEffect[] }
 export type MasterPlay = PlayBase &
-    AttachFields & {
+    AttachFields &
+    StandingFields & {
         kind: 'master'
         // 'discard' by default
         staysInPlay?: StaysInPlay
@@ -415,6 +507,11 @@ export type MasterPlay = PlayBase &
         effects?: MasterEffect[]
         onPlay?: MasterOnPlay
         abilities?: MasterAbility[]
+        // "Add 1 counter to this card each time you lock it. Burn this card if it has 3 counters": the counters are
+        // kept in the blood of the card
+        lockCounters?: { burnAt: number }
+        // What the card does when an event is announced, while it is in play ( optional ones are decisions )
+        triggers?: Trigger[]
     }
 
 export type Play = ActionPlay | ModifierPlay | CombatPlay | ReactionPlay | MasterPlay

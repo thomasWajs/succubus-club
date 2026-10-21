@@ -11,6 +11,13 @@ import {
 } from '@/shared/cardImpl/catalog/builders.ts'
 
 export const MODIFIER_CARDS = [
+    // Only the inferior effect is modelled. The superior one ( turn a bleed that would succeed into one that burns
+    // nothing, keep the card on the vampire for +2 bleed on the next bleed against the same Methuselah ) is not:
+    // the superior play is the inferior effect, which a superior vampire may always choose
+    defineCard('101857', 'Spying Mission', [
+        { kind: 'modifier', requires: discipline('obf', 'inferior'), effects: [stealth(1)] },
+        { kind: 'modifier', requires: discipline('obf', 'superior'), effects: [stealth(1)] },
+    ]),
     defineCard('101125', 'Lost in Crowds', [
         { kind: 'modifier', requires: discipline('obf', 'inferior'), effects: [stealth(1)] },
         { kind: 'modifier', requires: discipline('obf', 'superior'), effects: [stealth(2)] },

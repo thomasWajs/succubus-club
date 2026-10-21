@@ -2,6 +2,7 @@ import { LibraryCard, Minion } from '@/shared/model/Card.ts'
 import { Player } from '@/shared/model/Player.ts'
 import {
     ActionCardFromHandAction,
+    ActionInPlayAction,
     ActionModifier,
     ActionModifierType,
     BecomeAnarchAction,
@@ -63,6 +64,16 @@ export function createEnterCombatAction(actingMinion: Minion, target: Minion): E
         type: MinionActionType.EnterCombat,
         actingMinion,
         target,
+    }
+}
+
+// A bot burns a card in play of another Methuselah: a directed action aimed at the card
+export function createBurnCardAction(actingMinion: Minion, card: LibraryCard): ActionInPlayAction {
+    return {
+        type: MinionActionType.ActionInPlay,
+        actingMinion,
+        card,
+        target: card,
     }
 }
 

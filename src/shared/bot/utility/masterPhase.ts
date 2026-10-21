@@ -1,6 +1,8 @@
 import { Player } from '@/shared/model/Player.ts'
 import { CardOid } from '@/shared/types/model.ts'
+import { LEAVE_TORPOR_COST } from '@/shared/const/model.ts'
 import { getExtraPlayCost } from '@/shared/cardImpl/catalog/attached.ts'
+import { countHostages } from '@/shared/state/standingCards.ts'
 import { resolveCost } from '@/shared/state/cardCosts.ts'
 import { getMasterCardOptions } from '@/shared/bot/cardOptions.ts'
 import { findOption } from '@/shared/bot/helpers.ts'
@@ -12,7 +14,12 @@ import { ExplainCandidate } from '@/shared/bot/utility/explain.ts'
 import { MinionProfile, profileMatches } from '@/shared/bot/utility/minionProfile.ts'
 import { keepOf } from '@/shared/bot/utility/reserve.ts'
 import { readyMinions, unlockedMinions } from '@/shared/bot/utility/snapshot.ts'
-import { AbilitySummary, PlaySummary, summarizeCard } from '@/shared/bot/utility/summaries.ts'
+import {
+    AbilitySummary,
+    Effect,
+    PlaySummary,
+    summarizeCard,
+} from '@/shared/bot/utility/summaries.ts'
 
 /**
  * The master phase and the blood. Every master card of the hand is a play with a worth in pool, read from its
@@ -47,6 +54,28 @@ type Judged = {
 
 function profileOf(assessment: Assessment, minion: { oid: CardOid } | undefined) {
     return assessment.table.me.minions.find(candidate => candidate.oid == minion?.oid)
+}
+
+function othersMinions(assessment: Assessment): MinionProfile[] {
+    return assessment.table.others.flatMap(other => other.minions)
+}
+
+// The chance that a minion goes to torpor over the stay of a card in play: the emptier it is, the likelier
+function torporChance(assessment: Assessment, minion: MinionProfile): number {
+    const emptiness = 1 - minion.blood / Math.max(1, minion.capacity)
+    return Math.min(1, assessment.profile.master.torpor * (1 + 2 * emptiness))
+}
+
+// What the permission to start a fight with these minions is worth over the stay: the fights my minions start and win,
+// times what the loser loses ( the share of its worth ). `reach` is how hard the permission is to stop
+function fightWorth(assessment: Assessment, targets: MinionProfile[], reach: number): number {
+    if (targets.length == 0) {
+        return 0
+    }
+    const { master, combat } = assessment.profile
+    const fights = Math.min(1, master.fight * reach * readyMinions(assessment.table.me).length)
+    const loss = targets.reduce((total, minion) => total + minion.worth, 0) / targets.length
+    return fights * loss * combat.torporShare
 }
 
 // What `amount` blood put on a vampire is worth, in pool: the blood, and the action that a vampire with none is spared
@@ -141,6 +170,37 @@ function chargeWorth(
     return 0
 }
 
+// What one use of a card in play that reacts to an action is worth: the blood it gives, the action an unlock gives back
+function triggerWorth(assessment: Assessment, effects: Effect[]): number {
+    const { plan } = assessment.profile
+    return effects.reduce(
+        (total, effect) =>
+            total +
+            (effect.type == 'gainBlood' ? effect.amount * plan.bloodValue
+            : effect.type == 'unlockActor' ? plan.cardAction
+            : effect.type == 'trigger' ? triggerWorth(assessment, effect.effects)
+            : 0),
+        0,
+    )
+}
+
+// What one use of a card in play that is locked for an effect is worth: the cards the hand size draws, the pool, the
+// blood put on a vampire that is still uncontrolled ( a transfer saved )
+function lockUseWorth(assessment: Assessment, ability: AbilitySummary, blood = 0): number {
+    const { master } = assessment.profile
+    const { plan } = assessment.profile
+    return ability.effects.reduce(
+        (total, effect) =>
+            total +
+            (effect.type == 'handSizeThisTurn' ? effect.amount * master.handSize
+            : effect.type == 'gainPool' || effect.type == 'bloodToUncontrolled' ?
+                effect.amount * plan.poolValue
+            : effect.type == 'bloodPerHostage' ? blood * plan.bloodValue
+            : 0),
+        0,
+    )
+}
+
 // What the pool left would face: the chance that my predator ousts me on its next turn, with my minions home
 function riskOf(assessment: Assessment, pool: number): number {
     return chanceOfOust(assessment, {
@@ -210,9 +270,89 @@ function playValue(
             case 'handSize':
                 parts.hand = (parts.hand ?? 0) + effect.amount * master.handSize * master.stay
                 break
+            case 'poolToCounters':
+                parts.counters = (parts.counters ?? 0) - effect.amount * master.stay * plan.caution
+                break
+            case 'othersBurnPerCounter':
+                // One more counter each turn: the others burn 1, then 2... over the stay
+                parts.drain =
+                    (parts.drain ?? 0) +
+                    assessment.table.others.length *
+                        ((master.stay * (master.stay + 1)) / 2) *
+                        plan.caution *
+                        master.drain
+                break
+            case 'bearerCanBeFought': {
+                // Every minion of mine can start a fight with the vampire it is on, which gets harder to stop
+                const bearer = othersMinions(assessment).find(
+                    minion => minion.oid == option.target?.oid,
+                )
+                parts.fight =
+                    (parts.fight ?? 0) +
+                    fightWorth(assessment, bearer ? [bearer] : [], 1 + effect.stealth)
+                break
+            }
+            case 'combatWithPrey': {
+                const prey = assessment.table.prey ? readyMinions(assessment.table.prey) : []
+                parts.fight = (parts.fight ?? 0) + fightWorth(assessment, prey, 1)
+                break
+            }
+            case 'poolWhenPreyLosesMinion': {
+                const prey = assessment.table.prey ? readyMinions(assessment.table.prey) : []
+                parts.preyLoss =
+                    (parts.preyLoss ?? 0) +
+                    prey.reduce((total, minion) => total + torporChance(assessment, minion), 0) *
+                        effect.amount *
+                        assessment.profile.plan.poolValue
+                break
+            }
+            case 'influenceBurnsSelfAndPoolPerPreyMinion':
+                // The card is burned in the influence phase of this turn, and I pay a pool for each ready minion of my prey
+                parts.upkeep =
+                    (parts.upkeep ?? 0) -
+                    (assessment.table.prey ? readyMinions(assessment.table.prey).length : 0) *
+                        plan.poolValue *
+                        plan.caution
+                break
+            case 'hostageOnTorpor': {
+                // The way back from torpor is lost for the vampires that fit, mine included
+                const worth = (minions: MinionProfile[]) =>
+                    minions
+                        .filter(minion => minion.isVampire && minion.capacity <= effect.maxCapacity)
+                        .reduce((total, minion) => total + torporChance(assessment, minion), 0) *
+                    plan.torporReturn
+                parts.hostage =
+                    (parts.hostage ?? 0) +
+                    worth(othersMinions(assessment)) -
+                    worth(readyMinions(assessment.table.me))
+                break
+            }
+            case 'trigger':
+                parts.trigger =
+                    (parts.trigger ?? 0) +
+                    triggerWorth(assessment, effect.effects) * master.charge * master.stay
+                break
+            case 'bearerTorporBurnsPool': {
+                const host = othersMinions(assessment).find(
+                    minion => minion.oid == option.target?.oid,
+                )
+                parts.torpor =
+                    (parts.torpor ?? 0) +
+                    (host ? torporChance(assessment, host) : master.torpor) *
+                        effect.amount *
+                        plan.poolValue
+                break
+            }
             default:
                 break
         }
+    }
+    const lockUses = play.abilities
+        .filter(ability => ability.activate == 'lockUse')
+        .map(ability => lockUseWorth(assessment, ability) * (ability.needsEdge ? master.edge : 1))
+    if (lockUses.length > 0) {
+        // Every use is the best of the abilities, until the card is burned
+        parts.uses = Math.max(...lockUses) * (play.burnsAtLocks ?? master.stay)
     }
     if (target) {
         const carried = play.attached
@@ -244,7 +384,8 @@ function playValue(
     const lasting = play.abilities.reduce(
         (total, ability) =>
             total +
-            (ability.windows.includes('unlockPhase') ?
+            (ability.activate == 'lockUse' || ability.activate == 'freeHostage' ? 0
+            : ability.windows.includes('unlockPhase') ?
                 groundWorth(assessment, ability) * master.stay
             :   chargeWorth(assessment, values, ability, standing)),
         0,
@@ -316,6 +457,19 @@ function moveValue(assessment: Assessment, option: BotOptionOf<'moveBlood'>): Ju
 // The blood a card in play gives a vampire in the unlock phase
 function unlockValue(assessment: Assessment, option: BotOptionOf<'unlockEffect'>): Judged | null {
     const vampire = profileOf(assessment, option.vampire)
+    const freeing = (summarizeCard(option.card)?.plays ?? [])
+        .flatMap(play => play.abilities)
+        .flatMap(ability => ability.effects)
+        .find(effect => effect.type == 'freeHostage')
+    if (freeing) {
+        // A vampire freed is worth the way back from torpor, if it holds the blood to leave it
+        if (!vampire || vampire.blood < LEAVE_TORPOR_COST) {
+            return null
+        }
+        const { plan } = assessment.profile
+        const value = plan.torporReturn - freeing.cost * plan.bloodValue
+        return { option, value, trifle: false, fill: 0, parts: { freed: value } }
+    }
     const amount = (summarizeCard(option.card)?.plays ?? [])
         .flatMap(play => play.abilities)
         .filter(ability => ability.windows.includes('unlockPhase'))
@@ -393,7 +547,11 @@ export function judgeMaster(
     const moves = optionsOfType(decision.options, 'moveBlood').flatMap(
         option => moveValue(assessment, option) ?? [],
     )
-    return choose(assessment, findOption(decision.options, 'endPhase'), [plays, moves])
+    return choose(assessment, findOption(decision.options, 'endPhase'), [
+        plays,
+        moves,
+        lockUses(assessment, decision),
+    ])
 }
 
 /**
@@ -407,5 +565,55 @@ export function judgeUnlock(decision: DecisionPoint, assessment: Assessment): Ma
     const moves = optionsOfType(decision.options, 'moveBlood').flatMap(
         option => moveValue(assessment, option) ?? [],
     )
-    return choose(assessment, findOption(decision.options, 'endPhase'), [effects, moves])
+    return choose(assessment, findOption(decision.options, 'endPhase'), [
+        effects,
+        moves,
+        lockUses(assessment, decision),
+    ])
+}
+
+function lockUseValue(assessment: Assessment, option: BotOptionOf<'lockUse'>): Judged | null {
+    const ability = summarizeCard(option.card)?.plays.find(play => play.kind == 'master')
+        ?.abilities[option.ability]
+    if (!ability) {
+        return null
+    }
+    const target = profileOf(assessment, option.target)
+    const room = target ? target.capacity - target.blood : 0
+    const value = lockUseWorth(
+        assessment,
+        ability,
+        Math.min(countHostages(option.card.gameState), room),
+    )
+    return { option, value, trifle: false, fill: 0, parts: { use: value } }
+}
+
+function lockUses(assessment: Assessment, decision: DecisionPoint): Judged[] {
+    return optionsOfType(decision.options, 'lockUse').flatMap(
+        option => lockUseValue(assessment, option) ?? [],
+    )
+}
+
+/**
+ * The discard phase: a card in play that is locked for an effect of its own, when it pays. Null when none does.
+ */
+export function judgeLockUse(
+    decision: DecisionPoint,
+    assessment: Assessment,
+): MasterJudgement | null {
+    const uses = lockUses(assessment, decision)
+    const best = uses
+        .filter(judged => judged.value >= assessment.profile.master.margin)
+        .toSorted(byOrder)[0]
+    return best ?
+            {
+                option: best.option,
+                candidates: uses.map(judged => ({
+                    option: judged.option,
+                    score: judged.value,
+                    parts: judged.parts,
+                })),
+                note: `worth ${best.value.toFixed(2)}`,
+            }
+        :   null
 }

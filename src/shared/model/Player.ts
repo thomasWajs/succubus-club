@@ -122,7 +122,9 @@ export class Player extends BaseModel {
             (total, card) => total + getHandSizeBonus(card),
             0,
         )
-        return INITIAL_HAND_SIZE + bonus
+        return (
+            INITIAL_HAND_SIZE + bonus + (this.gameState.turnResources.handSizeBonus[this.oid] ?? 0)
+        )
     }
 
     // The cards in any ready region that this player controls ( their own, or stolen ones )

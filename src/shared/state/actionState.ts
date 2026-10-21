@@ -43,10 +43,11 @@ export function createActionState(minionAction: MinionAction): ActionState {
 export function endAction(gameState: GameState): void {
     const ended = gameState.action?.minionAction
     const successful = !gameState.action?.blockResolved
+    const armed = gameState.action?.armedTriggers ?? []
     gameState.action = null
     gameState.targetDeclarations = []
     if (ended) {
-        emitEvent(gameState, { type: 'actionResolved', action: ended, successful })
+        emitEvent(gameState, { type: 'actionResolved', action: ended, successful, armed })
     }
 }
 

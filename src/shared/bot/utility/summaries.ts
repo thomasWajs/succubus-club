@@ -12,6 +12,7 @@ import {
     AllyAbility,
     AllyVersion,
     AttachedEffect,
+    InPlayEffect,
     CardKind,
     CombatEffect,
     Condition,
@@ -53,6 +54,8 @@ export const ROLES = [
     // Blood or pool back for me
     'sustain',
     'poolGain',
+    // Burns the pool of another Methuselah, turn after turn, while it stays in play
+    'drain',
     'bounce',
     // Brings a locked minion back into the block, with or without intercept on top
     'wake',
@@ -114,6 +117,8 @@ type TriggerEffectCore = {
     armed: boolean
     optional: boolean
     costBlood: number
+    // Using it locks the card that has the trigger
+    locksCard: boolean
     oncePerTurn: boolean
     effects: Effect[]
 }
@@ -136,6 +141,8 @@ type EffectCore =
     | { type: 'lockTarget' }
     | { type: 'strengthIfBlocked'; amount: number }
     | { type: 'bounce'; lockReactor: boolean }
+    // The bleed aimed at me is reduced by this much
+    | { type: 'cutBleed'; amount: number }
     | { type: 'wake' }
     // The reacting minion is unlocked and may then attempt to block
     | { type: 'unlockReactor' }
@@ -174,6 +181,38 @@ type EffectCore =
     | { type: 'raisePlayCost'; cards: KrcgId[]; amount: number }
     | { type: 'lockFailedBlocker' }
     | { type: 'unlockSelf' }
+    // The minion that acted is unlocked
+    | { type: 'unlockActor' }
+    // In the unlock phase of my turn, my prey burns this much pool
+    | { type: 'preyBurnsPool'; amount: number }
+    // In the unlock phase of my turn, this much of my pool becomes counters on the card
+    | { type: 'poolToCounters'; amount: number }
+    // In the unlock phase of each other Methuselah, they burn 1 pool or 1 blood for each counter on the card
+    | { type: 'othersBurnPerCounter' }
+    // After the minion the card is on goes to torpor, its controller burns this much pool
+    | { type: 'bearerTorporBurnsPool'; amount: number }
+    // In the unlock phase of each Methuselah, while the minion the card is on is in torpor, they burn this much pool
+    | { type: 'unlockBurnsPoolWhileBearerInTorpor'; amount: number }
+    // The minions of the others can enter combat with the minion the card is on, with this much stealth
+    | { type: 'bearerCanBeFought'; stealth: number }
+    // The minion the card is on can burn it as a directed action at the Methuselah who played it
+    | { type: 'bearerBurnsCard'; stealth: number }
+    // Each ready minion of mine can enter combat with a minion of my prey
+    | { type: 'combatWithPrey' }
+    // I gain pool when a ready minion of my prey is burned or sent to torpor
+    | { type: 'poolWhenPreyLosesMinion'; amount: number }
+    // In my influence phase the card is burned and I burn 1 pool for each ready minion of my prey
+    | { type: 'influenceBurnsSelfAndPoolPerPreyMinion' }
+    // A small vampire that goes to torpor gets a hostage counter: it cannot leave torpor nor be diablerized
+    | { type: 'hostageOnTorpor'; maxCapacity: number }
+    // Blood on a ready vampire of mine: as many as there are vampires with a hostage counter
+    | { type: 'bloodPerHostage' }
+    // A ready vampire of mine burns this much blood to burn the hostage counters of a vampire of mine
+    | { type: 'freeHostage'; cost: number }
+    // More cards in the hand until the end of the turn
+    | { type: 'handSizeThisTurn'; amount: number }
+    // Blood on a vampire of the uncontrolled region
+    | { type: 'bloodToUncontrolled'; amount: number }
     // What happens when an event is announced: armed for the rest of the action by a played card, or
     // standing on a card in play
     | TriggerEffectCore
@@ -204,6 +243,8 @@ export type AbilitySummary = {
     windows: AbilityWindow[]
     // Locks the card: one use per cycle, until the next unlock phase
     locks: boolean
+    // Only while the controller has the Edge
+    needsEdge: boolean
     // Transfers it costs ( influence phase )
     transfers: number
     // The minions of the controller that can use it, when it is for some of them ( 'lockForAction', 'lockForReaction', an
@@ -238,6 +279,8 @@ export type PlaySummary = {
     // What the ally lets its controller do once in play
     allyAbilities: AllyAbility[]
     abilities: AbilitySummary[]
+    // Each lock of the card adds a counter, and it is burned at this many ( null: the card does not count its locks )
+    burnsAtLocks: number | null
     roles: Role[]
 }
 
@@ -268,7 +311,11 @@ function summarizeTriggerEffect(effect: TriggerEffect): Effect {
         case 'lock':
             return { type: 'lockFailedBlocker' }
         case 'unlock':
-            return { type: 'unlockSelf' }
+            return { type: effect.who == 'self' ? 'unlockSelf' : 'unlockActor' }
+        case 'gainBlood':
+            return { type: 'gainBlood', amount: effect.amount }
+        case 'armTrigger':
+            return summarizeTrigger(effect.trigger, true)
         default:
             return unreachable(effect)
     }
@@ -280,10 +327,36 @@ function summarizeTrigger(trigger: Trigger, armed: boolean): Effect {
         on: trigger.on,
         armed,
         optional: trigger.mode == 'optional',
-        costBlood: trigger.cost?.amount ?? 0,
+        costBlood: trigger.cost?.type == 'burnBlood' ? trigger.cost.amount : 0,
+        locksCard: trigger.cost?.type == 'lockSelf',
         oncePerTurn: trigger.limit == 'oncePerTurn',
         effects: trigger.effects.map(summarizeTriggerEffect),
     }
+}
+
+function summarizeInPlayEffects(effects: InPlayEffect[]): Effect[] {
+    return effects.map((effect): Effect => {
+        switch (effect.type) {
+            case 'preyBurnsPool':
+            case 'poolToCounters':
+            case 'bearerTorporBurnsPool':
+            case 'unlockBurnsPoolWhileBearerInTorpor':
+                return { type: effect.type, amount: effect.amount }
+            case 'bearerCanBeFought':
+            case 'bearerBurnsCard':
+                return { type: effect.type, stealth: effect.stealth }
+            case 'poolWhenPreyLosesMinion':
+                return { type: effect.type, amount: effect.amount }
+            case 'hostageOnTorpor':
+                return { type: effect.type, maxCapacity: effect.maxCapacity }
+            case 'othersBurnPerCounter':
+            case 'combatWithPrey':
+            case 'influenceBurnsSelfAndPoolPerPreyMinion':
+                return { type: effect.type }
+            default:
+                return unreachable(effect)
+        }
+    })
 }
 
 function summarizeActionEffects(effects: ActionEffect[]): Effect[] {
@@ -391,6 +464,8 @@ function summarizeReactionEffects(effects: (ReactionEffect & { when?: Condition[
             switch (effect.type) {
                 case 'changeTarget':
                     return { type: 'bounce', lockReactor: effect.lockReactor }
+                case 'reduceBleed':
+                    return { type: 'cutBleed', amount: effect.amount }
                 case 'intercept':
                     return { type: 'intercept', amount: effect.amount, bleedsOnly: false }
                 case 'wake':
@@ -542,6 +617,31 @@ export function summarizeAbility(ability: MasterAbility): AbilitySummary {
                     }),
                 ),
             )
+        case 'lockUse':
+            return abilitySummary(
+                ability.activate,
+                [ability.window],
+                true,
+                0,
+                null,
+                ability.effects.map((effect): Effect => {
+                    switch (effect.type) {
+                        case 'handSizeThisTurn':
+                        case 'bloodToUncontrolled':
+                        case 'gainPool':
+                            return { type: effect.type, amount: effect.amount }
+                        case 'bloodPerHostage':
+                            return { type: effect.type }
+                        default:
+                            return unreachable(effect)
+                    }
+                }),
+                !!ability.needsEdge,
+            )
+        case 'freeHostage':
+            return abilitySummary(ability.activate, ['unlockPhase'], false, 0, null, [
+                { type: 'freeHostage', cost: ability.cost },
+            ])
         default:
             return unreachable(ability)
     }
@@ -554,8 +654,18 @@ function abilitySummary(
     transfers: number,
     minion: MinionFilter | null,
     effects: Effect[],
+    needsEdge = false,
 ): AbilitySummary {
-    return { activate, windows, locks, transfers, minion, effects, roles: deriveRoles(effects) }
+    return {
+        activate,
+        windows,
+        locks,
+        needsEdge,
+        transfers,
+        minion,
+        effects,
+        roles: deriveRoles(effects),
+    }
 }
 
 // What a crypt card adds to its vampire, whatever the text says
@@ -636,6 +746,9 @@ function deriveRoles(
             case 'gainBlood':
                 roles.add(target == 'youngerUncontrolledVampire' ? 'accelerate' : 'sustain')
                 break
+            case 'bloodPerHostage':
+                roles.add('sustain')
+                break
             case 'stealPool':
                 roles.add('poolSteal')
                 break
@@ -644,6 +757,8 @@ function deriveRoles(
                 break
             case 'enterCombat':
             case 'canEnterCombat':
+            case 'bearerCanBeFought':
+            case 'combatWithPrey':
                 roles.add('combatStarter')
                 break
             case 'strengthIfBlocked':
@@ -652,6 +767,7 @@ function deriveRoles(
                 roles.add('strength')
                 break
             case 'bounce':
+            case 'cutBleed':
                 roles.add('bounce')
                 break
             case 'wake':
@@ -698,7 +814,11 @@ function deriveRoles(
                 roles.add('prevention')
                 break
             case 'handSize':
+            case 'handSizeThisTurn':
                 roles.add('handSize')
+                break
+            case 'bloodToUncontrolled':
+                roles.add('accelerate')
                 break
             case 'discardFromHand':
             case 'drawCrypt':
@@ -706,13 +826,21 @@ function deriveRoles(
                 break
             case 'gainPool':
             case 'bloodToPool':
+            case 'poolWhenPreyLosesMinion':
                 roles.add('poolGain')
                 break
             case 'lockFailedBlocker':
                 roles.add('punishBlock')
                 break
             case 'unlockSelf':
+            case 'unlockActor':
                 roles.add('unlock')
+                break
+            case 'preyBurnsPool':
+            case 'othersBurnPerCounter':
+            case 'bearerTorporBurnsPool':
+            case 'unlockBurnsPoolWhileBearerInTorpor':
+                roles.add('drain')
                 break
             // Facts the planners read but that do not make a role of their own
             case 'lockTarget':
@@ -723,6 +851,11 @@ function deriveRoles(
             case 'burnSelf':
             case 'mustBleedWhileMinionLocked':
             case 'raisePlayCost':
+            case 'poolToCounters':
+            case 'bearerBurnsCard':
+            case 'influenceBurnsSelfAndPoolPerPreyMinion':
+            case 'hostageOnTorpor':
+            case 'freeHostage':
             case 'trigger':
                 break
             default:
@@ -777,6 +910,7 @@ export function summarizePlay(play: Play): PlaySummary {
         recruit: null as AllyVersion | null,
         allyAbilities: [] as AllyAbility[],
         abilities: [] as AbilitySummary[],
+        burnsAtLocks: null as number | null,
     }
     const finish = (window: PlayWindow, effects: Effect[]): PlaySummary => {
         const roles = new Set<Role>(
@@ -812,7 +946,10 @@ export function summarizePlay(play: Play): PlaySummary {
             base.onePerMinion = !!play.onePerMinion
             base.recruit = play.recruit ?? null
             base.allyAbilities = play.allyAbilities ?? []
-            return finish('minionAction', summarizeActionEffects(play.effects))
+            return finish('minionAction', [
+                ...summarizeActionEffects(play.effects),
+                ...summarizeInPlayEffects(play.whileInPlay ?? []),
+            ])
         }
         case 'modifier': {
             base.x = play.x ?? null
@@ -831,7 +968,12 @@ export function summarizePlay(play: Play): PlaySummary {
             base.attached = summarizeAttached(play.attached ?? [])
             base.onePerMinion = !!play.onePerMinion
             base.abilities = (play.abilities ?? []).map(summarizeAbility)
-            return finish('masterPhase', summarizeMasterEffects(play.effects ?? [], play.onPlay))
+            base.burnsAtLocks = play.lockCounters?.burnAt ?? null
+            return finish('masterPhase', [
+                ...summarizeMasterEffects(play.effects ?? [], play.onPlay),
+                ...summarizeInPlayEffects(play.whileInPlay ?? []),
+                ...(play.triggers ?? []).map(trigger => summarizeTrigger(trigger, false)),
+            ])
         }
         default:
             return unreachable(play)
@@ -930,6 +1072,8 @@ export function describeEffect(effect: Effect): string {
                 return `strength ${describeNumber(effect.amount)} if blocked`
             case 'bounce':
                 return effect.lockReactor ? 'bounce, locks the reactor' : 'bounce'
+            case 'cutBleed':
+                return `reduce the bleed by ${effect.amount}`
             case 'wake':
                 return 'wake'
             case 'unlockReactor':
@@ -992,8 +1136,40 @@ export function describeEffect(effect: Effect): string {
                 return 'lock the minion that failed to block'
             case 'unlockSelf':
                 return 'unlock this minion'
+            case 'unlockActor':
+                return 'unlock the minion that acted'
+            case 'preyBurnsPool':
+                return `in my unlock phase, my prey burns ${effect.amount} pool`
+            case 'poolToCounters':
+                return `in my unlock phase, ${effect.amount} pool becomes counters on the card`
+            case 'othersBurnPerCounter':
+                return 'in the unlock phase of the others, they burn a pool or a blood for each counter'
+            case 'bearerTorporBurnsPool':
+                return `after its host goes to torpor, its controller burns ${effect.amount} pool`
+            case 'unlockBurnsPoolWhileBearerInTorpor':
+                return `in each unlock phase, a Methuselah burns ${effect.amount} pool while the host is in torpor`
+            case 'bearerCanBeFought':
+                return `the minions of the others can enter combat with the host, with ${describeNumber(effect.stealth)} stealth`
+            case 'bearerBurnsCard':
+                return `the host can burn this card as a directed action, with ${describeNumber(effect.stealth)} stealth`
+            case 'combatWithPrey':
+                return 'each ready minion of mine can enter combat with a minion of my prey'
+            case 'poolWhenPreyLosesMinion':
+                return `gain ${effect.amount} pool when a ready minion of my prey is burned or sent to torpor`
+            case 'influenceBurnsSelfAndPoolPerPreyMinion':
+                return 'in my influence phase, burn this card and 1 pool for each ready minion of my prey'
+            case 'hostageOnTorpor':
+                return `a vampire with a capacity of ${effect.maxCapacity} or less that goes to torpor gets a hostage counter`
+            case 'bloodPerHostage':
+                return 'blood on a ready vampire of mine for each vampire with a hostage counter'
+            case 'freeHostage':
+                return `burn ${effect.cost} blood of a ready vampire to burn the hostage counters of a vampire of mine`
+            case 'handSizeThisTurn':
+                return `hand size ${describeNumber(effect.amount)} until the end of the turn`
+            case 'bloodToUncontrolled':
+                return `${effect.amount} blood on a vampire of the uncontrolled region`
             case 'trigger':
-                return `${effect.armed ? 'armed: ' : ''}on ${effect.on}${effect.optional ? ' ( optional' : ' ( automatic'}${effect.costBlood ? `, burn ${effect.costBlood} blood` : ''}${effect.oncePerTurn ? ', once per turn' : ''} ): ${effect.effects.map(describeEffect).join(', ')}`
+                return `${effect.armed ? 'armed: ' : ''}on ${effect.on}${effect.optional ? ' ( optional' : ' ( automatic'}${effect.costBlood ? `, burn ${effect.costBlood} blood` : ''}${effect.locksCard ? ', locks the card' : ''}${effect.oncePerTurn ? ', once per turn' : ''} ): ${effect.effects.map(describeEffect).join(', ')}`
             case 'undirectedStealth':
                 return `stealth ${describeNumber(effect.amount)} on undirected actions`
             case 'directedIntercept':

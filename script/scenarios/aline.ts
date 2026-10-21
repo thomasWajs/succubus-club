@@ -165,6 +165,7 @@ export const ALINE_SCENARIOS: Scenario[] = [
                 type: 'actionResolved',
                 action: createBleedAction(game.bleeding, game.bled),
                 successful: true,
+                armed: [],
             })
             expectNoTrigger(game.gameState, 'once per turn')
         },

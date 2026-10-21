@@ -24,6 +24,9 @@ import { BRUJAH_COMBAT_SCENARIOS } from './scenarios/brujahCombat.ts'
 import { BRUJAH_ACTION_SCENARIOS } from './scenarios/brujahAction.ts'
 import { BRUJAH_REACTION_SCENARIOS } from './scenarios/brujahReaction.ts'
 import { WARRENS_SCENARIOS } from './scenarios/warrens.ts'
+import { DROPPED_CARD_SCENARIOS } from './scenarios/droppedCards.ts'
+import { FAME_DREAMS_SCENARIOS } from './scenarios/fameDreams.ts'
+import { HAVEN_CARVERS_ASSAULT_SCENARIOS } from './scenarios/havenCarversAssault.ts'
 import { ANIMALISM_REACTION_SCENARIOS } from './scenarios/animalismReaction.ts'
 import { CATS_GUIDANCE_SCENARIOS } from './scenarios/catsGuidance.ts'
 import { EVENT_SCENARIOS } from './scenarios/events.ts'
@@ -93,6 +96,9 @@ function runScenarios(filters: string[]): ScenarioResult[] {
         ...BRUJAH_ACTION_SCENARIOS,
         ...BRUJAH_REACTION_SCENARIOS,
         ...WARRENS_SCENARIOS,
+        ...DROPPED_CARD_SCENARIOS,
+        ...FAME_DREAMS_SCENARIOS,
+        ...HAVEN_CARVERS_ASSAULT_SCENARIOS,
         ...ANIMALISM_REACTION_SCENARIOS,
         ...CATS_GUIDANCE_SCENARIOS,
         ...EVENT_SCENARIOS,

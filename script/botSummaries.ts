@@ -58,6 +58,11 @@ const FACTS_WITHOUT_ROLE: EffectType[] = [
     'burnSelf',
     'mustBleedWhileMinionLocked',
     'raisePlayCost',
+    'poolToCounters',
+    'bearerBurnsCard',
+    'influenceBurnsSelfAndPoolPerPreyMinion',
+    'hostageOnTorpor',
+    'freeHostage',
 ]
 
 // What the engine cannot offer to a bot yet, as far as the catalog and the referee go. These are not

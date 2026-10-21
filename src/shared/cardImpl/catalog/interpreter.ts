@@ -4,6 +4,7 @@ import {
     CardImplementation,
     CombatCardImplementation,
     CryptCardImplementation,
+    LockUseChoice,
     MasterCardImplementation,
     ReactionCardEffect,
     ReactionCardImplementation,
@@ -26,8 +27,17 @@ import { getCombatant, getOpposingCombatant, startCombat } from '@/shared/state/
 import { resolveCost } from '@/shared/state/cardCosts.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
 import { botMutations } from '@/shared/state/botMutations.ts'
-import { getAutoPlayPosition, getPlayRegion } from '@/shared/state/cardPlacement.ts'
+import {
+    getAutoPlayPosition,
+    getNewMinionPosition,
+    getPlayRegion,
+} from '@/shared/state/cardPlacement.ts'
 import { canEnterCombatWith, isBleed } from '@/shared/state/minionActions.ts'
+import {
+    countHostages,
+    getFreeableHostages,
+    getPayerOfHostage,
+} from '@/shared/state/standingCards.ts'
 import {
     ActionProperty,
     Invalid,
@@ -197,6 +207,10 @@ class InterpretedAction extends ActionCardImplementation {
 
     get attachesToMinion() {
         return this.play?.staysInPlay == 'onMinion'
+    }
+
+    get staysStanding() {
+        return this.play?.staysInPlay == 'standalone'
     }
 
     get recruit() {
@@ -598,6 +612,10 @@ class InterpretedReaction extends ReactionCardImplementation {
                             { type: 'wake', allyMissesUnlock: true }
                         :   { type: 'wake' },
                     ]
+                case 'reduceBleed':
+                    return (gameState.action?.bleed ?? 0) > 0 ?
+                            [{ type: 'reduceBleed', amount: effect.amount }]
+                        :   []
                 case 'changeTarget':
                     return this.player.gameState.competingPlayers
                         .filter(other => other != this.player && other != actingPlayer)
@@ -641,6 +659,13 @@ class InterpretedMaster extends MasterCardImplementation {
         return this.play?.abilities?.find(
             (ability): ability is Extract<MasterAbility, { activate: 'unlock' }> =>
                 ability.activate == 'unlock',
+        )
+    }
+
+    private get freeHostageAbility() {
+        return this.play?.abilities?.find(
+            (ability): ability is Extract<MasterAbility, { activate: 'freeHostage' }> =>
+                ability.activate == 'freeHostage',
         )
     }
 
@@ -782,6 +807,129 @@ class InterpretedMaster extends MasterCardImplementation {
             toCardRegion: discarded.owner.ashHeap,
             x: 0,
             y: 0,
+        })
+    }
+
+    private get lockUseAbilities() {
+        return (this.play?.abilities ?? []).flatMap((ability, index) =>
+            ability.activate == 'lockUse' ? [{ ability, index }] : [],
+        )
+    }
+
+    getLockUseOptions(window: 'unlockPhase' | 'discardPhase' | 'masterPhase'): LockUseChoice[] {
+        const { player, card } = this
+        const { gameState } = player
+        if (card.isLocked || gameState.activePlayer != player) {
+            return []
+        }
+        return this.lockUseAbilities.flatMap(({ ability, index }) => {
+            if (
+                ability.window != window ||
+                (ability.needsEdge && gameState.theEdgeControllerOid != player.oid)
+            ) {
+                return []
+            }
+            if (ability.effects.some(effect => effect.type == 'bloodToUncontrolled')) {
+                return player.vampiresInUncontrolled
+                    .filter(target => target.blood < target.minionAttrs.capacity)
+                    .map(target => ({ ability: index, target }))
+            }
+            if (ability.effects.some(effect => effect.type == 'bloodPerHostage')) {
+                return countHostages(gameState) > 0 ?
+                        player.vampiresReady
+                            .filter(target => target.blood < target.minionAttrs.capacity)
+                            .map(target => ({ ability: index, target }))
+                    :   []
+            }
+            // The extra cards are drawn at once: nothing to gain from an empty library
+            if (
+                ability.effects.some(effect => effect.type == 'handSizeThisTurn') &&
+                player.library.length == 0
+            ) {
+                return []
+            }
+            return [{ ability: index }]
+        })
+    }
+
+    applyLockUse(choice: LockUseChoice): Validity {
+        const found = this.lockUseAbilities.find(({ index }) => index == choice.ability)
+        const allowed =
+            !!found &&
+            this.getLockUseOptions(found.ability.window).some(
+                option => option.ability == choice.ability && option.target == choice.target,
+            )
+        if (!found || !allowed) {
+            return Invalid('The card cannot be locked for this effect')
+        }
+        const { player, card } = this
+        let validity: Validity = gameMutations.setLock.act(player, { card, newValue: true })
+        if (validity.isValid && this.play?.lockCounters) {
+            validity = gameMutations.changeBlood.act(player, { card, amount: 1 })
+        }
+        for (const effect of found.ability.effects) {
+            if (!validity.isValid) {
+                return validity
+            }
+            switch (effect.type) {
+                case 'handSizeThisTurn':
+                    validity = botMutations.addHandSizeBonus.act(player, {
+                        player,
+                        amount: effect.amount,
+                    })
+                    break
+                case 'gainPool':
+                    validity = gameMutations.changePool.act(player, {
+                        player,
+                        amount: effect.amount,
+                    })
+                    break
+                case 'bloodToUncontrolled':
+                    validity =
+                        choice.target ?
+                            this.addBloodToUncontrolled(choice.target, effect.amount)
+                        :   Invalid('No vampire to aim at')
+                    break
+                case 'bloodPerHostage':
+                    validity =
+                        choice.target ?
+                            gameMutations.changeBlood.act(player, {
+                                card: choice.target,
+                                amount: Math.min(
+                                    countHostages(player.gameState),
+                                    choice.target.minionAttrs.capacity - choice.target.blood,
+                                ),
+                            })
+                        :   Invalid('No vampire to aim at')
+                    break
+            }
+        }
+        const burnAt = this.play?.lockCounters?.burnAt
+        if (validity.isValid && burnAt !== undefined && card.blood >= burnAt) {
+            validity = gameMutations.moveCardToRegion.act(player, {
+                card,
+                fromCardRegion: card.region,
+                toCardRegion: card.owner.ashHeap,
+                x: 0,
+                y: 0,
+            })
+        }
+        return validity
+    }
+
+    // A vampire that holds as much blood as its capacity is no longer uncontrolled
+    private addBloodToUncontrolled(vampire: Vampire, amount: number): Validity {
+        const { player } = this
+        const reachesCapacity = vampire.blood + amount >= vampire.minionAttrs.capacity
+        const added = gameMutations.changeBlood.act(player, { card: vampire, amount })
+        if (!added.isValid || !reachesCapacity) {
+            return added
+        }
+        return gameMutations.moveCardToRegion.act(player, {
+            card: vampire,
+            fromCardRegion: player.uncontrolled,
+            toCardRegion: player.ready,
+            ...getNewMinionPosition(player.ready, vampire),
         })
     }
 
@@ -978,6 +1126,21 @@ class InterpretedMaster extends MasterCardImplementation {
             )
     }
 
+    // A ready vampire of the player burns blood to burn the hostage counters of the vampire, once a turn
+    private freeHostage(vampire: Vampire, cost: number): Validity {
+        const { player, card } = this
+        const payer = getPayerOfHostage(player, cost)
+        if (!payer || !this.getUnlockEffectTargets().includes(vampire)) {
+            return Invalid('The hostage cannot be freed')
+        }
+        const used = botMutations.markCardUsed.act(player, { player, card })
+        if (!used.isValid) {
+            return used
+        }
+        const paid = gameMutations.changeBlood.act(player, { card: payer, amount: -cost })
+        return paid.isValid ? botMutations.setHostage.act(player, { vampire }) : paid
+    }
+
     // Once a turn, twice for a card that says so while a baron is ready
     private get unlockUses(): number {
         const extra =
@@ -989,6 +1152,10 @@ class InterpretedMaster extends MasterCardImplementation {
     }
 
     getUnlockEffectTargets(): Vampire[] {
+        const freeing = this.freeHostageAbility
+        if (freeing) {
+            return getFreeableHostages(this.player, this.card, freeing.cost)
+        }
         const { usedCards, groundVampires } = this.player.gameState.turnResources
         if (
             !this.unlockAbility ||
@@ -1002,6 +1169,10 @@ class InterpretedMaster extends MasterCardImplementation {
     }
 
     applyUnlockEffect(vampire: Vampire): Validity {
+        const freeing = this.freeHostageAbility
+        if (freeing) {
+            return this.freeHostage(vampire, freeing.cost)
+        }
         const ability = this.unlockAbility
         if (!ability || !this.getUnlockEffectTargets().includes(vampire)) {
             return Invalid('The vampire cannot gain blood')

@@ -1,31 +1,37 @@
-import { Minion } from '@/shared/model/Card.ts'
+import { Card } from '@/shared/model/Card.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { Sect } from '@/shared/const/model.ts'
 import { getCardDef } from '@/shared/cardImpl/catalog/index.ts'
 import { EventCondition, Trigger } from '@/shared/cardImpl/catalog/types.ts'
 import { GameEvent } from '@/shared/state/events.ts'
 import { GameState } from '@/shared/state/gameState.ts'
+import { getHost } from '@/shared/state/attachments.ts'
+import { isDirected, isHunt } from '@/shared/state/minionActions.ts'
 import { PendingTrigger } from '@/shared/types/state.ts'
 
 /**
- * The optional triggers of the cards in play: when an event is announced, the ones that apply
- * to a bot are queued as pending triggers, which the bot decides one by one ( use it or not ).
+ * The optional triggers of the cards in play ( a vampire, a master card ): when an event is announced, the
+ * ones that apply to a bot are queued as pending triggers, which the bot decides one by one ( use it or not ).
  * Humans play by hand: nothing is ever queued for them.
  */
 
-export function getCardTriggers(source: Minion): Trigger[] {
-    return getCardDef(source)?.crypt?.triggers ?? []
+export function getCardTriggers(source: Card): Trigger[] {
+    const def = getCardDef(source)
+    if (def?.crypt) {
+        return def.crypt.triggers ?? []
+    }
+    return def?.plays.flatMap(play => (play.kind == 'master' ? (play.triggers ?? []) : [])) ?? []
 }
 
 export function getTrigger(pending: PendingTrigger): Trigger | undefined {
     return getCardTriggers(pending.source)[pending.index]
 }
 
-export function getTriggerKey(source: Minion, index: number): string {
+export function getTriggerKey(source: Card, index: number): string {
     return `${source.oid}:${index}`
 }
 
-function isInSourceRegion(source: Minion, trigger: Trigger): boolean {
+function isInSourceRegion(source: Card, trigger: Trigger): boolean {
     const regions = trigger.sourceIn ?? ['ready']
     return (
         (regions.includes('ready') && source.isIn.ready) ||
@@ -35,7 +41,7 @@ function isInSourceRegion(source: Minion, trigger: Trigger): boolean {
 
 // Whether the trigger could be used now: the card is where it must be, the limit is not
 // reached and the cost can be paid. Not about the event: that is checked when it is queued.
-export function canUseTrigger(gameState: GameState, source: Minion, index: number): boolean {
+export function canUseTrigger(gameState: GameState, source: Card, index: number): boolean {
     const trigger = getCardTriggers(source)[index]
     if (!trigger || !isInSourceRegion(source, trigger)) {
         return false
@@ -46,22 +52,49 @@ export function canUseTrigger(gameState: GameState, source: Minion, index: numbe
     ) {
         return false
     }
+    if (trigger.cost?.type == 'lockSelf') {
+        return !source.isLocked
+    }
     return !trigger.cost || source.blood >= trigger.cost.amount
 }
 
-function meetsCondition(condition: EventCondition, source: Minion, event: GameEvent): boolean {
+// The source is null for a trigger armed by a played card: the conditions about the card that has the
+// trigger ( `other`, `controller` ) do not apply
+export function meetsCondition(
+    condition: EventCondition,
+    source: Card | null,
+    event: GameEvent,
+): boolean {
     if (condition.type == 'actionSuccessful') {
         return event.type == 'actionResolved' && event.successful
     }
+    if (condition.type == 'actionIs') {
+        return condition.kind == 'hunt' ? isHunt(event.action) : !isDirected(event.action)
+    }
+    if (condition.type == 'blockerIsBearer') {
+        return !!source && event.type == 'blockDeclared' && event.blocker == getHost(source)
+    }
     const actor = event.action.actingMinion
-    if (condition.other && actor == source) {
+    if (source && condition.other && actor == source) {
         return false
     }
-    if (condition.controller == 'self' && actor.controller != source.controller) {
+    if (source && condition.controller == 'self' && actor.controller != source.controller) {
         return false
     }
-    if (condition.sect == 'Anarch') {
-        return actor.isVampire() && actor.vampireAttrs.sect == Sect.Anarch
+    if (
+        condition.sect == 'Anarch' &&
+        !(actor.isVampire() && actor.vampireAttrs.sect == Sect.Anarch)
+    ) {
+        return false
+    }
+    if (condition.clan && !(actor.isVampire() && actor.vampireAttrs.clan == condition.clan)) {
+        return false
+    }
+    if (
+        condition.titled !== undefined &&
+        !(actor.isVampire() && !!actor.vampireAttrs.title == condition.titled)
+    ) {
+        return false
     }
     return true
 }
@@ -79,7 +112,7 @@ export function queueOptionalTriggers(gameState: GameState, event: GameEvent): v
             continue
         }
         for (const source of [...player.ready.cards, ...player.torpor.cards]) {
-            if (!source.isMinion() || source.controller != player) {
+            if (source.controller != player) {
                 continue
             }
             getCardTriggers(source).forEach((trigger, index) => {
@@ -91,7 +124,11 @@ export function queueOptionalTriggers(gameState: GameState, event: GameEvent): v
                     ) &&
                     canUseTrigger(gameState, source, index)
                 ) {
-                    gameState.pendingTriggers.push({ source, index })
+                    gameState.pendingTriggers.push({
+                        source,
+                        index,
+                        actor: event.action.actingMinion,
+                    })
                 }
             })
         }

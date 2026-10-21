@@ -20,7 +20,7 @@ import { judgeBlock } from '@/shared/bot/utility/blockDecision.ts'
 import { judgeCycle, standingOf } from '@/shared/bot/utility/cycle.ts'
 import { judgeDiscard, judgeDiscardExcess } from '@/shared/bot/utility/hand.ts'
 import { judgeInfluence } from '@/shared/bot/utility/influence.ts'
-import { judgeMaster, judgeUnlock } from '@/shared/bot/utility/masterPhase.ts'
+import { judgeLockUse, judgeMaster, judgeUnlock } from '@/shared/bot/utility/masterPhase.ts'
 import { judgeModifier } from '@/shared/bot/utility/modifierDecision.ts'
 import { noisyOption } from '@/shared/bot/utility/noise.ts'
 import { judgeReaction, judgeTrigger } from '@/shared/bot/utility/reactionDecision.ts'
@@ -166,7 +166,10 @@ export class UtilityAgent implements BotAgent {
             )
         }
         if (context.decision.kind == DecisionKind.Discard) {
-            return judgeDiscard(context.decision, context.assessment, context.deck)
+            return (
+                judgeLockUse(context.decision, context.assessment) ??
+                judgeDiscard(context.decision, context.assessment, context.deck)
+            )
         }
         if (context.decision.kind == DecisionKind.DiscardExcess) {
             return judgeDiscardExcess(context.decision, context.assessment, context.deck)

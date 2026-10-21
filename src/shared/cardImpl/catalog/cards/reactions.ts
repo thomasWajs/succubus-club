@@ -19,6 +19,7 @@ import {
     reactorIsVampire,
     reactorTitled,
     reactorUntitled,
+    reduceBleed,
     wake,
     wakeAllyStaysLocked,
     yourBlockStands,
@@ -77,6 +78,14 @@ export const REACTION_CARDS = [
             kind: 'reaction',
             when: [actionTargetsYou, reactorIsVampire],
             effects: [onlyIf(intercept(3), reactorTitled), onlyIf(intercept(2), reactorUntitled)],
+        },
+    ]),
+    // Requires a primogen ( the cardbase says it ). Not modelled: the political half ( +3 votes )
+    defineCard('102214', 'Protected District', [
+        {
+            kind: 'reaction',
+            when: BOUNCE_WHEN,
+            effects: [reduceBleed(3)],
         },
     ]),
     defineCard('102230', 'Organized Resistance', [

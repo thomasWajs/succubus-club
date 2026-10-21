@@ -79,7 +79,7 @@ export type ArmedTrigger = {
 // An optional trigger whose controller has not decided yet ( use it or not ): it is a decision
 // of the controller, before anything else goes on. `index` is the position of the trigger in the
 // triggers of the card.
-export type PendingTrigger = { source: Minion; index: number }
+export type PendingTrigger = { source: Card; index: number; actor: Minion }
 
 // A card in play that drew a crypt card and now waits for its controller to choose the uncontrolled
 // vampire to remove from the game ( a decision made after seeing the card drawn )

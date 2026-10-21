@@ -254,6 +254,18 @@ export type MasterWeights = {
     // How many uses of a card in play that draws from the crypt are counted as worth the first one over its stay: the
     // region it improves gives less after each
     draws: number
+    // The share of what a card in play that makes the others pay each turn ( Smiling Jack ) is expected to take before a
+    // minion burns it
+    drain: number
+    // The chance that I hold the Edge when a card in play that needs it is used
+    edge: number
+    // The chance that a vampire full of blood goes to torpor over the stay of a card in play: a vampire with no blood has up
+    // to three times this. Every card that reacts to a torpor ( Fame, a hostage, the pool of a prey that loses a
+    // minion ) is priced with it, in the pool, the torpor return or the loss it brings
+    torpor: number
+    // The chance that a minion of mine starts and wins a fight that a card in play lets it start, over the stay ( the
+    // combat itself is judged when it is declared ): the loss of the minion fought is priced with `torporShare`
+    fight: number
 }
 
 // How the hand is judged ( hand.ts ). Draft numbers
@@ -428,6 +440,10 @@ export const DEFAULT_PROFILE: BotProfile = {
         regain: 1,
         freeSlot: 1,
         draws: 2,
+        drain: 0.5,
+        edge: 0.5,
+        torpor: 0.3,
+        fight: 0.1,
     },
     hand: {
         horizon: 2,

@@ -3,6 +3,7 @@ import { endAction } from '@/shared/state/actionState.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { GameState } from '@/shared/state/gameState.ts'
 import { getHost, syncAttachedCards } from '@/shared/state/attachments.ts'
+import { applyMinionLostEffects, applyTorporEffects } from '@/shared/state/standingCards.ts'
 import {
     getEnvironmentalDamage,
     getMinionStrength,
@@ -140,11 +141,13 @@ function sendToTorpor(gameState: GameState, minion: Minion): void {
     gameState.moveCardToRegion(minion, torpor)
     minion.setCoordinates(x, TORPOR_ZONE_Y)
     syncAttachedCards(gameState, minion)
+    applyTorporEffects(gameState, minion)
 }
 
 function burnMinion(gameState: GameState, minion: Minion): void {
     gameState.moveCardToRegion(minion, minion.owner.ashHeap)
     minion.setCoordinates(0, 0)
+    applyMinionLostEffects(gameState, minion)
 }
 
 // The damage of a strike aimed at a retainer burns its life counters at once ( no damage

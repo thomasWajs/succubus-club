@@ -112,7 +112,7 @@ export const EVENT_SCENARIOS: Scenario[] = [
             }
             expectEqual(
                 watch.names.join(','),
-                'blockFailed,actionResolving,actionResolved',
+                'blockDeclared,blockFailed,actionResolving,actionResolved',
                 'events',
             )
         },
@@ -125,14 +125,14 @@ export const EVENT_SCENARIOS: Scenario[] = [
             try {
                 blockWithBlocker(game)
                 passUntilActionOver(game.gameState)
-                expectEqual(watch.names.length, 0, 'events during the combat')
+                expectEqual(watch.names.join(','), 'blockDeclared', 'events during the combat')
                 expectEqual(game.gameState.combat != null, true, 'combat')
                 expectEqual(game.gameState.action?.blockResolved, game.blocker, 'block resolved')
                 endBlockCombat(game)
             } finally {
                 watch.stop()
             }
-            expectEqual(watch.names.join(','), 'actionResolved(blocked)', 'events')
+            expectEqual(watch.names.join(','), 'blockDeclared,actionResolved(blocked)', 'events')
         },
     },
     {

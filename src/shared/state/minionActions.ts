@@ -5,12 +5,22 @@ import { botMutations } from '@/shared/state/botMutations.ts'
 import { payCardCosts } from '@/shared/state/cardCosts.ts'
 import { Discipline, LEAVE_TORPOR_COST, Sect } from '@/shared/const/model.ts'
 import {
+    getBurnableCards,
+    getBurnStealth,
+    getEnterCombatStealth,
+    getEnterCombatTargets,
+    isBurnable,
+    isHostage,
+} from '@/shared/state/standingCards.ts'
+import {
     ActionCardFromHandAction,
+    ActionInPlayAction,
     ActionModifier,
     ActionModifierType,
     BecomeAnarchAction,
     BleedAction,
     DeclarationType,
+    DiablerizeAction,
     EnterCombatAction,
     HuntAction,
     Invalid,
@@ -161,6 +171,12 @@ function baseStealth(action: MinionAction): number {
             return textStealth
         }
     }
+    if (action.type == MinionActionType.EnterCombat) {
+        return getEnterCombatStealth(action.target)
+    }
+    if (action.type == MinionActionType.ActionInPlay) {
+        return getBurnStealth(action.card)
+    }
     return isUndirected(action) ? UNDIRECTED_STEALTH : 0
 }
 
@@ -222,6 +238,8 @@ export function isResolvable(action: MinionAction): boolean {
             return true
         case MinionActionType.ActionCardFromHand:
             return tryGetImplementationACA(action) !== null
+        case MinionActionType.ActionInPlay:
+            return isBurnable(action.card)
         default:
             return false
     }
@@ -288,14 +306,17 @@ const behaviors: Behaviors = {
         ...NO_BEHAVIOUR,
         canDeclare(action: EnterCombatAction) {
             const minion = action.actingMinion
-            if (!getCryptImplementation(minion)?.canEnterCombat) {
-                return Invalid('This minion cannot enter combat as an action')
-            }
             const acting = canAct(minion)
             if (!acting.isValid) {
                 return acting
             }
-            return canEnterCombatWith(minion, action.target)
+            const fits = canEnterCombatWith(minion, action.target)
+            if (!fits.isValid) {
+                return fits
+            }
+            return getEnterCombatTargets(minion).includes(action.target) ?
+                    VALID
+                :   Invalid('This minion cannot enter combat with the target as an action')
         },
         resolve(action: EnterCombatAction) {
             startCombat(action.actingMinion.gameState, action.actingMinion, action.target)
@@ -316,14 +337,48 @@ const behaviors: Behaviors = {
         },
     },
 
-    // Played by hand ( ActionInfos ), nothing is resolved by the engine
-    [MinionActionType.ActionInPlay]: NO_BEHAVIOUR,
+    // Played by hand ( ActionInfos ), nothing is resolved by the engine, except for a bot that burns a card of
+    // another Methuselah that can be burned ( Creeping Sabotage )
+    [MinionActionType.ActionInPlay]: {
+        ...NO_BEHAVIOUR,
+        canDeclare(action: ActionInPlayAction) {
+            const { actingMinion } = action
+            if (!actingMinion.controller.isBot) {
+                return VALID
+            }
+            const acting = canAct(actingMinion)
+            if (!acting.isValid) {
+                return acting
+            }
+            return getBurnableCards(actingMinion).includes(action.card as LibraryCard) ?
+                    VALID
+                :   Invalid('The card cannot be burned')
+        },
+        resolve(action: ActionInPlayAction) {
+            const player = action.actingMinion.controller
+            if (player.isBot && isBurnable(action.card)) {
+                gameMutations.moveCardToRegion.act(player, {
+                    card: action.card,
+                    fromCardRegion: action.card.region,
+                    toCardRegion: action.card.owner.ashHeap,
+                    x: 0,
+                    y: 0,
+                })
+            }
+        },
+    },
 
     // Resolved by hand, not offered to bots yet
     [MinionActionType.Diablerize]: {
         ...NO_BEHAVIOUR,
-        canDeclare: action =>
-            action.actingMinion.isVampire() ? VALID : Invalid('Only a vampire can diablerize'),
+        canDeclare(action: DiablerizeAction) {
+            if (!action.actingMinion.isVampire()) {
+                return Invalid('Only a vampire can diablerize')
+            }
+            return isHostage(action.target) ?
+                    Invalid('A vampire with a hostage counter cannot be diablerized')
+                :   VALID
+        },
     },
 
     [MinionActionType.LeaveTorpor]: {
@@ -337,6 +392,9 @@ const behaviors: Behaviors = {
             }
             if (action.actingMinion.blood < LEAVE_TORPOR_COST) {
                 return Invalid("Acting vampire doesn't have enough blood")
+            }
+            if (isHostage(action.actingMinion)) {
+                return Invalid('A vampire with a hostage counter cannot leave torpor')
             }
             return VALID
         },
@@ -367,6 +425,9 @@ const behaviors: Behaviors = {
             }
             if (!action.target.isIn.torpor) {
                 return Invalid('Rescued vampire must be in torpor')
+            }
+            if (isHostage(action.target)) {
+                return Invalid('A vampire with a hostage counter cannot leave torpor')
             }
             const paidByActing = action.bloodPaidByActingMinion ?? 0
             const paidByRescued = action.bloodPaidByRescuedMinion ?? 0
@@ -471,6 +532,9 @@ const behaviors: Behaviors = {
                 if (!recruited.isValid) {
                     throw new Error(`Cannot recruit ${action.card.name}: ${recruited.reason}`)
                 }
+            }
+            if (implementation.staysStanding && action.actingMinion.controller.isBot) {
+                botMutations.standCard.act(action.actingMinion.controller, { card: action.card })
             }
             // Only a bot's card is attached for now: a human puts it where they want
             if (implementation.attachesToMinion && action.actingMinion.controller.isBot) {

@@ -2,7 +2,9 @@ import { ReactionCardEffect } from '@/shared/cardImpl/base.ts'
 import { getMinionIntercept } from '@/shared/cardImpl/catalog/attached.ts'
 import { LibraryCard, Minion } from '@/shared/model/Card.ts'
 import { getBlockingMinion } from '@/shared/state/actionState.ts'
+import { getHost } from '@/shared/state/attachments.ts'
 import { getCardTriggers } from '@/shared/state/triggers.ts'
+import { Trigger } from '@/shared/cardImpl/catalog/types.ts'
 import { MinionActionType } from '@/shared/types/state.ts'
 import {
     BotOption,
@@ -282,7 +284,11 @@ function judgeBounce(decision: DecisionPoint, context: BlockContext): ReactionJu
         (option): BotOptionOf<'burnAlly'>[] =>
             option.effect.type == 'reduceBleed' ? [option] : [],
     )
-    if (bleed === null || bounces.length + cuts.length == 0) {
+    const cutCards = optionsOfType(decision.options, 'playReaction').flatMap(
+        (option): BotOptionOf<'playReaction'>[] =>
+            option.effect.type == 'reduceBleed' ? [option] : [],
+    )
+    if (bleed === null || bounces.length + cuts.length + cutCards.length == 0) {
         return null
     }
     const landed = landedCost(context)
@@ -290,6 +296,12 @@ function judgeBounce(decision: DecisionPoint, context: BlockContext): ReactionJu
         const amount = option.effect.type == 'reduceBleed' ? option.effect.amount : 0
         const gain = landed - landedCost(context, amount)
         const cost = burnCostOf(assessment, option)
+        return { option, score: gain - cost, parts: { landed, gain, cost } }
+    })
+    const cutByCard = cutCards.map((option): Candidate => {
+        const amount = option.effect.type == 'reduceBleed' ? option.effect.amount : 0
+        const gain = landed - landedCost(context, amount)
+        const cost = costOfCard(profile, option.card, option.usage.x)
         return { option, score: gain - cost, parts: { landed, gain, cost } }
     })
     const candidates: Candidate[] = bounces.flatMap(option => {
@@ -310,15 +322,16 @@ function judgeBounce(decision: DecisionPoint, context: BlockContext): ReactionJu
         const cost = costOfCard(profile, card, usage.x)
         return [{ option, score: landed + gain - lock - cost, parts: { landed, gain, lock, cost } }]
     })
-    const ranked = [...candidates, ...cut].toSorted(byScore)
+    const ranked = [...candidates, ...cut, ...cutByCard].toSorted(byScore)
     const best = ranked[0]
     if (best && best.score > profile.reaction.margin) {
         return {
             option: best.option,
             candidates: ranked,
             note:
-                best.option.type == 'burnAlly' ?
-                    'an ally is burned to cut the bleed'
+                best.option.type == 'burnAlly' ? 'an ally is burned to cut the bleed'
+                : best.option.type == 'playReaction' && best.option.effect.type == 'reduceBleed' ?
+                    'a card cuts the bleed'
                 :   'the bleed is bounced',
         }
     }
@@ -386,6 +399,45 @@ export function judgeReaction(
 export type TriggerJudgement = { option: BotOption; candidates: ExplainCandidate[]; note: string }
 
 /**
+ * A card in play that locks to react to an action ( blood for the vampire that hunted, an unlock for the
+ * minion that acted ): used when the minion gets something out of it, the lock itself is the only cost.
+ */
+function judgeCardTrigger(
+    use: BotOptionOf<'useTrigger'>,
+    skip: BotOption,
+    trigger: Trigger,
+    assessment: Assessment,
+): TriggerJudgement | null {
+    const { profile, table } = assessment
+    const { source, actor } = use.pending
+    const host = getHost(source)
+    const profileOf = (minion: Minion | undefined) =>
+        table.me.minions.find(candidate => candidate.oid == minion?.oid)
+    const gain = trigger.effects.reduce((total, effect) => {
+        if (effect.type == 'armTrigger') {
+            return total + profile.plan.cardAction
+        }
+        const gaining =
+            effect.type == 'gainBlood' ? profileOf(effect.who == 'actor' ? actor : host) : null
+        return (
+            total +
+            (effect.type == 'gainBlood' && gaining ?
+                Math.min(effect.amount, Math.max(0, gaining.capacity - gaining.blood)) *
+                profile.plan.bloodValue
+            :   0)
+        )
+    }, 0)
+    const cost = trigger.cost?.type == 'lockSelf' ? profile.modifier.abilityUse : 0
+    const score = gain - cost
+    const worth = score > profile.reaction.margin
+    return {
+        option: worth ? use : skip,
+        candidates: [{ option: use, score, parts: { gain, cost } }],
+        note: worth ? 'the card is worth its lock' : 'the card is not worth its lock',
+    }
+}
+
+/**
  * An optional trigger of one of my minions ( it burns blood to unlock after an Anarch's action ): used when
  * the minion has the blood to pay and still act. A minion left with none must hunt first and does not act.
  */
@@ -400,12 +452,18 @@ export function judgeTrigger(
     }
     const { source, index } = use.pending
     const trigger = getCardTriggers(source)[index]
-    const minion = assessment.table.me.minions.find(candidate => candidate.oid == source.oid)
-    if (!trigger || !minion) {
+    if (!trigger) {
         return null
     }
     const { plan } = assessment.profile
-    const blood = trigger.cost?.amount ?? 0
+    if (!source.isMinion()) {
+        return judgeCardTrigger(use, skip, trigger, assessment)
+    }
+    const minion = assessment.table.me.minions.find(candidate => candidate.oid == source.oid)
+    if (!minion) {
+        return null
+    }
+    const blood = trigger.cost?.type == 'burnBlood' ? trigger.cost.amount : 0
     const unlocks = trigger.effects.some(effect => effect.type == 'unlock')
     const benefit =
         !unlocks || minion.state == 'torpor' ? 0

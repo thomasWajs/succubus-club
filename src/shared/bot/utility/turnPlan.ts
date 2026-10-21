@@ -269,7 +269,9 @@ export function planTurn(input: PlanInput): TurnPlan {
     }
 
     if (input.mandatory) {
-        // Who acts is not a choice: the hunts of the empty vampires first, then what is left
+        // Who acts is not a choice: the hunts of the empty vampires first, then what is left. A minion is listed
+        // once for each kind of action: the first of its cards, its burns...
+        const listed = new Set<string>()
         const actions = candidates
             .flatMap(candidate => planned(candidate, 0))
             .toSorted(
@@ -278,6 +280,10 @@ export function planTurn(input: PlanInput): TurnPlan {
                     a.actor.blood - b.actor.blood ||
                     b.actor.bleed - a.actor.bleed,
             )
+            .filter(action => {
+                const key = `${action.actor.oid}/${action.kind}`
+                return !listed.has(key) && !!listed.add(key)
+            })
         return { posture: 'forced', reserved: [], actions, cases: [], chosen: -1, bounceRisk: 0 }
     }
 

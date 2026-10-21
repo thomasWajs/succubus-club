@@ -47,6 +47,7 @@ import {
     passImpulseAfterNoBlock,
     regainImpulse,
 } from '@/shared/state/actionState.ts'
+import { emitEvent } from '@/shared/state/events.ts'
 import { syncAttachedCards } from '@/shared/state/attachments.ts'
 import { getMinionIntercept } from '@/shared/cardImpl/catalog/attached.ts'
 import {
@@ -1694,6 +1695,7 @@ class DeclareAction extends GameMutation<DeclareActionParams> {
         ]
         gameState.action = createActionState(this.params.minionAction)
         actions.declare(this.params.minionAction)
+        emitEvent(gameState, { type: 'actionDeclared', action: this.params.minionAction })
     }
 
     formatForLog() {
@@ -1882,6 +1884,11 @@ class DeclareBlock extends GameMutation<DeclareBlockParams> {
             if (!gameState.action.blockAttempters.includes(block)) {
                 gameState.action.blockAttempters.push(block)
             }
+            emitEvent(gameState, {
+                type: 'blockDeclared',
+                action: gameState.action.minionAction,
+                blocker: block,
+            })
         } else if (!getBlockingMinion(gameState)) {
             gameState.action.intercept = 0
         }

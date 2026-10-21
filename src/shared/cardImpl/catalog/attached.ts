@@ -179,9 +179,13 @@ export function matchesMinionFilter(minion: Minion, filter: MinionFilter): boole
     )
 }
 
-// The minions of the player ( ready, or in torpor ) a card can be put on
+// The minions of the player ( ready, or in torpor ), or of the other Methuselahs, a card can be put on
 export function getAttachCandidates(player: Player, filter: MinionFilter): Minion[] {
-    return [...player.minionsReady, ...player.vampiresInTorpor].filter(minion =>
-        matchesMinionFilter(minion, filter),
-    )
+    const owners =
+        filter.whose == 'other' ?
+            player.gameState.competingPlayers.filter(other => other != player)
+        :   [player]
+    return owners
+        .flatMap(owner => [...owner.minionsReady, ...owner.vampiresInTorpor])
+        .filter(minion => matchesMinionFilter(minion, filter))
 }

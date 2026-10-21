@@ -18,6 +18,7 @@ import {
 import { BASIC_BLEED_KEY, canDeclare, applyActionModifier } from '@/shared/state/minionActions.ts'
 import {
     createBleedAction,
+    createBurnCardAction,
     createEnterCombatAction,
     createHuntAction,
     createLeaveTorporAction,
@@ -37,7 +38,13 @@ import {
     getPermanentMasterPosition,
     getPlayRegion,
 } from '@/shared/state/cardPlacement.ts'
-import { isAttached } from '@/shared/state/attachments.ts'
+import { getHost, isAttached } from '@/shared/state/attachments.ts'
+import {
+    applyInfluencePhaseEffects,
+    applyUnlockPhaseEffects,
+    getBurnableCards,
+    getEnterCombatTargets,
+} from '@/shared/state/standingCards.ts'
 import { canUseTrigger, getCardTriggers } from '@/shared/state/triggers.ts'
 import {
     canChooseStrike,
@@ -65,6 +72,7 @@ import {
     getCombatCardOptions,
     getDiscardForBleedOptions,
     getLockEffectOptions,
+    getLockUseOptions,
     getLockForActionOptions,
     getAllyBurnOptions,
     getLockForReactionOptions,
@@ -271,6 +279,7 @@ function getCleanupCards(gameState: GameState, player: Player): LibraryCard[] {
         (card): card is LibraryCard =>
             card instanceof LibraryCard &&
             !isAttached(card) &&
+            !gameState.standing.includes(card.oid) &&
             (ownTurn ?
                 isOneShot(card) ||
                 isMasterDiscardedAfterUse(card) ||
@@ -295,9 +304,12 @@ function isFailedRecruit(card: LibraryCard): boolean {
 // A master card needs the master phase action of the turn, on top of its own cost
 function masterPhaseOptions(gameState: GameState, player: Player): BotOption[] {
     const options: BotOption[] = gameState.turnResources.mpa > 0 ? getMasterCardOptions(player) : []
-    options.push(...getLockEffectOptions(player), ...getMoveBloodOptions(player, 'master'), {
-        type: 'endPhase',
-    })
+    options.push(
+        ...getLockEffectOptions(player),
+        ...getLockUseOptions(player, 'masterPhase'),
+        ...getMoveBloodOptions(player, 'master'),
+        { type: 'endPhase' },
+    )
     return options
 }
 
@@ -312,6 +324,7 @@ function unlockPhaseOptions(gameState: GameState, player: Player): BotOption[] {
     return [
         ...getUnlockEffectOptions(player),
         ...getMoveBloodOptions(player, 'unlock'),
+        ...getLockUseOptions(player, 'unlockPhase'),
         ...getLockEffectOptions(player),
         { type: 'endPhase' },
     ]
@@ -334,12 +347,11 @@ function minionPhaseOptions(player: Player): BotOption[] {
         for (const card of player.hand.cards) {
             candidates.push(...getActionCardOptions(minion, card))
         }
-        if (getCryptImplementation(minion)?.canEnterCombat) {
-            for (const other of player.gameState.competingPlayers) {
-                for (const target of other == player ? [] : other.minionsReady) {
-                    candidates.push(createEnterCombatAction(minion, target))
-                }
-            }
+        for (const card of getBurnableCards(minion)) {
+            candidates.push(createBurnCardAction(minion, card))
+        }
+        for (const target of getEnterCombatTargets(minion)) {
+            candidates.push(createEnterCombatAction(minion, target))
         }
 
         // The LEAVE_TORPOR_COST blood of a rescue is shared between the two, any way they like
@@ -420,7 +432,9 @@ function discardPhaseOptions(gameState: GameState, player: Player): BotOption[] 
         }
     }
 
-    options.push(...getLockEffectOptions(player), { type: 'endTurn' })
+    options.push(...getLockUseOptions(player, 'discardPhase'), ...getLockEffectOptions(player), {
+        type: 'endTurn',
+    })
     return options
 }
 
@@ -521,6 +535,7 @@ function isReactionOptionValid(gameState: GameState, option: BotOptionOf<'playRe
         case 'changeTarget':
             return canChangeTarget(gameState, option.effect.target).isValid
         case 'intercept':
+        case 'reduceBleed':
             return true
         case 'wake':
             return !isAwake(gameState, option.minion)
@@ -698,6 +713,7 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
     switch (option.type) {
         case 'unlockAll':
             check(gameMutations.unlockAll.act(player, { player }), 'unlockAll')
+            applyUnlockPhaseEffects(gameState, player)
             break
 
         case 'unlockEffect': {
@@ -745,6 +761,18 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
                 throw new InvalidBotMove(`${option.card.name} has no lock ability`)
             }
             check(implementation.applyLockEffect(option.discard), 'lock effect')
+            break
+        }
+
+        case 'lockUse': {
+            const implementation = getMasterImplementation(option.card, player)
+            if (!implementation) {
+                throw new InvalidBotMove(`${option.card.name} has no ability to lock for an effect`)
+            }
+            check(
+                implementation.applyLockUse({ ability: option.ability, target: option.target }),
+                'lock use',
+            )
             break
         }
 
@@ -838,6 +866,9 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
                 throw new InvalidBotMove('Cannot end the last phase, end the turn instead')
             }
             goToNextPhase(gameState, player)
+            if (TurnSequence[gameState.turnPhaseIndex] == TurnPhase.Influence) {
+                applyInfluencePhaseEffects(gameState, player)
+            }
             break
 
         case 'endTurn': {
@@ -938,12 +969,12 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
             break
 
         case 'useTrigger': {
-            const { source, index } = option.pending
+            const { source, index, actor } = option.pending
             const trigger = getCardTriggers(source)[index]
             if (!trigger) {
                 throw new InvalidBotMove(`${source.name} has no trigger #${index}`)
             }
-            if (trigger.cost) {
+            if (trigger.cost?.type == 'burnBlood') {
                 check(
                     gameMutations.changeBlood.act(player, {
                         card: source,
@@ -951,15 +982,48 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
                     }),
                     'trigger cost',
                 )
+            } else if (trigger.cost?.type == 'lockSelf') {
+                check(gameMutations.setLock.act(player, { card: source, newValue: true }), 'lock')
             }
             for (const effect of trigger.effects) {
-                if (effect.type != 'unlock') {
-                    throw new InvalidBotMove(`The ${effect.type} effect is not for a card in play`)
+                switch (effect.type) {
+                    case 'unlock':
+                        check(
+                            gameMutations.setLock.act(player, {
+                                card: effect.who == 'self' ? source : actor,
+                                newValue: false,
+                            }),
+                            'unlock',
+                        )
+                        break
+                    case 'gainBlood': {
+                        const gaining = effect.who == 'actor' ? actor : getHost(source)
+                        if (
+                            gaining &&
+                            gaining.isIn.ready &&
+                            gaining.blood < gaining.minionAttrs.capacity
+                        ) {
+                            check(
+                                gameMutations.changeBlood.act(player, {
+                                    card: gaining,
+                                    amount: effect.amount,
+                                }),
+                                'gain blood',
+                            )
+                        }
+                        break
+                    }
+                    case 'armTrigger':
+                        check(
+                            botMutations.ACTION_armTrigger.act(player, {
+                                trigger: effect.trigger,
+                            }),
+                            'arm the trigger',
+                        )
+                        break
+                    case 'lock':
+                        throw new InvalidBotMove('The lock effect is not for a card in play')
                 }
-                check(
-                    gameMutations.setLock.act(player, { card: source, newValue: false }),
-                    'unlock',
-                )
             }
             check(
                 botMutations.resolvePendingTrigger.act(player, {
@@ -1075,6 +1139,15 @@ export function applyOption(decisionPoint: DecisionPoint, option: BotOption): vo
                             amount: effect.amount,
                         }),
                         'intercept',
+                    )
+                    break
+                case 'reduceBleed':
+                    check(
+                        gameMutations.ACTION_changeProperty.act(player, {
+                            propertyName: ActionProperty.Bleed,
+                            amount: -Math.min(effect.amount, gameState.action?.bleed ?? 0),
+                        }),
+                        'reduce the bleed',
                     )
                     break
                 case 'wake':

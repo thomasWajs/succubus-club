@@ -64,6 +64,11 @@ export abstract class ActionCardImplementation extends CardImplementation {
         return false
     }
 
+    // The card stays in play on its own once the action succeeds ( Creeping Sabotage ). Only a bot's card for now.
+    get staysStanding(): boolean {
+        return false
+    }
+
     // The minion the card is attached to: the acting minion, or the one the card is put on
     get attachHost(): Minion {
         return this.minion
@@ -110,6 +115,8 @@ export type ReactionCardEffect =
     // The reacting minion is locked when the card says so.
     (
         | { type: 'changeTarget'; target: Player; lockMinion: boolean }
+        // The bleed of the action is reduced by this much
+        | { type: 'reduceBleed'; amount: number }
         // More intercept for the block attempt of the reacting player
         | { type: 'intercept'; amount: number }
         // The reacting minion wakes: it may block and react while locked, until the end of the action.
@@ -148,6 +155,8 @@ export abstract class ActionModifierCardImplementation extends CardImplementatio
 
     abstract apply(): void
 }
+
+export type LockUseChoice = { ability: number; target?: Vampire }
 
 // A master card is played by a Methuselah, not by a minion : no usage, no discipline
 export abstract class MasterCardImplementation {
@@ -213,6 +222,18 @@ export abstract class MasterCardImplementation {
     // Locks the card and gives the block attempt what the ability says
     applyLockForReaction(_blocker: Minion): Validity {
         return Invalid('The card has no ability to lock for a reaction')
+    }
+
+    // "You can lock this card to get +2 hand size until the end of the turn": the abilities that can be used now in
+    // the phase ( the card is unlocked, the Edge is held when it is needed, there is a vampire to aim at ), by index
+    // of the ability, with the vampire of the uncontrolled region it is aimed at when it is
+    getLockUseOptions(_window: 'unlockPhase' | 'discardPhase' | 'masterPhase'): LockUseChoice[] {
+        return []
+    }
+
+    // Locks the card, adds a counter, gives what the ability says, and burns the card at its last counter
+    applyLockUse(_choice: LockUseChoice): Validity {
+        return Invalid('The card has no ability to lock for an effect')
     }
 
     // The abilities paid with transfers that can be used now ( influence phase ), by index

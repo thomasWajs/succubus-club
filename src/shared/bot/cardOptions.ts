@@ -100,6 +100,18 @@ function usageChoices(minion: Minion, card: LibraryCard, kind: CardKind): Discip
     return disciplineChoices(minion, card)
 }
 
+// The X of a card that costs "the number of copies of this card you control": the copies in play, the one played not
+// being one yet. Undefined for a card whose X is not that.
+function copiesCost(minion: Minion, card: LibraryCard): number | undefined {
+    const def = getCardDef(card)
+    if (!def || !playsOfKind(def, 'action').some(play => play.xIsCopies)) {
+        return undefined
+    }
+    return minion.controller.ready.cards.filter(
+        other => other != card && other.krcgId == card.krcgId,
+    ).length
+}
+
 export function getActionCardOptions(
     minion: Minion,
     card: LibraryCard,
@@ -111,7 +123,8 @@ export function getActionCardOptions(
     if (!card.isType.anyAction) {
         return []
     }
-    if (!canPayCosts(minion, card) || !canMinionPlay(minion, card)) {
+    const x = copiesCost(minion, card)
+    if (!canPayCosts(minion, card, x) || !canMinionPlay(minion, card)) {
         return []
     }
     // A unique card ( equipment, retainer... ) already in play cannot be played again
@@ -124,6 +137,7 @@ export function getActionCardOptions(
     for (const disciplines of usageChoices(minion, card, 'action')) {
         const usage: LibraryCardUsage = {
             disciplines: disciplines.length > 0 ? disciplines : undefined,
+            ...(x === undefined ? {} : { x }),
         }
         // The card says which targets are worth trying at this level
         const targets =
@@ -556,6 +570,21 @@ export function getLockEffectOptions(player: Player): BotOptionOf<'lockEffect'>[
         }
     }
     return options
+}
+
+// The master cards in play that the player controls and can lock for an effect of their own in the phase: one option
+// per card, ability and vampire it is aimed at ( Dreams of the Sphinx )
+export function getLockUseOptions(
+    player: Player,
+    window: 'unlockPhase' | 'discardPhase' | 'masterPhase',
+): BotOptionOf<'lockUse'>[] {
+    return player.controlledReadyCards.flatMap(card =>
+        card instanceof LibraryCard && card.isType.master ?
+            (getMasterImplementation(card, player)?.getLockUseOptions(window) ?? []).map(
+                choice => ({ type: 'lockUse' as const, card, ...choice }),
+            )
+        :   [],
+    )
 }
 
 // The master cards in play that the player controls and can lock for the action of the minion

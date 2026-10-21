@@ -379,7 +379,7 @@ class SetPendingRemoval extends GameMutation<SetPendingRemovalParams> {
  */
 
 interface ResolvePendingTriggerParams extends PlayerParams {
-    source: Minion
+    source: Card
     index: number
     used: boolean
 }
@@ -545,6 +545,103 @@ class SkipNextUnlock extends GameMutation<WakeParams> {
 
     formatForLog() {
         return `${CARD_LOG_PLACEHOLDER} will not unlock as normal`
+    }
+}
+
+/**
+ * An action card whose action succeeded stays in play on its own ( Creeping Sabotage ): the cleanup keeps it.
+ */
+
+interface StandCardParams extends GameMutationParams {
+    card: LibraryCard
+}
+
+class StandCard extends GameMutation<StandCardParams> {
+    _isUserCancellable = false
+    readonly syncMode = MutationSyncMode.Exclusive
+
+    get allowedPlayer() {
+        return ANY_PLAYER
+    }
+
+    get card() {
+        return this.params.card
+    }
+
+    protected updateGameState(gameState: GameState) {
+        if (!gameState.standing.includes(this.params.card.oid)) {
+            gameState.standing.push(this.params.card.oid)
+        }
+    }
+
+    formatForLog() {
+        return `${CARD_LOG_PLACEHOLDER} stays in play`
+    }
+}
+
+/**
+ * A vampire gets a hostage counter from a card in play, or loses it ( Carver's Meat Packing and Storage )
+ */
+
+interface SetHostageParams extends GameMutationParams {
+    vampire: Minion
+    // The card that puts the counter, none to burn it
+    card?: LibraryCard
+}
+
+class SetHostage extends GameMutation<SetHostageParams> {
+    _isUserCancellable = false
+    readonly syncMode = MutationSyncMode.Exclusive
+
+    get allowedPlayer() {
+        return ANY_PLAYER
+    }
+
+    get card() {
+        return this.params.vampire
+    }
+
+    protected updateGameState(gameState: GameState) {
+        const { vampire, card } = this.params
+        if (card) {
+            gameState.hostages[vampire.oid] = card.oid
+        } else {
+            delete gameState.hostages[vampire.oid]
+        }
+    }
+
+    formatForLog() {
+        return this.params.card ?
+                `${CARD_LOG_PLACEHOLDER} is a hostage`
+            :   `${CARD_LOG_PLACEHOLDER} is no longer a hostage`
+    }
+}
+
+/**
+ * More cards in the hand of a player until the end of the turn ( Dreams of the Sphinx ). The turn resources
+ * are renewed with the next turn.
+ */
+
+interface AddHandSizeBonusParams extends PlayerParams {
+    amount: number
+}
+
+class AddHandSizeBonus extends GameMutation<AddHandSizeBonusParams> {
+    _isUserCancellable = false
+    readonly syncMode = MutationSyncMode.Exclusive
+
+    get allowedPlayer() {
+        return this.params.player
+    }
+
+    protected updateGameState(gameState: GameState) {
+        const { player, amount } = this.params
+        const { handSizeBonus } = gameState.turnResources
+        handSizeBonus[player.oid] = (handSizeBonus[player.oid] ?? 0) + amount
+    }
+
+    formatForLog() {
+        return `${this.params.player.name} gets +${this.params.amount} hand size until the end of the turn`
     }
 }
 
@@ -954,9 +1051,15 @@ export class ResolveAction extends GameMutation<EmptyParams> {
         const minionAction = gameState.action.minionAction
         emitEvent(gameState, { type: 'actionResolving', action: minionAction })
         actions.resolve(minionAction)
+        const armed = gameState.action.armedTriggers
         gameState.action = null
         gameState.targetDeclarations = []
-        emitEvent(gameState, { type: 'actionResolved', action: minionAction, successful: true })
+        emitEvent(gameState, {
+            type: 'actionResolved',
+            action: minionAction,
+            successful: true,
+            armed,
+        })
     }
 
     formatForLog() {
@@ -1336,10 +1439,13 @@ class CombatEnd extends CombatMutation<EmptyParams> {
 }
 
 export const botMutations = {
+    addHandSizeBonus: defineMutation(AddHandSizeBonus),
     attachCard: defineMutation(AttachCard),
     markCardUsed: defineMutation(MarkCardUsed),
     markPlayedSinceUnlock: defineMutation(MarkPlayedSinceUnlock),
+    setHostage: defineMutation(SetHostage),
     skipNextUnlock: defineMutation(SkipNextUnlock),
+    standCard: defineMutation(StandCard),
     openTurnEnd: defineMutation(OpenTurnEnd),
     passTurnEnd: defineMutation(PassTurnEnd),
     recruitAlly: defineMutation(RecruitAlly),

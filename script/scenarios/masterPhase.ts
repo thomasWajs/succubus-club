@@ -34,8 +34,13 @@ import {
     ASYLUM_HUNTING_GROUND_ID,
     BARRENS_ID,
     BLOOD_DOLL_ID,
+    CARVERS_ID,
+    DREAMS_OF_THE_SPHINX_ID,
     ELDER_LIBRARY_ID,
+    FAME_ID,
+    FRONTAL_ASSAULT_ID,
     GUARDIAN_ANGEL_ID,
+    HAVEN_UNCOVERED_ID,
     KRCG_ID,
     LABYRINTH_ID,
     LENNY_ID,
@@ -54,8 +59,13 @@ import {
  * the others, so the numbers can be read.
  */
 
-const MASTER_DECK = <DeckList>{
+export const MASTER_DECK = <DeckList>{
     ...NOSFERATU_DECK,
+    [DREAMS_OF_THE_SPHINX_ID]: 1,
+    [FAME_ID]: 1,
+    [HAVEN_UNCOVERED_ID]: 1,
+    [CARVERS_ID]: 1,
+    [FRONTAL_ASSAULT_ID]: 1,
     [LIFE_IN_THE_CITY_ID]: 2,
     [VILLEIN_ID]: 2,
     [MINION_TAP_ID]: 2,
@@ -91,9 +101,9 @@ type MasterSetup = {
     uncontrolled?: number
 }
 
-type MasterTurn = { ring: Ring; me: Player; vampires: Vampire[] }
+export type MasterTurn = { ring: Ring; me: Player; vampires: Vampire[] }
 
-function masterTurn(setup: MasterSetup): MasterTurn {
+export function masterTurn(setup: MasterSetup): MasterTurn {
     const players = 4
     const ring = createRing(Array.from({ length: players }, () => MASTER_DECK))
     const { gameState } = ring
@@ -134,7 +144,7 @@ function masterTurn(setup: MasterSetup): MasterTurn {
     return { ring, me, vampires }
 }
 
-function decisionOf(turn: MasterTurn): DecisionPoint {
+export function decisionOf(turn: MasterTurn): DecisionPoint {
     const decision = getDecisionPoint(turn.ring.gameState, turn.me)
     if (!decision) {
         throw new ScenarioFailure('No decision point')
@@ -143,7 +153,7 @@ function decisionOf(turn: MasterTurn): DecisionPoint {
 }
 
 // Plays the phase with the utility agent until it ends it: what it did
-function playPhase(
+export function playPhase(
     turn: MasterTurn,
     kind: DecisionKind = DecisionKind.Master,
     profile: BotProfile = DEFAULT_PROFILE,
@@ -625,6 +635,80 @@ export const MASTER_PHASE_SCENARIOS: Scenario[] = [
             expectEqual(turn.me.pool, pool + 1, 'pool')
             const master = masterTurn({ ready: [{ blood: 5 }], attached: [[0, VESSEL_ID]] })
             expectEqual(played(playPhase(master)), '', 'the master phase leaves it')
+        },
+    },
+    {
+        name: 'Master: the hostages of a Carver are worth the way back from torpor of the small vampires that may go there',
+        run() {
+            const { master, plan } = DEFAULT_PROFILE
+            const turn = masterTurn({
+                hand: [CARVERS_ID],
+                ready: [{ blood: 4 }],
+                prey: [{ blood: 3 }, { blood: 3 }],
+            })
+            const [small, large] = turn.ring.players[1].vampiresReady
+            small.minionAttrs.capacity = 3
+            large.minionAttrs.capacity = 7
+            expectClose(best(turn).hostage, master.torpor * plan.torporReturn, 'the small vampire')
+            small.blood = 0
+            expectClose(
+                best(turn).hostage,
+                master.torpor * 3 * plan.torporReturn,
+                'an empty one is likelier to go',
+            )
+        },
+    },
+    {
+        name: 'Master: a Carver takes my small vampires hostage too, which comes off its worth',
+        run() {
+            const turn = masterTurn({
+                hand: [CARVERS_ID],
+                ready: [{ blood: 3, capacity: 3 }],
+                prey: [{ blood: 3 }],
+            })
+            turn.ring.players[1].vampiresReady[0].minionAttrs.capacity = 3
+            expectClose(best(turn).hostage ?? 0, 0, 'as many of mine as of theirs')
+        },
+    },
+    {
+        name: 'Master: a Frontal Assault is worth the pool its Methuselah gains when the prey loses a minion, as likely as it goes to torpor',
+        run() {
+            const { master, plan } = DEFAULT_PROFILE
+            const turn = masterTurn({
+                hand: [FRONTAL_ASSAULT_ID],
+                ready: [{ blood: 4 }],
+                prey: [{ blood: 8 }, { blood: 0 }],
+            })
+            for (const vampire of turn.ring.players[1].vampiresReady) {
+                vampire.minionAttrs.capacity = 8
+            }
+            expectClose(
+                best(turn).preyLoss,
+                master.torpor * (1 + 3) * plan.poolValue,
+                'the full one and the empty one',
+            )
+            const alone = masterTurn({ hand: [FRONTAL_ASSAULT_ID], ready: [{ blood: 4 }] })
+            expectEqual(best(alone).preyLoss ?? 0, 0, 'no prey minion')
+        },
+    },
+    {
+        name: 'Master: the permission to fight is worth the loss of the minion fought, for the fights my minions start and win',
+        run() {
+            const { master, combat } = DEFAULT_PROFILE
+            const turn = masterTurn({
+                hand: [HAVEN_UNCOVERED_ID],
+                ready: [{ blood: 4 }],
+                prey: [{ blood: 3 }],
+            })
+            const [host] = turn.ring.players[1].vampiresReady
+            host.minionAttrs.capacity = 6
+            expectClose(
+                best(turn).fight,
+                master.fight * 2 * 6 * combat.torporShare,
+                'one minion, +1 stealth',
+            )
+            const alone = masterTurn({ hand: [FRONTAL_ASSAULT_ID], ready: [{ blood: 4 }] })
+            expectEqual(best(alone).fight ?? 0, 0, 'no prey minion to fight')
         },
     },
     {

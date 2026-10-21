@@ -23,7 +23,7 @@ export const GovernDeck = <DeckList>{
 }
 
 // The Malkavian precon of reference without the cards the
-// bot decks drop for now: Spying Mission, Revelations, Dreams of the Sphinx ( replacements to find )
+// bot decks drop for now: Revelations ( replacements to find )
 export const MalkavDeck = <DeckList>{
     '100108': 1, // Asylum Hunting Ground
     '100135': 1, // The Barrens
@@ -32,6 +32,7 @@ export const MalkavDeck = <DeckList>{
     '100362': 4, // Cloak the Gathering
     '100401': 4, // Conditioning
     '100518': 5, // Deflection
+    '100588': 1, // Dreams of the Sphinx
     '100620': 1, // Elder Library
     '100680': 5, // Eyes of Argus
     '100687': 4, // Faceless Night
@@ -40,6 +41,7 @@ export const MalkavDeck = <DeckList>{
     '101104': 2, // Life in the City
     '101125': 4, // Lost in Crowds
     '101321': 5, // On the Qui Vive
+    '101857': 4, // Spying Mission
     '101913': 4, // Swallowed by the Night
     '101949': 5, // Telepathic Misdirection
     '102180': 1, // Wider View
@@ -56,14 +58,18 @@ export const MalkavDeck = <DeckList>{
 }
 
 // The Brujah precon of reference restricted to the cards the catalog describes.
-// Not catalogued yet: Delaying Tactics, Fame, Haven Uncovered, Carver's Meat Packing and Storage,
-// Frontal Assault, The Anarch Free Press ( replacements to find )
+// Not catalogued yet: Delaying Tactics ( politics )
 export const BrujahDeck = <DeckList>{
+    '100052': 1, // The Anarch Free Press
     '100199': 4, // Blood Doll
     '100297': 1, // Carfax Abbey
+    '100303': 1, // Carver's Meat Packing and Storage
     '100597': 4, // Dust Up
     '100640': 6, // Enchant Kindred
+    '100698': 1, // Fame
+    '100794': 1, // Frontal Assault
     '100866': 1, // Guardian Angel
+    '100897': 1, // Haven Uncovered
     '100913': 2, // Heroic Might
     '100959': 6, // Immortal Grapple
     '101239': 2, // Monkey Wrench
@@ -94,15 +100,15 @@ export const BrujahDeck = <DeckList>{
 }
 
 // The Nosferatu precon of reference restricted to the cards
-// the catalog describes. Not catalogued yet: Creeping Sabotage, Fame, Haven Uncovered, Protected District,
-// Rebel, Smiling Jack, Warsaw Station. Left out on purpose: Vessel ( 4 in the precon ),
-// the bot games stall with it ( 9 of 15 games hit the turn limit, 1 without )
+// the catalog describes.
 export const NosferatuDeck = <DeckList>{
     '100301': 2, // Carrion Crows
     '100308': 4, // Cats' Guidance
     '100515': 6, // Deep Song
+    '100698': 1, // Fame
     '100863': 4, // Guard Dogs
     '100866': 1, // Guardian Angel
+    '100897': 1, // Haven Uncovered
     '100959': 4, // Immortal Grapple
     '100995': 4, // Instinctive Reaction
     '101070': 1, // Labyrinth, The
@@ -111,9 +117,15 @@ export const NosferatuDeck = <DeckList>{
     '101321': 5, // On the Qui Vive
     '101483': 2, // Preternatural Strength
     '101550': 2, // Raven Spy
+    '101564': 1, // Rebel
     '101808': 1, // Slum Hunting Ground
+    '101811': 1, // Smiling Jack, The Anarch
     '101945': 4, // Taste of Vitae
     '102065': 2, // Underbridge Stray
+    '102113': 4, // Vessel
+    '102149': 1, // Warsaw Station
+    '102213': 4, // Creeping Sabotage
+    '102214': 4, // Protected District
     '102215': 8, // Roundhouse
     '102216': 4, // Warrens, The
 
