@@ -2,7 +2,11 @@
     <CentralPanel
         v-if="engine.looked"
         class="engine-looked"
-        :title="`P${engine.looked.seat + 1}'s hand, as you looked at it`"
+        :title="
+            engine.looked.library ?
+                'The top of your library, as you looked at it'
+            :   `P${engine.looked.seat + 1}'s hand, as you looked at it`
+        "
     >
         <div class="engine-looked-cards">
             <EngineText :pieces="cards" />
@@ -19,9 +23,10 @@
 
 <script setup lang="ts">
 /**
- * A game with the rules engine : the hand the user looked at ( SchreckNET, Vaticination ), its
- * cards' names hovered and pinned like the log's, until closed. The look ends with its action :
- * the table hides that hand again at once.
+ * A game with the rules engine : the hand the user looked at ( SchreckNET, Vaticination ), or the
+ * top of their own library ( Anna "Dictatrix11" Suljic ), its cards' names hovered and pinned
+ * like the log's, until closed. The look ends with its action : the table hides those cards
+ * again at once.
  */
 import { computed } from 'vue'
 import CentralPanel from '@/client/ui/ingame/topArea/central/CentralPanel.vue'

@@ -209,13 +209,19 @@ function combatOf(view: TableView, seat: number): EngineCombat | null {
     if (!view.combat) {
         return null
     }
-    const minions = view.seats.flatMap(seat => [...seat.ready, ...seat.torpor])
+    const minions = view.seats.flatMap(seat => [
+        ...seat.ready,
+        ...seat.torpor,
+        ...(seat.incapacitated ?? []),
+    ])
     const name = (id: number) => minions.find(m => m.card.copy == id)?.name ?? 'a minion'
     const own = (id: number) =>
         view.seats.some(
             other =>
                 other.seat == seat &&
-                [...other.ready, ...other.torpor].some(m => m.card.copy == id),
+                [...other.ready, ...other.torpor, ...(other.incapacitated ?? [])].some(
+                    m => m.card.copy == id,
+                ),
         )
     const [acting, opposing] = view.combat.minions
     return {
@@ -435,10 +441,11 @@ function tell(current: Running, out: EngineOut) {
     }
     current.log.learn(out.view)
     for (const event of out.events) {
-        // A hand looked at : shown until closed, the look ending with the action
+        // A hand ( or a library's top ) looked at : shown until closed, the look ending with the action
         if (event.kind == 'looked') {
             engine.looked = {
                 seat: event.seat,
+                library: event.zone == 'library',
                 cards: event.cards.flatMap(card => (card.id != null ? [card.id] : [])),
             }
         }

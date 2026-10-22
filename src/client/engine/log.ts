@@ -70,6 +70,8 @@ const VERBS: Partial<Record<ActionKind, string>> = {
     ability: 'acts',
     become_anarch: 'becomes Anarch',
     red_list_hunt: 'hunts',
+    power: 'gets a Power',
+    burn_imbued: 'burns',
 }
 
 const OUTCOMES: Record<string, string> = {
@@ -230,7 +232,7 @@ export class EngineLogBuilder {
             this.told.push({ preys: this.preys })
         }
         for (const seat of view.seats) {
-            for (const minion of [...seat.ready, ...seat.torpor]) {
+            for (const minion of [...seat.ready, ...seat.torpor, ...(seat.incapacitated ?? [])]) {
                 this.know(minion.card)
                 for (const card of minion.cards) {
                     this.know(card.card)
@@ -531,7 +533,7 @@ export class EngineLogBuilder {
                 this.append(block.entry, [{ text: 'fails' }])
                 return
             }
-            // A hand the user looked at : a top-level line, kept in sight when its action folds
+            // A hand ( or the top of their own library ) the user looked at : a top-level line, kept in sight when its action folds
             case 'looked': {
                 const cards = e.cards.flatMap((card, i) => [
                     ...(i > 0 ? [{ text: ', ' }] : []),
@@ -540,9 +542,13 @@ export class EngineLogBuilder {
                 this.line(
                     this.viewer,
                     [
-                        { text: 'looks at ' },
-                        this.seatSegment(e.seat),
-                        { text: "'s hand: " },
+                        ...(e.zone == 'library' ?
+                            [{ text: 'looks at the top of their library: ' }]
+                        :   [
+                                { text: 'looks at ' },
+                                this.seatSegment(e.seat),
+                                { text: "'s hand: " },
+                            ]),
                         ...(cards.length > 0 ? cards : [{ text: 'no card' }]),
                     ],
                     this.root,

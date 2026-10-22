@@ -381,7 +381,7 @@ export class Projection {
                 seat.removed.length +
                 seat.uncontrolled.length +
                 seat.limbo.length +
-                [...seat.ready, ...seat.torpor].reduce(
+                [...seat.ready, ...seat.torpor, ...(seat.incapacitated ?? [])].reduce(
                     (n, minion) =>
                         n + 1 + minion.cards.reduce((m, c) => m + 1 + (c.stored?.length ?? 0), 0),
                     0,
@@ -509,9 +509,15 @@ export class Projection {
                     )
             }
 
-            const minions = (list: MinionView[], region: AnyCardRegion, spot: Spot) =>
-                list.forEach((minion, rank) => {
+            const minions = (
+                list: MinionView[],
+                region: AnyCardRegion,
+                spot: Spot,
+                { after = 0, label }: { after?: number; label?: string } = {},
+            ) =>
+                list.forEach((minion, index) => {
                     const card = seen(minion.card)
+                    const rank = after + index
                     const markers = minion.markers ?? []
                     const { chips, labels } = minionMarkers(markers)
                     placements.set(card.copy, {
@@ -525,7 +531,7 @@ export class Projection {
                         greenCounter: markers
                             .filter(k => k.kind == 'corruption')
                             .reduce((n, k) => n + (k.n ?? 1), 0),
-                        markers: labels,
+                        markers: label ? [label, ...labels] : labels,
                         chips,
                         isLocked: minion.locked,
                         isFlipped: minion.contested ?? false,
@@ -537,6 +543,12 @@ export class Projection {
                 })
             minions(seat.ready, player.ready, Spot.Minion)
             minions(seat.torpor, player.torpor, Spot.Torpor)
+            // An incapacitated Imbued : in the torpor strip, after the torpor, tagged ( owner,
+            // 2026-10-22 ). The region, not its life, says it : it may gain life there.
+            minions(seat.incapacitated ?? [], player.torpor, Spot.Torpor, {
+                after: seat.torpor.length,
+                label: 'Incapacitated',
+            })
 
             seat.in_play.forEach((inPlayCard, rank) => inPlay(inPlayCard, player.ready, rank))
 

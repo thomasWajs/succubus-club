@@ -34,7 +34,7 @@
         <!-- The cards played during the action ( a game with the rules engine ) -->
         <EnginePlayed v-if="gameState.gameType == GameType.Engine" />
 
-        <!-- A hand the user looked at ( a game with the rules engine ) -->
+        <!-- A hand, or the top of the user's library, looked at ( a game with the rules engine ) -->
         <EngineLooked v-if="gameState.gameType == GameType.Engine" />
 
         <!-- Referendum Infos -->

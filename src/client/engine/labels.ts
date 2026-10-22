@@ -77,6 +77,8 @@ const ACTIONS: Partial<Record<ActionKind, string>> = {
     ability: 'action',
     become_anarch: 'become Anarch',
     red_list_hunt: 'enter combat with a Red List minion',
+    power: 'get a Power',
+    burn_imbued: 'burn an Imbued',
 }
 
 export const windowName = (w: Window) => WINDOWS[w] ?? w.replace(/_/g, ' ')
