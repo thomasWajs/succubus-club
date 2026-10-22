@@ -65,6 +65,11 @@ const router = createRouter({
             name: ROUTES.Game,
             component: Game,
         },
+        {
+            // Old links ( the lobby, rooms, availability ) land on the main menu
+            path: '/:pathMatch(.*)*',
+            redirect: '/',
+        },
     ],
 })
 

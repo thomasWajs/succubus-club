@@ -23,6 +23,7 @@
         "vite"
     ],
     "workspaces": [
+        "src/shared",
         "src/client"
     ],
     "scripts": {

@@ -1,6 +1,6 @@
-/* zvtes protocol 2.5.0 (docs/protocol.md): generated from
+/* zvtes protocol 2.6.0 (docs/protocol.md): generated from
  * crates/api/schema.json by scripts/gen_ts.py, do not edit. */
-export const PROTOCOL_VERSION = '2.5.0'
+export const PROTOCOL_VERSION = '2.6.0'
 
 /**
  * A command as sent: an optional client id, echoed by an `error` it
@@ -860,6 +860,11 @@ export type Event = {
           kind: 'traits'
           minion: number
           traits: Trait[]
+      }
+    | {
+          kind: 'victory_points'
+          seat: number
+          vp_halves: number
       }
     | {
           kind: 'title'
@@ -1728,5 +1733,11 @@ export type ZoneRef2 = {
      * controller, a minion's (the minion's for a card on it).
      */
     seat: number
+    /**
+     * In an uncontrolled region (`from`: the one it leaves, `to`: the
+     * one it goes to): its place there, from the first, the moves told
+     * before it applied.
+     */
+    slot?: number | null
     zone: Zone
 }
