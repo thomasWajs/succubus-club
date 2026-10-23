@@ -62,6 +62,7 @@
     </a>
 
     <WelcomeModal />
+    <EngineNotice ref="engineNoticeRef" />
 </template>
 
 <script setup lang="ts">
@@ -74,6 +75,7 @@ import { waitUntil } from '@/shared/utils.ts'
 import { useBusStore } from '@/client/store/bus.ts'
 import { ROUTES } from '@/client/ui/router.ts'
 import WelcomeModal from '@/client/ui/components/WelcomeModal.vue'
+import EngineNotice from '@/client/ui/components/EngineNotice.vue'
 import { computed, ref } from 'vue'
 import * as logging from '@/client/logging.ts'
 import { isCrawler, screenBigEnough } from '@/client/game/display.ts'
@@ -83,6 +85,7 @@ import { InvalidDeck } from '@/shared/types/errors.ts'
 
 const core = useCoreStore()
 const bus = useBusStore()
+const engineNoticeRef = ref<InstanceType<typeof EngineNotice> | null>(null)
 
 /**
  *  Welcome Sign
@@ -116,6 +119,11 @@ async function startEngineGame() {
     if (!core.selfDeck) {
         bus.alertWarning('You must select a deck before starting a game')
         return
+    }
+
+    // Where the game runs, that it is recorded, where to send feedback
+    if (engineNoticeRef.value) {
+        await engineNoticeRef.value.showNotice()
     }
 
     try {
