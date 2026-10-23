@@ -279,7 +279,7 @@
     them, their name on hover -->
     <template
         v-for="(chip, index) in chips"
-        :key="`${key}chip${chip.kind}${chip.name}${index}`"
+        :key="`${key}chip${chip.kind}${index}`"
     >
         <Circle
             :ref="el => registerChipCircles(index, el as typeof Circle | null)"

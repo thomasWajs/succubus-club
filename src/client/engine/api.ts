@@ -1,6 +1,6 @@
-/* zvtes protocol 2.8.0 (docs/protocol.md): generated from
+/* zvtes protocol 2.9.0 (docs/protocol.md): generated from
  * crates/api/schema.json by scripts/gen_ts.py, do not edit. */
-export const PROTOCOL_VERSION = '2.8.0'
+export const PROTOCOL_VERSION = '2.9.0'
 
 /**
  * A command as sent: an optional client id, echoed by an `error` it
@@ -228,6 +228,12 @@ export type ActionRef = {
     kind: ActionKind
     /** What grants the action: a card in play, or another vampire. */
     source?: Card | null
+    /**
+     * What it is aimed at, as it stands when told: a Methuselah (a
+     * bleed's: the one bled), or the minion or card in play it targets
+     * (an uncontrolled vampire not named).
+     */
+    target?: Target | null
 }
 
 /** Where an action stands. */
@@ -508,9 +514,12 @@ export type DueKind = 'hunt' | 'action' | 'take_control' | 'unknown'
 export type Effect = {
     /** An action declared (`action`). */
     action?: ActionKind | null
-    /** A card named (to hand, discarded, fetched). */
+    /** A card named (to hand, discarded, fetched, put on the target). */
     card?: number | null
-    /** Of this clan (a snake_case clan id: the chosen Toreador). */
+    /**
+     * Of this clan (a snake_case clan id: the chosen Toreador; on an
+     * `on: target` effect, the clan its target must be).
+     */
     clan?: string | null
     /** The minion or card in play it applies to, when known. */
     copy?: number | null
@@ -583,6 +592,8 @@ export type EffectKind =
     | 'cost'
     | 'keep'
     | 'role'
+    | 'end_phase'
+    | 'block'
     | 'unknown'
 
 export type EndReason =
@@ -1396,6 +1407,7 @@ export type Role =
     | 'chosen'
     | 'anarch'
     | 'expelled'
+    | 'camarilla'
     | 'unknown'
 
 export type SeatInfo = {

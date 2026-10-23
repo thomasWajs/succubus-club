@@ -116,7 +116,37 @@ const PROMPTS: Record<StagingStep['ask'], string> = {
 const current = staging
 
 function prompt(step: StagingStep): string {
-    return step.ask == 'option' && step.choices.length == 1 ? 'Confirm :' : PROMPTS[step.ask]
+    if (step.ask == 'option' && step.choices.length == 1) {
+        return 'Confirm :'
+    }
+    return (step.ask == 'target' && targetPrompt(step)) || PROMPTS[step.ask]
+}
+
+// What the target is for, by what the play does to it : "The Toreador to lock" ( Toreador Grand
+// Ball ), "The minion to put this card on" ( Priority Contract )
+function targetPrompt(step: StagingStep): string | undefined {
+    const effects = (step.choices[0]?.options[0]?.effects ?? []).filter(
+        effect => effect.on == 'target' && !effect.cost,
+    )
+    const lock = effects.find(effect => effect.kind == 'lock')
+    const put = effects.find(effect => effect.kind == 'move' && effect.to == 'in_play')
+    const what =
+        lock ? 'to lock'
+        : put ? 'to put this card on'
+        : undefined
+    if (!what) {
+        return undefined
+    }
+    const clan = (lock ?? put)?.clan
+    return `The ${clan ? clanName(clan) : 'minion'} ${what}`
+}
+
+// A clan's name from its id ( banu_haqim : Banu Haqim )
+function clanName(clan: string): string {
+    return clan
+        .split('_')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ')
 }
 
 // The choices not on the table : the others are clicked there. The card to play is a button too

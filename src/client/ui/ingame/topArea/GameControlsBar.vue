@@ -124,7 +124,7 @@
             </CommandButton>
 
             <!-- With the rules engine : the pass of the decision under way, always here ( → / Space ),
-                 the engine's text in its title ( "Pass (no block)", "End the master phase" ) ; a
+                 the engine's text in its title ( "Decline to block", "End the master phase" ) ; a
                  pass that does something is also in the central box ( see isEffectPass ) ; one
                  declining to block says so -->
             <CommandButton

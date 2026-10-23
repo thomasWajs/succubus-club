@@ -11,16 +11,17 @@ import type {
     ActionKind,
     ActionRef,
     Card,
+    CardRef,
     Cause,
-    Effect,
     Event,
     OptionView,
     SlotRef,
     StruckSide,
     TableView,
+    Target,
     Window,
 } from '@/client/engine/api.ts'
-import { actionName, strikeName } from '@/client/engine/labels.ts'
+import { actionName, effectsText, signed, strikeName } from '@/client/engine/labels.ts'
 import type { TextSegment } from '@/client/engine/cardNames.ts'
 import { isCryptId } from '@/shared/model/Card.ts'
 
@@ -40,16 +41,6 @@ export type EngineLogEntry = {
     key: string
     time: Date
 }
-
-// The windows choosing a card's or an action's terms
-const TERMS: Window[] = [
-    'play_terms',
-    'rider_terms',
-    'action_terms',
-    'referendum_terms',
-    'resolution_choice',
-    'entry_effect',
-]
 
 // How an action reads after its minion : "Theo bleeds P3", "Anson calls Kine Resources Contested"
 const VERBS: Partial<Record<ActionKind, string>> = {
@@ -83,52 +74,14 @@ const OUTCOMES: Record<string, string> = {
     ends: 'ends',
 }
 
-// The effects told by their amount ( "+1 stealth", "−1 blood" )
-const COUNTED = new Set([
-    'stealth',
-    'intercept',
-    'bleed',
-    'strength',
-    'votes',
-    'pool',
-    'blood',
-    'life',
-    'damage',
-    'prevent',
-    'press',
-    'maneuver',
-    'draw',
-    'discard',
-    'transfers',
-    'counters',
-    'hand_size',
-    'corruption',
-])
-// Effects the line says otherwise, or that say nothing more ( an action declared, a card kept )
-const UNTOLD = new Set(['action', 'referendum', 'keep', 'role', 'cost'])
-
-function signed(n: number) {
-    return n > 0 ? `+${n}` : `−${-n}`
+// An English line told after another : its first letter lowered
+function lowered(text: string): string {
+    return text.charAt(0).toLowerCase() + text.slice(1)
 }
 
-function effectsText(effects: Effect[] | null | undefined): string {
-    return (effects ?? [])
-        .filter(effect => !effect.cost && !UNTOLD.has(effect.kind))
-        .map(effect => {
-            const name = effect.kind.replace(/_/g, ' ')
-            if (effect.kind == 'end_combat') {
-                return 'ends combat'
-            }
-            if (COUNTED.has(effect.kind) && effect.n != null) {
-                return `${effect.x ? `${signed(effect.n)}X` : signed(effect.n)} ${name}`
-            }
-            if (effect.kind == 'strike' && effect.strike) {
-                return strikeName(effect.strike)
-            }
-            return name
-        })
-        .join(', ')
-}
+// The fields naming a minion or card in play by its copy ( a card's own id is `id`, or `card` as a
+// number )
+const COPIES = ['copy', 'minion', 'acting', 'actor', 'blocker', 'on', 'hunted', 'calling', 'from']
 
 // The words a name's short form skips : articles and titles ( "Doctor Morocco" is Morocco )
 const TITLES =
@@ -168,10 +121,7 @@ type Action = {
 }
 
 // What the log was told, in order : replayed after an undo
-type Told =
-    | { event: Event; at: Date }
-    | { say: { seat: number; text: string }; at: Date }
-    | { preys: number[] }
+type Told = { event: Event; at: Date } | { say: { seat: number; text: string }; at: Date }
 
 export class EngineLogBuilder {
     private nextId = 1
@@ -187,32 +137,31 @@ export class EngineLogBuilder {
     private seatNames: string[] = []
     // The seat the log is told to
     private viewer: number | null = null
-    // Each seat's prey, as the view tells it and ousts change it : whom a bleed targets by default
-    private preys: number[] = []
-    private matcher: RegExp | null = null
-    private matched = new Map<string, LogSegment>()
-    // The decision of the last view learned : a view told again ( several steps share it ) does
-    // not undo what the events told since
-    private viewed = -1
     private decision = 0
     private influence: Influence | null = null
     private action: Action | null = null
     private combat: EngineLogEntry | null = null
     // The last round's strikes end the combat
     private endingStrike = false
-    // The line the next pool, blood and card movements are told on ; and the card it plays
+    // The line the next pool, blood and card movements are told on ; and the card it plays, by copy
     private current: EngineLogEntry | null = null
-    private currentCard: number | null = null
+    private currentCopy: number | null = null
     // Block attempts under way, by the blocking minion : a failed one with no card played since is
     // taken out of the log
     private blocks = new Map<number, { entry: EngineLogEntry; parent: EngineLogEntry[] }>()
-    // Cards played, by id, until they resolve : what they do told on their line
+    // Cards played, by copy, until they resolve : what they do told on their line
     private plays = new Map<number, EngineLogEntry>()
+    // A card played from a hand that hides it : its line, until its move to limbo tells its copy
+    private playing: { id: number; entry: EngineLogEntry } | null = null
     // The action decided, until the engine announces it : its target and card, the terms chosen
     // meanwhile
-    private declaring: { seat: number; choice: OptionView; terms: string[] } | null = null
+    private declaring: {
+        seat: number
+        choice: OptionView
+        terms: { told: string; choice: OptionView }[]
+    } | null = null
     // The card just resolved : the pool and blood it moves, told on its line
-    private resolving: { entry: EngineLogEntry; id: number; told: boolean } | null = null
+    private resolving: { entry: EngineLogEntry; copy: number; told: boolean } | null = null
 
     constructor(
         // The log's lines : a reactive array, its entries changed through it
@@ -226,11 +175,6 @@ export class EngineLogBuilder {
     learn(view: TableView) {
         this.seatNames = view.seats.map(seat => seat.name)
         this.viewer = view.viewer ?? null
-        if (view.decision > this.viewed) {
-            this.viewed = view.decision
-            this.preys = view.seats.map(seat => seat.prey)
-            this.told.push({ preys: this.preys })
-        }
         for (const seat of view.seats) {
             for (const minion of [...seat.ready, ...seat.torpor, ...(seat.incapacitated ?? [])]) {
                 this.know(minion.card)
@@ -257,12 +201,8 @@ export class EngineLogBuilder {
             this.copies.set(card.copy, { id: card.id, numbered: card.numbered ?? known?.numbered })
         }
         const name = this.cardName(card.id)
-        if (name && !this.matched.has(name)) {
-            if (crypt) {
-                this.cryptNames.add(name)
-            }
-            this.matched.set(name, { text: name, krcgId: String(card.id), isCrypt: crypt })
-            this.matcher = null
+        if (name && crypt) {
+            this.cryptNames.add(name)
         }
     }
 
@@ -304,31 +244,26 @@ export class EngineLogBuilder {
         return { text: `P${seat + 1}`, seat }
     }
 
-    // An English line of the engine, its names shortened : what the data does not say better
-    private fromText(text: string): LogSegment[] {
-        if (!this.matcher) {
-            const names = [...this.matched.keys(), ...this.seatNames]
-                .sort((a, b) => b.length - a.length)
-                .map(name => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-            this.matcher =
-                names.length ? new RegExp(`(?<!\\w)(?:${names.join('|')})(?!\\w)`, 'g') : null
-        }
-        if (!this.matcher) {
+    // An English line of the engine, its names shortened : what the data does not say better. The
+    // names linked are those its event or option names ( `data` ), never others the text may hold
+    private fromText(text: string, data?: unknown): LogSegment[] {
+        const names = new Map<string, LogSegment>()
+        this.named(data, names)
+        if (names.size == 0) {
             return [{ text }]
         }
+        const matcher = new RegExp(
+            `(?<!\\w)(?:${[...names.keys()]
+                .sort((a, b) => b.length - a.length)
+                .map(name => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+                .join('|')})(?!\\w)`,
+            'g',
+        )
         const segments: LogSegment[] = []
         let last = 0
-        for (const match of text.matchAll(this.matcher)) {
-            if (match.index === undefined) {
-                continue
-            }
-            const seat = this.seatNames.indexOf(match[0])
-            const card = this.matched.get(match[0])
-            const segment =
-                seat >= 0 ? this.seatSegment(seat)
-                : card ? { ...card, text: card.isCrypt ? this.shortName(card.text) : card.text }
-                : undefined
-            if (!segment) {
+        for (const match of text.matchAll(matcher)) {
+            const segment = names.get(match[0])
+            if (match.index === undefined || !segment) {
                 continue
             }
             if (match.index > last) {
@@ -341,6 +276,47 @@ export class EngineLogBuilder {
             segments.push({ text: text.slice(last) })
         }
         return segments
+    }
+
+    // The cards and Methuselahs some data names, by the name its English uses ( a card's full name )
+    private named(data: unknown, names: Map<string, LogSegment>) {
+        if (Array.isArray(data)) {
+            data.forEach(item => this.named(item, names))
+            return
+        }
+        if (!data || typeof data != 'object') {
+            return
+        }
+        const card = (id: number) => {
+            const name = this.cardName(id)
+            if (name) {
+                names.set(name, this.cardSegment(id))
+            }
+        }
+        const seat = (n: number) => {
+            const name = this.seatNames[n]
+            if (name) {
+                names.set(name, this.seatSegment(n))
+            }
+        }
+        for (const [key, value] of Object.entries(data)) {
+            if (typeof value == 'number') {
+                if (key == 'id' || key == 'card') {
+                    card(value)
+                } else if (COPIES.includes(key)) {
+                    const known = this.copies.get(value)
+                    if (known) {
+                        card(known.id)
+                    }
+                } else if (key == 'seat') {
+                    seat(value)
+                }
+            } else if (key == 'seats' && Array.isArray(value)) {
+                value.forEach(n => typeof n == 'number' && seat(n))
+            } else {
+                this.named(value, names)
+            }
+        }
     }
 
     private line(
@@ -417,7 +393,7 @@ export class EngineLogBuilder {
         }
         switch (e.kind) {
             case 'decided':
-                this.decided(e.seat, e.window, e.choice, e.text)
+                this.decided(e.seat, e.window, e.choice, e.text, e.source)
                 return
             case 'auto_passed':
             case 'draw':
@@ -469,7 +445,7 @@ export class EngineLogBuilder {
                     return
                 }
                 // The card the line plays : that it is in play goes without saying
-                if (e.card.id == this.currentCard) {
+                if (e.card.copy != null && e.card.copy == this.currentCopy) {
                     return
                 }
                 this.tell(
@@ -481,7 +457,12 @@ export class EngineLogBuilder {
             case 'leaves_play':
                 this.know(e.card)
                 // The card the line plays, moved on : it goes without saying
-                if (e.card.id == this.currentCard && !e.contested && !e.effect) {
+                if (
+                    e.card.copy != null &&
+                    e.card.copy == this.currentCopy &&
+                    !e.contested &&
+                    !e.effect
+                ) {
                     return
                 }
                 this.tell([this.cardSegment(e.card.id, e.card.numbered), { text: leavesText(e) }])
@@ -501,8 +482,8 @@ export class EngineLogBuilder {
                     ])
                 }
                 const entry = played ?? this.current
-                if (entry && e.card.id != null) {
-                    this.resolving = { entry, id: e.card.id, told: !!effects }
+                if (entry && e.card.copy != null) {
+                    this.resolving = { entry, copy: e.card.copy, told: !!effects }
                 }
                 return
             }
@@ -556,7 +537,6 @@ export class EngineLogBuilder {
                 return
             }
             case 'ousted':
-                this.preys = this.preys.map(prey => (prey == e.seat ? this.preys[e.seat] : prey))
                 this.line(e.seat, [{ text: 'ousted' }], this.root)
                 return
             case 'action_starts':
@@ -600,7 +580,7 @@ export class EngineLogBuilder {
                 this.endAction()
                 // What follows its end ( the Edge ) : on its line
                 this.current = action.entry
-                this.currentCard = action.card ?? null
+                this.currentCopy = action.cardCopy ?? null
                 return
             }
             case 'referendum_ends': {
@@ -661,10 +641,27 @@ export class EngineLogBuilder {
                 this.current = combat
                 return
             }
+            case 'card_moves': {
+                // A card played from a hidden hand : its copy, as it goes to limbo
+                const playing = this.playing
+                if (
+                    playing &&
+                    e.to.zone == 'limbo' &&
+                    e.card.id == playing.id &&
+                    e.card.copy != null
+                ) {
+                    this.playing = null
+                    this.playedAs(e.card.copy, playing.entry)
+                }
+                if (e.text) {
+                    this.tell(this.fromText(e.text, e))
+                }
+                return
+            }
             default:
                 // A card moved, torpor, a card revealed… : as the engine tells it
                 if (e.text) {
-                    this.tell(this.fromText(e.text))
+                    this.tell(this.fromText(e.text, e))
                 }
         }
     }
@@ -672,7 +669,7 @@ export class EngineLogBuilder {
     // The pool or blood a card moves as it resolves : on its line
     private caused(cause: Cause | null | undefined, segments: LogSegment[]) {
         const resolving = this.resolving
-        if (cause?.kind != 'effect' || !resolving || cause.card?.id != resolving.id) {
+        if (cause?.kind != 'effect' || !resolving || cause.card?.copy != resolving.copy) {
             return
         }
         this.append(resolving.entry, segments, resolving.told ? ', ' : ': ')
@@ -681,16 +678,30 @@ export class EngineLogBuilder {
 
     // The card played's line, once it resolves or is canceled : what follows is told on it
     private played(card: Card): EngineLogEntry | undefined {
-        const played = card.id != null ? this.plays.get(card.id) : undefined
-        if (played && card.id != null) {
-            this.plays.delete(card.id)
+        const played = card.copy != null ? this.plays.get(card.copy) : undefined
+        if (played && card.copy != null) {
+            this.plays.delete(card.copy)
             this.current = played
-            this.currentCard = card.id
+            this.currentCopy = card.copy
         }
         return played
     }
 
-    private decided(seat: number, window: Window, choice: OptionView, text?: string | null) {
+    // A card played, by its copy : its line
+    private playedAs(copy: number, entry: EngineLogEntry) {
+        this.plays.set(copy, entry)
+        if (this.current === entry) {
+            this.currentCopy = copy
+        }
+    }
+
+    private decided(
+        seat: number,
+        window: Window,
+        choice: OptionView,
+        text?: string | null,
+        source?: CardRef | null,
+    ) {
         const influences = ['transfer', 'withdraw', 'influence_out', 'draw_crypt']
         if (window == 'influence_transfers' && influences.includes(choice.kind)) {
             this.influenced(seat, choice)
@@ -712,14 +723,15 @@ export class EngineLogBuilder {
             return
         }
         const told = text ?? choice.text
-        // Terms chosen before the action is announced : on its line once it is
-        if (TERMS.includes(window) && this.declaring && told) {
-            this.declaring.terms.push(told)
+        // The terms or effect of a card ( or minion ) chosen, before its action is announced : on
+        // its line once it is
+        if (source && this.declaring && told) {
+            this.declaring.terms.push({ told, choice })
             return
         }
-        // A choice of the terms of the card played or the action : on its line
-        if (TERMS.includes(window) && this.current && told) {
-            this.append(this.current, this.fromText(told[0].toLowerCase() + told.slice(1)))
+        // Of the card played or the action under way : on its line
+        if (source && this.current && this.isCurrent(source) && told) {
+            this.append(this.current, this.fromText(lowered(told), choice))
             return
         }
         const declared = choice.effects?.find(effect => effect.kind == 'action' && !!effect.action)
@@ -732,17 +744,21 @@ export class EngineLogBuilder {
         }
         // Not announced ( the declaration failed ) : nothing pending
         this.declaring = null
-        if (!TERMS.includes(window)) {
-            this.currentCard = null
+        if (!source) {
+            this.currentCopy = null
         }
         switch (choice.kind) {
-            case 'play':
-                this.current = this.line(seat, this.playSegments(choice))
-                this.currentCard = choice.card?.id ?? null
-                if (this.currentCard != null) {
-                    this.plays.set(this.currentCard, this.current)
+            case 'play': {
+                const entry = this.line(seat, this.playSegments(choice))
+                this.current = entry
+                const copy = choice.card?.copy
+                if (copy != null) {
+                    this.playedAs(copy, entry)
+                } else if (choice.card?.id != null) {
+                    this.playing = { id: choice.card.id, entry }
                 }
                 return
+            }
             case 'edge_pool':
                 this.current = this.line(seat, [{ text: '+1 pool from the Edge' }])
                 return
@@ -787,15 +803,34 @@ export class EngineLogBuilder {
                 this.current = this.line(seat, [
                     ...(choice.card ?
                         this.playSegments(choice)
-                    :   [this.copySegment(choice.minion ?? user), ...this.targetSegments(choice)]),
+                    :   [
+                            this.copySegment(choice.minion ?? user),
+                            ...this.targetSegments(choice.target),
+                        ]),
                     ...(effects ? [{ text: `: ${effects}` }] : []),
                 ])
+                // Its card's terms told on its line ( Haqim's Law's discard )
+                this.currentCopy = choice.card?.copy ?? null
                 return
             }
         }
+        // Another card's terms or effect : the card, then the choice
         if (told) {
-            this.current = this.line(seat, this.fromText(told))
+            this.current = this.line(seat, [
+                ...(source ? [this.cardSegment(source.id), { text: ': ' }] : []),
+                ...this.fromText(source ? lowered(told) : told, choice),
+            ])
         }
+    }
+
+    // The card played or the action under way is this card or minion
+    private isCurrent(source: CardRef): boolean {
+        return (
+            source.copy != null &&
+            (source.copy == this.currentCopy ||
+                source.copy == this.action?.acting ||
+                source.copy == this.action?.cardCopy)
+        )
     }
 
     // A card played : "Form of the Cobra [PRO] by Doctor on P3" ( its player told when it is not
@@ -811,12 +846,11 @@ export class EngineLogBuilder {
         if (choice.actor != null && choice.actor != this.action?.acting) {
             segments.push({ text: ' by ' }, this.copySegment(choice.actor))
         }
-        segments.push(...this.targetSegments(choice))
+        segments.push(...this.targetSegments(choice.target))
         return segments
     }
 
-    private targetSegments(choice: OptionView): LogSegment[] {
-        const target = choice.target
+    private targetSegments(target: Target | null | undefined): LogSegment[] {
         if (!target) {
             return []
         }
@@ -839,13 +873,9 @@ export class EngineLogBuilder {
             { text: ` ${VERBS[kind] ?? actionName(kind)}` },
         ]
         const card = ref.card?.id ?? choice?.card?.id ?? undefined
-        // A forced bleed targets the prey
-        const bleedTarget =
-            kind == 'bleed' ?
-                choice?.target?.kind == 'seat' ?
-                    choice.target.seat
-                :   this.preys[seat]
-            :   undefined
+        // What it is aimed at : the Methuselah bled ; the choice's names an uncontrolled vampire too
+        const target = ref.target ?? choice?.target
+        const bleedTarget = kind == 'bleed' && target?.kind == 'seat' ? target.seat : undefined
         if (bleedTarget != null) {
             segments.push({ text: ' ' }, this.seatSegment(bleedTarget))
         }
@@ -853,8 +883,8 @@ export class EngineLogBuilder {
             const named = ['political', 'employ', 'recruit', 'equip', 'equip_found', 'card']
             segments.push({ text: named.includes(kind) ? ' ' : ' with ' }, this.cardSegment(card))
         }
-        if (bleedTarget == null && choice) {
-            segments.push(...this.targetSegments(choice))
+        if (bleedTarget == null) {
+            segments.push(...this.targetSegments(target))
         }
         const entry = this.line(seat, segments, this.root)
         entry.live = true
@@ -867,9 +897,9 @@ export class EngineLogBuilder {
             bled: bleedTarget ?? undefined,
         }
         this.current = entry
-        this.currentCard = card ?? null
-        for (const told of declared?.terms ?? []) {
-            this.append(entry, this.fromText(told[0].toLowerCase() + told.slice(1)))
+        this.currentCopy = ref.card?.copy ?? null
+        for (const { told, choice } of declared?.terms ?? []) {
+            this.append(entry, this.fromText(lowered(told), choice))
         }
     }
 
@@ -885,7 +915,8 @@ export class EngineLogBuilder {
         this.blocks.clear()
         this.plays.clear()
         this.current = null
-        this.currentCard = null
+        this.currentCopy = null
+        this.playing = null
         this.resolving = null
     }
 
@@ -990,15 +1021,13 @@ export class EngineLogBuilder {
         this.told = []
         this.decision = 0
         this.lines = 0
-        this.preys = []
-        // The next view, a decision back, tells the preys again
-        this.viewed = -1
         this.influence = null
         this.action = null
         this.combat = null
         this.endingStrike = false
         this.current = null
-        this.currentCard = null
+        this.currentCopy = null
+        this.playing = null
         this.blocks.clear()
         this.plays.clear()
         this.declaring = null
@@ -1010,11 +1039,9 @@ export class EngineLogBuilder {
             if ('event' in told) {
                 this.at = told.at
                 this.apply(told.event)
-            } else if ('say' in told) {
+            } else {
                 this.at = told.at
                 this.said(told.say.seat, told.say.text)
-            } else {
-                this.preys = told.preys
             }
         }
         this.changed()

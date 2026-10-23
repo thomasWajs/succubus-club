@@ -1,11 +1,12 @@
 /**
- * Names for the server's ids where the table shows them : windows, actions, strikes, markers.
+ * Names for the server's ids where the table shows them : windows, actions, strikes, markers,
+ * effects.
  */
 
 import type {
     ActionKind,
+    Effect,
     Marker,
-    MarkerKind,
     Mode,
     Strike,
     StrikeKind,
@@ -107,6 +108,53 @@ export function strikeName(strike: Strike): string {
     return deals.length > 0 ? `${name} (${deals.join(' ')})` : name
 }
 
+// The effects told by their amount ( "+1 stealth", "−1 blood" )
+const COUNTED = new Set([
+    'stealth',
+    'intercept',
+    'bleed',
+    'strength',
+    'votes',
+    'pool',
+    'blood',
+    'life',
+    'damage',
+    'prevent',
+    'press',
+    'maneuver',
+    'draw',
+    'discard',
+    'transfers',
+    'counters',
+    'hand_size',
+    'corruption',
+])
+// Effects the line says otherwise, or that say nothing more ( an action declared, a card kept )
+const UNTOLD = new Set(['action', 'referendum', 'keep', 'role', 'cost'])
+
+export function signed(n: number) {
+    return n > 0 ? `+${n}` : `−${-n}`
+}
+
+export function effectsText(effects: Effect[] | null | undefined): string {
+    return (effects ?? [])
+        .filter(effect => !effect.cost && !UNTOLD.has(effect.kind))
+        .map(effect => {
+            const name = effect.kind.replace(/_/g, ' ')
+            if (effect.kind == 'end_combat') {
+                return 'ends combat'
+            }
+            if (COUNTED.has(effect.kind) && effect.n != null) {
+                return `${effect.x ? `${signed(effect.n)}X` : signed(effect.n)} ${name}`
+            }
+            if (effect.kind == 'strike' && effect.strike) {
+                return strikeName(effect.strike)
+            }
+            return name
+        })
+        .join(', ')
+}
+
 // A mode's printed tags : its Disciplines ( 'dom' basic, 'DOM' superior ), its card type ( 'COMBAT' )
 export function modeTags(mode: Mode | null | undefined): string[] {
     const tags = (mode?.disciplines ?? []).map(d =>
@@ -129,25 +177,10 @@ export function modeTags(mode: Mode | null | undefined): string[] {
 export type EngineChip = { kind: ChipKind; n: number; name: string }
 export type ChipKind = 'hostage' | 'nightmare' | 'torture' | 'effect'
 
-const MARKER_NAMES: Partial<Record<MarkerKind, string>> = {
-    hostage: 'Hostage',
-    nightmare: 'Nightmare',
-    torture: 'Torture',
-    disease: 'Disease',
-    title_contested: 'Contested title',
-    expelled: 'Expelled',
-    taint: 'Taint',
-    effect: 'Effect',
-}
-
-// A marker's short name : a lasting effect's is its card's
-export function markerName(marker: Marker): string {
-    const card = marker.card != null ? gameResources.cardbase[marker.card]?.name : undefined
-    return (
-        (marker.kind == 'effect' ? card : undefined) ??
-        MARKER_NAMES[marker.kind] ??
-        marker.kind.replace(/_/g, ' ')
-    )
+// A marker's name, as the engine tells it ( its count in it : "2 hostage counters", "Expelled" )
+function markerName(marker: Marker): string {
+    const text = marker.text ?? marker.kind.replace(/_/g, ' ')
+    return text.charAt(0).toUpperCase() + text.slice(1)
 }
 
 // A minion's markers, split : the chips, the labels
@@ -168,8 +201,8 @@ export function minionMarkers(markers: Marker[]): { chips: EngineChip[]; labels:
         ) {
             chips.push({ kind: marker.kind, n, name: markerName(marker) })
         } else {
-            // A count with no chip of its own ( taint ) : on the label
-            labels.push(n > 0 ? `${markerName(marker)} (${n})` : markerName(marker))
+            // A count with no chip of its own ( taint ) : in the label
+            labels.push(markerName(marker))
         }
     }
     return { chips, labels }

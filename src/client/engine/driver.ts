@@ -29,7 +29,7 @@ import * as logging from '@/client/logging.ts'
 import { AnyGameMutation } from '@/shared/state/gameMutations.ts'
 import { Invalid, VALID, Validity } from '@/shared/types/state.ts'
 import { matchGesture, onCardLabel } from '@/client/engine/gestures.ts'
-import { autoplayStaging, narrowStaging } from '@/client/engine/interaction.ts'
+import { autoplayStaging, declinesBlock, narrowStaging } from '@/client/engine/interaction.ts'
 import { forgetCardNames, learnCardNames } from '@/client/engine/cardNames.ts'
 import { EngineLogBuilder } from '@/client/engine/log.ts'
 import { gameResources } from '@/shared/registries.ts'
@@ -125,7 +125,7 @@ export function chooseEngineOption(index: number) {
     running?.answer?.({ index })
 }
 
-// The pass of the decision under way ( "Pass (no block)", "End the master phase"… ) : one fixed
+// The pass of the decision under way ( "Decline to block", "End the master phase"… ) : one fixed
 // button in the turn controls, and → / Space
 export function enginePassOption(): OptionView | undefined {
     return useEngineStore().pending?.options.find(option => option.kind == 'pass')
@@ -187,22 +187,6 @@ function randomAmounts(allocation: Allocation): number[] {
     return amounts
 }
 
-// The user's pass declines to block ( the engine's "Decline to block", "Pass (no block)" ) : no
-// block attempted, or the user's attempt short of the stealth
-function declinesBlock(view: TableView, seat: number, window: Window): boolean {
-    const action = view.action
-    if (window != 'action_block' || !action || action.seat == seat) {
-        return false
-    }
-    if (action.step != 'attempt') {
-        return true
-    }
-    const attempting = view.seats
-        .find(other => other.seat == seat)
-        ?.ready.some(minion => minion.card.copy == action.blocker)
-    return !!attempting && action.intercept != null && action.intercept < action.stealth
-}
-
 // The combat under way, by its minions' names
 // `seat` : the user's, deciding
 function combatOf(view: TableView, seat: number): EngineCombat | null {
@@ -231,7 +215,7 @@ function combatOf(view: TableView, seat: number): EngineCombat | null {
         sides: view.combat.sides.map(side => ({
             name: name(side.minion),
             own: own(side.minion),
-            strike: side.strike ? strikeName(side.strike) : undefined,
+            strike: side.strike ? (side.strike.text ?? strikeName(side.strike)) : undefined,
             maneuvers: side.maneuvers,
             presses: side.presses,
         })),
@@ -563,7 +547,7 @@ export async function runEngine(host: EngineHost, projection: Projection) {
                 allocation: out.allocation,
                 votes: out.votes,
                 combat: combatOf(out.view, out.seat),
-                decline: declinesBlock(out.view, out.seat, out.window),
+                decline: out.options.some(declinesBlock),
             }
             // The rest of a move worth several decisions
             const repeat = current.repeat

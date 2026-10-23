@@ -18,7 +18,7 @@
 import { computed } from 'vue'
 import { Card } from '@/shared/model/Card.ts'
 import type { ActionKind, OptionView, Target } from '@/client/engine/api.ts'
-import { modeTags } from '@/client/engine/labels.ts'
+import { actionName, effectsText, modeTags } from '@/client/engine/labels.ts'
 import { useEngineStore } from '@/client/store/engine.ts'
 import {
     chooseEngineOption,
@@ -26,6 +26,7 @@ import {
     engineCard,
     engineOptionCards,
     engineRoles,
+    engineTarget,
     engineZoneRegion,
 } from '@/client/engine/driver.ts'
 import { AnyCardRegion } from '@/shared/types/model.ts'
@@ -199,21 +200,20 @@ function modeLabel(option: OptionView): string {
     return tags.length > 0 ? tags.map(tag => `[${tag}]`).join('') : (option.text ?? '')
 }
 
-// What one of a card's abilities does : its text's tail ( "Use War Ghoul on X: action, enter
-// combat" ), else its number ( a text that says none, "Use X (ability 2)", or no text )
+// What one of a card's abilities does : what sets it apart from the others ( War Ghoul's rush :
+// "enter combat" ), its action, else its number
 function abilityLabel(option: OptionView): string {
-    const text = option.text ?? ''
-    const colon = text.lastIndexOf(': ')
-    return colon >= 0 && !/\(ability \d+\)$/.test(text) ?
-            text.slice(colon + 2)
-        :   `Ability ${(option.ability ?? 0) + 1}`
+    const apart = option.apart ?? []
+    const action = apart.find(effect => effect.kind == 'action' && !!effect.action)?.action
+    return (
+        effectsText(apart) || (action ? actionName(action) : `Ability ${(option.ability ?? 0) + 1}`)
+    )
 }
 
+// A target : a Methuselah by name, a card of the table by its option's text ( it glows too )
 function targetLabel(option: OptionView): string {
-    // The text ends with the target : "Play X with A on B"
-    const text = option.text ?? ''
-    const on = text.lastIndexOf(' on ')
-    return option.target?.kind == 'seat' && on >= 0 ? text.slice(on + 4) : text
+    const target = option.target?.kind == 'seat' ? engineTarget(option.target) : undefined
+    return target?.name ?? option.text ?? ''
 }
 
 // The card of the table a target is : a minion, a card in play, a vampire in the uncontrolled
@@ -693,11 +693,22 @@ export const leftoverOptions = computed((): OptionView[] => {
 })
 
 /**
- * A pass that does something ( Anarch Convert's "Gain 1 pool", "Keep him in play", "Stop
- * searching" ) : a choice like the others, in the central box beside them — the fixed button says
- * only "Pass" or "Decline". A plain pass ( "Pass (no block)", "Decline to block", "End the minion phase" ) stays
- * there alone.
+ * A pass that does something ( Anarch Convert's "Gain 1 pool", Rotting Behemoth's burn ) : a
+ * choice like the others, in the central box beside them — the fixed button says only "Pass" or
+ * "Decline". A pass that ends a phase, declines or lets a block stand, or takes none of the options
+ * ( no effects : a search stopped ) stays there alone.
  */
 export function isEffectPass(option: OptionView): boolean {
-    return option.kind == 'pass' && !/^(Pass\b|End the |Decline to block$)/.test(option.text ?? '')
+    return (
+        option.kind == 'pass' &&
+        (option.effects ?? []).some(effect => effect.kind != 'end_phase' && effect.kind != 'block')
+    )
+}
+
+// The pass declines to block : the seat's last decline, or its minion's attempt short of the stealth
+export function declinesBlock(option: OptionView): boolean {
+    return (
+        option.kind == 'pass' &&
+        (option.effects ?? []).some(effect => effect.kind == 'block' && effect.detail == 'declines')
+    )
 }
