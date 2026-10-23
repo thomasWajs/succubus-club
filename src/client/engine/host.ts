@@ -617,6 +617,9 @@ export class EngineHost {
         const res = await fetch(`${ENGINE_SERVER}/games/${this.game}/record`, {
             headers: { authorization: `Bearer ${this.token}` },
         })
+        if (!res.ok) {
+            throw new Error(`The engine server has no record of the game : ${res.status}`)
+        }
         return res.text()
     }
 }

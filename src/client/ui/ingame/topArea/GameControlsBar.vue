@@ -90,9 +90,9 @@
                 >
                     Secret Choice
                 </button>
-                <!-- The game's setup and every decision : to report a bug -->
+                <!-- The game's setup and every decision : the server gives it once the game is over -->
                 <button
-                    v-if="isEngine"
+                    v-if="isEngine && engine.result"
                     class="game-button"
                     @click="exportReplay"
                 >
@@ -175,7 +175,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { useGameBusStore } from '@/client/store/bus.ts'
+import { useBusStore, useGameBusStore } from '@/client/store/bus.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
 import { resetLayout } from '@/client/game/display.ts'
@@ -197,6 +197,7 @@ import {
 
 const gameState = useGameStateStore()
 const gameBus = useGameBusStore()
+const bus = useBusStore()
 const players = usePlayersStore()
 const commands = useCommands()
 
@@ -213,7 +214,13 @@ const pass = computed(() => engine.pending?.options.find(option => option.kind =
 // The replay ( the game's setup and every decision ) reproduces the game in the engine
 async function exportReplay() {
     gameMenu.value?.close()
-    const replay = await engineReplay()
+    let replay: string | null
+    try {
+        replay = await engineReplay()
+    } catch (e) {
+        bus.alertError(e instanceof Error ? e.message : String(e))
+        return
+    }
     if (!replay) {
         return
     }
