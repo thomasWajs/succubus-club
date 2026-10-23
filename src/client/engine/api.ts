@@ -1,6 +1,6 @@
-/* zvtes protocol 2.7.0 (docs/protocol.md): generated from
+/* zvtes protocol 2.8.0 (docs/protocol.md): generated from
  * crates/api/schema.json by scripts/gen_ts.py, do not edit. */
-export const PROTOCOL_VERSION = '2.7.0'
+export const PROTOCOL_VERSION = '2.8.0'
 
 /**
  * A command as sent: an optional client id, echoed by an `error` it
@@ -1164,6 +1164,7 @@ export type OptionKind =
     | 'burn_corruption_to_fail'
     | 'burn_corruption_to_unlock'
     | 'diablerise'
+    | 'cancel_combat'
     | 'unknown'
 
 /**
@@ -1355,6 +1356,7 @@ export type Purpose =
     | 'name_conviction'
     | 'power_search'
     | 'may_cancel_combat'
+    | 'put_found_on'
     | 'unknown'
 
 export type Range = 'close' | 'long' | 'unknown'
@@ -1421,8 +1423,9 @@ export type SeatView = {
     /** Cards in play the seat controls on no minion. */
     in_play: InPlayView[]
     /**
-     * Imbued with no life, controlled, not ready (rulebook "Appendix:
-     * Imbued Rules" 5).
+     * Imbued that lost their last life, controlled, not ready, a life
+     * gained there keeping them in it (rulebook "Appendix: Imbued Rules"
+     * 5; rules-qa 87.43).
      */
     incapacitated?: MinionView[]
     /** Top last. */

@@ -528,6 +528,7 @@ const COMBAT = [
     'gain_strength',
     'burn_blood_to_avoid',
     'continue_action',
+    'cancel_combat',
     'diablerise',
 ]
 
