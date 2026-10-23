@@ -175,11 +175,14 @@ export class EngineHost {
         private ws: WebSocket,
     ) {}
 
-    // A game created on the server, the user's seat joined
-    static async create(spec: GameSpec): Promise<EngineHost> {
+    // A game created on the server, the user's seat joined ; the admin token keeps the spec's seed
+    static async create(spec: GameSpec, admin?: string): Promise<EngineHost> {
         const res = await fetch(`${ENGINE_SERVER}/games`, {
             method: 'POST',
-            headers: { 'content-type': 'application/json' },
+            headers: {
+                'content-type': 'application/json',
+                ...(admin ? { authorization: `Bearer ${admin}` } : {}),
+            },
             body: JSON.stringify(spec),
         })
         if (!res.ok) {

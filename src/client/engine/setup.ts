@@ -28,6 +28,26 @@ const ENGINE_BOT_DECK = /\((Fifth Edition\b.*|.*Anniversary|Sabbat V5)\)$/
 // The server's bots play the trained network
 const ENGINE_BOT_PROFILE = 'network'
 
+// A fixed deal for the operator ( a demo, a playtest ), set by hand in the browser's storage for
+// the next game only : the seed, the user's seat and the bots' decks by name in seat order. The
+// server keeps a seed only with the admin token, so a deal set without it plays as any other ; its
+// game is recorded under its own client ( succubus-club-demo )
+type FixedDeal = { seed: number; seat: number; bots: string[]; token: string }
+const FIXED_DEAL_STORAGE_KEY = 'engine-fixed-deal'
+
+function fixedDeal(): FixedDeal | null {
+    const stored = localStorage.getItem(FIXED_DEAL_STORAGE_KEY)
+    if (!stored) {
+        return null
+    }
+    localStorage.removeItem(FIXED_DEAL_STORAGE_KEY)
+    try {
+        return JSON.parse(stored) as FixedDeal
+    } catch {
+        throw new Error(`The fixed deal ( ${FIXED_DEAL_STORAGE_KEY} ) is not JSON`)
+    }
+}
+
 // The bot of a seat, numbered from 1 around the user's
 function botOf(seat: number, selfSeat: number): number {
     return seat < selfSeat ? seat + 1 : seat
@@ -72,20 +92,32 @@ export async function setupEngineGame(): Promise<() => void> {
         throw new Error(`No deck list`)
     }
 
+    const deal = fixedDeal()
+    const catalog = await engineCatalog()
     // Not the user's own deck, when it is one of the preconstructed decks
     const selfCards = core.selfDeck.cards
-    const botDecks = shuffleArray(
-        (await engineCatalog()).filter(
-            ([name, deck]) => ENGINE_BOT_DECK.test(name) && !sameDeck(deck, selfCards),
-        ),
-    )
+    const botDecks =
+        deal ?
+            deal.bots.map(name => {
+                const deck = catalog.find(([n]) => n == name)
+                if (!deck) {
+                    throw new Error(`The fixed deal's deck ${name} is not in the engine's catalog`)
+                }
+                return deck
+            })
+        :   shuffleArray(
+                catalog.filter(
+                    ([name, deck]) => ENGINE_BOT_DECK.test(name) && !sameDeck(deck, selfCards),
+                ),
+            )
 
     // Seats are in turn order : the engine's seat 0 plays first
     const nbSeats = ENGINE_NB_BOTS + 1
-    const selfSeat = Math.floor(Math.random() * nbSeats)
+    const selfSeat = deal ? deal.seat : Math.floor(Math.random() * nbSeats)
     const spec: GameSpec = {
+        seed: deal?.seed,
         time_limit: null,
-        client: 'succubus-club',
+        client: deal ? 'succubus-club-demo' : 'succubus-club',
         seats: Array.from({ length: nbSeats }, (_, seat) =>
             seat == selfSeat ?
                 {
@@ -110,7 +142,7 @@ export async function setupEngineGame(): Promise<() => void> {
     // The server checks the decks : the game state is only set up once it has the game
     let host: EngineHost
     try {
-        host = await EngineHost.create(spec)
+        host = await EngineHost.create(spec, deal?.token)
     } catch (e) {
         const refusal = e instanceof EngineRefused ? e.refusal : null
         const message =
