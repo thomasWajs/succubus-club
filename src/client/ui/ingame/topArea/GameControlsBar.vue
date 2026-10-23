@@ -98,7 +98,19 @@
                 >
                     Export Replay
                 </button>
+                <!-- A problem or a remark, kept in the game's record at the decision under way -->
+                <button
+                    v-if="isEngine"
+                    class="game-button"
+                    @click="openReport"
+                >
+                    Report A Problem
+                </button>
             </PopupMenu>
+            <EngineReport
+                v-if="isEngine"
+                ref="engineReport"
+            />
         </div>
 
         <!-- Right-anchored controls, aligned under the phases block -->
@@ -171,6 +183,7 @@ import { resetFreeTableCamera } from '@/client/game/camera.ts'
 import { useCommands } from '@/client/game/composables/useCommands.ts'
 import CommandButton from '@/client/ui/ingame/CommandButton.vue'
 import PopupMenu from '@/client/ui/components/PopupMenu.vue'
+import EngineReport from '@/client/ui/ingame/EngineReport.vue'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
 import { rollRandomResult } from '@/client/state/gameMutations.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
@@ -190,6 +203,7 @@ const commands = useCommands()
 const { glowInPlayEnabled } = useUIFeatures()
 
 const gameMenu = ref<InstanceType<typeof PopupMenu> | null>(null)
+const engineReport = ref<InstanceType<typeof EngineReport> | null>(null)
 
 const isEngine = computed(() => gameState.gameType == GameType.Engine)
 const engine = useEngineStore()
@@ -208,6 +222,11 @@ async function exportReplay() {
     link.download = `zero-vtes-replay-${new Date().toISOString().replace(/[:.]/g, '-')}.json`
     link.click()
     URL.revokeObjectURL(link.href)
+}
+
+function openReport() {
+    gameMenu.value?.close()
+    engineReport.value?.show()
 }
 
 function openSecretInterface() {

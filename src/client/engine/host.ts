@@ -124,6 +124,13 @@ const REJOIN_DELAYS = [500, 1000, 2000, 4000, 8000, 15000, 30000]
 // What the server sends while a command is answered, then the decision or the end
 type Waiter = () => void
 
+// How long a report waits for the server's `noted` : past it, lost ( the connection dropped, too
+// many commands that second ), the user sends it again
+const FEEDBACK_TIMEOUT = 10000
+
+// A report sent, by its command's id : told when the server notes it, or refuses it
+type Report = { resolve: (decision: number) => void; reject: (error: Error) => void }
+
 export class EngineHost {
     private queue: EngineOut[] = []
     private waiting: Waiter[] = []
@@ -158,6 +165,9 @@ export class EngineHost {
     private unreachable = false
     // Joined again from a refreshed page ( resume ), not yet seated
     private resuming = false
+    // The reports sent and not yet noted, by their command's id ( beside the one command in flight )
+    private reports = new Map<number, Report>()
+    private reportId = 0
 
     private constructor(
         private game: string,
@@ -346,9 +356,16 @@ export class EngineHost {
         // refusal as too many is unnumbered ). One command in flight at a time : a reply to an
         // earlier one ( a settings change just before an answer ) clears the later, which a drop
         // then would not send again
+        // A report's answer ( see feedback ) : the command in flight stays, a refusal fails no game
+        const reported = this.report(m)
         if (m.seq > 0) {
             this.seq = m.seq
-            this.sent = null
+            if (!reported) {
+                this.sent = null
+            }
+        }
+        if (reported) {
+            return
         }
         switch (m.type) {
             case 'joined':
@@ -398,11 +415,12 @@ export class EngineHost {
                 })
                 break
             case 'error':
-                // Too many commands this second : refused, so sent again a moment later
+                // Too many commands this second : refused, so sent again a moment later, while still
+                // unanswered ( the refused one may have been a report : unnumbered, it names none )
                 if (m.error == 'rate_limited') {
                     const sent = this.sent
                     setTimeout(() => {
-                        if (sent) {
+                        if (sent && this.sent == sent) {
                             this.sent = sent
                             if (this.ws.readyState == WebSocket.OPEN) {
                                 this.ws.send(sent)
@@ -429,6 +447,22 @@ export class EngineHost {
                 this.fail(new Error(`The engine server refused : ${m.error}`))
                 break
         }
+    }
+
+    // A report's answer ( `noted`, or an error ) told to its sender, if it still waits : whether it was
+    // one. Only `feedback` carries an id, so an answer naming one is a report's, even given up
+    private report(m: Out): boolean {
+        if (m.reply_to == null) {
+            return false
+        }
+        const report = this.reports.get(m.reply_to)
+        this.reports.delete(m.reply_to)
+        if (m.type == 'noted') {
+            report?.resolve(m.decision)
+        } else if (m.type == 'error') {
+            report?.reject(new Error(`The engine server refused the report : ${m.error}`))
+        }
+        return true
     }
 
     private take(): { events: Event[]; actionEnded: boolean } {
@@ -548,6 +582,34 @@ export class EngineHost {
         const answered = this.answered
         this.send({ type: 'settings', opportunities: on })
         this.answered = answered
+    }
+
+    // A problem or a remark sent to the engine's authors, kept in the game's record at the pending
+    // decision ( else the last one ), also once the game is over : that decision, once noted. Sent
+    // beside the command in flight, never sent again : a report lost fails, for the user to send again
+    feedback(text: string): Promise<number> {
+        return new Promise<number>((resolve, reject) => {
+            if (this.ws.readyState != WebSocket.OPEN) {
+                reject(new Error('The engine server cannot be reached'))
+                return
+            }
+            const id = ++this.reportId
+            const timeout = setTimeout(() => {
+                this.reports.delete(id)
+                reject(new Error('The engine server did not answer'))
+            }, FEEDBACK_TIMEOUT)
+            this.reports.set(id, {
+                resolve: decision => {
+                    clearTimeout(timeout)
+                    resolve(decision)
+                },
+                reject: error => {
+                    clearTimeout(timeout)
+                    reject(error)
+                },
+            })
+            this.ws.send(JSON.stringify({ id, type: 'feedback', text }))
+        })
     }
 
     // The game's record ( the server keeps it two years ), as the export

@@ -390,6 +390,12 @@ export async function engineReplay(): Promise<string | null> {
     return running ? running.host.replay() : null
 }
 
+// A problem or a remark, kept in the game's record at the decision under way ( EngineHost.feedback ) :
+// that decision once noted, null without a game
+export async function engineFeedback(text: string): Promise<number | null> {
+    return running ? running.host.feedback(text) : null
+}
+
 function sleep(ms: number) {
     if (AUTOPLAY) {
         // Yield to the event loop without a timer ( timers are throttled in background tabs )
