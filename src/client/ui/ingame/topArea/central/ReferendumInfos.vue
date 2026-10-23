@@ -2,6 +2,7 @@
     <CentralPanel
         class="referendum-infos"
         :class="{ engine: isEngine }"
+        :style="{ minHeight: panelMinHeight }"
         :title="isEngine && engine.terms.length > 0 ? undefined : 'Referendum'"
     >
         <div
@@ -20,23 +21,57 @@
                 </span>
                 <EngineText :text="line" />
             </div>
-            <div
-                v-if="engine.referendumText"
-                class="referendum-card-text"
-            >
-                {{ engine.referendumText }}
-            </div>
+        </div>
+        <div
+            v-if="isEngine && engine.referendumText"
+            ref="cardText"
+            class="referendum-card-text"
+            :style="{ clipPath: `inset(0 0 ${cardTextClip}px 0)` }"
+            @scroll="fitCardText"
+        >
+            {{ engine.referendumText }}
         </div>
         <div class="referendum-body">
+            <!-- With the rules engine : on one line, the Methuselahs who cast such a vote ( the Edge, a card ) -->
+            <div
+                v-if="isEngine && castVoteRows.length > 0"
+                class="methuselah-votes-line"
+            >
+                <span class="methuselah-votes-title">Methuselah votes :</span>
+                <span
+                    v-for="row in castVoteRows"
+                    :key="row.player.oid"
+                    class="methuselah-votes-cast"
+                >
+                    <span
+                        class="inline-player-name"
+                        :style="{ backgroundColor: row.player.rgbaColor }"
+                    >
+                        {{ row.player.shortName }}
+                    </span>
+                    <span
+                        v-if="row.votes[VoteSide.InFavour] > 0"
+                        class="in-favour"
+                    >
+                        {{ row.votes[VoteSide.InFavour] }} in favour
+                    </span>
+                    <span
+                        v-if="row.votes[VoteSide.Against] > 0"
+                        class="against"
+                    >
+                        {{ row.votes[VoteSide.Against] }} against
+                    </span>
+                </span>
+            </div>
+
             <!--
             Left column : votes that don't come from a vampire, one row per
             Methuselah. Only your own row is editable, everyone announces their
             own. Its width is content-driven and stable, which is what keeps the
             tally on the right from moving as the panel changes state.
             -->
-            <!-- With the rules engine : only once such a vote is cast ( the Edge, a card ) -->
             <div
-                v-if="!isEngine || methuselahVotesCast"
+                v-if="!isEngine"
                 class="methuselah-votes"
             >
                 <span class="methuselah-votes-title">Methuselah votes</span>
@@ -196,7 +231,7 @@
  * columns : one row per Methuselah on the left, the tally and its controls on
  * the right.
  */
-import { computed, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
@@ -298,8 +333,8 @@ const winningSide = computed(() => (outcomeReached.value ? getWinningSide(props.
 
 const subTally = computed(() => tallySubReferendum(props.referendum))
 // With the rules engine, the rows and lines shown only when they hold something
-const methuselahVotesCast = computed(() =>
-    methuselahVoteRows.value.some(
+const castVoteRows = computed(() =>
+    methuselahVoteRows.value.filter(
         row => row.votes[VoteSide.InFavour] > 0 || row.votes[VoteSide.Against] > 0,
     ),
 )
@@ -326,6 +361,47 @@ const methuselahVoteRows = computed(() =>
 function changePlayerVotes(player: Player, side: VoteSide, amount: number) {
     gameMutations.REFERENDUM_changePlayerVotes.actSelf({ player, side, amount })
 }
+
+/**
+ * With the rules engine : the card's text gives way when the central box is short ( see the
+ * style ), down to none, the panel's other rows whole ( its least height ), whole lines only ( the
+ * line its room or its scroll cuts at the bottom hidden )
+ */
+const cardText = ref<HTMLElement | null>(null)
+const cardTextClip = ref(0)
+const panelMinHeight = ref<string | undefined>(undefined)
+
+function fitCardText() {
+    const text = cardText.value
+    const panel = text?.parentElement
+    if (!text || !panel) {
+        panelMinHeight.value = undefined
+        cardTextClip.value = 0
+        return
+    }
+    panelMinHeight.value = `${panel.scrollHeight - text.offsetHeight}px`
+    const line = parseFloat(getComputedStyle(text).lineHeight)
+    cardTextClip.value = line > 0 ? (text.clientHeight + text.scrollTop) % line : 0
+}
+
+// The text's room and the panel's rows ( terms, votes ) change : fitted again
+const cardTextResizes = new ResizeObserver(fitCardText)
+watch(cardText, text => {
+    cardTextResizes.disconnect()
+    if (text) {
+        cardTextResizes.observe(text)
+        if (text.parentElement) {
+            cardTextResizes.observe(text.parentElement)
+        }
+    }
+    fitCardText()
+})
+onUnmounted(() => cardTextResizes.disconnect())
+// A row changed while the panel's height and the text's stay put ( the panel shrunk, the text
+// gone ) : no resize to tell it
+watch([() => engine.terms, () => engine.referendumText, castVoteRows, prisciAtTable], () =>
+    nextTick(fitCardText),
+)
 </script>
 
 <style lang="scss">
@@ -537,33 +613,95 @@ function changePlayerVotes(player: Player, side: VoteSide, amount: number) {
     }
 }
 
-// With the rules engine the central box holds the decision and the cards played too : the
-// panel stays whole ( the tally in sight ), so it is denser : its title on the terms' first
-// line, the card's text over a few lines at most ( scrolled ), each side's count beside its label
+// With the rules engine the central box holds the decision and the cards played too, and is
+// short in a window the table's height bounds ( TOP_AREA_HEIGHT ) : the totals beside the
+// terms, the votes and the priscii on one line, the card's text the one row that gives way ( its
+// name shows the card on hover )
 .central-panel.referendum-infos.engine {
-    flex-shrink: 0;
-    gap: 0.25rem;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto minmax(0, auto) auto;
+    grid-template-areas:
+        'terms tally'
+        'text text'
+        'votes sub';
+    align-items: center;
+    column-gap: 0.75rem;
+    row-gap: 2px;
     padding: 0.25rem 0.75rem;
 
+    .referendum-body,
+    .referendum-summary {
+        display: contents;
+    }
+
+    // The panel's own title when no terms were told
+    > .central-panel-title,
     .referendum-terms {
+        grid-area: terms;
+        font-size: 13px;
         margin-bottom: 0;
     }
 
     .referendum-card-text {
+        grid-area: text;
+        justify-self: center;
+        // Its row's height, not its own : scrolled within the room left
+        align-self: stretch;
+        line-height: 1.2;
         max-height: 3.6em;
+        min-height: 0;
         overflow-y: auto;
+        text-align: center;
+    }
+
+    // One side over the other : the terms keep the width, a line each
+    .referendum-tally {
+        grid-area: tally;
+        flex-direction: column;
+        gap: 0;
     }
 
     .tally-side {
+        flex: 0 0 auto;
+        white-space: nowrap;
         flex-direction: row;
-        justify-content: center;
+        justify-content: flex-start;
         align-items: baseline;
         gap: 0.4rem;
         padding: 0 4px;
 
         .tally-amount {
-            font-size: 24px;
+            font-size: 20px;
         }
+    }
+
+    .methuselah-votes-line {
+        grid-area: votes;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 2px 0.5rem;
+        font-size: 12px;
+
+        .methuselah-votes-cast {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            font-weight: bold;
+        }
+
+        .in-favour {
+            color: $dark-forest;
+        }
+
+        .against {
+            color: $wine-crimson;
+        }
+    }
+
+    .subreferendum {
+        grid-area: sub;
     }
 }
 

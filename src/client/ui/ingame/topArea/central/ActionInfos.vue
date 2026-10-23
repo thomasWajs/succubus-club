@@ -512,9 +512,51 @@ const hasBlockingMinion = computed(() =>
     }
 }
 
-// With the rules engine the central box holds the decision and the cards played too : the rows
-// closer, so the cards played keep a line in sight
+// With the rules engine the central box holds the decision and the cards played too, and is
+// short in a window the table's height bounds ( TOP_AREA_HEIGHT ) : the action on one line, the
+// block declarations on the next, the properties and the impulse sharing the last
 .central-box.engine .central-panel.action-infos {
-    gap: 0.25rem;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px 0.5rem;
+    padding: 0.25rem 0.5rem;
+
+    .action-minions {
+        flex: 1 1 100%;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        font-size: 15px;
+
+        .blocking-minion {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 0 0.75rem;
+            border-left: none;
+            padding-left: 0;
+            font-size: 13px;
+
+            .block-decision {
+                font-size: 13px;
+                margin-bottom: 0;
+            }
+        }
+    }
+
+    .action-properties {
+        flex: 1 1 auto;
+        gap: 0.75rem;
+    }
+
+    .action-impulse .impulse-decision {
+        border: none;
+        padding: 0;
+
+        .impulse-player {
+            margin-right: 0;
+        }
+    }
 }
 </style>
