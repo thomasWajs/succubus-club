@@ -126,11 +126,10 @@
             <!-- With the rules engine : the pass of the decision under way, always here ( → / Space ),
                  the engine's text in its title ( "Decline to block", "End the master phase" ) ; a
                  pass that does something is also in the central box ( see isEffectPass ) ; one
-                 declining to block says so -->
+                 declining to block says so, styled as any pass -->
             <CommandButton
                 v-if="players.isPlayer && isEngine"
                 class="engine-fixed-pass"
-                :class="{ decline: engine.pending?.decline }"
                 :command="commands.AdvanceTurnPhase"
                 :title="pass?.text"
             >
@@ -291,12 +290,6 @@ function pingCardsDuringCurrentPhase() {
         font-size: 15px;
         font-weight: bold;
         white-space: nowrap;
-
-        &.decline {
-            color: $status-amber;
-            background: $alert-warning-bg;
-            border-color: $status-amber;
-        }
     }
 
     .engine-opportunities {
