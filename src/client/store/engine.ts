@@ -24,6 +24,8 @@ export type EngineDecision = {
 
 export type EngineCombat = {
     minions: [string, string] // The acting minion's side first
+    // One of them is the user's : else the user is asked as a bystander ( Rötschreck, Abjure )
+    involved: boolean
     round: number
     range: string
     // Each side, the acting minion's first ( when the engine tells them )

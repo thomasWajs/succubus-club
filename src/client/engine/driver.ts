@@ -217,6 +217,7 @@ function combatOf(view: TableView, seat: number): EngineCombat | null {
     const [acting, opposing] = view.combat.minions
     return {
         minions: [name(acting), name(opposing)],
+        involved: own(acting) || own(opposing),
         round: view.combat.round,
         range: view.combat.range ?? 'close',
         sides: view.combat.sides.map(side => ({

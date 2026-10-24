@@ -148,7 +148,7 @@
                     v-for="(side, i) in pending.combat.sides"
                     :key="i"
                     class="engine-combat-side"
-                    :class="{ own: side.own, opponent: !side.own }"
+                    :class="{ own: side.own, opponent: pending.combat.involved && !side.own }"
                 >
                     <span class="engine-combat-name">{{ side.name }}</span>
                     <span
@@ -193,7 +193,7 @@
                 </button>
             </div>
             <div
-                v-if="pending.combat && cards.length == 0"
+                v-if="pending.combat?.involved && cards.length == 0"
                 class="engine-choices-hint"
             >
                 Strike cards and maneuvers from your hand glow : click or drag them.
