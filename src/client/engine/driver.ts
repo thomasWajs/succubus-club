@@ -29,7 +29,12 @@ import * as logging from '@/client/logging.ts'
 import { AnyGameMutation } from '@/shared/state/gameMutations.ts'
 import { Invalid, VALID, Validity } from '@/shared/types/state.ts'
 import { matchGesture, onCardLabel } from '@/client/engine/gestures.ts'
-import { autoplayStaging, declinesBlock, narrowStaging } from '@/client/engine/interaction.ts'
+import {
+    autoplayStaging,
+    declinesBlock,
+    narrowStaging,
+    searchedRegions,
+} from '@/client/engine/interaction.ts'
 import { forgetCardNames, learnCardNames } from '@/client/engine/cardNames.ts'
 import { EngineLogBuilder } from '@/client/engine/log.ts'
 import { gameResources } from '@/shared/registries.ts'
@@ -58,6 +63,8 @@ type Running = {
     // A move a later phase answers, the phase under way passed for it ( see AUTO_PASSES ) : made
     // again in that phase
     deferred: { gameMutation: AnyGameMutation; window: Window } | null
+    // The stack a search opened ( see showSearch ) : closed once the user's decisions leave it
+    searchOpened: string | null
 }
 
 /**
@@ -380,6 +387,26 @@ export async function engineFeedback(text: string): Promise<number | null> {
     return running ? running.host.feedback(text) : null
 }
 
+// The stack the decision under way searches ( a library, an ash heap ) opens, its cards to choose
+// glowing ; it stays open through the decisions searching it ( Shroud of Decay's seven cards ) and
+// closes after them, unless the user opened another
+function showSearch(current: Running) {
+    const panel = useGameBusStore().wieldCardStack
+    const searched = searchedRegions.value.filter(region => !region.is.hand)
+    if (searched.length > 0) {
+        if (!searched.some(region => region.oid == current.searchOpened)) {
+            panel.show = true
+            panel.cardRegion = searched[0]
+            current.searchOpened = searched[0].oid
+        }
+    } else if (current.searchOpened) {
+        if (panel.show && panel.cardRegion?.oid == current.searchOpened) {
+            panel.show = false
+        }
+        current.searchOpened = null
+    }
+}
+
 function sleep(ms: number) {
     if (AUTOPLAY) {
         // Yield to the event loop without a timer ( timers are throttled in background tabs )
@@ -496,6 +523,7 @@ export async function runEngine(host: EngineHost, projection: Projection) {
         answer: null,
         repeat: null,
         deferred: null,
+        searchOpened: null,
     }
     running?.host.close()
     running = current
@@ -528,6 +556,7 @@ export async function runEngine(host: EngineHost, projection: Projection) {
             if (out.type == 'decided') {
                 engine.status = `${projection.player(out.seat).name} : ${windowName(out.window)}`
                 narrate(current, out)
+                showSearch(current)
                 await sleep(out.choice.kind == 'pass' ? BOT_PASS_PAUSE : BOT_DECISION_PAUSE)
                 continue
             }
@@ -549,6 +578,7 @@ export async function runEngine(host: EngineHost, projection: Projection) {
                 combat: combatOf(out.view, out.seat),
                 decline: out.options.some(declinesBlock),
             }
+            showSearch(current)
             // The rest of a move worth several decisions
             const repeat = current.repeat
             const again =

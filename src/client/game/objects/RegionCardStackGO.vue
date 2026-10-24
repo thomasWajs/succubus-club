@@ -75,7 +75,8 @@
         @pointerout="topCardInteractions.onPointerOut"
         @pointerdown="topCardInteractions.onPointerDown"
     >
-        <!-- With the rules engine : searched now ( a click opens it, its cards to choose glow ) -->
+        <!-- With the rules engine : searched now ( it opens by itself, a click reopens it, its cards
+             to choose glow ) -->
         <FxGlow
             v-if="searched || drawn"
             :key="searched ? 'searched' : 'drawn'"

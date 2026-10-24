@@ -8,6 +8,17 @@
             <span>{{ cardRegion.name }}</span>
         </div>
 
+        <!-- With the rules engine : the pass of a search ( stopped, declined ), the panel over the
+             central box and its fixed Pass -->
+        <button
+            v-if="searchPass"
+            class="game-button search-pass"
+            :title="searchPass.text ?? undefined"
+            @click="passEngine"
+        >
+            Pass
+        </button>
+
         <input
             v-if="players.isPlayer"
             v-model="gameBus.wieldCardStack.searchString"
@@ -67,11 +78,13 @@ import RevelationButton from '@/client/ui/ingame/RevelationButton.vue'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
-import { CSSProperties } from 'vue'
+import { computed, CSSProperties } from 'vue'
 import { AnyCardRegion } from '@/shared/types/model.ts'
 import { shuffleCardRegion } from '@/client/state/gameMutations.ts'
+import { searchedRegions } from '@/client/engine/interaction.ts'
+import { enginePassOption, passEngine } from '@/client/engine/driver.ts'
 
-defineProps<{
+const props = defineProps<{
     cardRegion: AnyCardRegion
     actionsStyle: CSSProperties
 }>()
@@ -79,6 +92,12 @@ defineProps<{
 const gameState = useGameStateStore()
 const players = usePlayersStore()
 const gameBus = useGameBusStore()
+
+const searchPass = computed(() =>
+    searchedRegions.value.some(region => region.oid == props.cardRegion.oid) ?
+        enginePassOption()
+    :   undefined,
+)
 </script>
 
 <style scoped lang="scss">
@@ -109,7 +128,8 @@ const gameBus = useGameBusStore()
     font-size: 16px;
 }
 
-.shuffle-button {
+.shuffle-button,
+.search-pass {
     margin: 5px 0;
 }
 

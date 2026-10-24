@@ -476,8 +476,8 @@ export function engineCardClick(card: Card): boolean {
         return false
     }
     // A card's lone use is confirmed, never taken on a click ( War Ghoul burning a location and
-    // itself ) ; a pick stays one click
-    narrowStaging(picked, !picked.some(isPick))
+    // itself ) ; a pick or a card found stays one click ( a search's panel hides the central box )
+    narrowStaging(picked, found.length == 0 && !picked.some(isPick))
     return true
 }
 
