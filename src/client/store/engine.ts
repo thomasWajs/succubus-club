@@ -82,6 +82,9 @@ export const useEngineStore = defineStore('engine', {
         transfers: null as number | null,
         // A block's combat is under way ( whoever decides now )
         inCombat: false,
+        // A withdrawal from the game, by player oid : announced, or done ( out of the game with
+        // half a victory point, not ousted though the engine counts the seat out )
+        withdrawals: {} as Record<string, 'withdrawing' | 'withdrew'>,
         // Why the user's last move on the table was no decision, for a moment ( beside the Pass )
         notice: '',
         // The game's log ( see log.ts ) : its lines, the seats' colors

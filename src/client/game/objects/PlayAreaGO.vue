@@ -172,7 +172,7 @@
             :originX="0.5"
             :x="PLAY_AREA_WIDTH / 2"
             :y="CONTROLLED_ZONE_HEIGHT / 2 - 40"
-            text="OUSTED"
+            :text="engine.withdrawals[player.oid] == 'withdrew' ? 'WITHDREW' : 'OUSTED'"
             :style="{
                 color: '#a63446',
                 fontSize: '52px',
@@ -239,6 +239,7 @@ import PlayerBarGo from '@/client/game/objects/PlayerBarGo.vue'
 import { PhaserDataKey } from '@/client/game/types.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
+import { useEngineStore } from '@/client/store/engine.ts'
 import CardGroupGO from '@/client/game/objects/CardGroupGO.vue'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
 import { Snap } from '@/shared/utils.ts'
@@ -252,6 +253,7 @@ const { player } = defineProps<{
 
 const gameBus = useGameBusStore()
 const players = usePlayersStore()
+const engine = useEngineStore()
 
 const oustedOverlay = refObj<GameObjects.Rectangle>()
 const oustedText = refObj<GameObjects.Text>()

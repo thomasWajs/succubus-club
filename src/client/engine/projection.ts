@@ -859,11 +859,16 @@ export class Projection {
 
         // The engine knows the victory points and who is ousted ( a pool at 0
         // is not always an oust, an oust not always a point to the predator )
+        const withdrawals: Record<string, 'withdrawing' | 'withdrew'> = {}
         for (const seat of view.seats) {
             const player = this.player(seat.seat)
             player.isOusted = seat.ousted
             player.victoryPoints = seat.vp_halves / 2
+            if (seat.withdrew || seat.withdrawing) {
+                withdrawals[player.oid] = seat.withdrew ? 'withdrew' : 'withdrawing'
+            }
         }
+        useEngineStore().withdrawals = withdrawals
     }
 
     private setTurn(view: TableView) {

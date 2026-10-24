@@ -28,12 +28,19 @@
                     >▶
                 </span>
 
-                <span v-if="player.isOusted"> 💀 </span>
+                <span v-if="player.isOusted && !engine.withdrawals[player.oid]"> 💀 </span>
                 <span
                     class="player-name"
                     :style="{ color: player.rgbaColor }"
                 >
                     {{ player.shortName }}
+                </span>
+                <!-- With the rules engine : a withdrawal announced, or done ( not an oust ) -->
+                <span
+                    v-if="engine.withdrawals[player.oid]"
+                    class="withdrawal"
+                >
+                    {{ engine.withdrawals[player.oid] == 'withdrew' ? 'withdrew' : 'withdrawing' }}
                 </span>
 
                 <span
@@ -64,9 +71,11 @@
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { ref } from 'vue'
 import { usePlayersStore } from '@/client/state/players.ts'
+import { useEngineStore } from '@/client/store/engine.ts'
 
 const gameState = useGameStateStore()
 const players = usePlayersStore()
+const engine = useEngineStore()
 
 const isCollapsed = ref(true)
 </script>
@@ -152,6 +161,12 @@ $window-right: 340px;
         .disconnected {
             color: $blood-red;
             flex-shrink: 0;
+        }
+
+        .withdrawal {
+            margin-right: 4px;
+            font-style: italic;
+            color: $ash-grey;
         }
 
         .player-name {
