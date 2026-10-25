@@ -598,7 +598,7 @@ export class Projection {
 
         // The identity must be known before the card is created, to init its attributes
         if (card.id !== null) {
-            this.gameState.knownCards[oid] = card.id.toString()
+            this.know(oid, card.id.toString())
         }
         this.gameState.cards[oid] =
             card.crypt ?
@@ -621,9 +621,24 @@ export class Projection {
         }
     }
 
+    /**
+     * A card the viewer knows, revealed to it : SC shows a card in a place it hides ( a library
+     * searched, another's hand a card reveals ) only revealed, its back else
+     */
+    private know(oid: CardOid, krcgId: string) {
+        this.gameState.knownCards[oid] = krcgId
+        const viewer = this.viewerPlayer()
+        if (viewer) {
+            this.gameState.revelations[oid] = { all: false, [viewer.oid]: true }
+        }
+    }
+
     private forget(oid: CardOid) {
         if (oid in this.gameState.knownCards) {
             delete this.gameState.knownCards[oid]
+        }
+        if (oid in this.gameState.revelations) {
+            delete this.gameState.revelations[oid]
         }
     }
 
@@ -641,7 +656,7 @@ export class Projection {
             if (krcgId === undefined) {
                 this.forget(card.oid)
             } else {
-                this.gameState.knownCards[card.oid] = krcgId
+                this.know(card.oid, krcgId)
                 card.initMinionAttrs()
             }
         }
