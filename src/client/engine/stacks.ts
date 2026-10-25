@@ -6,7 +6,9 @@
  * each title showing. Hover raises a card only while hovered, then its stack
  * goes back to that order. In torpor a stack rises into the ready region's
  * bottom row, its strips over the foot of the minions there ( the torpor region
- * is drawn over the ready one ) : any other way hides the titles.
+ * is drawn over the ready one ) : any other way hides the titles. The cards
+ * stored on a card on a minion ( Shilmulo Tarot's ) are a pile apart, on the top
+ * row, the newest lowest and in front ( see Projection.storedPilePosition ).
  */
 
 import { Card } from '@/shared/model/Card.ts'
@@ -37,6 +39,12 @@ export function restoreStack(bearer: CardOid) {
         gameBus.cardsInGame[card.oid]?.bringToTop()
     }
     gameBus.cardsInGame[bearer]?.bringToTop()
+    // A bearer in a stack itself ( the Tarot on its vampire ) : that stack back in front of it
+    const stacks = useEngineStore().stacks
+    const outer = Object.keys(stacks).find(other => stacks[other].includes(bearer))
+    if (outer !== undefined) {
+        restoreStack(outer)
+    }
 }
 
 // Once a card is no longer hovered : the stacks of it and of the cards it covers back in

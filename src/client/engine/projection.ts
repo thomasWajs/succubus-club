@@ -741,6 +741,12 @@ export class Projection {
                 return { x: start, y: TORPOR_ZONE_Y }
             case Spot.Attached: {
                 const host = this.card(placement.host)
+                if (
+                    placement.stored &&
+                    this.placements.get(placement.host ?? -1)?.host !== undefined
+                ) {
+                    return this.storedPilePosition(card, placement)
+                }
                 if (host && host.region.oid == region.oid) {
                     return this.stackPosition(card, placement, host)
                 }
@@ -766,6 +772,28 @@ export class Projection {
             .filter(other => other.x == host.x && other.y < host.y)
             .map(other => other.y)
         return { x: host.x, y: Math.min(host.y, ...levels) - title }
+    }
+
+    // The cards stored on a card on a minion ( Shilmulo Tarot's ) : a pile of their own on the
+    // top row, never in the minion's stack where its cards would hide them. Each goes one name
+    // strip below the newest before it ( the engine lists them top last ), so it ends in front :
+    // restoreStack raises a stack's cards by y. Past the middle row a new pile starts
+    private storedPilePosition(card: Card, placement: Placement): { x: number; y: number } {
+        const { region, player } = placement
+        const scale = getCardScale(RegionCategory.Table, region)
+        const newest = [...this.placements]
+            .filter(([, other]) => other.stored && other.host == placement.host)
+            .filter(([, other]) => other.rank < placement.rank)
+            .sort(([, a], [, b]) => b.rank - a.rank)
+            .flatMap(([copy]) => this.card(copy) ?? [])
+            .find(other => other.region.oid == region.oid)
+        const y = newest ? newest.y + CARD_HEIGHT * scale * TITLE_RATIO : Infinity
+        if (newest && y <= rows(region, CARD_HEIGHT * scale)[Row.Middle]) {
+            return { x: newest.x, y }
+        }
+        // In torpor, clear of the ready region's cards too : the torpor region is drawn over it
+        const avoid = region.oid == player.ready.oid ? [] : player.ready.cards
+        return rowPosition(card, region, [Row.Top, Row.Middle], false, avoid)
     }
 
     private setProperties(placements: Map<number, Placement>) {
@@ -1082,6 +1110,7 @@ function rowPosition(
     region: AnyCardRegion,
     order: Row[],
     fromRight: boolean,
+    avoid: Card[] = [],
 ): { x: number; y: number } {
     const scale = getCardScale(RegionCategory.Table, region)
     const width = CARD_WIDTH * scale
@@ -1091,7 +1120,7 @@ function rowPosition(
     const height = CARD_HEIGHT * scale
     const step = Math.ceil(height) + COLUMN_GAP
     const slots = Math.max(1, Math.floor((PLAY_AREA_WIDTH - GRID_SIZE - height) / step) + 1)
-    const others = region.cards.filter(c => c.oid != card.oid).map(getCardRectangle)
+    const others = [...region.cards.filter(c => c.oid != card.oid), ...avoid].map(getCardRectangle)
     for (const row of order) {
         for (let i = 0; i < slots; i++) {
             const slot = row == Row.Middle && fromRight ? slots - 1 - i : i
