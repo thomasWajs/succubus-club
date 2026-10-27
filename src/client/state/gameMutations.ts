@@ -127,8 +127,10 @@ export function actSelf<
     if (players.isSpectator) {
         return Invalid("Spectators can't act on the game")
     }
+    // In Puppeteer / Free Table the self player is the active player, which doesn't
+    // exist when every player is ousted
     if (!players.selfPlayer) {
-        throw new Error('Cannot act without a self player defined')
+        return Invalid('Cannot act without a self player')
     }
     return act(gameMutationClass, players.selfPlayer, params)
 }
