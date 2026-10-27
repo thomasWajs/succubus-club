@@ -29,6 +29,7 @@ import {
 import { getLogger } from '@/shared/registries.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { getShuffleSelection } from '@/client/utils.ts'
+import { NotInAGameRoom } from '@/client/types.ts'
 
 /**
  * Apply the mutation locally, if it's valid.
@@ -85,7 +86,15 @@ export function dispatchMutation(gameMutation: AnyGameMutation) {
     applyMutationLocally(gameMutation)
 
     if (gameState.gameType == GameType.Multiplayer) {
-        broadcastGameMutation(gameMutation)
+        broadcastGameMutation(gameMutation).catch(error => {
+            if (error instanceof NotInAGameRoom) {
+                bus.alertError(
+                    "Oops, looks like you've been disconnected. Refresh the page to reconnect.",
+                )
+            } else {
+                getLogger().captureException(error)
+            }
+        })
     }
 
     return VALID
