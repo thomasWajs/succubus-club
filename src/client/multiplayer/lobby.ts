@@ -280,10 +280,12 @@ function gameRoomRef(roomId: RoomId) {
 // "this room now has this content".
 async function onGameRoomUpserted(snapshot: DataSnapshot) {
     const { multiplayer } = await useLobby()
-    const gameRoom = snapshot.val() as GameRoom | null
-    if (!gameRoom) {
+    const value: unknown = snapshot.val()
+    // Ignore stray non-room entries ( e.g. a bare number written by an outdated client )
+    if (typeof value !== 'object' || value === null) {
         return
     }
+    const gameRoom = value as GameRoom
     // rtdb removes empty containers, which breaks typescript assumptions, which sucks
     gameRoom.roles ??= {}
     gameRoom.competingPlayers ??= []
