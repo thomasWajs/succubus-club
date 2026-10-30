@@ -31,7 +31,13 @@ SETS_AND_PRECONS_PATH = ASSETS_DIR + '/' + SETS_AND_PRECONS_FILE_NAME
 DOWNLOAD_BASE_URL = "https://raw.githubusercontent.com/smeea/vdb/master"
 DOWNLOAD_CARDS_IMAGE_URL = DOWNLOAD_BASE_URL + "/frontend/public/images/cards/en-EN"
 DOWNLOAD_DISCIPLINE_IMAGE_URL = DOWNLOAD_BASE_URL + "/frontend/public/images/disciplines"
-CARDS_IMAGE_API_URL = "https://api.github.com/repos/smeea/vdb/git/trees/master"
+# Tree of the card image directory only : the recursive tree of the whole repo is
+# too large for the GitHub API, which answers with an HTTP 500.
+CARDS_IMAGE_API_URL = "https://api.github.com/repos/smeea/vdb/git/trees/master:frontend/public/images/cards/en-EN"
+# VDB no longer ships .webp card images ( only .avif and .jpg ) : download the
+# .jpg and convert it locally to .webp.
+REMOTE_CARD_IMAGE_EXTENSION = ".jpg"
+LOCAL_CARD_IMAGE_EXTENSION = ".webp"
 DISCIPLINE_IMAGE_API_URL = \
     "https://api.github.com/repos/smeea/vdb/contents/frontend/public/images/disciplines?ref=master"
 
