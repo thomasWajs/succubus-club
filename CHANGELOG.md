@@ -1,3 +1,8 @@
+## [1.0.2] - 2026-10-30
+
+Features:
+- Add V5SN cards
+
 ## [1.0.1] - 2026-10-20
 
 Features:
