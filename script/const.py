@@ -5,7 +5,6 @@
 RESOURCES_DIR = "./resources"
 ASSETS_DIR = "../public/assets"
 LOCAL_CARD_IMAGE_DIR = ASSETS_DIR + "/cards/en-EN"
-IMAGE_CACHE_FILE = LOCAL_CARD_IMAGE_DIR + '/.image_cache.json'
 
 PRECON_FILE_NAME = "preconDecks.json"
 SETS_AND_PRECONS_FILE_NAME = "setsAndPrecons.json"
@@ -34,10 +33,7 @@ DOWNLOAD_DISCIPLINE_IMAGE_URL = DOWNLOAD_BASE_URL + "/frontend/public/images/dis
 # Tree of the card image directory only : the recursive tree of the whole repo is
 # too large for the GitHub API, which answers with an HTTP 500.
 CARDS_IMAGE_API_URL = "https://api.github.com/repos/smeea/vdb/git/trees/master:frontend/public/images/cards/en-EN"
-# VDB no longer ships .webp card images ( only .avif and .jpg ) : download the
-# .jpg and convert it locally to .webp.
-REMOTE_CARD_IMAGE_EXTENSION = ".jpg"
-LOCAL_CARD_IMAGE_EXTENSION = ".webp"
+CARD_IMAGE_EXTENSION = ".avif"
 DISCIPLINE_IMAGE_API_URL = \
     "https://api.github.com/repos/smeea/vdb/contents/frontend/public/images/disciplines?ref=master"
 
@@ -60,7 +56,7 @@ FILES_TO_DOWNLOAD = [
         "target": SETS_AND_PRECONS_FILE_NAME
     },
     {
-        "source": "misc/cards-update/twd_decks.json",
+        "source": "update/twd_decks.json",
         "target": TWD_DECKS_FILE_NAME
     }
 ]
@@ -81,6 +77,9 @@ RECENT_CARDS_DATE_CUTOFF = '2020-01-01'
 CARD_HEIGHT = 500
 CARD_WIDTH = 358
 IMAGE_MODE = 'RGB'
+# The atlases re-encode already lossy cards : 70 keeps their total size close to the
+# former webp atlases.
+ATLAS_QUALITY = 70
 
 ##########
 # Cardbase

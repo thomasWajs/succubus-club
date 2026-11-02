@@ -88,7 +88,7 @@ export function isTextureLoaded(cardName: string) {
 }
 
 export function enqueueTextureLoading(scene: Phaser.Scene, cardName: string) {
-    scene.load.image(cardName, `${CARDS_PATH}/${cardName}.webp`)
+    scene.load.image(cardName, `${CARDS_PATH}/${cardName}.avif`)
 }
 
 function retryFailedLoads(scene: Phaser.Scene) {

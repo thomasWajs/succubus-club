@@ -22,7 +22,7 @@ export const atlasUrls = Object.fromEntries(
     ATLASES.map(name => [
         name,
         {
-            texture: `${ATLAS_PATH}/${name}.webp?v=${ATLAS_HASHES[name].texture}`,
+            texture: `${ATLAS_PATH}/${name}.avif?v=${ATLAS_HASHES[name].texture}`,
             json: `${ATLAS_PATH}/${name}.json?v=${ATLAS_HASHES[name].json}`,
         },
     ]),

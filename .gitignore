@@ -40,7 +40,6 @@ coverage
 
 # Tmp Resource Files
 /script/resources/*
-.image_cache.json
 
 # AI files
 /.aiassistant/

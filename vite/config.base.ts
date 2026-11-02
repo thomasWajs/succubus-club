@@ -30,8 +30,8 @@ function hashFile(filePath: string): string {
 // automatically (see generate_atlas_files in script/generate_resource_files.py).
 const ATLAS_DIR = 'public/assets/atlas'
 const ATLAS_NAMES = readdirSync(resolve(ATLAS_DIR))
-    .filter(file => file.endsWith('.webp'))
-    .map(file => file.replace(/\.webp$/, ''))
+    .filter(file => file.endsWith('.avif'))
+    .map(file => file.replace(/\.avif$/, ''))
     .sort()
 
 // Generate texture hashes for all atlases
@@ -39,7 +39,7 @@ const atlasHashes = Object.fromEntries(
     ATLAS_NAMES.map(name => [
         name,
         {
-            texture: hashFile(`${ATLAS_DIR}/${name}.webp`),
+            texture: hashFile(`${ATLAS_DIR}/${name}.avif`),
             json: hashFile(`${ATLAS_DIR}/${name}.json`),
         },
     ]),

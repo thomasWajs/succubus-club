@@ -8,7 +8,7 @@ from collections import Counter
 
 from PIL import Image
 
-from const import CARD_WIDTH, CARD_HEIGHT, IMAGE_MODE, INPUT_CARDBASE_LIB_PATH, \
+from const import ATLAS_QUALITY, CARD_IMAGE_EXTENSION, CARD_WIDTH, CARD_HEIGHT, IMAGE_MODE, INPUT_CARDBASE_LIB_PATH, \
     INPUT_CARDBASE_CRYPT_PATH, \
     CRYPT_KEYS, LIB_KEYS, OUTPUT_CARDBASE_PATH, OUTPUT_ATLAS_DIR, INPUT_CARDS_DIR, \
     LOCAL_DISCIPLINE_IMAGE_DIR, OUTPUT_DISCIPLINE_SPRITE_PATH, DISCIPLINE_CODE_BY_NAME
@@ -52,7 +52,7 @@ def find_best_factors(n):
     square_root_ceiled = math.ceil(math.sqrt(n))
     factor = square_root_ceiled
 
-    # Webp cannot handle more than 16383 pixels in both dimensions,
+    # Keep the atlas within 16383 pixels in both dimensions,
     # which allow to fit 45 cards in width and 32 in height
     while n % factor != 0 and n // factor > 45 and factor > 32:
         factor -= 1
@@ -66,7 +66,7 @@ def find_best_factors(n):
 def generate_atlas_files(cards, cardbase, output_name):
     # Create local directory if it doesn't exist
     os.makedirs(OUTPUT_ATLAS_DIR, exist_ok=True)
-    output_webp_path = f'{OUTPUT_ATLAS_DIR}/{output_name}.webp'
+    output_image_path = f'{OUTPUT_ATLAS_DIR}/{output_name}{CARD_IMAGE_EXTENSION}'
     output_json_hash_path = f'{OUTPUT_ATLAS_DIR}/{output_name}.json'
 
     nb_images = len(cards)
@@ -89,11 +89,11 @@ def generate_atlas_files(cards, cardbase, output_name):
             card_dict = cardbase[card_id]
             image_name = card_dict['imageName']
 
-            card_image = Image.open(f'{INPUT_CARDS_DIR}/{image_name}.webp')
-            output_image.paste(card_image, (x, y))
+            with Image.open(f'{INPUT_CARDS_DIR}/{image_name}{CARD_IMAGE_EXTENSION}') as card_image:
+                output_image.paste(card_image, (x, y))
             frames[image_name] = {'frame': {'x': x, 'y': y, 'w': CARD_WIDTH, 'h': CARD_HEIGHT}}
 
-    output_image.save(output_webp_path)
+    output_image.save(output_image_path, quality=ATLAS_QUALITY)
 
     atlas_json_hash = {'frames': frames}
     with open(output_json_hash_path, "w") as output_atlas_file:
@@ -220,8 +220,8 @@ def generate_resource_files():
         )
 
     # Remove stale recent atlas files: their count is dynamic and may shrink
-    # between builds, and an old single 'recent.webp' would otherwise linger.
-    for stale in glob.glob(f'{OUTPUT_ATLAS_DIR}/recent*.webp') + glob.glob(f'{OUTPUT_ATLAS_DIR}/recent*.json'):
+    # between builds, and an old single 'recent' file would otherwise linger.
+    for stale in glob.glob(f'{OUTPUT_ATLAS_DIR}/recent*{CARD_IMAGE_EXTENSION}') + glob.glob(f'{OUTPUT_ATLAS_DIR}/recent*.json'):
         os.remove(stale)
 
     # Split recent cards across several atlases, each capped at RECENT_CARDS_ATLAS_SIZE,

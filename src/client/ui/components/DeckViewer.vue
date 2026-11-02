@@ -250,7 +250,7 @@ const cardImageUrl = computed(() => {
     if (!hoveredCard.value) return ''
     const cardResource = gameResources.cardbase[hoveredCard.value]
     if (!cardResource) return ''
-    return `${CARDS_PATH}/${cardResource.imageName}.webp`
+    return `${CARDS_PATH}/${cardResource.imageName}.avif`
 })
 
 const cardPreviewStyle = computed(() => {
