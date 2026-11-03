@@ -18,12 +18,27 @@
             </p>
         </div>
 
-        <img
-            id="WelcomeSign"
-            :class="{ isAnniversary }"
-            :src="welcomeSignSrc"
-            alt="Succubus Club"
-        />
+        <div id="WelcomeSignWrapper">
+            <img
+                id="WelcomeSign"
+                :class="{ isAnniversary }"
+                :src="welcomeSignSrc"
+                alt="Succubus Club"
+            />
+            <template v-if="isEndOfYear">
+                <span
+                    v-for="(light, i) in GARLAND_LIGHTS"
+                    :key="i"
+                    class="garland-light"
+                    :style="{
+                        left: `${light.x}%`,
+                        top: `${light.y}%`,
+                        '--color': GARLAND_COLORS[i % GARLAND_COLORS.length],
+                        '--delay': `${-i * 1.1}s`,
+                    }"
+                />
+            </template>
+        </div>
 
         <div
             v-if="showMobileMessage"
@@ -133,9 +148,30 @@ const ENABLE_DEV_FREE_TABLE = import.meta.env.VITE_ENABLE_DEV_FREE_TABLE
  *  Welcome Sign
  */
 
-const welcomeSignSrc = computed(() =>
-    isAnniversary.value ? '/assets/1year.jpg' : '/assets/welcomeSign.png',
-)
+const welcomeSignSrc = computed(() => {
+    if (isAnniversary.value) return '/assets/1year.jpg'
+    if (isEndOfYear.value) return '/assets/welcomeSignEndOfYear.png'
+    return '/assets/welcomeSign.png'
+})
+
+// Show the end of year sign from Dec 15th to Dec 31st (inclusive), every year, in UTC
+const isEndOfYear = computed(() => {
+    const now = new Date()
+    return now.getUTCMonth() === 11 && now.getUTCDate() >= 15
+})
+
+const GARLAND_COLORS = ['#ffc864', '#ff7a6a', '#8cd28c']
+
+// Positions in percent of the welcome sign image, on bulbs drawn in welcomeSignEndOfYear.png
+const GARLAND_LIGHTS = [
+    { x: 20, y: 33.9 },
+    { x: 18.3, y: 51.5 },
+    { x: 29.5, y: 64.4 },
+    { x: 67.8, y: 24.3 },
+    { x: 79.8, y: 34 },
+    { x: 81.8, y: 51.8 },
+    { x: 68.4, y: 64.4 },
+]
 
 // Show the anniversary illustration from Sept 13th 2026 00:00 until Sept 29th 2026 23:59 UTC (inclusive)
 const isAnniversary = computed(() => {
@@ -277,6 +313,32 @@ const showMobileMessage = !screenBigEnough && !isCrawler()
 #MainMenu {
     @include flex-center-column;
     text-align: center;
+}
+
+#WelcomeSignWrapper {
+    position: relative;
+    line-height: 0;
+}
+
+.garland-light {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(circle, var(--color) 0%, transparent 70%);
+    mix-blend-mode: screen;
+    pointer-events: none;
+    animation: garland-twinkle 4s ease-in-out var(--delay) infinite;
+}
+
+@keyframes garland-twinkle {
+    0%,
+    100% {
+        opacity: 0.2;
+    }
+    50% {
+        opacity: 0.7;
+    }
 }
 
 #WelcomeSign {
