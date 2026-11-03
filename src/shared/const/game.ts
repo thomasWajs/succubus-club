@@ -130,6 +130,13 @@ export const REGION_LUMINANCE_MAX = 150
 export const REGION_BACKGROUND_COLOR = `rgba(128,128,128,${REGION_ALPHA / 255})`
 // The card count plate is the play area color, blended this far ( 0 - 1 ) toward white
 export const REGION_STACK_SIZE_LIGHTEN = 0.18
+// The Edge when nobody controls it : a disc of the tabletop color, this far ( luminance )
+// lighter on a dark background and darker on a light one, with a faded emblem, against the
+// saturated teal disc and opaque emblem of the controlled state
+export const THE_EDGE_DISC_CONTRAST = 13
+export const THE_EDGE_IDLE_EMBLEM_ALPHA = 0.15
+export const THE_EDGE_CONTROLLED_DISC_COLOR = 'rgb(42,92,92)'
+
 // Region names are a discreet hint : the player color, opaque ( crisp edges ), blended this far
 // ( 0 - 1 ) toward the mid-grey play area fill to lower its contrast
 export const REGION_NAME_FADE = 0.25

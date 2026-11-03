@@ -26,6 +26,7 @@ import {
     REGION_STACK_SIZE_LIGHTEN,
     SELECTION_AREA_COLOR,
     SEPARATOR_COLOR,
+    THE_EDGE_CONTROLLED_DISC_COLOR,
     WHITE,
     WIELD_BACKGROUND_COLOR,
     WIELD_BORDER_COLOR,
@@ -33,7 +34,12 @@ import {
 } from '@/shared/const/game.ts'
 import Phaser from 'phaser'
 import { computed } from 'vue'
-import { regionBlendRgb, regionFillRgb } from '@/client/gateway/background.ts'
+import { regionBlendRgb, regionFillRgb, theEdgeDiscRgb } from '@/client/gateway/background.ts'
+
+const theEdgeDisc = computed(() => {
+    const { r, g, b } = theEdgeDiscRgb.value
+    return new Phaser.Display.Color(r, g, b)
+})
 
 const toColor = (value: string) => Phaser.Display.Color.RGBStringToColor(value)
 
@@ -66,6 +72,9 @@ export const Colors = {
     get REGION_BACKGROUND() {
         return regionBackground.value
     },
+    get THE_EDGE_DISC() {
+        return theEdgeDisc.value
+    },
     get REGION_STACK_SIZE_BACKGROUND() {
         return regionStackSizeBackground.value
     },
@@ -91,6 +100,7 @@ export const Colors = {
     ORANGE_COUNTER_FILL: toColor(ORANGE_COUNTER_FILL_COLOR),
     SELECTION_AREA: toColor(SELECTION_AREA_COLOR),
     SEPARATOR: toColor(SEPARATOR_COLOR),
+    THE_EDGE_CONTROLLED_DISC: toColor(THE_EDGE_CONTROLLED_DISC_COLOR),
     WHITE: toColor(WHITE),
     WIELD_BACKGROUND: toColor(WIELD_BACKGROUND_COLOR),
     WIELD_BORDER: toColor(WIELD_BORDER_COLOR),

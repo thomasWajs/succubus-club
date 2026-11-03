@@ -12,8 +12,7 @@ export enum Texture {
     CardGroup = 'cardGroup',
     CardbackCryptLoading = 'cardbackCryptLoading',
     CardbackLibraryLoading = 'cardbackLibraryLoading',
-    TheEdge = 'theEdge',
-    TheEdgeTeal = 'theEdgeTeal',
+    TheEdgeEmblem = 'theEdgeEmblem',
     TheEdgeBig = 'theEdgeBig',
 }
 

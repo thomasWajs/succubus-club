@@ -5,6 +5,7 @@ import {
     REGION_ALPHA,
     REGION_LUMINANCE_MAX,
     REGION_LUMINANCE_MIN,
+    THE_EDGE_DISC_CONTRAST,
 } from '@/shared/const/game.ts'
 
 /**
@@ -106,6 +107,13 @@ const regionShift = computed(() => {
 export const regionBlendRgb = computed<Rgb>(() => {
     const bg = backgroundAverage.value
     const shift = regionShift.value
+    return { r: clampByte(bg.r + shift), g: clampByte(bg.g + shift), b: clampByte(bg.b + shift) }
+})
+
+/** The background colour, moved lighter ( dark background ) or darker ( light one ) by a fixed luminance. */
+export const theEdgeDiscRgb = computed<Rgb>(() => {
+    const bg = backgroundAverage.value
+    const shift = luminance(bg) < 128 ? THE_EDGE_DISC_CONTRAST : -THE_EDGE_DISC_CONTRAST
     return { r: clampByte(bg.r + shift), g: clampByte(bg.g + shift), b: clampByte(bg.b + shift) }
 })
 
