@@ -51,10 +51,9 @@
         ref="regionName"
         :text="cardRegion.name"
         :style="{
-            color: color.rgba,
+            color: regionNameColor(color),
             fontSize: 12,
         }"
-        :alpha="0.7"
         :origin="1"
         :x="x + width - 3"
         :y="y + height - 5"
@@ -103,7 +102,7 @@
 import { computed, ref } from 'vue'
 import Phaser, { GameObjects } from 'phaser'
 import { Image, Rectangle, refObj, Text } from 'phavuer'
-import { Colors } from '@/client/colors.ts'
+import { Colors, regionNameColor } from '@/client/colors.ts'
 import { CARD_IN_STACK_SCALE, CARD_OUTLINE_THICKNESS } from '@/shared/const/game.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'

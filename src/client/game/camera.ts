@@ -61,6 +61,7 @@ export function setupCamera(_tabletopScene: Phaser.Scene) {
         return
     } else {
         const { worldAlignment } = useUIFeatures()
+        snapDrawsToScreenPixels(tabletopScene.cameras.main)
         resetCamera()
         // Keep Camera scaled on resize
         tabletopScene.scale.on('resize', resetCamera)
@@ -96,6 +97,20 @@ export function getTabletopScene() {
         throw new Error('Tabletop scene not initialized.')
     }
     return tabletopScene
+}
+
+// The fit-to-window zoom is fractional, so Phaser never snaps sprites to whole
+// screen pixels ( Camera.preRender only enables renderRoundPixels for integer
+// zooms ), and every text bitmap gets bilinear-smeared across pixel boundaries.
+// Force the snap after each preRender : only the screen position of each quad's
+// top-left corner is rounded, its size is untouched.
+function snapDrawsToScreenPixels(camera: Phaser.Cameras.Scene2D.Camera) {
+    const preRender = camera.preRender.bind(camera)
+    camera.preRender = () => {
+        preRender()
+        // Typed readonly, but it is a plain runtime property
+        Object.assign(camera, { renderRoundPixels: true })
+    }
 }
 
 export function resetCamera() {

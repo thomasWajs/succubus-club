@@ -23,6 +23,7 @@ import { setPhaserGame, useCoreStore } from '@/client/store/core.ts'
 import { useBusStore } from '@/client/store/bus.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { display } from '@/client/game/display.ts'
+import { setupHiDpi } from '@/client/game/hiDpi.ts'
 import { resetState } from '@/client/state/setup.ts'
 import { tabletopBackgroundStyle } from '@/client/gateway/background.ts'
 
@@ -32,6 +33,7 @@ const gameState = useGameStateStore()
 
 function onCreate(game: Phaser.Game) {
     setPhaserGame(game)
+    setupHiDpi(game)
     game?.input?.mouse?.disableContextMenu()
 
     // Watch for blocker changes

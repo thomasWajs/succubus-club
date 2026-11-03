@@ -97,11 +97,22 @@ function clampByte(value: number): number {
     return Math.min(255, Math.max(0, Math.round(value)))
 }
 
+const regionShift = computed(() => {
+    const lum = luminance(backgroundAverage.value)
+    return Math.min(REGION_LUMINANCE_MAX, Math.max(REGION_LUMINANCE_MIN, lum)) - lum
+})
+
+/** The colour the play areas appear as : the background with its luminance clamped. */
+export const regionBlendRgb = computed<Rgb>(() => {
+    const bg = backgroundAverage.value
+    const shift = regionShift.value
+    return { r: clampByte(bg.r + shift), g: clampByte(bg.g + shift), b: clampByte(bg.b + shift) }
+})
+
 /** The fill colour of the play areas ( its alpha is REGION_ALPHA ). */
 export const regionFillRgb = computed<Rgb>(() => {
     const bg = backgroundAverage.value
-    const lum = luminance(bg)
-    const shift = Math.min(REGION_LUMINANCE_MAX, Math.max(REGION_LUMINANCE_MIN, lum)) - lum
+    const shift = regionShift.value
     const alpha = REGION_ALPHA / OPAQUE_ALPHA
     // Solve (alpha * fill + (1 - alpha) * bg) = bg + shift
     const solve = (channel: number) => clampByte((channel + shift - (1 - alpha) * channel) / alpha)

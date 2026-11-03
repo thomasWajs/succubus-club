@@ -20,7 +20,10 @@ import {
     MARKERS_FILL_COLOR,
     ORANGE_COUNTER_FILL_COLOR,
     REGION_ALPHA,
-    REGION_STACK_SIZE_BACKGROUND_COLOR,
+    REGION_LUMINANCE_MAX,
+    REGION_LUMINANCE_MIN,
+    REGION_NAME_FADE,
+    REGION_STACK_SIZE_LIGHTEN,
     SELECTION_AREA_COLOR,
     SEPARATOR_COLOR,
     WHITE,
@@ -30,7 +33,7 @@ import {
 } from '@/shared/const/game.ts'
 import Phaser from 'phaser'
 import { computed } from 'vue'
-import { regionFillRgb } from '@/client/gateway/background.ts'
+import { regionBlendRgb, regionFillRgb } from '@/client/gateway/background.ts'
 
 const toColor = (value: string) => Phaser.Display.Color.RGBStringToColor(value)
 
@@ -39,10 +42,32 @@ const regionBackground = computed(() => {
     return new Phaser.Display.Color(r, g, b, REGION_ALPHA)
 })
 
+const regionStackSizeBackground = computed(() => {
+    const lighten = (channel: number) =>
+        Math.round(channel * (1 - REGION_STACK_SIZE_LIGHTEN) + 255 * REGION_STACK_SIZE_LIGHTEN)
+    const { r, g, b } = regionBlendRgb.value
+    return new Phaser.Display.Color(lighten(r), lighten(g), lighten(b))
+})
+
+export function regionNameColor(color?: Phaser.Display.Color): string {
+    if (!color) {
+        return BLACK
+    }
+
+    const grey = (REGION_LUMINANCE_MIN + REGION_LUMINANCE_MAX) / 2
+    const fade = (channel: number) =>
+        Math.round(channel * (1 - REGION_NAME_FADE) + grey * REGION_NAME_FADE)
+
+    return `rgb(${fade(color.red)},${fade(color.green)},${fade(color.blue)})`
+}
+
 export const Colors = {
     // Reactive: follows the tabletop background
     get REGION_BACKGROUND() {
         return regionBackground.value
+    },
+    get REGION_STACK_SIZE_BACKGROUND() {
+        return regionStackSizeBackground.value
     },
     ACTION_DECLARATION_OUTLINE: toColor(ACTION_DECLARATION_OUTLINE_COLOR),
     ALIGNMENT_GUIDE: toColor(ALIGNMENT_GUIDE_COLOR),
@@ -64,7 +89,6 @@ export const Colors = {
     HIGHLIGHT_YELLOW: toColor(HIGHLIGHT_YELLOW),
     MARKERS_FILL: toColor(MARKERS_FILL_COLOR),
     ORANGE_COUNTER_FILL: toColor(ORANGE_COUNTER_FILL_COLOR),
-    REGION_STACK_SIZE_BACKGROUND: toColor(REGION_STACK_SIZE_BACKGROUND_COLOR),
     SELECTION_AREA: toColor(SELECTION_AREA_COLOR),
     SEPARATOR: toColor(SEPARATOR_COLOR),
     WHITE: toColor(WHITE),

@@ -28,10 +28,9 @@
             ref="regionName"
             text="The Edge"
             :style="{
-                color: color.rgba,
+                color: regionNameColor(color),
                 fontSize: 12,
             }"
-            :alpha="0.7"
             :origin="1"
             :x="x + width - 3"
             :y="y + height - 5"
@@ -43,12 +42,13 @@
 import Phaser, { GameObjects } from 'phaser'
 import { Image, Rectangle, Text } from 'phavuer'
 import { Texture } from '@/client/resources/textures.ts'
+import { regionNameColor } from '@/client/colors.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import Color = Phaser.Display.Color
 
-defineProps<{
+const { color } = defineProps<{
     x: number
     y: number
     width: number

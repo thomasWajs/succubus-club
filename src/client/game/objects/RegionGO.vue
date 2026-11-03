@@ -11,7 +11,7 @@
         :strokeColor="color?.color"
         :strokeAlpha="color?.alphaGL"
         :fillColor="cardRegion.is.table ? undefined : Colors.REGION_BACKGROUND.color"
-        :fillAlpha="cardRegion.is.table ? undefined : Colors.REGION_BACKGROUND.alphaGL"
+        :fillAlpha="cardRegion.is.table ? 0 : Colors.REGION_BACKGROUND.alphaGL"
         :dropZone="true"
         @create="onBoundariesCreate"
     >
@@ -27,9 +27,8 @@
         ref="regionName"
         :text="cardRegion.name"
         :style="{
-            color: color?.rgba,
+            color: regionNameColor(color),
         }"
-        :alpha="0.7"
         :origin="1"
         :x="x + width - 5"
         :y="y + height - 5"
@@ -63,7 +62,7 @@ import Phaser, { GameObjects } from 'phaser'
 import { Line, Rectangle, Text } from 'phavuer'
 import { usePlayersStore } from '@/client/state/players.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
-import { Colors } from '@/client/colors.ts'
+import { Colors, regionNameColor } from '@/client/colors.ts'
 import CardGO from '@/client/game/objects/CardGO.vue'
 import { PhaserDataKey, RegionCategory } from '@/client/game/types.ts'
 import { AnyCardRegion } from '@/shared/types/model.ts'
