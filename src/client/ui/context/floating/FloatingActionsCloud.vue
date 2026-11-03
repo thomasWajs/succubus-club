@@ -69,7 +69,7 @@ const focusedCard = computed(() => {
     }
 
     // Alternate case : an embrace-like can become a vampire
-    if (singleCard.value && singleCard.value.isEmbraceLike()) {
+    if (singleCard.value && canBecomeVampire(singleCard.value)) {
         return singleCard.value
     }
 
@@ -80,6 +80,12 @@ const focusedCard = computed(() => {
 
     return undefined
 })
+
+// Once an embrace-like has become a vampire, it is a regular minion : its
+// cardtext still reads as embrace-like, but there is nothing left to become.
+function canBecomeVampire(card: Card): boolean {
+    return card.isEmbraceLike() && !card.isVampire()
+}
 
 // A card is "ready" either via the standard Ready region, or ( Free Table ) via
 // a non-flipped presence on the shared table - there is no separate Ready
@@ -137,7 +143,7 @@ const floatingActions = computed<FloatingActionData[]>(() => {
 
     const card = focusedCard.value
     if (card) {
-        if (card.isEmbraceLike()) {
+        if (canBecomeVampire(card)) {
             actions.push(...getEmbraceLikeActions(card))
         }
         // Only a primed minion gets the action buttons, and focusedCard returns
