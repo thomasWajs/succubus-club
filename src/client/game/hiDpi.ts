@@ -48,29 +48,51 @@ function patchQuadRounding() {
     }
 }
 
+type Box = [x: number, y: number, width: number, height: number]
+
 // Phaser works in CSS pixels, so the viewport and scissor ( drawing buffer pixels ) it
 // computes for the screen framebuffer are scaled here. Off-screen framebuffers have
 // their own size and are left alone.
+// Phaser often sets the viewport before ( or without ) updating its own idea of the current
+// framebuffer, so the framebuffer really bound is tracked here, and the last viewport and
+// scissor it asked for are applied again each time the binding changes.
 function patchContext(renderer: WebGLRenderer) {
     const gl = renderer.gl
     const viewport = gl.viewport.bind(gl)
     const scissor = gl.scissor.bind(gl)
-    const scaled = (value: number) => (renderer.currentFramebuffer ? value : value * pixelRatio)
+    const bindFramebuffer = gl.bindFramebuffer.bind(gl)
+    let onScreen = true
+    let viewportBox: Box | undefined
+    let scissorBox: Box | undefined
 
-    gl.viewport = (x, y, width, height) =>
-        viewport(
-            Math.round(scaled(x)),
-            Math.round(scaled(y)),
-            Math.round(scaled(width)),
-            Math.round(scaled(height)),
-        )
-    gl.scissor = (x, y, width, height) =>
-        scissor(
-            Math.round(scaled(x)),
-            Math.round(scaled(y)),
-            Math.round(scaled(width)),
-            Math.round(scaled(height)),
-        )
+    const apply = (set: (...box: Box) => void, box: Box | undefined) => {
+        if (box) {
+            const ratio = onScreen ? pixelRatio : 1
+            set(
+                Math.round(box[0] * ratio),
+                Math.round(box[1] * ratio),
+                Math.round(box[2] * ratio),
+                Math.round(box[3] * ratio),
+            )
+        }
+    }
+
+    gl.viewport = (x, y, width, height) => {
+        viewportBox = [x, y, width, height]
+        apply(viewport, viewportBox)
+    }
+    gl.scissor = (x, y, width, height) => {
+        scissorBox = [x, y, width, height]
+        apply(scissor, scissorBox)
+    }
+    gl.bindFramebuffer = (target, framebuffer) => {
+        bindFramebuffer(target, framebuffer)
+        if (target === gl.FRAMEBUFFER) {
+            onScreen = framebuffer === null
+            apply(viewport, viewportBox)
+            apply(scissor, scissorBox)
+        }
+    }
 
     // Phaser flips scissor Y coordinates against these
     Object.defineProperty(gl, 'drawingBufferWidth', {
