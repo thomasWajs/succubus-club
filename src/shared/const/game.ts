@@ -122,7 +122,11 @@ export const TWO_PLAYERS_HORIZONTAL_GUTTER = (WORLD_WIDTH - PLAY_AREA_WIDTH * 2)
  * Play Area Colors
  */
 
-export const REGION_ALPHA = OPAQUE_ALPHA * 0.75
+export const REGION_ALPHA = OPAQUE_ALPHA * 0.83
+// The play area fill is computed so that, blended over the tabletop background, the area
+// around the cards keeps a luminance within this range ( cards stay readable on any background )
+export const REGION_LUMINANCE_MIN = 100
+export const REGION_LUMINANCE_MAX = 150
 export const REGION_BACKGROUND_COLOR = `rgba(128,128,128,${REGION_ALPHA / 255})`
 export const REGION_STACK_SIZE_BACKGROUND_COLOR = 'rgb(150, 150, 150)'
 

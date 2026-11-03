@@ -11,6 +11,7 @@
         :strokeColor="color?.color"
         :strokeAlpha="color?.alphaGL"
         :fillColor="cardRegion.is.table ? undefined : Colors.REGION_BACKGROUND.color"
+        :fillAlpha="cardRegion.is.table ? undefined : Colors.REGION_BACKGROUND.alphaGL"
         :dropZone="true"
         @create="onBoundariesCreate"
     >

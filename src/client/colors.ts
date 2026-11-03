@@ -19,7 +19,7 @@ import {
     HIGHLIGHT_YELLOW,
     MARKERS_FILL_COLOR,
     ORANGE_COUNTER_FILL_COLOR,
-    REGION_BACKGROUND_COLOR,
+    REGION_ALPHA,
     REGION_STACK_SIZE_BACKGROUND_COLOR,
     SELECTION_AREA_COLOR,
     SEPARATOR_COLOR,
@@ -29,10 +29,21 @@ import {
     WIELD_SCROLLBAR_COLOR,
 } from '@/shared/const/game.ts'
 import Phaser from 'phaser'
+import { computed } from 'vue'
+import { regionFillRgb } from '@/client/gateway/background.ts'
 
 const toColor = (value: string) => Phaser.Display.Color.RGBStringToColor(value)
 
+const regionBackground = computed(() => {
+    const { r, g, b } = regionFillRgb.value
+    return new Phaser.Display.Color(r, g, b, REGION_ALPHA)
+})
+
 export const Colors = {
+    // Reactive: follows the tabletop background
+    get REGION_BACKGROUND() {
+        return regionBackground.value
+    },
     ACTION_DECLARATION_OUTLINE: toColor(ACTION_DECLARATION_OUTLINE_COLOR),
     ALIGNMENT_GUIDE: toColor(ALIGNMENT_GUIDE_COLOR),
     ARROW: toColor(ARROW_COLOR),
@@ -53,7 +64,6 @@ export const Colors = {
     HIGHLIGHT_YELLOW: toColor(HIGHLIGHT_YELLOW),
     MARKERS_FILL: toColor(MARKERS_FILL_COLOR),
     ORANGE_COUNTER_FILL: toColor(ORANGE_COUNTER_FILL_COLOR),
-    REGION_BACKGROUND: toColor(REGION_BACKGROUND_COLOR),
     REGION_STACK_SIZE_BACKGROUND: toColor(REGION_STACK_SIZE_BACKGROUND_COLOR),
     SELECTION_AREA: toColor(SELECTION_AREA_COLOR),
     SEPARATOR: toColor(SEPARATOR_COLOR),

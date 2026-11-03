@@ -1,5 +1,11 @@
 import { computed, ref } from 'vue'
 import { db } from '@/client/gateway/db.ts'
+import {
+    OPAQUE_ALPHA,
+    REGION_ALPHA,
+    REGION_LUMINANCE_MAX,
+    REGION_LUMINANCE_MIN,
+} from '@/shared/const/game.ts'
 
 /**
  * Tabletop background management.
@@ -64,6 +70,88 @@ export const tabletopBackgroundStyle = computed(() => {
     }
 })
 
+/**
+ * Play area fill.
+ *
+ * The play areas are drawn translucent over the background. Their fill colour is derived
+ * from the average colour of the active background so that the blend ( fill over background )
+ * keeps the background hue but has its luminance clamped to a range where cards stay readable.
+ */
+
+interface Rgb {
+    r: number
+    g: number
+    b: number
+}
+
+const NEUTRAL_GREY: Rgb = { r: 128, g: 128, b: 128 }
+const SAMPLE_SIZE = 16
+
+const backgroundAverage = ref<Rgb>(NEUTRAL_GREY)
+
+function luminance({ r, g, b }: Rgb): number {
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+}
+
+function clampByte(value: number): number {
+    return Math.min(255, Math.max(0, Math.round(value)))
+}
+
+/** The fill colour of the play areas ( its alpha is REGION_ALPHA ). */
+export const regionFillRgb = computed<Rgb>(() => {
+    const bg = backgroundAverage.value
+    const lum = luminance(bg)
+    const shift = Math.min(REGION_LUMINANCE_MAX, Math.max(REGION_LUMINANCE_MIN, lum)) - lum
+    const alpha = REGION_ALPHA / OPAQUE_ALPHA
+    // Solve (alpha * fill + (1 - alpha) * bg) = bg + shift
+    const solve = (channel: number) => clampByte((channel + shift - (1 - alpha) * channel) / alpha)
+    return { r: solve(bg.r), g: solve(bg.g), b: solve(bg.b) }
+})
+
+async function computeAverageColor(url: string): Promise<Rgb> {
+    const image = new Image()
+    image.src = url
+    await image.decode()
+
+    const canvas = document.createElement('canvas')
+    canvas.width = SAMPLE_SIZE
+    canvas.height = SAMPLE_SIZE
+    const context = canvas.getContext('2d', { willReadFrequently: true })
+    if (!context) {
+        return NEUTRAL_GREY
+    }
+    context.imageSmoothingQuality = 'high'
+    context.drawImage(image, 0, 0, SAMPLE_SIZE, SAMPLE_SIZE)
+    const { data } = context.getImageData(0, 0, SAMPLE_SIZE, SAMPLE_SIZE)
+
+    let r = 0
+    let g = 0
+    let b = 0
+    const pixels = SAMPLE_SIZE * SAMPLE_SIZE
+    for (let i = 0; i < data.length; i += 4) {
+        r += data[i]
+        g += data[i + 1]
+        b += data[i + 2]
+    }
+    return { r: r / pixels, g: g / pixels, b: b / pixels }
+}
+
+let analysisToken = 0
+
+async function refreshBackgroundAverage() {
+    const token = ++analysisToken
+    let average = NEUTRAL_GREY
+    try {
+        average = await computeAverageColor(tabletopBackgroundUrl.value)
+    } catch {
+        // Undecodable image: fall back to the neutral grey
+    }
+    // A newer background was selected meanwhile
+    if (token === analysisToken) {
+        backgroundAverage.value = average
+    }
+}
+
 function setCustomBlob(blob: Blob | null) {
     if (customBackgroundUrl.value) {
         URL.revokeObjectURL(customBackgroundUrl.value)
@@ -83,12 +171,14 @@ export async function initTabletopBackground() {
                 (value as BuiltinBackground)
             :   DEFAULT_BACKGROUND
     }
+    await refreshBackgroundAverage()
 }
 
 /** Store a custom uploaded background and make it active. */
 export async function setTabletopBackground(blob: Blob) {
     await db.settings.put({ key: SETTINGS_KEY, value: blob })
     setCustomBlob(blob)
+    await refreshBackgroundAverage()
 }
 
 /** Select one of the built-in backgrounds. */
@@ -96,4 +186,5 @@ export async function setBuiltinBackground(name: BuiltinBackground) {
     await db.settings.put({ key: SETTINGS_KEY, value: name })
     setCustomBlob(null)
     builtinName.value = name
+    await refreshBackgroundAverage()
 }
