@@ -118,8 +118,8 @@ function onUpdate(time: number) {
 
 function teardown() {
     newTexts.clear()
-    scene?.sys.events.off(Phaser.Scenes.Events.ADDED_TO_SCENE, onAddedToScene)
-    scene?.sys.events.off(Phaser.Scenes.Events.UPDATE, onUpdate)
+    scene?.sys?.events?.off(Phaser.Scenes.Events.ADDED_TO_SCENE, onAddedToScene)
+    scene?.sys?.events?.off(Phaser.Scenes.Events.UPDATE, onUpdate)
     scene = undefined
     texts.clear()
 }
