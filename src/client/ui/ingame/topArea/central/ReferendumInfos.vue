@@ -1,8 +1,8 @@
 <template>
-    <CentralPanel
-        class="referendum-infos"
-        title="Referendum"
-    >
+    <CentralPanel class="referendum-infos">
+        <!-- Tab popping out of the panel's top edge, in the space above the box -->
+        <span class="referendum-title">Referendum</span>
+
         <div class="referendum-body">
             <!--
             Left column : votes that don't come from a vampire, one row per
@@ -51,6 +51,27 @@
 
             <!-- Right column : the tally, the panel's headline, and the controls -->
             <div class="referendum-summary">
+                <!-- Same two columns as the tally, so each button sits right above its counter -->
+                <div class="referendum-bulk-votes">
+                    <div class="bulk-votes-side">
+                        <button
+                            class="game-button small"
+                            @click="castAllVotes(VoteSide.InFavour)"
+                        >
+                            All In Favour
+                        </button>
+                    </div>
+
+                    <div class="bulk-votes-side">
+                        <button
+                            class="game-button small"
+                            @click="castAllVotes(VoteSide.Against)"
+                        >
+                            All Against
+                        </button>
+                    </div>
+                </div>
+
                 <div class="referendum-tally">
                     <div
                         class="tally-side in-favour"
@@ -165,10 +186,13 @@ import { usePlayersStore } from '@/client/state/players.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
 import { ReferendumState, VoteSide } from '@/shared/types/state.ts'
 import {
+    getCastBallot,
+    getCastVote,
     getLastCallRemainingTime,
     getPlayerVotes,
     getSubReferendumWinner,
     getWinningSide,
+    isBallotVampire,
     isLastCallOver,
     SUBREFERENDUM_VOTE_GRANT,
     tallySubReferendum,
@@ -274,13 +298,59 @@ const methuselahVoteRows = computed(() =>
 function changePlayerVotes(player: Player, side: VoteSide, amount: number) {
     gameMutations.REFERENDUM_changePlayerVotes.actSelf({ player, side, amount })
 }
+
+/**
+ * Cast every ready vampire of yours on the same side
+ *
+ * Casting a side a vampire already stands on would retract it, so those are
+ * left alone : the outcome is always that all of them end up on this side.
+ */
+function castAllVotes(side: VoteSide) {
+    for (const vampire of players.selfPlayer?.vampiresReady ?? []) {
+        const castVote =
+            isBallotVampire(vampire) ?
+                getCastBallot(props.referendum, vampire)
+            :   getCastVote(props.referendum, vampire)
+
+        if (castVote.side != side) {
+            gameMutations.REFERENDUM_castVote.actSelf({ vampire, side })
+        }
+    }
+}
 </script>
 
 <style lang="scss">
+$referendum-tab-width: 128px;
+$referendum-tab-height: 22px;
+// The tab is centered in the gap left between the two ends of the game controls
+// bar : the gap's center is half the difference of their widths off the middle
+$referendum-tab-offset: ($game-mutations-width - $right-controls-width) * 0.5;
+
 .central-panel.referendum-infos {
     // The central box is short, so this panel stays deliberately dense
     font-size: 13px;
     padding: 0.5rem 0.75rem;
+    position: relative;
+
+    // Pops out of the panel's top edge, in the space above the box. Its bottom
+    // edge is the panel's padding edge, so it sits right over the top border,
+    // which it hides because both share the same opaque surface.
+    .referendum-title {
+        position: absolute;
+        bottom: 100%;
+        // 1px : the panel's border sits between its border box and padding box
+        left: calc(50% + 1px + #{$referendum-tab-offset} - #{$referendum-tab-width} / 2);
+        box-sizing: border-box;
+        width: $referendum-tab-width;
+        height: $referendum-tab-height;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: $central-panel-surface;
+        border: solid 1px $shadow-grey;
+        font-weight: bold;
+        white-space: nowrap;
+    }
 
     .referendum-body {
         align-self: stretch;
@@ -348,10 +418,22 @@ function changePlayerVotes(player: Player, side: VoteSide, amount: number) {
         border-left: solid 1px rgba($shadow-grey, 0.4);
     }
 
-    .referendum-tally {
+    .referendum-tally,
+    .referendum-bulk-votes {
         display: flex;
         justify-content: center;
         gap: 0.5rem;
+    }
+
+    // Shares the tally's flex rule, so the buttons are centered over the counters
+    .bulk-votes-side {
+        flex: 1 1 0;
+        display: flex;
+        justify-content: center;
+
+        .game-button.small {
+            font-size: calc(0.8rem - 1px);
+        }
     }
 
     .tally-side {

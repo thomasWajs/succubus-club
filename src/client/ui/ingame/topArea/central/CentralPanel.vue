@@ -48,7 +48,7 @@ defineProps<{
     padding: 0.5rem 1.5rem;
 
     color: $shadow-grey;
-    background: rgba($pearl-grey, 0.7);
+    background: $central-panel-surface;
     border: solid 1px $shadow-grey;
 
     animation: CentralPanelAppear 0.25s ease-out;

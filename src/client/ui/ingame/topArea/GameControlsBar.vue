@@ -178,7 +178,7 @@ function pingCardsDuringCurrentPhase() {
     justify-content: flex-end;
     // Match the fixed width of .phases (2 nav buttons + 5 phase boxes) so the
     // group's left edge lines up with the left edge of the phases block above.
-    width: 262px;
+    width: $right-controls-width;
 
     .unlock-all-button {
         // Grow to fill the space left of the cards indicator, so the button's
@@ -203,7 +203,7 @@ function pingCardsDuringCurrentPhase() {
 
 .game-mutations {
     display: flex;
-    width: 225px;
+    width: $game-mutations-width;
     justify-content: space-between;
 
     .popup-menu-trigger,
