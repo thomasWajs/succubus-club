@@ -32,10 +32,10 @@ type RoomRow = {
     userDecks: string
     roles: string
     seating: string
-    gameId: string
+    gameId: string | null
     globalClock: string
     objectClocks: string
-    gameState: string
+    gameState: string | null
     history: string
 }
 
@@ -201,12 +201,15 @@ function loadRoomRow(row: RoomRow): Room {
         Object.entries(objectClocksData).map(([k, v]) => [k, new VectorClock(v)]),
     )
 
-    const serializedGameState = JSON.parse(row.gameState) as SerializedGameState
-    const gameState = new GameState()
-    deserializeGameState(serializedGameState, gameState)
-
+    // A room that never launched a game (or started a new table) has no game state
+    let gameState: GameState | null = null
     const history = new HistoryStore()
-    deserializeHistory(row.gameId, JSON.parse(row.history), history)
+    if (row.gameState && row.gameId) {
+        const serializedGameState = JSON.parse(row.gameState) as SerializedGameState
+        gameState = new GameState()
+        deserializeGameState(serializedGameState, gameState)
+        deserializeHistory(row.gameId, JSON.parse(row.history), history)
+    }
 
     return {
         id: row.id,

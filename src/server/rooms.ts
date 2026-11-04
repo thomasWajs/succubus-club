@@ -83,7 +83,20 @@ export function ensureRoom(roomId: RoomId | null): Room {
 export function getOrCreateRoom(roomId: RoomId, passwordHash: string, hostId: PermanentId): Room {
     let room = rooms.get(roomId)
     if (!room) {
-        // This should not happen, except from malicious actor
+        // An emptied room leaves memory but stays persisted : its host coming back
+        // (e.g. after a connection drop) gets it restored. Anyone else claiming a
+        // persisted roomId is a squatter.
+        const persistedRoom = loadRoom(roomId)
+        if (persistedRoom) {
+            if (persistedRoom.hostId != hostId) {
+                throw new Error('RoomId already in use, please generate another one')
+            }
+            rooms.set(roomId, persistedRoom)
+            logger.info(`Restored room: ${roomId}`)
+            return persistedRoom
+        }
+
+        // Persisted but unreadable : do not overwrite it
         if (hasRoom(roomId)) {
             throw new Error('RoomId already in use, please generate another one')
         }
