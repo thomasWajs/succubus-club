@@ -352,12 +352,18 @@ function onCardsPanelCreate(cardsPanel_: GameObjects.Container) {
             return
         }
         const coord = dropCoordinates(pointer, cardsPanel, undefined, false, false, stackCamera)
+        // The gap is the index of the card the dragged card will be inserted before :
+        // it goes right after every card whose middle is left of the pointer.
         gameBus.stackDropGapPosition = 0
         for (let i = 0; i < cardRegion.cards.length; i++) {
-            const cardX =
-                WIELD_X + i * WIELD_CARD_DISPLAY_WIDTH + WIELD_CARDS_OFFSET + WIELD_INDICATOR_WIDTH
-            if (cardX < coord.x) {
-                gameBus.stackDropGapPosition = i
+            const cardMiddleX =
+                WIELD_X +
+                i * WIELD_CARD_DISPLAY_WIDTH +
+                WIELD_CARDS_OFFSET +
+                WIELD_INDICATOR_WIDTH +
+                WIELD_CARD_DISPLAY_WIDTH / 2
+            if (cardMiddleX < coord.x) {
+                gameBus.stackDropGapPosition = i + 1
             }
         }
     }
