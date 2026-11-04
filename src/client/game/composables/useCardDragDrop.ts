@@ -365,8 +365,10 @@ export function useCardDragDrop(
         if (originDragAttrs && (dragAttrs.deltaX != 0 || dragAttrs.deltaY != 0)) {
             dragAttrs.x = originDragAttrs.x + dragAttrs.deltaX * originDragAttrs.scaleRatio
             dragAttrs.y = originDragAttrs.y + dragAttrs.deltaY * originDragAttrs.scaleRatio
-            dragAttrs.localX = originDragAttrs.localX + dragAttrs.deltaX
-            dragAttrs.localY = originDragAttrs.localY + dragAttrs.deltaY
+            dragAttrs.localX =
+                originDragAttrs.localX + dragAttrs.deltaX * originDragAttrs.scaleRatio
+            dragAttrs.localY =
+                originDragAttrs.localY + dragAttrs.deltaY * originDragAttrs.scaleRatio
             dragAttrs.cardScale = originDragAttrs.cardScale
             dragAttrs.scaleRatio = originDragAttrs.scaleRatio
             return
