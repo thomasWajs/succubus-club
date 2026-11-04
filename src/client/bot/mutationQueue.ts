@@ -11,6 +11,19 @@ const botMutationQueue: AnyGameMutation[] = []
 let processingQueue = false
 
 export function enqueueBotMutation(gameMutation: AnyGameMutation) {
+    // Nothing is pending, so a human mutation can't be out of order : apply it right away.
+    // Deferring it would let the UI render a frame in between ( e.g. a card dropped from hand
+    // flashing back to its slot before being moved ).
+    if (!processingQueue && !gameMutation.author.permId.startsWith(BOT_PERM_ID)) {
+        applyMutationIfValid(gameMutation)
+        setTimeout(() => {
+            if (!processingQueue) {
+                useCoreStore().conductor?.runDecisionMaking()
+            }
+        }, 0)
+        return
+    }
+
     botMutationQueue.push(gameMutation)
 
     // Only start processing if this was the first element
