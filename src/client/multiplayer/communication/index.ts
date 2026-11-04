@@ -18,6 +18,9 @@ export interface Communication {
     sendDeck(): Promise<void>
     rollSeating(): void
     launchGame(gameRoom: GameRoom): Promise<void>
+    // Ably tells the peers and applies it locally ; SCS asks the server, which tells everyone
+    // ( ourselves included ) once it has accepted.
+    startNewTable(): Promise<void>
     broadcastGameMutation(message: GameMutationMessage): Promise<void>
     requestResyncGameState(): Promise<void>
     // Ably delivers chat peer-to-peer ( and echoes locally ) ; SCS sends it to the

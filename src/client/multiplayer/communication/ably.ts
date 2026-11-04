@@ -16,7 +16,7 @@ import {
     MessageHandler,
 } from '@/client/gateway/realtime.ts'
 import Ably, { ChannelOptions } from 'ably'
-import { ensureGameRoom, receiveLaunchGame } from '@/client/multiplayer/room.ts'
+import { ensureGameRoom, onReceiveNewTable, receiveLaunchGame } from '@/client/multiplayer/room.ts'
 import { shuffleArray } from '@/shared/utils.ts'
 import { getSeatingCandidates } from '@/shared/multiplayer/roles.ts'
 import { Communication } from '@/client/multiplayer/communication/index.ts'
@@ -180,6 +180,12 @@ export const ablyCommunication: Communication = {
         const { gameStateId } = message
         const serializedGame = await fetchGameState(gameStateId)
         await receiveLaunchGame(serializedGame)
+    },
+
+    async startNewTable() {
+        await ablyPublish(getRoomChannel(), MultiplayerMessageType.NewTable, {})
+        // Ably does not deliver our own messages back to us
+        await onReceiveNewTable()
     },
 
     async broadcastGameMutation(message: GameMutationMessage) {

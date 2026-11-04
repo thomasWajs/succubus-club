@@ -100,8 +100,8 @@ router.beforeEach((to, from) => {
 
     let leavingGame = false
 
-    // If navigating outside the game
-    if (from.name == ROUTES.Game) {
+    // If navigating outside the game, except back to the game room of a new table
+    if (from.name == ROUTES.Game && !multiplayer.isReturningToRoom) {
         leavingGame = true
 
         if (core.gameIsStarted) {

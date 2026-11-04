@@ -368,8 +368,11 @@ export async function broadcastGameRoom(gameRoom: GameRoom) {
  * jumping between players/spectators, users vanishing ).
  */
 export async function broadcastRoomMeta(gameRoom: GameRoom) {
-    const meta: Partial<GameRoom> = { ...gameRoom }
+    const meta: Partial<Record<keyof GameRoom, unknown>> = { ...gameRoom }
     delete meta.roles
+    // An update only touches the keys it carries : a seating cleared locally ( new table )
+    // must be sent as null to be removed from rtdb, which refuses undefined.
+    meta.seating = gameRoom.seating ?? null
     // Awaited so a rejected write ( e.g. the RTDB rules refusing a roles-less room ) rejects
     // this promise for the caller to handle, rather than becoming an unhandled rejection.
     await rtdbUpdate(gameRoomRef(gameRoom.id), meta)

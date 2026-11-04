@@ -25,6 +25,7 @@ import { GameId } from '@/shared/types/model.ts'
 import { createGameState, getSerializedGame } from './gameState.ts'
 import { GameState } from '@/shared/state/gameState.ts'
 import { deleteGameState } from '@/shared/registries.ts'
+import { electRoomWriter } from '@/shared/multiplayer/roles.ts'
 
 export class RoomNotFound extends Error {}
 
@@ -356,6 +357,40 @@ export async function handleSetupGame(connection: ConnectionInfo, message: ScsSe
         type: MultiplayerMessageType.LaunchGame,
         serializedGame: getSerializedGame(gameState, room, permId),
     }))
+}
+
+/**
+ * Handle ending the game, to get back to a room that waits for a new one
+ */
+export async function handleNewTable(connection: ConnectionInfo) {
+    const room = ensureRoom(connection.roomId)
+
+    // Same writer election as the clients : the host while connected, else the lowest permId
+    if (connection.permId != electRoomWriter(room.hostId, room.players)) {
+        sendError(connection.webSocket, 'Only the room host can start a new table')
+        return
+    }
+    if (!room.gameState) {
+        sendError(connection.webSocket, 'No game to end')
+        return
+    }
+
+    if (room.gameId) {
+        deleteGameState(room.gameId)
+    }
+    room.gameId = null
+    room.gameState = null
+    room.history = new HistoryStore()
+    room.globalClock = new LamportClock(SERVER_PERM_ID)
+    room.objectClocks = {}
+    room.seating = EMPTY_SEATING
+    room.roles = {}
+    room.isSavedGame = false
+    persistence.saveRoom(room)
+
+    logger.info(`Player ${getUser(connection.permId)?.name} started a new table in room ${room.id}`)
+
+    broadcast(room.id, { type: MultiplayerMessageType.NewTable })
 }
 
 /**

@@ -4,6 +4,7 @@ import {
     handleDeck,
     handleJoinRoom,
     handleLeaveRoom,
+    handleNewTable,
     handleRollSeating,
     handleSetupGame,
     leaveRoom,
@@ -197,6 +198,10 @@ wsServer.on('connection', (webSocket: WebSocket, request) => {
 
                 case MultiplayerMessageType.SetupGame:
                     await handleSetupGame(connection, message)
+                    break
+
+                case MultiplayerMessageType.NewTable:
+                    await handleNewTable(connection)
                     break
 
                 case MultiplayerMessageType.GameMutation:

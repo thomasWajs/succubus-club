@@ -41,6 +41,22 @@ export function getRoomPermIds(gameRoom: GameRoom, role?: RoomRole): PermanentId
 }
 
 /**
+ * The single member responsible for room writes that no individual owner makes : the host
+ * while present, else the lowest permId still in the room. Every client ( and the SCS
+ * server ) computes it from the same inputs, so they all agree on exactly one writer.
+ */
+export function electRoomWriter(
+    hostId: PermanentId,
+    memberIds: Iterable<PermanentId>,
+): PermanentId | null {
+    const members = [...memberIds]
+    if (members.includes(hostId)) {
+        return hostId
+    }
+    return members.length ? members.toSorted()[0] : null
+}
+
+/**
  * Is there physically room for this permId in that role ?
  * This is the involuntary rule, used both to assign a role on join and as a part
  * of the voluntary canTakeRoomRole guard.

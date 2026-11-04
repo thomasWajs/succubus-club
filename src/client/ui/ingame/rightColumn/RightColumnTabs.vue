@@ -98,6 +98,16 @@
         >
             Leave game
         </button>
+
+        <button
+            v-if="gameState.gameType == GameType.Multiplayer"
+            class="game-button"
+            :disabled="!multiplayer.selfIsRoomWriter"
+            :title="multiplayer.selfIsRoomWriter ? '' : 'Only the room host can start a new table'"
+            @click="newTableDialog?.showModal()"
+        >
+            New table
+        </button>
     </div>
 
     <div
@@ -163,7 +173,7 @@
     <!-- Leave game confirmation dialog -->
     <dialog
         ref="leaveDialog"
-        class="leave-game-dialog"
+        class="confirm-dialog"
     >
         <div class="dialog-content">
             <h3>Leave Game?</h3>
@@ -184,6 +194,34 @@
             </div>
         </div>
     </dialog>
+
+    <!-- New table confirmation dialog -->
+    <dialog
+        ref="newTableDialog"
+        class="confirm-dialog"
+    >
+        <div class="dialog-content">
+            <h3>Start a new table?</h3>
+            <p>
+                The current game will be ended for everyone, and all players will be sent back to
+                the game room.
+            </p>
+            <div class="dialog-buttons">
+                <button
+                    class="game-button cancel is-muted"
+                    @click="newTableDialog?.close()"
+                >
+                    Cancel
+                </button>
+                <button
+                    class="game-button"
+                    @click="confirmNewTable"
+                >
+                    New table
+                </button>
+            </div>
+        </div>
+    </dialog>
 </template>
 
 <script setup lang="ts">
@@ -192,7 +230,7 @@ import { useBusStore, useGameBusStore } from '@/client/store/bus.ts'
 import { useHistoryStore } from '@/client/store/history.ts'
 import { saveGame, SavingState } from '@/client/gateway/savedGames.ts'
 import { GameType } from '@/shared/types/state.ts'
-import { requestResyncGameState, sendChat } from '@/client/multiplayer/room.ts'
+import { requestResyncGameState, sendChat, startNewTable } from '@/client/multiplayer/room.ts'
 import UserManual from '@/client/ui/ingame/rightColumn/UserManual.vue'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
@@ -322,6 +360,20 @@ function sendChatMessage() {
 /** Menu actions **/
 
 const leaveDialog = ref<HTMLDialogElement>()
+const newTableDialog = ref<HTMLDialogElement>()
+
+async function confirmNewTable() {
+    newTableDialog.value?.close()
+    try {
+        await startNewTable()
+    } catch (error) {
+        let message = 'Could not start a new table'
+        if (error instanceof Error) {
+            message = `${message} : ${error.message}`
+        }
+        bus.alertError(message)
+    }
+}
 
 /** Manual Heads-up Management **/
 
@@ -580,7 +632,7 @@ function dismissManualHeadsUp() {
     }
 }
 
-.leave-game-dialog {
+.confirm-dialog {
     border: 2px solid $shadow-grey;
     padding: 0;
     background: $ash-grey;

@@ -11,7 +11,7 @@ import { DbSavedGame } from '@/client/gateway/db.ts'
 import { initAutoSaveGame, stopAutoSaveGame } from '@/client/gateway/savedGames.ts'
 import router, { ROUTES } from '@/client/ui/router.ts'
 import { useHistoryStore } from '@/client/store/history.ts'
-import { useGameBusStore } from '@/client/store/bus.ts'
+import { useBusStore, useGameBusStore } from '@/client/store/bus.ts'
 import { resetSync } from '@/client/multiplayer/sync.ts'
 import { startClock, stopClock, useTimer } from '@/shared/state/useTimer.ts'
 import { generateCardRegionOid, generateGameId } from '@/shared/state/ids.ts'
@@ -249,6 +249,32 @@ export function startGame() {
     core.gameIsStarted = true
     router.push({ name: ROUTES.Game })
     initAutoSaveGame()
+}
+
+/**
+ * End the running game but stay connected : back to the game room, ready for a new table.
+ */
+export async function returnToGameRoom() {
+    const core = useCoreStore()
+    const multiplayer = useMultiplayerStore()
+
+    const roomId = multiplayer.currentGameRoomId
+    if (!core.gameIsStarted || !roomId) {
+        return
+    }
+
+    stopClock()
+    stopAutoSaveGame()
+    resetState()
+    useBusStore().isResyncing = false
+    core.gameIsStarted = false
+
+    multiplayer.isReturningToRoom = true
+    try {
+        await router.push({ name: ROUTES.GameRoom, params: { roomId } })
+    } finally {
+        multiplayer.isReturningToRoom = false
+    }
 }
 
 export async function leaveGame(redirectToMenu: boolean = false) {

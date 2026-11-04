@@ -14,6 +14,7 @@ import {
 } from '@/shared/types/multiplayer.ts'
 import {
     applyRoomRole,
+    electRoomWriter,
     getRoomPermIds,
     getRoomRole,
     releaseRoomRole,
@@ -72,6 +73,10 @@ export const useMultiplayerStore = defineStore('multiplayer', {
         currentGameRoomFallback: null as GameRoom | null,
 
         selfIsReady: false,
+
+        // Set while the game screen is left for the game room of a new table : unlike any
+        // other way out of the game, we stay connected to the lobby and to the room.
+        isReturningToRoom: false,
 
         password: '',
 
@@ -140,11 +145,7 @@ export const useMultiplayerStore = defineStore('multiplayer', {
             if (!gameRoom) {
                 return null
             }
-            if (this.roomMembers.has(gameRoom.hostId)) {
-                return gameRoom.hostId
-            }
-            const present = [...this.roomMembers]
-            return present.length ? present.toSorted()[0] : null
+            return electRoomWriter(gameRoom.hostId, this.roomMembers)
         },
         selfIsRoomWriter(): boolean {
             return this.roomWriterId == this.selfUser.permId

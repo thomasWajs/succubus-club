@@ -38,7 +38,7 @@ import { useBusStore } from '@/client/store/bus.ts'
 import * as logging from '@/client/logging.ts'
 import { useCoreStore } from '@/client/store/core.ts'
 import { useHistoryStore } from '@/client/store/history.ts'
-import { resetState, startGame } from '@/client/state/setup.ts'
+import { resetState, returnToGameRoom, startGame } from '@/client/state/setup.ts'
 import { AnyGameMutation } from '@/shared/state/gameMutations.ts'
 import {
     applyInitialGameState,
@@ -159,6 +159,7 @@ export async function joinGameRoom(gameRoom: GameRoom, key?: Key) {
 
             // Game messages
             comm.subscribe(MultiplayerMessageType.LaunchGame, comm.onReceiveLaunchGame),
+            comm.subscribe(MultiplayerMessageType.NewTable, onReceiveNewTable),
             comm.subscribe(MultiplayerMessageType.GameMutation, receiveGameMutation),
             comm.subscribe(MultiplayerMessageType.Deck, receiveDeck),
             // Chat is authoritative per mode : Ably peers in Ably mode, the server in SCS mode
@@ -619,6 +620,46 @@ export async function receiveLaunchGame(serializedGame: SerializedMultiplayerGam
     // Disconnect from SCS websocket if we won't be using it
     if (gameRoom.communication != CommunicationMode.SCS) {
         releaseScsClient()
+    }
+}
+
+/** New table */
+
+export async function startNewTable() {
+    const multiplayer = useMultiplayerStore()
+    const gameRoom = ensureGameRoom()
+
+    if (!gameRoom.isStarted) {
+        throw new Error(`Game is not started`)
+    }
+    if (!multiplayer.selfIsRoomWriter) {
+        throw new Error(`Only the room host can start a new table`)
+    }
+
+    await getCommunication(gameRoom).startNewTable()
+}
+
+/**
+ * The game is over for everyone : the room is back to waiting for a new game.
+ * Only the room writer persists the room changes to rtdb, through the game room watcher.
+ */
+export async function onReceiveNewTable() {
+    const core = useCoreStore()
+    const multiplayer = useMultiplayerStore()
+    const gameRoom = ensureGameRoom()
+
+    gameRoom.isStarted = false
+    delete gameRoom.seating
+    // A saved game only lives until its first relaunch : the new table is an ordinary one
+    gameRoom.isSavedGame = false
+    gameRoom.competingPlayers = []
+
+    multiplayer.selfIsReady = false
+    multiplayer.restoringSavedGame = null
+    resetPendingSyncMessage()
+
+    if (core.gameIsStarted) {
+        await returnToGameRoom()
     }
 }
 

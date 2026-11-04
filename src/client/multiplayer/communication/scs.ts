@@ -213,6 +213,10 @@ export const scsCommunication: ScsCommunication = {
         await receiveLaunchGame(message.serializedGame)
     },
 
+    async startNewTable() {
+        getScsClient().send({ type: MultiplayerMessageType.NewTable })
+    },
+
     async broadcastGameMutation(message: GameMutationMessage) {
         getScsClient().send({
             type: MultiplayerMessageType.GameMutation,

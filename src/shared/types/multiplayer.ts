@@ -247,6 +247,7 @@ export enum MultiplayerMessageType {
 
     SetupGame = 'SetupGame',
     LaunchGame = 'LaunchGame',
+    NewTable = 'NewTable', // End the current game, and send everyone back to the game room
 
     MutationRejected = 'MutationRejected',
     GameMutation = 'GameMutation',
@@ -304,9 +305,12 @@ export type AblyGameStateMessage = {
     hash: number
 }
 
+export type AblyNewTableMessage = Record<string, never>
+
 export type AblyMessage =
     | DeckMessage
     | AblyLaunchGameMessage
+    | AblyNewTableMessage
     | PickSeatMessage
     | LeaveSeatMessage
     | GameMutationMessage
@@ -358,6 +362,11 @@ export type ScsSetupGameMessage = {
     isFreeTable: boolean
 }
 
+// Client → server : ask to end the game. Server → client : the game has been ended.
+export type ScsNewTableMessage = {
+    type: MultiplayerMessageType.NewTable
+}
+
 export type ScsGameMutationMessage = GameMutationMessage & {
     type: MultiplayerMessageType.GameMutation
 }
@@ -395,6 +404,7 @@ export type ScsClientMessage =
     | LeaveRoomMessage
     | RollSeatingMessage
     | ScsSetupGameMessage
+    | ScsNewTableMessage
     | ScsGameMutationMessage
     | ScsShuffleCardRegionMessage
     | ScsRandomResultRequestMessage
@@ -442,6 +452,7 @@ export type ScsServerMessage =
     | ScsDeckMessage
     | ScsRollSeatingMessage
     | ScsLaunchGameMessage
+    | ScsNewTableMessage
     | ScsGameMutationMessage
     | ScsGameStateMessage
     | ScsMutationRejectedMessage
