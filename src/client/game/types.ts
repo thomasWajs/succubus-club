@@ -41,6 +41,8 @@ export type CardInGame = {
     onDrop: (event: CardDragEvent) => void
 }
 
+export type CardSelectable = Pick<CardInGame, 'cardOid' | 'isUnderSelectionArea'>
+
 export type CardAttrs = {
     category: RegionCategory
     x: number

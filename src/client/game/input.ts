@@ -120,7 +120,10 @@ function onPointerUp({}, {}) {
     // If we're currently making a selection area...
     if (gameBus.selectionArea.show) {
         // ...select all cards under the selection area
-        gameBus.selectedCards = Object.values(gameBus.cardsInGame)
+        // ( while the Wield Card Stack is open, only its own cards are reachable )
+        const selectableCards =
+            gameBus.wieldCardStack.show ? gameBus.stackCardsInGame : gameBus.cardsInGame
+        gameBus.selectedCards = Object.values(selectableCards)
             .filter(hc => hc.isUnderSelectionArea())
             .map(hc => gameState.cards[hc.cardOid])
         // then reset it

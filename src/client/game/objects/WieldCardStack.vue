@@ -67,6 +67,7 @@
                 :card="card"
                 :cardRegion="cardRegion"
                 :displayIndex="index"
+                :visibleBounds="visibleBounds"
                 @wheel="onWheel"
             />
         </template>
@@ -123,6 +124,7 @@
 <script setup lang="ts">
 import { Colors } from '@/client/colors.ts'
 import {
+    DRAG_DISTANCE_THRESHOLD,
     WIELD_ACTIONS_WIDTH,
     WIELD_CARD_DISPLAY_WIDTH,
     WIELD_CARD_STACK_HEIGHT,
@@ -175,6 +177,8 @@ const wieldsActionsHeight = WIELD_CARD_STACK_HEIGHT
 
 const cardsPanelWidth = width - wieldsActionsWidth
 const cardsPanelHeight = height
+
+const visibleBounds = new Phaser.Geom.Rectangle(WIELD_X, WIELD_Y, cardsPanelWidth, cardsPanelHeight)
 
 const INDICATOR_TEXT_STYLE = {
     color: 'white',
@@ -436,11 +440,35 @@ function onWheel({}, {}, deltaX: number, {}, event: EventData) {
 }
 
 /**
- * Hide wieldCardStack when clicking outside of it
+ * Hide wieldCardStack when clicking outside of it.
+ *
+ * The press itself can't close it : it may be the start of a selection area
+ * reaching into the stack. Only a release close to where the press happened
+ * is a click.
  */
-function onOverlayPointerDown() {
-    gameBus.wieldCardStack.show = false
-    gameBus.wieldCardStack.cardRegion = null
-    gameBus.wieldCardStack.searchString = ''
+let overlayPressTime: number | null = null
+
+function onOverlayPointerDown(pointer: Pointer) {
+    overlayPressTime = pointer.downTime
 }
+
+function onScenePointerUp(pointer: Pointer) {
+    const wasPressedOnOverlay = overlayPressTime === pointer.downTime
+    overlayPressTime = null
+
+    if (
+        wasPressedOnOverlay &&
+        Phaser.Math.Distance.Between(pointer.downX, pointer.downY, pointer.upX, pointer.upY) <=
+            DRAG_DISTANCE_THRESHOLD
+    ) {
+        gameBus.wieldCardStack.show = false
+        gameBus.wieldCardStack.cardRegion = null
+        gameBus.wieldCardStack.searchString = ''
+    }
+}
+
+scene.input.on(Phaser.Input.Events.POINTER_UP, onScenePointerUp)
+onUnmounted(() => {
+    scene.input.off(Phaser.Input.Events.POINTER_UP, onScenePointerUp)
+})
 </script>

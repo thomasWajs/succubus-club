@@ -139,8 +139,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, toRef } from 'vue'
-import { GameObjects } from 'phaser'
+import { computed, onBeforeUnmount, onMounted, ref, toRef } from 'vue'
+import Phaser, { GameObjects } from 'phaser'
 import { Image, Rectangle, refObj } from 'phavuer'
 
 import {
@@ -159,6 +159,8 @@ import { useCardClick } from '@/client/game/composables/useCardClick.ts'
 import { useCardOutline } from '@/client/game/composables/useCardOutline.ts'
 import { useCardDragDrop } from '@/client/game/composables/useCardDragDrop.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
+import { useGameStateStore } from '@/client/store/gameState.ts'
+import { getFreeTableUICamera } from '@/client/game/camera.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
 import { getCardScale, reorderCardIndex } from '@/client/game/utils.ts'
 import { useCardTexture } from '@/client/game/composables/useCardTexture.ts'
@@ -170,13 +172,15 @@ import { playCard } from '@/client/game/declaration.ts'
 const STACK_CARD_Y = 15
 const BUTTON_HEIGHT = 24
 
-const { card, cardRegion, displayIndex } = defineProps<{
+const { card, cardRegion, displayIndex, visibleBounds } = defineProps<{
     card: Card
     cardRegion: AnyCardRegion
     displayIndex: number
+    visibleBounds: Phaser.Geom.Rectangle
 }>()
 
 const gameBus = useGameBusStore()
+const gameState = useGameStateStore()
 const players = usePlayersStore()
 const { displayedTexture } = useCardTexture(card)
 
@@ -319,11 +323,24 @@ function bringToTop() {
  * Outline on pointer over / selection area
  */
 
-const { isHovered, onPointerOver, onPointerOut, getCardOutlineColor } = useCardOutline(
-    toRef(() => card),
-    image,
-    false,
-)
+const { isHovered, isUnderSelectionArea, onPointerOver, onPointerOut, getCardOutlineColor } =
+    useCardOutline(
+        toRef(() => card),
+        image,
+        true,
+        {
+            // Free Table : this panel is rendered through the pinned UI camera
+            camera: gameState.isFreeTable ? getFreeTableUICamera() : undefined,
+            visibleBounds,
+        },
+    )
+
+onMounted(() => {
+    gameBus.stackCardsInGame[card.oid] = { cardOid: card.oid, isUnderSelectionArea }
+})
+onBeforeUnmount(() => {
+    delete gameBus.stackCardsInGame[card.oid]
+})
 
 /**
  * Select/Deselect on simple click

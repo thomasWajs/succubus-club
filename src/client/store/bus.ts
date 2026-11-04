@@ -5,7 +5,14 @@ import { Card, Minion } from '@/shared/model/Card.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { SavingState } from '@/client/gateway/savedGames.ts'
 import { AlignmentGuide, LibraryCardUsage, MinionActionType } from '@/shared/types/state.ts'
-import { CardGroup, CardInGame, DragAttrs, DragOver, PlayerInGame } from '@/client/game/types.ts'
+import {
+    CardGroup,
+    CardInGame,
+    CardSelectable,
+    DragAttrs,
+    DragOver,
+    PlayerInGame,
+} from '@/client/game/types.ts'
 import { CARD_COST_FX_DURATION, CARD_PING_DURATION } from '@/shared/const/game.ts'
 import { selfCanSeeOrPeek } from '@/client/state/self.ts'
 import { AnyCardRegion, CardOid, PlayerOid, Point2D } from '@/shared/types/model.ts'
@@ -98,6 +105,8 @@ export const useGameBusStore = defineStore('gameBus', {
 
         /** Game Objects **/
         cardsInGame: {} as Record<CardOid, CardInGame>,
+        // Cards displayed in the open Wield Card Stack, selectable by the selection area
+        stackCardsInGame: {} as Record<CardOid, CardSelectable>,
         playersInGame: {} as Record<PlayerOid, PlayerInGame>,
 
         /** Card selection **/

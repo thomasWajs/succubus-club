@@ -1,6 +1,7 @@
 <template>
     <Rectangle
         v-if="rect"
+        :depth="SELECTION_AREA_DEPTH"
         :origin="0"
         :x="rect.x"
         :y="rect.y"
@@ -20,6 +21,9 @@ import { Colors } from '@/client/colors.ts'
 import { SELECTION_AREA_LINE_THICKNESS } from '@/shared/const/game.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
+
+// Above the Wield Card Stack ( depths 1 to 3 ), which the area can select into
+const SELECTION_AREA_DEPTH = 10
 
 const gameBus = useGameBusStore()
 const gameState = useGameStateStore()

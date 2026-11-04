@@ -8,10 +8,22 @@ import { useScene } from 'phavuer'
 import { getScreenBounds } from '@/client/game/utils.ts'
 import RectangleToRectangle = Phaser.Geom.Intersects.RectangleToRectangle
 
+export type StackSelectionOptions = {
+    // Camera rendering the stack ( the pinned UI camera in Free Table )
+    camera?: Phaser.Cameras.Scene2D.Camera
+    // World area in which the stack's cards are actually visible
+    visibleBounds: Phaser.Geom.Rectangle
+}
+
+/**
+ * param stack for cards displayed in the Wield Card Stack. While the stack
+ * is open, the selection area only reaches its cards, not the ones on the table.
+ */
 export function useCardOutline(
     cardRef: Ref<Card>,
     image: Ref<GameObjects.Image | undefined>,
     withSelectionArea: boolean,
+    stack?: StackSelectionOptions,
 ) {
     const scene = useScene()
     const gameBus = useGameBusStore()
@@ -24,6 +36,15 @@ export function useCardOutline(
             return false
         }
 
+        if (stack) {
+            // Ignore cards scrolled out of the stack
+            if (!RectangleToRectangle(image.value.getBounds(), stack.visibleBounds)) {
+                return false
+            }
+        } else if (gameBus.wieldCardStack.show) {
+            return false
+        }
+
         // Free Table's selection rectangle is tracked in screen coordinates
         // ( see SelectionArea.vue ) - compare in that same space here, rather
         // than against the card's world bounds.
@@ -33,7 +54,7 @@ export function useCardOutline(
             }
             return RectangleToRectangle(
                 gameBus.selectionAreaScreenRect,
-                getScreenBounds(image.value, scene.cameras.main),
+                getScreenBounds(image.value, stack?.camera ?? scene.cameras.main),
             )
         }
 
