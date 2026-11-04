@@ -99,9 +99,11 @@
 
             <!-- Cards with an effect -->
             <div
-                v-if="glowInPlayEnabled"
                 class="cards-during-current-phase"
-                :class="{ 'has-effect': gameState.cardsDuringCurrentPhase.length > 0 }"
+                :class="{
+                    'has-effect': gameState.cardsDuringCurrentPhase.length > 0,
+                    'is-hidden': !glowInPlayEnabled,
+                }"
                 @click="pingCardsDuringCurrentPhase"
             >
                 {{ gameState.cardsDuringCurrentPhase.length }} cards with an effect
@@ -198,6 +200,12 @@ function pingCardsDuringCurrentPhase() {
         background-color: darken(desaturate(rgba(180, 90, 40, 0.8), 15%), 5%);
         transition: background-color 0.4s linear;
         cursor: pointer;
+    }
+
+    // Keeps its footprint so Unlock All has the same width in every mode.
+    &.is-hidden {
+        visibility: hidden;
+        pointer-events: none;
     }
 }
 
