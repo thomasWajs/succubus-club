@@ -17,7 +17,7 @@
                     About
                 </RouterLink>
 
-                <template v-if="screenBigEnough">
+                <template v-if="!isMobileDevice">
                     <span
                         class="fullscreen-button"
                         :class="{ 'show-hint-arrow': showFullscreenHint }"
@@ -36,7 +36,7 @@
             </div>
 
             <div
-                v-if="screenBigEnough"
+                v-if="!isMobileDevice"
                 class="topbar-center"
             >
                 <div
@@ -60,7 +60,7 @@
                 </span>
 
                 <div
-                    v-if="screenBigEnough"
+                    v-if="!isMobileDevice"
                     class="user-profile-display"
                     @click="bus.isUserProfilePanelOpen = true"
                 >
@@ -85,7 +85,7 @@ import { useCoreStore } from '@/client/store/core.ts'
 import UserAvatar from '@/client/ui/components/UserAvatar.vue'
 import DeckIcon from '@/client/ui/components/DeckIcon.vue'
 import router, { ROUTES } from '@/client/ui/router.ts'
-import { screenBigEnough } from '@/client/game/display.ts'
+import { isMobileDevice } from '@/client/game/display.ts'
 import { HD_WIDTH, WORLD_HEIGHT } from '@/shared/const/game.ts'
 
 const core = useCoreStore()
@@ -131,11 +131,7 @@ onUnmounted(() => {
 
 /* This function could get collapsed into a single return statements, but then it gets illegible */
 const showFullscreenHint = computed(() => {
-    if (
-        isFullscreen.value ||
-        router.currentRoute.value.name != ROUTES.MainMenu ||
-        !screenBigEnough
-    ) {
+    if (isFullscreen.value || router.currentRoute.value.name != ROUTES.MainMenu || isMobileDevice) {
         return false
     }
     return (

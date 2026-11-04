@@ -32,7 +32,7 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ROUTES } from '@/client/ui/router.ts'
-import { screenBigEnough } from '@/client/game/display.ts'
+import { isMobileDevice } from '@/client/game/display.ts'
 
 const router = useRouter()
 const dialogRef = ref<HTMLDialogElement | null>(null)
@@ -40,7 +40,7 @@ const dialogRef = ref<HTMLDialogElement | null>(null)
 const LOCAL_STORAGE_KEY = 'succubus-club-visited'
 
 function checkFirstVisit() {
-    if (!screenBigEnough) {
+    if (isMobileDevice) {
         return
     }
 

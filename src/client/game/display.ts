@@ -6,14 +6,56 @@ import {
     WORLD_HEIGHT,
     WORLD_WIDTH,
 } from '@/shared/const/game.ts'
-import { reactive, watchEffect } from 'vue'
+import { computed, reactive, watchEffect } from 'vue'
 import { useGameBusStore } from '@/client/store/bus.ts'
 
 export const MIN_WIDTH_TO_PLAY = 1280
 export const MIN_HEIGHT_TO_PLAY = 720
 
-export const screenBigEnough =
-    screen.width >= MIN_WIDTH_TO_PLAY && screen.height >= MIN_HEIGHT_TO_PLAY
+/**
+ * Mobile detection
+ *
+ * Phones only : tablets are deliberately not detected. The screen size is not a
+ * reliable signal, since OS display scaling and browser zoom shrink it on laptops.
+ */
+
+const MOBILE_USER_AGENT =
+    /Android.*Mobile|iPhone|iPod|Windows Phone|IEMobile|BlackBerry|Opera Mini|Mobile Safari/i
+// Phone short side in CSS pixels is below this, tablets are above it
+const PHONE_MAX_SHORT_SIDE = 600
+
+function detectMobileDevice() {
+    const { userAgentData } = navigator as Navigator & { userAgentData?: { mobile?: boolean } }
+    if (userAgentData?.mobile) {
+        return true
+    }
+    if (MOBILE_USER_AGENT.test(navigator.userAgent)) {
+        return true
+    }
+    // "Request desktop site" hides the phone user agent, but the touch-only input remains
+    const touchOnly = window.matchMedia('(pointer: coarse)').matches
+    return touchOnly && Math.min(screen.width, screen.height) < PHONE_MAX_SHORT_SIDE
+}
+
+export const isMobileDevice = detectMobileDevice()
+
+/**
+ * Screen size
+ *
+ * `screen` is expressed in CSS pixels, so it follows OS scaling and browser zoom.
+ */
+
+const screenSize = reactive({ width: screen.width, height: screen.height })
+
+window.addEventListener('resize', () => {
+    screenSize.width = screen.width
+    screenSize.height = screen.height
+})
+
+export const screenTooSmall = computed(
+    () => screenSize.width < MIN_WIDTH_TO_PLAY || screenSize.height < MIN_HEIGHT_TO_PLAY,
+)
+export const screenDimensions = computed(() => `${screenSize.width}x${screenSize.height}`)
 
 export const display = reactive({} as ReturnType<typeof getDisplay>)
 

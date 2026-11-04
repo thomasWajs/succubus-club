@@ -7,7 +7,7 @@
     >
         <div
             v-if="showWebGLBanner"
-            class="webgl-banner"
+            class="warning-banner"
         >
             <p>
                 WebGL is disabled in this browser. The game can still run, but you will experience
@@ -15,6 +15,18 @@
                 <br /><br />
                 It is highly recommanded to enable hardware acceleration and WebGL to enjoy Succubus
                 Club.
+            </p>
+        </div>
+
+        <div
+            v-if="showSmallScreenBanner"
+            class="warning-banner"
+        >
+            <p>
+                Succubus Club requires a screen of at least
+                {{ MIN_WIDTH_TO_PLAY }}x{{ MIN_HEIGHT_TO_PLAY }} to be enjoyed comfortably. Your
+                screen is currently seen as {{ screenDimensions }}. <br /><br />
+                Try zooming out your browser (Ctrl + minus) or lowering your display scaling.
             </p>
         </div>
 
@@ -131,7 +143,14 @@ import PuppeteerModal from '@/client/ui/components/PuppeteerModal.vue'
 import IdleModal from '@/client/ui/components/IdleModal.vue'
 import { computed, ref } from 'vue'
 import * as logging from '@/client/logging.ts'
-import { isCrawler, screenBigEnough } from '@/client/game/display.ts'
+import {
+    isCrawler,
+    isMobileDevice,
+    MIN_HEIGHT_TO_PLAY,
+    MIN_WIDTH_TO_PLAY,
+    screenDimensions,
+    screenTooSmall,
+} from '@/client/game/display.ts'
 import { hasWebGL } from '@/client/initClient.ts'
 
 import { InvalidDeck } from '@/shared/types/errors.ts'
@@ -291,12 +310,17 @@ setTimeout(() => {
  *  Mobile Message
  */
 
-// Combined check: hide game if mobile device OR screen too small (but not if crawler)
-const showMobileMessage = !screenBigEnough && !isCrawler()
+const showMobileMessage = isMobileDevice && !isCrawler()
+
+/**
+ *  Small Screen Message
+ */
+
+const showSmallScreenBanner = computed(() => !showMobileMessage && screenTooSmall.value)
 </script>
 
 <style lang="scss" scoped>
-.webgl-banner {
+.warning-banner {
     @include flex-center;
     background: $wine-crimson;
     border-bottom: 1px solid $warm-coral;
