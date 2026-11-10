@@ -484,7 +484,7 @@ function bringToTop() {
 
 const showOverlay = computed(() => {
     return (
-        isHovered.value &&
+        showOverlayButtons.value &&
         gameBus.selectedCards.length <= 1 &&
         players.isPlayer &&
         !dragAttrs.isDragging &&
@@ -601,7 +601,7 @@ function getMarkerPosition(index: number): Point2D {
  */
 
 const {
-    isHovered,
+    showOverlayButtons,
     isUnderSelectionArea,
     onPointerOver: outlineOver,
     onPointerOut: outlineOut,
@@ -630,6 +630,13 @@ function onPointerOut() {
     const minions = stackedCards.filter(c => c.isMinion())
     for (const stackedCard of [...nonMinions, ...minions]) {
         gameBus.cardsInGame[stackedCard.oid]?.bringToTop()
+    }
+
+    // Without hover, the selected card's buttons must not sink under its neighbours
+    if (gameBus.touchInput) {
+        for (const selectedCard of gameBus.selectedCardsInGame) {
+            selectedCard.bringToTop()
+        }
     }
 }
 

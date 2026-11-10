@@ -114,6 +114,15 @@ function sortCardInHandsVisibility() {
     for (const card of getOrderedCardsInHand()) {
         card?.bringToTop()
     }
+
+    // Without hover, the selected card's buttons must not sink under its neighbours
+    if (gameBus.touchInput) {
+        for (const card of getOrderedCardsInHand()) {
+            if (gameBus.isCardSelected(card.card)) {
+                card.bringToTop(true)
+            }
+        }
+    }
 }
 
 function onBoundariesCreate(boundaries: GameObjects.Arc) {

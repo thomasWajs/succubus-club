@@ -41,7 +41,7 @@
     />
 
     <!-- Hovered buttons -->
-    <template v-if="isHovered && !dragAttrs.isDragging">
+    <template v-if="showOverlayButtons && !dragAttrs.isDragging">
         <!-- Play -->
         <ButtonGO
             ref="playButton"
@@ -254,7 +254,7 @@ function playCardFromHand(card: Card) {
  * Outline and bring to top on pointer over / selection area
  */
 
-const { isHovered, onPointerOver, onPointerOut, getCardOutlineColor } = useCardOutline(
+const { showOverlayButtons, onPointerOver, onPointerOut, getCardOutlineColor } = useCardOutline(
     toRef(() => card),
     image,
     false,

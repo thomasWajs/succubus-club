@@ -8,6 +8,7 @@
             top: gameBus.contextMenu.submenu.y + 'px',
         }"
         @mousedown.stop
+        @touchstart.stop
     >
         <component :is="gameBus.contextMenu.submenu.component" />
     </div>

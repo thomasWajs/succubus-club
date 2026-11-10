@@ -108,8 +108,14 @@ export function useCardOutline(
         return undefined
     })
 
+    // A touch has no hover : the buttons then follow the selection
+    const showOverlayButtons = computed(() =>
+        gameBus.touchInput ? gameBus.isCardSelected(cardRef.value) : isHovered.value,
+    )
+
     return {
         isHovered,
+        showOverlayButtons,
         isUnderSelectionArea,
         onPointerOver,
         onPointerOut,

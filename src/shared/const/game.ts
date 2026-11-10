@@ -270,6 +270,10 @@ export const ALIGNMENT_GUIDE_OVERSHOOT = 20
  */
 
 export const DRAG_DISTANCE_THRESHOLD = 5
+// A finger jitters more than a mouse, so a tap needs a larger tolerance before it becomes a drag
+export const TOUCH_DRAG_DISTANCE_THRESHOLD = 12
+// Holding a finger still this long (ms) acts as a right click
+export const LONG_PRESS_DELAY = 500
 export const CARD_LOG_PLACEHOLDER = '[CARD]'
 
 /**

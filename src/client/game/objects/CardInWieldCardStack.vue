@@ -48,7 +48,9 @@
 
     <!-- Hovered buttons, stacked vertically over the bottom of the card -->
     <template
-        v-if="cardRegion.is.ashHeap && players.isPlayer && isHovered && !dragAttrs.isDragging"
+        v-if="
+            cardRegion.is.ashHeap && players.isPlayer && showOverlayButtons && !dragAttrs.isDragging
+        "
     >
         <!-- Move To Library -->
         <ButtonGO
@@ -117,7 +119,7 @@
             !cardRegion.is.ashHeap &&
             !cardRegion.is.removed &&
             players.isPlayer &&
-            isHovered &&
+            showOverlayButtons &&
             !dragAttrs.isDragging
         "
     >
@@ -323,17 +325,22 @@ function bringToTop() {
  * Outline on pointer over / selection area
  */
 
-const { isHovered, isUnderSelectionArea, onPointerOver, onPointerOut, getCardOutlineColor } =
-    useCardOutline(
-        toRef(() => card),
-        image,
-        true,
-        {
-            // Free Table : this panel is rendered through the pinned UI camera
-            camera: gameState.isFreeTable ? getFreeTableUICamera() : undefined,
-            visibleBounds,
-        },
-    )
+const {
+    showOverlayButtons,
+    isUnderSelectionArea,
+    onPointerOver,
+    onPointerOut,
+    getCardOutlineColor,
+} = useCardOutline(
+    toRef(() => card),
+    image,
+    true,
+    {
+        // Free Table : this panel is rendered through the pinned UI camera
+        camera: gameState.isFreeTable ? getFreeTableUICamera() : undefined,
+        visibleBounds,
+    },
+)
 
 onMounted(() => {
     gameBus.stackCardsInGame[card.oid] = { cardOid: card.oid, isUnderSelectionArea }

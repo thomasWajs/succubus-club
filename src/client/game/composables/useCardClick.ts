@@ -11,6 +11,7 @@ import { gameMutations } from '@/shared/state/gameMutations.ts'
 import { positionContextMenu } from '@/client/game/utils.ts'
 import { Card } from '@/shared/model/Card.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
+import { LONG_PRESS_DELAY, TOUCH_DRAG_DISTANCE_THRESHOLD } from '@/shared/const/game.ts'
 import {
     resetDeclaration,
     validateActionCardDeclaration,
@@ -79,9 +80,28 @@ export function useCardClick(cardRef: Ref<Card>, invertLockOnDoubleClick: boolea
         positionContextMenu(pointer.x, pointer.y - 20, pointer.y, '.context-menu', setXY)
     }
 
+    // Touch has no right click : a finger held still on the card opens the context menu
+    function scheduleLongPress(pointer: Pointer) {
+        const { downTime, downX, downY } = pointer
+        scene.time.delayedCall(LONG_PRESS_DELAY, () => {
+            const otherTouchDown = scene.input.manager.pointers.some(
+                other => other !== pointer && other.wasTouch && other.isDown,
+            )
+            const moved =
+                Phaser.Math.Distance.Between(downX, downY, pointer.x, pointer.y) >
+                TOUCH_DRAG_DISTANCE_THRESHOLD
+            if (pointer.isDown && pointer.downTime === downTime && !moved && !otherTouchDown) {
+                onRightClick(pointer)
+            }
+        })
+    }
+
     function onPointerDown(pointer: Pointer) {
-        // Prevent click handling when the pointer is on an HTML overlay
-        if (!scene.input.isOver) {
+        // Prevent click handling when the pointer is on an HTML overlay.
+        // isOver only follows the mouse, so a touch is checked on its own target.
+        const onCanvas =
+            pointer.wasTouch ? pointer.downElement === scene.game.canvas : scene.input.isOver
+        if (!onCanvas) {
             return
         }
 
@@ -114,6 +134,9 @@ export function useCardClick(cardRef: Ref<Card>, invertLockOnDoubleClick: boolea
         // Standard case
         if (pointer.leftButtonDown()) {
             onLeftClick(pointer)
+            if (pointer.wasTouch) {
+                scheduleLongPress(pointer)
+            }
         } else if (pointer.rightButtonDown()) {
             onRightClick(pointer)
         }

@@ -35,6 +35,15 @@ function onCreate(game: Phaser.Game) {
     setPhaserGame(game)
     setupHiDpi(game)
     game?.input?.mouse?.disableContextMenu()
+    game?.input?.touch?.disableContextMenu()
+
+    // Phaser no longer cancels touch events (see gameConfig.input), so the browser would replay a tap
+    // as mouse events. Cancel them here, after Phaser has handled the touchend.
+    game?.canvas?.addEventListener('touchend', event => {
+        if (event.cancelable) {
+            event.preventDefault()
+        }
+    })
 
     // Watch for blocker changes
     watch(
@@ -64,6 +73,12 @@ const gameConfig: Phaser.Types.Core.GameConfig = {
             width: 1,
             height: 1,
         },
+    },
+    input: {
+        // Track a second finger, so a pinch can be told apart from a single touch
+        activePointers: 2,
+        // Let the browser handle pinch zoom on the canvas, as it does on the HTML elements
+        touch: { capture: false },
     },
     antialias: true,
     antialiasGL: true,
@@ -104,5 +119,12 @@ onBeforeUnmount(() => {
     // Don't remove, see gameConfig.scale.min
     min-height: 1px;
     min-width: 1px;
+
+    // One finger stays with the game, two fingers pinch-zoom the page
+    touch-action: pinch-zoom;
+
+    :deep(canvas) {
+        touch-action: pinch-zoom;
+    }
 }
 </style>

@@ -109,6 +109,10 @@ export const useGameBusStore = defineStore('gameBus', {
         stackCardsInGame: {} as Record<CardOid, CardSelectable>,
         playersInGame: {} as Record<PlayerOid, PlayerInGame>,
 
+        // True when the last pointer event came from a touch : there is no hover then,
+        // so the card buttons follow the selection instead
+        touchInput: false,
+
         /** Card selection **/
         selectedCards: [] as Card[],
         selectionArea: {

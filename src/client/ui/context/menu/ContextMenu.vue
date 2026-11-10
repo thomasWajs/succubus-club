@@ -8,6 +8,7 @@
             top: gameBus.contextMenu.y + 10 + 'px',
         }"
         @mousedown.stop
+        @touchstart.stop
     >
         <CommandContextMenuButton
             v-if="firstCard.isIn.controlled"

@@ -1,7 +1,8 @@
 import { markRaw } from 'vue'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import Phaser, { GameObjects } from 'phaser'
-import { DRAG_DISTANCE_THRESHOLD } from '@/shared/const/game.ts'
+import { DRAG_DISTANCE_THRESHOLD, TOUCH_DRAG_DISTANCE_THRESHOLD } from '@/shared/const/game.ts'
+import { Point2D } from '@/shared/types/model.ts'
 import { useCommands } from '@/client/game/composables/useCommands.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
@@ -14,10 +15,25 @@ import Pointer = Phaser.Input.Pointer
  * Pointer Inputs
  */
 
+// Touch only : an empty-table press waits for the finger to actually drag before
+// showing the selection area, so a tap is a plain click.
+let pendingTouchArea: {
+    pointerId: number
+    origin: Point2D
+    originScreen: Point2D
+} | null = null
+
 export function setupPointerHandlers(scene: Phaser.Scene) {
     scene.input.dragDistanceThreshold = DRAG_DISTANCE_THRESHOLD
 
-    scene.input.on(Phaser.Input.Events.POINTER_DOWN, onPointerDown)
+    scene.input.on(
+        Phaser.Input.Events.POINTER_DOWN,
+        (pointer: Pointer, gameObjects: GameObjects.GameObject[]) => {
+            scene.input.dragDistanceThreshold =
+                pointer.wasTouch ? TOUCH_DRAG_DISTANCE_THRESHOLD : DRAG_DISTANCE_THRESHOLD
+            onPointerDown(scene, pointer, gameObjects)
+        },
+    )
     scene.input.on(Phaser.Input.Events.POINTER_UP, onPointerUp)
     scene.input.on(Phaser.Input.Events.POINTER_MOVE, onPointerMove)
 
@@ -34,14 +50,32 @@ function resetSelectionArea() {
     gameBus.selectionArea.origin = null
     gameBus.selectionArea.originScreen = null
     gameBus.selectionArea.currentScreen = null
+    pendingTouchArea = null
 }
 
-function onPointerDown(pointer: Pointer, gameObjects: GameObjects.GameObject[]) {
+function onPointerDown(
+    scene: Phaser.Scene,
+    pointer: Pointer,
+    gameObjects: GameObjects.GameObject[],
+) {
     const gameBus = useGameBusStore()
     const players = usePlayersStore()
 
+    gameBus.touchInput = pointer.wasTouch
+    // A touch has no hover move before the press, so the position would be stale
+    gameBus.pointerPosition = getWorldPoint(pointer.x, pointer.y)
+
     // Spectators can't interact with the game
     if (players.isSpectator) {
+        return
+    }
+
+    // A second finger down is a pinch, not a selection
+    const otherTouchDown = scene.input.manager.pointers.some(
+        other => other !== pointer && other.wasTouch && other.isDown,
+    )
+    if (pointer.wasTouch && otherTouchDown) {
+        resetSelectionArea()
         return
     }
 
@@ -68,7 +102,8 @@ function onPointerDown(pointer: Pointer, gameObjects: GameObjects.GameObject[]) 
         name == 'cardGroupIcon' ||
         name == 'separator' ||
         name == 'playButton' ||
-        name == 'playerWidget'
+        name == 'playerWidget' ||
+        gameObject?.getData(PhaserDataKey.OverlayButton) === true
     ) {
         // nothing more to do, but prevent the default behavior of the click event.
         // This is more legible than a complex if condition
@@ -104,18 +139,32 @@ function onPointerDown(pointer: Pointer, gameObjects: GameObjects.GameObject[]) 
         // Start a selection area on left click - not while shift is held,
         // which instead rotates the Free Table camera ( see camera.ts ).
         if (pointer.leftButtonDown() && !pointer.event.shiftKey) {
-            gameBus.selectionArea.show = true
             // Expressed in world coordinates
-            gameBus.selectionArea.origin = getWorldPoint(pointer.x, pointer.y)
+            const origin = getWorldPoint(pointer.x, pointer.y)
             // Expressed in screen coordinates, see selectionArea.originScreen
-            gameBus.selectionArea.originScreen = { x: pointer.x, y: pointer.y }
+            const originScreen = { x: pointer.x, y: pointer.y }
+            if (pointer.wasTouch) {
+                pendingTouchArea = { pointerId: pointer.id, origin, originScreen }
+            } else {
+                showSelectionArea(origin, originScreen)
+            }
         }
     }
+}
+
+function showSelectionArea(origin: Point2D, originScreen: Point2D) {
+    const gameBus = useGameBusStore()
+
+    gameBus.selectionArea.show = true
+    gameBus.selectionArea.origin = origin
+    gameBus.selectionArea.originScreen = originScreen
 }
 
 function onPointerUp({}, {}) {
     const gameBus = useGameBusStore()
     const gameState = useGameStateStore()
+
+    pendingTouchArea = null
 
     // If we're currently making a selection area...
     if (gameBus.selectionArea.show) {
@@ -134,8 +183,25 @@ function onPointerUp({}, {}) {
 function onPointerMove(pointer: Pointer, {}) {
     const gameBus = useGameBusStore()
 
+    gameBus.touchInput = pointer.wasTouch
     // Expressed in world coordinates
     gameBus.pointerPosition = getWorldPoint(pointer.x, pointer.y)
+
+    // The finger has dragged far enough : this is not a tap anymore
+    if (
+        pendingTouchArea &&
+        pendingTouchArea.pointerId === pointer.id &&
+        pointer.isDown &&
+        Phaser.Math.Distance.Between(
+            pendingTouchArea.originScreen.x,
+            pendingTouchArea.originScreen.y,
+            pointer.x,
+            pointer.y,
+        ) > TOUCH_DRAG_DISTANCE_THRESHOLD
+    ) {
+        showSelectionArea(pendingTouchArea.origin, pendingTouchArea.originScreen)
+        pendingTouchArea = null
+    }
 
     if (gameBus.selectionArea.show) {
         // Expressed in screen coordinates, see selectionArea.originScreen

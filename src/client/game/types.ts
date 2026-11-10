@@ -14,6 +14,8 @@ export enum PhaserDataKey {
     Player = 'player',
 
     BringOustedToTop = 'bringOustedToTop',
+
+    OverlayButton = 'overlayButton',
 }
 
 export enum RegionCategory {

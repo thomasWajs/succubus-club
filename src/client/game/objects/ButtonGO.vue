@@ -78,6 +78,7 @@ const mergedTextStyle = { ...BUTTON_TEXT_STYLE, ...textStyle }
 function onRectangleCreate(rectangle: GameObjects.Rectangle) {
     rectangle.setInteractive({ cursor: 'pointer' })
     rectangle.setName(name ?? '')
+    rectangle.setData(PhaserDataKey.OverlayButton, true)
 }
 
 function onPointerOver(pointer: Pointer) {
