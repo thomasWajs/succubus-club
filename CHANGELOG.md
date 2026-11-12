@@ -1,3 +1,9 @@
+## [1.0.4] - 2026-11-12
+
+Features:
+- Touch screen devices basic support
+- Improve mobile / screen size detection
+
 ## [1.0.3] - 2026-11-04
 
 Features:
