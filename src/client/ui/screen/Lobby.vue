@@ -154,6 +154,7 @@
                                         placeholder="Enter password to join..."
                                         @click.stop
                                         @input="roomPasswordErrors[gameRoom.id] = false"
+                                        @keydown.enter="onJoinGameRoom(gameRoom)"
                                     />
                                     <span
                                         v-if="roomPasswordErrors[gameRoom.id]"
@@ -164,10 +165,6 @@
                                 </div>
                                 <button
                                     class="join-btn"
-                                    :disabled="
-                                        gameRoom.id == multiplayer.currentGameRoomId ||
-                                        (gameRoom.hasPassword && !roomPasswords[gameRoom.id])
-                                    "
                                     @click="onJoinGameRoom(gameRoom)"
                                 >
                                     Join →
