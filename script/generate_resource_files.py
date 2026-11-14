@@ -99,6 +99,8 @@ def generate_atlas_files(cards, cardbase, output_name):
     with open(output_json_hash_path, "w") as output_atlas_file:
         json.dump(atlas_json_hash, output_atlas_file)
 
+    print(f"Generated atlas {output_name} ({nb_images} cards)")
+
 
 # Matches the root <svg ...> ... </svg> ; the discipline icons are single-root
 # SVGs, so a capture of the attributes and the inner markup is enough.
@@ -164,8 +166,11 @@ def generate_discipline_sprite():
     with open(OUTPUT_DISCIPLINE_SPRITE_PATH, 'w', encoding='utf-8', newline='') as sprite_file:
         sprite_file.write(sprite)
 
+    print(f"Generated discipline sprite ({len(symbols)} icons)")
+
 
 def generate_resource_files():
+    print("Generating resource files...")
     generate_discipline_sprite()
 
     with (
@@ -206,6 +211,8 @@ def generate_resource_files():
 
     with open(OUTPUT_CARDBASE_PATH, 'w') as output_cardbase_file:
         json.dump(cardbase, output_cardbase_file)
+
+    print(f"Generated cardbase ({len(cardbase)} cards, {len(recent_card_ids)} recent)")
 
     # Exclude recent cards from the frequent pool to avoid overlap
     for card_id in recent_card_ids:

@@ -609,9 +609,14 @@ const allPreconSets = computed(() => {
         }
 
         const grSet = grAllSets[setId]
+        const grSetDecks = gameResources.preconDecks[setId]
         const setPrecons = []
 
         for (const preconId in grSet.precons) {
+            // Precons filtered out of preconDecks are not playable
+            if (!grSetDecks?.[preconId]) {
+                continue
+            }
             const grPrecon = grSet.precons[preconId]
             setPrecons.push({ id: preconId, name: grPrecon.name })
         }

@@ -10,6 +10,12 @@ PRECON_FILE_NAME = "preconDecks.json"
 SETS_AND_PRECONS_FILE_NAME = "setsAndPrecons.json"
 TWD_DECKS_FILE_NAME = "twdDecks.json"
 
+# Precon sets kept whatever their deck size ( 2 players special lists )
+PRECON_SPECIAL_SET_KEYS = {"2P"}
+PRECON_MIN_LIBRARY_SIZE = 60
+PRECON_MAX_LIBRARY_SIZE = 90
+PRECON_MIN_CRYPT_SIZE = 12
+
 INPUT_CARDBASE_LIB_PATH = RESOURCES_DIR + '/cardbase_lib.json'
 INPUT_CARDBASE_CRYPT_PATH = RESOURCES_DIR + '/cardbase_crypt.json'
 TWD_DECKS_PATH = RESOURCES_DIR + '/' + TWD_DECKS_FILE_NAME
