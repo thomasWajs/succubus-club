@@ -394,8 +394,8 @@ export function rollSeating() {
     if (gameRoom.isStarted) {
         throw new Error(`Game already started`)
     }
-    if (!multiplayer.selfIsHost) {
-        throw new Error(`You are not the host`)
+    if (!multiplayer.selfIsRoomWriter) {
+        throw new Error(`You are not the room host`)
     }
 
     comm.rollSeating()
@@ -420,8 +420,8 @@ export function startPickSeating() {
     if (gameRoom.isStarted) {
         throw new Error(`Game already started`)
     }
-    if (!multiplayer.selfIsHost) {
-        throw new Error(`You are not the host`)
+    if (!multiplayer.selfIsRoomWriter) {
+        throw new Error(`You are not the room host`)
     }
     // Initialize seating with 'EMPTY' marker to start pick mode
     // (RTDB wipes empty arrays, so we use a marker instead)
@@ -579,12 +579,17 @@ export async function setSelfRoomRole(role: RoomRole) {
 
 export async function launchGame() {
     const core = useCoreStore()
+    const multiplayer = useMultiplayerStore()
     const gameRoom = ensureGameRoom()
     const comm = getCommunication(gameRoom)
 
     // Cannot launch a game that's already started
     if (gameRoom.isStarted || core.gameIsStarted) {
         throw new Error(`Game already started`)
+    }
+    // In Ably mode the room writer is also the one persisting isStarted to rtdb
+    if (!multiplayer.selfIsRoomWriter) {
+        throw new Error(`You are not the room host`)
     }
 
     // Guard the player cap here : role writes don't enforce it atomically, so a race could

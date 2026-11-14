@@ -132,14 +132,11 @@ export const useMultiplayerStore = defineStore('multiplayer', {
             return !!this.currentGameRoomId && this.currentGameRoomId in this.gameRooms
         },
 
-        selfIsHost(): boolean {
-            return this.currentGameRoom?.hostId == this.selfUser.permId
-        },
-
         // The single client responsible for room writes that no individual owner makes,
-        // e.g. persisting a departed user's role release. The host while it is present,
-        // else the lowest permId still in the room, so every client independently agrees
-        // on exactly one writer instead of all of them racing to write.
+        // e.g. persisting a departed user's role release, and for the host-only actions
+        // ( seating, launching the game ). The host while it is present, else the lowest
+        // permId still in the room, so every client independently agrees on exactly one
+        // writer instead of all of them racing to write.
         roomWriterId(): PermanentId | null {
             const gameRoom = this.currentGameRoom
             if (!gameRoom) {

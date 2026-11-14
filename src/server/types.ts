@@ -35,10 +35,10 @@ export type ConnectionInfo = {
 export type Room = {
     id: RoomId
     passwordHash: string // empty string == no password
-    hostId: PermanentId // The user who created the room, and the only one allowed to launch
+    hostId: PermanentId // The user who created the room, first in line for electRoomWriter
     userDecks: UserDecks
     players: Set<PermanentId> // Currently connected users, whatever their role
-    roles: RoomRoles // permId -> role, declared by the host when launching
+    roles: RoomRoles // permId -> role, declared by the room writer when launching
     seating: Seating
     gameId: GameId | null
     globalClock: LamportClock

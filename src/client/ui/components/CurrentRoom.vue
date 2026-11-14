@@ -384,7 +384,7 @@
 
                     <template v-else>
                         <div
-                            v-if="multiplayer.selfIsHost"
+                            v-if="multiplayer.selfIsRoomWriter"
                             class="game-controls-right"
                         >
                             <template v-if="!isSavedGame">
@@ -455,7 +455,7 @@
                             v-else
                             class="host-message"
                         >
-                            The host can launch the game when all players are ready
+                            The room host can launch the game when all players are ready
                         </div>
                     </template>
                 </div>

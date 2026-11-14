@@ -267,16 +267,23 @@ export async function handleDeck(connection: ConnectionInfo, message: DeckMessag
 }
 
 /**
+ * Same writer election as the clients : the host while connected, else the lowest permId
+ */
+function isRoomWriter(room: Room, permId: PermanentId): boolean {
+    return permId == electRoomWriter(room.hostId, room.players)
+}
+
+/**
  * Handle roll seating
  */
 export async function handleRollSeating(connection: ConnectionInfo, message: RollSeatingMessage) {
     const room = ensureRoom(connection.roomId)
     const user = getUser(connection.permId)
 
-    // Only the host rolls the seating. The client checks this too, but the candidates
+    // Only the room writer rolls the seating. The client checks this too, but the candidates
     // come from the client, so a peer could otherwise dictate who sits at the table.
-    if (connection.permId != room.hostId) {
-        sendError(connection.webSocket, 'Only the host can roll the seating')
+    if (!isRoomWriter(room, connection.permId)) {
+        sendError(connection.webSocket, 'Only the room host can roll the seating')
         return
     }
 
@@ -353,10 +360,10 @@ function setupNewGame(room: Room, isFreeTable: boolean): GameState {
 export async function handleSetupGame(connection: ConnectionInfo, message: ScsSetupGameMessage) {
     const room = ensureRoom(connection.roomId)
 
-    // Only the host launches the game, and so only the host declares the roles.
+    // Only the room writer launches the game, and so only the writer declares the roles.
     // Without this, any user in the room could grant themselves a judge's vision.
-    if (connection.permId != room.hostId) {
-        sendError(connection.webSocket, 'Only the host can launch the game')
+    if (!isRoomWriter(room, connection.permId)) {
+        sendError(connection.webSocket, 'Only the room host can launch the game')
         return
     }
 
@@ -378,8 +385,7 @@ export async function handleSetupGame(connection: ConnectionInfo, message: ScsSe
 export async function handleNewTable(connection: ConnectionInfo) {
     const room = ensureRoom(connection.roomId)
 
-    // Same writer election as the clients : the host while connected, else the lowest permId
-    if (connection.permId != electRoomWriter(room.hostId, room.players)) {
+    if (!isRoomWriter(room, connection.permId)) {
         sendError(connection.webSocket, 'Only the room host can start a new table')
         return
     }

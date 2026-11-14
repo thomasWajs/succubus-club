@@ -121,7 +121,7 @@ const centralContent = computed(() => ({
     turnNotification: turnNotificationVisible.value,
     timer:
         !turnNotificationVisible.value &&
-        multiplayer.selfIsHost &&
+        multiplayer.selfIsRoomWriter &&
         !timer.timerChosen.value &&
         gameState.timerStartTime === null,
     nextTurn: gameState.turnPhase == TurnPhase.Discard && players.selfIsActive,
