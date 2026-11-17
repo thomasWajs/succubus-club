@@ -229,7 +229,7 @@ interface CardsListParams extends GameMutationParams {
     cards: Card[]
 }
 
-// Used to change blood/life/green counters
+// Used to change blood/life/green counters ( blood and life share the same counter )
 interface ChangeCounterParams extends GameMutationParams {
     card: Card
     amount: number
@@ -386,15 +386,19 @@ class ChangeBlood extends ChangeCounterMutation {
     readonly syncMode = MutationSyncMode.Merge
 
     getValidity() {
+        const bloodName = this.params.card.bloodName
+
         // There's no blood outside of the play area
         if (!this.params.card.isIn.play)
             return Invalid(
-                `${secureName(this.params.card, this.author)} : Cannot change blood because it is not in play`,
+                `${secureName(this.params.card, this.author)} : Cannot change ${bloodName} because it is not in play`,
             )
 
         // Cannot get a negative blood amount
         if (this.params.card.blood + this.params.amount < 0) {
-            return Invalid(`${secureName(this.params.card, this.author)} : Cannot go below 0 blood`)
+            return Invalid(
+                `${secureName(this.params.card, this.author)} : Cannot go below 0 ${bloodName}`,
+            )
         }
 
         return VALID
@@ -406,7 +410,7 @@ class ChangeBlood extends ChangeCounterMutation {
 
     formatForLog() {
         const stateLog = `(now: ${this.params.card.blood})`
-        return `${this.params.amount > 0 ? '+' : ''}${this.params.amount} blood on ${CARD_LOG_PLACEHOLDER} ${stateLog}`
+        return `${this.params.amount > 0 ? '+' : ''}${this.params.amount} ${this.params.card.bloodName} on ${CARD_LOG_PLACEHOLDER} ${stateLog}`
     }
 
     getCancelMutation(): AnyGameMutation {

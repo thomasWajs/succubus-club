@@ -153,6 +153,12 @@ export abstract class Card extends BaseModel implements PropertiesInPlay {
         return !!this.vampireAttrs
     }
 
+    // Game terminology for the `blood` counter : it is "life" on an ally,
+    // and "blood" everywhere else ( vampires, and non-minion cards holding blood ).
+    get bloodName(): 'blood' | 'life' {
+        return this.minionAttrs && !this.vampireAttrs ? 'life' : 'blood'
+    }
+
     becomeMinion() {
         if (!this.minionAttrs) {
             this.minionAttrs = new MinionAttributes()

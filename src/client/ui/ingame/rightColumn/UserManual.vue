@@ -80,11 +80,11 @@
                 </div>
                 <div class="control-item">
                     <span class="action"><kbd>+</kbd></span>
-                    <span class="result">Gain blood</span>
+                    <span class="result">Gain blood / life</span>
                 </div>
                 <div class="control-item">
                     <span class="action"><kbd>-</kbd></span>
-                    <span class="result">Burn blood</span>
+                    <span class="result">Burn blood / life</span>
                 </div>
                 <div class="control-item">
                     <span class="action"><kbd>A</kbd></span>

@@ -245,7 +245,7 @@ function createCommands(): Commands {
 
         GainBlood: createCardCommand({
             name: 'GainBlood',
-            label: 'Gain Blood',
+            label: 'Gain Blood / Life',
             repr: '+',
             keyCodes: [
                 KeyCodes.PLUS,
@@ -262,7 +262,7 @@ function createCommands(): Commands {
         }),
         BurnBlood: createCardCommand({
             name: 'BurnBlood',
-            label: 'Burn Blood',
+            label: 'Burn Blood / Life',
             repr: '-',
             // Six is for azerty keyboards, because I'm French 🙃
             keyCodes: [

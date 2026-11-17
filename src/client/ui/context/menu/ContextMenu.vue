@@ -24,12 +24,16 @@
         <CommandContextMenuButton
             v-if="firstCard.isIn.play"
             :command="commands.GainBlood"
-        />
+        >
+            Gain {{ bloodLabel }}
+        </CommandContextMenuButton>
 
         <CommandContextMenuButton
             v-if="firstCard.isIn.play"
             :command="commands.BurnBlood"
-        />
+        >
+            Burn {{ bloodLabel }}
+        </CommandContextMenuButton>
 
         <CommandContextMenuButton
             v-if="firstCard.isIn.controlled"
@@ -134,6 +138,15 @@ const gameState = useGameStateStore()
 const gameBus = useGameBusStore()
 const commands = useCommands()
 const { firstCard, singleCard, singleMinion } = useSelection(() => gameBus.contextMenu.cards)
+
+// "Blood" for vampires, "Life" for allies, "Blood / Life" for a mixed selection
+const bloodLabel = computed(() => {
+    const names = new Set(gameBus.contextMenu.cards.map(card => card.bloodName))
+    if (names.size > 1) {
+        return 'Blood / Life'
+    }
+    return names.has('life') ? 'Life' : 'Blood'
+})
 
 const shuffleSelectionSize = computed(() =>
     firstCard.value ? getShuffleSelection(firstCard.value.region).length : 0,
