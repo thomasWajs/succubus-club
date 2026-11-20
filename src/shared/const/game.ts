@@ -216,16 +216,16 @@ export const OVERLAY_BUTTON_SIZE = COUNTER_RADIUS * COUNTER_HOVER_OFFSET_MULTIPL
  * Markers
  */
 
-export const MARKER_MARGIN_TOP = 15
-export const MARKER_HEIGHT = 20
-export const MARKER_WIDTH_PER_CHAR = 8
-export const MARKER_PADDING = 10
+export const MARKERS_CARD_GAP = 15
+export const MARKER_MARGIN_TOP = 5
+export const MARKER_HEIGHT = 18
+export const MARKER_WIDTH_PER_CHAR = 6
+export const MARKER_PADDING = 8
 
 export const MARKERS_FILL_COLOR = 'rgba(118,74,43,0.9)'
 export const MARKERS_TEXT_STYLE = {
     color: 'black',
-    fontStyle: 'bold',
-    fontSize: '13px',
+    fontSize: '10px',
 }
 
 /**

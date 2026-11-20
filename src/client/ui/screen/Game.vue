@@ -51,10 +51,15 @@ import { useGameBusStore } from '@/client/store/bus.ts'
 import { display } from '@/client/game/display.ts'
 import ZoomedCard from '@/client/ui/ingame/ZoomedCard.vue'
 import FocusModeDisclaimer from '@/client/ui/ingame/FocusModeDisclaimer.vue'
-import { ref, watch } from 'vue'
+import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { setFeedbackButtonVisible } from '@/client/logging.ts'
 
 const core = useCoreStore()
 const gameBus = useGameBusStore()
+
+// The floating "Report a bug" button would sit on the right column : the menu tab holds it
+onMounted(() => setFeedbackButtonVisible(false))
+onUnmounted(() => setFeedbackButtonVisible(true))
 
 const focusModeDisclaimerRef = ref<InstanceType<typeof FocusModeDisclaimer> | null>(null)
 

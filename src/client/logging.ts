@@ -58,6 +58,38 @@ export function initSentry(app: App) {
     })
 }
 
+/**
+ * Sentry "Report a bug" widget. Its floating button is hidden in game, where the menu holds a
+ * button opening the same form. Only available when Sentry is enabled ( prod ).
+ */
+
+export function isFeedbackAvailable() {
+    return Sentry.getFeedback() !== undefined
+}
+
+export function setFeedbackButtonVisible(visible: boolean) {
+    const actor = document
+        .querySelector('#sentry-feedback')
+        ?.shadowRoot?.querySelector('.widget__actor')
+    if (actor instanceof HTMLElement) {
+        // The widget toggles aria-hidden itself while its form is open : display is ours
+        actor.style.display = visible ? '' : 'none'
+    }
+}
+
+export async function openFeedbackForm() {
+    const feedback = Sentry.getFeedback()
+    if (!feedback) {
+        return
+    }
+    const form = await feedback.createForm({
+        onFormClose: () => form.removeFromDom(),
+        onFormSubmitted: () => form.removeFromDom(),
+    })
+    form.appendToDom()
+    form.open()
+}
+
 export function initSentryPiniaPlugin(pinia: Pinia) {
     pinia.use(
         Sentry.createSentryPiniaPlugin({

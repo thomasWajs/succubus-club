@@ -100,7 +100,7 @@
     <!-- Votes -->
     <Text
         v-if="aidsEnabled"
-        :text="totalVotes + ' vote'"
+        :text="totalVotes + ' Vote' + (totalVotes > 1 ? 's' : '')"
         :style="{
             color: '#000',
             fontStyle: 'Bold',

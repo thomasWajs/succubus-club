@@ -10,7 +10,6 @@ interface ImportMetaEnv {
 
     readonly VITE_FAST_TRACK_MULTIPLAYER?: string
     readonly VITE_FAST_TRACK_TRAIN_GAME?: string
-    readonly VITE_DISABLE_WELCOME_MODAL?: string
 }
 
 interface ImportMeta {

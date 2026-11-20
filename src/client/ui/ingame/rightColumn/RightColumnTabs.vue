@@ -93,6 +93,14 @@
         </button>
 
         <button
+            v-if="isFeedbackAvailable()"
+            class="game-button"
+            @click="openFeedbackForm"
+        >
+            Report a bug
+        </button>
+
+        <button
             class="game-button"
             @click="leaveDialog?.showModal()"
         >
@@ -238,6 +246,7 @@ import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import LogLine from '@/client/ui/ingame/rightColumn/LogLine.vue'
 import { leaveGame } from '@/client/state/setup.ts'
 import { getAuthorColorRgba } from '@/shared/colors.ts'
+import { isFeedbackAvailable, openFeedbackForm } from '@/client/logging.ts'
 
 const gameState = useGameStateStore()
 const players = usePlayersStore()

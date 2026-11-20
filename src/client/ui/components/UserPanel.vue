@@ -538,10 +538,6 @@ function createSelectPreference(
 }
 
 const preferences: Preference[] = [
-    createSelectPreference('worldAlignment', 'Tabletop Alignment', [
-        { value: WorldAlignment.Center, label: 'Center' },
-        { value: WorldAlignment.TopRight, label: 'Top Right' },
-    ]),
     createCheckboxPreference('glowInHand', 'Highlight playable cards in hand'),
     createCheckboxPreference('glowInPlay', 'Highlight cards in play with a "during X do Y" effect'),
     createCheckboxPreference('snapToGrid', 'Snap cards to grid ( structured mode only )'),
@@ -551,6 +547,10 @@ const preferences: Preference[] = [
     createCheckboxPreference('usageEditor', 'Enable card usage declaration'),
     createCheckboxPreference('turnNotification', 'Show new turn notification'),
     createCheckboxPreference('showBleedTarget', 'Show bleed target'),
+    createSelectPreference('worldAlignment', 'Tabletop Alignment', [
+        { value: WorldAlignment.Center, label: 'Center' },
+        { value: WorldAlignment.TopRight, label: 'Top Right' },
+    ]),
 ]
 
 const experimentalPreferences: Preference[] = [

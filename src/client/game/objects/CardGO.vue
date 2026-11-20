@@ -89,7 +89,6 @@
             :scale="scale"
             :rotation="ownerFacingRotation"
         />
-        <!-- Number text -->
         <Text
             ref="bloodCounterText"
             :key="key + 'bloodText'"
@@ -300,6 +299,7 @@ import {
     MARKER_MARGIN_TOP,
     MARKER_PADDING,
     MARKER_WIDTH_PER_CHAR,
+    MARKERS_CARD_GAP,
     MARKERS_TEXT_STYLE,
     OVERLAY_BUTTON_SIZE,
 } from '@/shared/const/game.ts'
@@ -592,7 +592,7 @@ const markersPosition = computed(() => {
 function getMarkerPosition(index: number): Point2D {
     return rotateAroundCardCenter({
         x: markersPosition.value.x,
-        y: markersPosition.value.y + (MARKER_HEIGHT + 2) * index + MARKER_MARGIN_TOP,
+        y: markersPosition.value.y + (MARKER_HEIGHT + MARKER_MARGIN_TOP) * index + MARKERS_CARD_GAP,
     })
 }
 
