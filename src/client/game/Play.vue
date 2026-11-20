@@ -2,7 +2,7 @@
     <PhavuerGame
         v-if="core.resourcesAreReady"
         id="PhavuerGame"
-        :style="tabletopBackgroundStyle"
+        :style="tabletopBackgroundWithFallbackStyle"
         :config="gameConfig"
         @create="onCreate"
     >
@@ -25,7 +25,7 @@ import { useGameStateStore } from '@/client/store/gameState.ts'
 import { display } from '@/client/game/display.ts'
 import { setupHiDpi } from '@/client/game/hiDpi.ts'
 import { resetState } from '@/client/state/setup.ts'
-import { tabletopBackgroundStyle } from '@/client/gateway/background.ts'
+import { tabletopBackgroundWithFallbackStyle } from '@/client/gateway/background.ts'
 
 const core = useCoreStore()
 const bus = useBusStore()

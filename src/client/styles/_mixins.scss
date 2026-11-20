@@ -1,6 +1,46 @@
 @use 'sass:color';
 @use 'variables' as *;
 
+// In-game UI theme ( see src/client/gateway/uiTheme.ts ). Colors go through the theme tokens
+// `var(--ui-*)` ( `_theme.scss` ) or an inline `light-dark( light, dark )`. This mixin is the
+// escape hatch for what `light-dark()` can't switch ( non-color properties, gradients vs flat
+// fills ), and only applies on the dark theme :
+//   .foo { border-bottom-width: 1px; @include dark-ui { border-bottom-width: 3px; } }
+// Never nest it inside another `dark-ui` block : the inner selector can never match.
+@mixin dark-ui {
+    :root[data-ui-theme='dark'] & {
+        @content;
+    }
+}
+
+// Title of the in-game UI ( sections, panels ). The font is in small caps already
+@mixin ui-title {
+    font-family: $ui-title-font;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+}
+
+// Text input of the in-game UI : flat field, accent outline while typing. Colors follow the theme
+// tokens ( `_theme.scss` ). Include it unconditionally : inside a `dark-ui` block, its own dark
+// part would nest into a selector that never matches
+@mixin ui-input {
+    border: solid 1px var(--ui-input-border);
+    background: var(--ui-input-bg);
+    color: var(--ui-panel-text);
+
+    &:focus {
+        outline: none;
+        border-color: var(--ui-accent-line);
+    }
+
+    // The light theme keeps the browser placeholder color
+    @include dark-ui {
+        &::placeholder {
+            color: $ui-text-muted;
+        }
+    }
+}
+
 @mixin flex-center {
     display: flex;
     align-items: center;
@@ -58,7 +98,7 @@
     border: 1px solid $bone-grey;
     border-radius: 0.25rem;
     font-weight: 400;
-    font-family: serif;
+    font-family: $font-serif;
     cursor: pointer;
     transition: all 0.3s ease;
     padding: 0.75rem 1.5rem;
@@ -161,7 +201,7 @@
     margin: 0;
     font-size: $size;
     font-weight: 300;
-    font-family: serif;
+    font-family: $font-serif;
     letter-spacing: 0.5px;
 }
 

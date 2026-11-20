@@ -182,7 +182,6 @@ const visibleBounds = new Phaser.Geom.Rectangle(WIELD_X, WIELD_Y, cardsPanelWidt
 
 const INDICATOR_TEXT_STYLE = {
     color: 'white',
-    fontStyle: 'bold',
     fontSize: '14px',
     wordWrap: { width: 1 },
 }

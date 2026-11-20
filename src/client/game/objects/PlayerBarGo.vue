@@ -10,7 +10,7 @@
         :strokeColor="color.color"
         :strokeAlpha="color.alphaGL"
         :fillColor="playerColor.color"
-        :fillAlpha="0.5"
+        :fillAlpha="barAlpha"
         @create="onBoundariesCreate"
     />
 
@@ -18,8 +18,7 @@
     <Text
         :text="player.shortName"
         :style="{
-            color: '#000',
-            fontStyle: 'Bold',
+            color: nameColor,
             fontSize: '18px',
         }"
         :origin="0"
@@ -88,8 +87,7 @@
         v-if="aidsEnabled && totalBallots >= 1"
         :text="totalBallots + ' ballot'"
         :style="{
-            color: '#000',
-            fontStyle: 'Bold',
+            color: textColor,
             fontSize: '16px',
         }"
         :origin="1"
@@ -102,8 +100,7 @@
         v-if="aidsEnabled"
         :text="totalVotes + ' Vote' + (totalVotes > 1 ? 's' : '')"
         :style="{
-            color: '#000',
-            fontStyle: 'Bold',
+            color: textColor,
             fontSize: '16px',
         }"
         :origin="1"
@@ -115,8 +112,7 @@
     <Text
         :text="player.victoryPoints + ' VP'"
         :style="{
-            color: '#000',
-            fontStyle: 'Bold',
+            color: textColor,
             fontSize: '16px',
         }"
         :origin="1"
@@ -129,8 +125,9 @@
 import { computed, onBeforeUnmount, onMounted } from 'vue'
 import Phaser, { GameObjects } from 'phaser'
 import { Polygon, Rectangle, refObj, Text } from 'phavuer'
-import { Colors } from '@/client/colors.ts'
+import { Colors, playerNameRgba, playAreaTextColor } from '@/client/colors.ts'
 import { COUNTER_OUTLINE_THICKNESS, COUNTER_TEXT_STYLE } from '@/shared/const/game.ts'
+import { isLightUi } from '@/client/gateway/uiTheme.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
@@ -153,7 +150,14 @@ const players = usePlayersStore()
 const gameBus = useGameBusStore()
 const { aidsEnabled } = useUIFeatures()
 
-const playerColor = getPlayerColor(player).darken(20).desaturate(60)
+// Light : a greyed player color, half transparent, with black texts.
+// Dark : a neutral bar, nearly opaque, with light texts and the name in the player color.
+const playerColor = computed(() =>
+    isLightUi.value ? getPlayerColor(player).darken(20).desaturate(60) : Colors.DARK_PLAYER_BAR,
+)
+const nameColor = computed(() => (isLightUi.value ? playAreaTextColor() : playerNameRgba(player)))
+const barAlpha = computed(() => (isLightUi.value ? 0.5 : 0.9))
+const textColor = computed(playAreaTextColor)
 
 // Total votes and ballots granted by the player's vampires in the ready region
 const totalVotes = computed(() =>

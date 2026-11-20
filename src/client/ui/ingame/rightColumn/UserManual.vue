@@ -134,13 +134,14 @@
     margin-bottom: 0.5rem;
 }
 
+// Flat rows, muted gestures, the result as the readable part
 .section-title {
-    color: $shadow-grey;
+    @include ui-title;
+    color: var(--ui-panel-text-muted);
     font-size: 1rem;
-    font-weight: 600;
     margin: 0 0 0.5rem 0;
     padding-bottom: 0.25rem;
-    border-bottom: 2px solid $shadow-grey;
+    border-bottom: 1px solid var(--ui-border);
 }
 
 .controls-list,
@@ -152,20 +153,20 @@
 
 .info-item,
 .control-item {
-    color: $shadow-grey;
-    background: $silver-grey;
-    border-radius: 0.25rem;
+    color: var(--ui-panel-text);
+    background: var(--ui-raised-bg);
     padding: 8px 10px;
     font-size: 14px;
 }
 
 .info-item {
-    background-color: rgba($lighter-teal, 0.5);
+    background-color: light-dark(rgba($lighter-teal, 0.5), $ui-surface-raised);
 }
 
 .info-item::before {
     content: '✓';
     margin-right: 0.25rem;
+    color: light-dark($shadow-grey, $ui-accent-light);
 }
 
 .control-item {
@@ -177,6 +178,7 @@
         display: flex;
         align-items: center;
         gap: 0.25rem;
+        color: var(--ui-panel-text-muted);
     }
 
     .result {

@@ -3,7 +3,7 @@
         <span class="turn-notification-label">Turn #{{ gameState.turnNumber }}</span>
         <span
             class="inline-player-name turn-notification-player"
-            :style="{ backgroundColor: gameState.activePlayer?.rgbaColor }"
+            :style="playerTagStyle(gameState.activePlayer)"
         >
             {{ gameState.activePlayer?.name }}
         </span>
@@ -12,6 +12,7 @@
 
 <script setup lang="ts">
 import { useGameStateStore } from '@/client/store/gameState.ts'
+import { playerTagStyle } from '@/client/colors.ts'
 
 const gameState = useGameStateStore()
 </script>
@@ -27,13 +28,12 @@ const gameState = useGameStateStore()
     align-items: center;
     gap: 1.5rem;
     padding: 1rem 1.5rem;
-    border: solid 2px $light-teal;
-    border-radius: 4px;
-    background: rgba($pearl-grey, 0.85);
-    box-shadow: 0 0 12px rgba($light-teal, 0.9);
+    // Flat, square panel like the rest of the in-game UI ( no glow, no rounded corners )
+    border: solid 2px var(--ui-highlight-border);
+    background: light-dark(rgba($pearl-grey, 0.85), $ui-surface);
     font-size: 26px;
     font-weight: bold;
-    color: $shadow-grey;
+    color: var(--ui-panel-text);
     white-space: nowrap;
     animation: TurnNotificationAppear 0.5s ease-out;
 
@@ -45,7 +45,6 @@ const gameState = useGameStateStore()
     .turn-notification-player {
         font-size: 22px;
         padding: 2px 10px;
-        border-radius: 2px;
         animation: TurnNotificationPulse 1s ease-in-out infinite;
     }
 }

@@ -35,7 +35,7 @@ const timer = useTimer(gameState.gameId)
 
     .timer-setup-text {
         font-weight: bold;
-        color: $shadow-grey;
+        color: var(--ui-panel-text);
     }
 
     .game-button {

@@ -293,7 +293,7 @@ onUnmounted(() => {
     .language-short {
         font-size: 0.9rem;
         font-weight: 500;
-        font-family: serif;
+        font-family: $font-serif;
         letter-spacing: 0.5px;
     }
 
@@ -358,7 +358,7 @@ onUnmounted(() => {
 .chat-author {
     color: $light-teal;
     font-weight: 500;
-    font-family: serif;
+    font-family: $font-serif;
     flex-shrink: 0;
 
     &::after {

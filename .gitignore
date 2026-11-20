@@ -48,3 +48,4 @@ coverage
 /.agents/
 /GEMINI.md
 /CLAUDE.md
+/.playwright-mcp/

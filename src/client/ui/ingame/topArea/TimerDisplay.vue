@@ -38,15 +38,15 @@ function togglePause() {
 .timer-display {
     font-size: 16px;
     font-weight: bold;
-    color: black;
+    color: light-dark(black, $ui-text);
     padding: 0.25rem 0.5rem;
-    background: rgba($pearl-grey, 0.7);
-    border: solid 1px $shadow-grey;
+    background: var(--ui-panel-bg);
+    border: solid 1px var(--ui-border);
     min-width: 80px;
     text-align: center;
 
     &.expired {
-        color: red;
+        color: light-dark(red, $ui-danger-text);
     }
 }
 

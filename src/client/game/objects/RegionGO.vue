@@ -16,8 +16,8 @@
         @create="onBoundariesCreate"
     >
         <FxHighlightRegionDrop
-            v-if="highlightDropZone && color"
-            :color="color"
+            v-if="highlightDropZone && dropColor"
+            :color="dropColor"
         />
     </Rectangle>
 
@@ -28,6 +28,7 @@
         :text="cardRegion.name"
         :style="{
             color: regionNameColor(color),
+            fontSize: '13px',
         }"
         :origin="1"
         :x="x + width - 5"
@@ -65,7 +66,7 @@ import { useGameBusStore } from '@/client/store/bus.ts'
 import { Colors, regionNameColor } from '@/client/colors.ts'
 import CardGO from '@/client/game/objects/CardGO.vue'
 import { PhaserDataKey, RegionCategory } from '@/client/game/types.ts'
-import { AnyCardRegion } from '@/shared/types/model.ts'
+import { AnyCardRegion, Point2D } from '@/shared/types/model.ts'
 import FxHighlightRegionDrop from './FxHighlightRegionDrop.vue'
 import {
     ALIGNMENT_GUIDE_OVERSHOOT,
@@ -75,7 +76,6 @@ import {
 } from '@/shared/const/game.ts'
 import { GUIDE_VERTICAL } from '@/shared/types/state.ts'
 import { rotateAroundPivot } from '@/shared/state/freeTableLayout.ts'
-import { Point2D } from '@/shared/types/model.ts'
 import Color = Phaser.Display.Color
 
 const players = usePlayersStore()
@@ -87,6 +87,7 @@ const { cardRegion } = defineProps<{
     width: number
     height: number
     color?: Color
+    dropColor?: Color
     cardRegion: AnyCardRegion
 }>()
 

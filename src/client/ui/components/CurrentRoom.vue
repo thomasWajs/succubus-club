@@ -904,7 +904,7 @@ async function startConnectIntoGame(gameRoom?: any) {
 .chat-tab {
     @include tab-button;
     position: relative;
-    font-family: serif;
+    font-family: $font-serif;
     font-size: 1.25rem;
     font-weight: 300;
     padding: 0.25rem 1rem;
@@ -922,8 +922,6 @@ async function startConnectIntoGame(gameRoom?: any) {
     min-width: 0.75rem;
     height: 1.25rem;
     padding: 0 0.25rem;
-    font-family: sans-serif;
-    font-size: 0.8rem;
     font-weight: 600;
     color: $pearl-grey;
     background: $wine-crimson;
@@ -1037,13 +1035,13 @@ async function startConnectIntoGame(gameRoom?: any) {
 .player-name {
     font-size: 0.9rem;
     color: $pearl-grey;
-    font-family: serif;
+    font-family: $font-serif;
 }
 
 .player-status-text {
     font-size: 0.75rem;
     font-weight: 400;
-    font-family: serif;
+    font-family: $font-serif;
 
     &.ready {
         color: $vibrant-emerald;
@@ -1177,7 +1175,7 @@ async function startConnectIntoGame(gameRoom?: any) {
 .side-seat-name {
     font-size: 0.85rem;
     color: $pearl-grey;
-    font-family: serif;
+    font-family: $font-serif;
 }
 
 .room-seat-picker {
@@ -1333,7 +1331,7 @@ async function startConnectIntoGame(gameRoom?: any) {
 .unseated-player-name {
     font-size: 0.85rem;
     color: $pearl-grey;
-    font-family: serif;
+    font-family: $font-serif;
 }
 
 .room-players.pick-seating {

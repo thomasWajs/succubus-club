@@ -100,9 +100,7 @@ function revealSecret() {
     .secret-input {
         padding: 5px 6px;
         font-size: 14px;
-        border: solid 1px $shadow-grey;
-        background: white;
-        color: black;
+        @include ui-input;
     }
 
     .secret-buttons {
@@ -119,7 +117,7 @@ function revealSecret() {
         text-align: center;
         font-size: 12px;
         font-style: italic;
-        color: $shadow-grey;
+        color: var(--ui-panel-text-muted);
         // Always reserve the space so the input/buttons don't move when it appears
         visibility: hidden;
 

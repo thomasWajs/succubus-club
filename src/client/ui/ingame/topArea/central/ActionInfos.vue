@@ -52,7 +52,7 @@
                     >
                         <strong
                             class="inline-player-name block-decision-player"
-                            :style="{ backgroundColor: decision.player.rgbaColor }"
+                            :style="playerTagStyle(decision.player)"
                         >
                             {{ decision.player.shortName }}
                         </strong>
@@ -159,7 +159,7 @@
                     Impulse
                     <strong
                         :style="{
-                            color: action.impulsePlayer?.rgbaColor,
+                            color: playerNameRgba(action.impulsePlayer),
                         }"
                     >
                         {{ action.impulsePlayer?.shortName }}
@@ -197,6 +197,7 @@
 </template>
 
 <script setup lang="ts">
+import { playerNameRgba, playerTagStyle } from '@/client/colors.ts'
 import { computed } from 'vue'
 import { usePlayersStore } from '@/client/state/players.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
@@ -338,11 +339,11 @@ const hasBlockingMinion = computed(() =>
     padding: 0.5rem;
 
     .cryptCard {
-        color: $crypt-orange;
+        color: var(--ui-crypt-card);
         font-weight: bold;
     }
     .libraryCard {
-        color: $library-green;
+        color: var(--ui-library-card);
         font-weight: bold;
     }
 
@@ -361,7 +362,7 @@ const hasBlockingMinion = computed(() =>
         .blocking-minion {
             flex: 1 1 0;
             min-width: 0;
-            border-left: solid 1px rgba($shadow-grey, 0.4);
+            border-left: solid 1px var(--ui-divider);
             padding-left: 0.5rem;
             text-align: left;
 
@@ -431,7 +432,7 @@ const hasBlockingMinion = computed(() =>
         // The impulse sequencing is only wired for bots ; its dotted frame
         // would look out of place around the lone No block button a human sees.
         .impulse-decision {
-            border: dotted 2px $purple-grey;
+            border: dotted 2px var(--ui-column-border);
         }
     }
 }

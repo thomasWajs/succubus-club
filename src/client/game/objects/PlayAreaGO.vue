@@ -20,6 +20,7 @@
             :width="PLAY_AREA_WIDTH"
             :height="player.separators.horizontalY - PLAYER_BAR_HEIGHT"
             :color="playerColor"
+            :dropColor="dropColor"
             :cardRegion="player.ready"
         />
 
@@ -30,6 +31,7 @@
             :width="player.separators.verticalX"
             :height="TORPOR_ZONE_BOTTOM - player.separators.horizontalY"
             :color="playerColor"
+            :dropColor="dropColor"
             :cardRegion="player.torpor"
         />
 
@@ -40,6 +42,7 @@
             :width="PLAY_AREA_WIDTH - player.separators.verticalX"
             :height="TORPOR_ZONE_BOTTOM - player.separators.horizontalY"
             :color="playerColor"
+            :dropColor="dropColor"
             :cardRegion="player.uncontrolled"
         />
 
@@ -96,6 +99,7 @@
             :width="(PLAY_AREA_WIDTH / 9) * 2 - 8"
             :height="CARD_STACKS_HEIGHT"
             :color="playerColor"
+            :dropColor="dropColor"
             :cardRegion="player.ashHeap"
             :showTopCard="true"
         />
@@ -106,6 +110,7 @@
             :width="(PLAY_AREA_WIDTH / 9) * 2 - 8"
             :height="CARD_STACKS_HEIGHT"
             :color="playerColor"
+            :dropColor="dropColor"
             :cardRegion="player.library"
             :showTopCard="true"
             draw="library"
@@ -117,6 +122,7 @@
             :width="(PLAY_AREA_WIDTH / 9) * 2 - 8"
             :height="CARD_STACKS_HEIGHT"
             :color="playerColor"
+            :dropColor="dropColor"
             :cardRegion="player.crypt"
             :showTopCard="true"
             draw="crypt"
@@ -128,6 +134,7 @@
             :width="PLAY_AREA_WIDTH / 9 - 8"
             :height="CARD_STACKS_HEIGHT"
             :color="playerColor"
+            :dropColor="dropColor"
             :cardRegion="player.removed"
             :showTopCard="false"
         />
@@ -138,6 +145,7 @@
             :width="PLAY_AREA_WIDTH / 9 - 8"
             :height="CARD_STACKS_HEIGHT"
             :color="playerColor"
+            :dropColor="dropColor"
             :cardRegion="player.hand"
             :showTopCard="false"
         />
@@ -214,7 +222,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import Phaser, { GameObjects } from 'phaser'
 import { Container, Rectangle, refObj, Text } from 'phavuer'
-import { Colors } from '@/client/colors.ts'
+import { Colors, dropHighlightColor, playAreaColor } from '@/client/colors.ts'
 import {
     CARD_OUTLINE_THICKNESS,
     CARD_STACKS_HEIGHT,
@@ -241,7 +249,6 @@ import { usePlayersStore } from '@/client/state/players.ts'
 import CardGroupGO from '@/client/game/objects/CardGroupGO.vue'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
 import { Snap } from '@/shared/utils.ts'
-import { getPlayerColor } from '@/client/game/utils.ts'
 import ButtonGO from '@/client/game/objects/ButtonGO.vue'
 import RegionTheEdgeGO from '@/client/game/objects/RegionTheEdgeGO.vue'
 
@@ -284,7 +291,8 @@ const playerIsOutlined = computed(() => {
     return isHovered.value && gameBus.declaringTargetOrigin != null && player != players.selfPlayer
 })
 
-const playerColor = getPlayerColor(player)
+const playerColor = computed(() => playAreaColor(player))
+const dropColor = computed(() => dropHighlightColor(player))
 
 onMounted(() => {
     // Bring all the cards on top of the outline rectangle

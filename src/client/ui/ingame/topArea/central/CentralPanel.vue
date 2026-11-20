@@ -47,14 +47,15 @@ defineProps<{
     gap: 0.5rem;
     padding: 0.5rem 1.5rem;
 
-    color: $shadow-grey;
-    background: $central-panel-surface;
-    border: solid 1px $shadow-grey;
+    color: var(--ui-panel-text);
+    background: var(--ui-panel-bg);
+    border: solid 1px var(--ui-border);
 
     animation: CentralPanelAppear 0.25s ease-out;
 
     .central-panel-title {
-        font-weight: bold;
+        @include ui-title;
+        font-size: 18px;
         text-align: center;
     }
 }

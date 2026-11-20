@@ -165,9 +165,9 @@ function changeVotes(vampire: Vampire, amount: number) {
     gap: 3px;
 
     padding: 3px;
-    border: solid 2px $shadow-grey;
-    background: rgba($pearl-grey, 0.92);
-    color: $shadow-grey;
+    border: solid 2px var(--ui-border);
+    background: light-dark(rgba($pearl-grey, 0.92), $ui-surface);
+    color: var(--ui-panel-text);
 
     white-space: nowrap;
     user-select: none;
@@ -214,24 +214,25 @@ function changeVotes(vampire: Vampire, amount: number) {
     // Nothing to click on : keep the box discreet and tight
     &.is-read-only {
         padding: 2px 6px;
-        background: rgba($pearl-grey, 0.75);
+        background: light-dark(rgba($pearl-grey, 0.75), $ui-surface);
     }
 
     // Read-only side indicators : the background carries the vote on its own,
     // overriding the discreet neutral background above
+    // The cast sides keep their dark green / red fills on both themes
     &.voted-in-favour {
         background: $dark-forest;
-        color: $ghost-white;
+        color: var(--ui-text-on-dark);
     }
 
     &.voted-against {
         background: $wine-crimson;
-        color: $ghost-white;
+        color: var(--ui-text-on-dark);
     }
 
     // Priscii cast ballots into the subreferendum : set their boxes apart
     &.is-ballot {
-        border-color: $royal-purple;
+        border-color: var(--ui-accent-text);
     }
 }
 </style>

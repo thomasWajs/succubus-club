@@ -848,7 +848,7 @@ async function copyForDiscord() {
 
 .language-tab {
     @include tab-button;
-    font-family: serif;
+    font-family: $font-serif;
     letter-spacing: 0.5px;
 
     &.language-tab-active {
@@ -988,7 +988,7 @@ async function copyForDiscord() {
     min-width: 9rem;
     text-align: center;
     color: $pearl-grey;
-    font-family: serif;
+    font-family: $font-serif;
     font-size: 1rem;
 }
 
@@ -1027,7 +1027,7 @@ async function copyForDiscord() {
 .calendar-day-header {
     padding: 0.4rem 0.5rem;
     text-align: center;
-    font-family: serif;
+    font-family: $font-serif;
     font-size: 0.9rem;
     color: $silver-grey;
     background: rgba(black, 0.2);

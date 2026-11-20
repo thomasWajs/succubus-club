@@ -32,7 +32,7 @@
                 <span v-if="player.isOusted"> 💀 </span>
                 <span
                     class="player-name"
-                    :style="{ color: player.rgbaColor }"
+                    :style="{ color: playerNameRgba(player) }"
                 >
                     {{ player.shortName }}
                 </span>
@@ -101,6 +101,7 @@ import { computed, ref } from 'vue'
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import { GameType } from '@/shared/types/state.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
+import { playerNameRgba } from '@/client/colors.ts'
 
 const gameState = useGameStateStore()
 const multiplayer = useMultiplayerStore()
@@ -136,7 +137,8 @@ $window-right: 340px;
 
 #RightColumnPlayers {
     margin: 4px 0;
-    background: $right-column-section-bg;
+    background: var(--ui-section-bg);
+    color: var(--ui-panel-text);
 
     .header {
         display: flex;
@@ -171,14 +173,14 @@ $window-right: 340px;
         font-size: 11px;
         text-transform: uppercase;
         letter-spacing: 0.5px;
-        color: $bone-grey;
+        color: var(--ui-label-text);
 
         &::before,
         &::after {
             content: '';
             flex: 1;
             height: 1px;
-            background: $mist-grey;
+            background: var(--ui-subtle-border);
         }
     }
 
@@ -193,17 +195,18 @@ $window-right: 340px;
         gap: 4px;
 
         &.acting {
-            background: rgba($vibrant-emerald, 0.3);
+            background: light-dark(rgba($vibrant-emerald, 0.3), rgba($ui-accent, 0.6));
         }
         &.disconnected {
             background: rgba($crimson-red, 0.6);
         }
         &.ousted {
-            background: $mist-grey;
+            background: light-dark($mist-grey, $ui-surface-raised);
+            color: var(--ui-panel-text-muted);
         }
 
         .active-player {
-            color: $dark-forest;
+            color: light-dark($dark-forest, $ui-accent-light);
             font-weight: bold;
         }
 

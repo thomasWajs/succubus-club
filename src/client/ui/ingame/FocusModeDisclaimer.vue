@@ -94,14 +94,14 @@ defineExpose({
 }
 
 .modal-content {
-    background: $ash-grey;
-    color: $ghost-white;
+    background: var(--ui-floating-bg);
+    color: var(--ui-text-on-dark);
     padding: 2rem;
     text-align: center;
 }
 
 .modal-content h2 {
-    color: $pearl-grey;
+    color: light-dark($pearl-grey, $ui-text);
     margin-bottom: 1rem;
     font-size: 1.5rem;
 }
@@ -112,7 +112,7 @@ defineExpose({
 }
 
 .modal-content strong {
-    color: $pearl-grey;
+    color: light-dark($pearl-grey, $ui-text);
     font-weight: bold;
 }
 
@@ -128,7 +128,7 @@ defineExpose({
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    color: $ghost-white;
+    color: var(--ui-text-on-dark);
     cursor: pointer;
     font-size: 0.9rem;
 }
@@ -137,14 +137,14 @@ defineExpose({
     appearance: none;
     width: 18px;
     height: 18px;
-    border: 2px solid $pearl-grey;
+    border: 2px solid light-dark($pearl-grey, $ui-text-muted);
     background: transparent;
     cursor: pointer;
     position: relative;
 
     &:checked {
-        background: $royal-purple;
-        border-color: $royal-purple;
+        background: light-dark($royal-purple, $ui-accent);
+        border-color: light-dark($royal-purple, $ui-accent-light);
     }
 
     &:checked::after {

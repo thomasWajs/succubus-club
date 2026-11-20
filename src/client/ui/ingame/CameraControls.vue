@@ -86,10 +86,10 @@ const rightOffset = computed(() => (display.rightColumnVisible ? layout.rightCol
     line-height: 1;
     cursor: pointer;
 
-    border: 2px solid $burgundy-red;
+    border: 2px solid var(--ui-toggle-border);
     border-top: none;
-    background: $midnight-purple;
-    color: $pearl-grey;
+    background: var(--ui-toggle-bg);
+    color: var(--ui-chrome-text-muted);
     opacity: 0.7;
 
     &:hover,
@@ -103,9 +103,9 @@ const rightOffset = computed(() => (display.rightColumnVisible ? layout.rightCol
     min-width: 280px;
     padding: 8px;
 
-    border: solid 2px $shadow-grey;
-    background: $right-column-section-bg;
-    color: $shadow-grey;
+    border: solid 2px var(--ui-border);
+    background: var(--ui-section-bg);
+    color: var(--ui-panel-text);
     font-weight: 600;
 }
 
@@ -116,7 +116,7 @@ const rightOffset = computed(() => (display.rightColumnVisible ? layout.rightCol
     gap: 12px;
     margin-bottom: 0.5rem;
     padding-bottom: 0.25rem;
-    border-bottom: 2px solid $shadow-grey;
+    border-bottom: 2px solid var(--ui-border);
 
     .section-title {
         margin: 0;
@@ -144,7 +144,7 @@ const rightOffset = computed(() => (display.rightColumnVisible ? layout.rightCol
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    background: $silver-grey;
+    background: var(--ui-raised-bg);
     border-radius: 0.25rem;
     padding: 8px 10px;
     font-size: 13px;

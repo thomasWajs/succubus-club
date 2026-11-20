@@ -15,8 +15,8 @@
             @create="onBoundariesCreate"
         >
             <FxHighlightRegionDrop
-                v-if="isDraggedOver"
-                :color="getPlayerColor(handPlayer!)"
+                v-if="isDraggedOver && dropColor"
+                :color="dropColor"
             />
         </Rectangle>
 
@@ -40,18 +40,13 @@ import { Container, Rectangle, useScene } from 'phavuer'
 import CardInHandGO from '@/client/game/objects/CardInHandGO.vue'
 import { usePlayersStore } from '@/client/state/players.ts'
 import { computed, nextTick, ref } from 'vue'
-import { Colors } from '@/client/colors.ts'
+import { Colors, dropHighlightColor } from '@/client/colors.ts'
 import { HAND_HEIGHT, HAND_WIDTH, HAND_X, HAND_Y } from '@/shared/const/game.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { PhaserDataKey, RegionCategory } from '@/client/game/types.ts'
 
-import {
-    dropCoordinates,
-    getCardDragged,
-    getPlayerColor,
-    getWorldPoint,
-} from '@/client/game/utils.ts'
+import { dropCoordinates, getCardDragged, getWorldPoint } from '@/client/game/utils.ts'
 import { getFreeTableUICamera } from '@/client/game/camera.ts'
 import { display } from '@/client/game/display.ts'
 import { CardOid } from '@/shared/types/model.ts'
@@ -85,6 +80,10 @@ const isDraggedOver = ref(false)
 // Can't link directly to hand because resync will change the object
 const handPlayer = computed(() => props.player ?? players.selfPlayer)
 const hand = computed(() => handPlayer.value?.hand)
+
+const dropColor = computed(() =>
+    handPlayer.value ? dropHighlightColor(handPlayer.value) : undefined,
+)
 
 /**
  * Vue DOES NOT guarantee iterating order on ref arrays ( https://vuejs.org/guide/essentials/template-refs#refs-inside-v-for ).

@@ -158,7 +158,8 @@ const controlTargets = computed(() => {
     background-color: transparent;
     box-sizing: border-box;
     padding: 5px;
-    border-left: solid 2px black;
+    border-left: solid 2px light-dark(black, $ui-border);
+    color: var(--ui-panel-text);
 
     display: flex;
     flex-direction: column;
@@ -169,7 +170,7 @@ const controlTargets = computed(() => {
     justify-content: space-between;
     font-size: 18px;
     font-weight: bold;
-    color: $ash-grey;
+    color: light-dark($ash-grey, $ui-text);
 }
 
 .search-input {
@@ -177,6 +178,7 @@ const controlTargets = computed(() => {
     margin: 10px 0;
     padding: 5px 3px;
     font-size: 16px;
+    @include ui-input;
 }
 
 .shuffle-button {

@@ -171,8 +171,8 @@ watch(
     flex-shrink: 0;
     height: 100vh;
 
-    background-color: $purple-grey;
-    border-left: solid 4px $purple-grey;
+    background-color: var(--ui-column-bg);
+    border-left: solid 4px var(--ui-column-border);
     display: flex;
     flex-direction: column;
     position: relative;
@@ -223,7 +223,7 @@ watch(
             filter: brightness(150%);
         }
         &.active {
-            background: rgba($purple-grey, 1);
+            background: light-dark($purple-grey, $ui-accent);
         }
     }
 

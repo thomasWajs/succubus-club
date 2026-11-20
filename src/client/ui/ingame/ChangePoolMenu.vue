@@ -8,9 +8,7 @@
         Change pool for
         <span
             class="inline-player-name"
-            :style="{
-                backgroundColor: gameBus.changePool.player?.rgbaColor,
-            }"
+            :style="playerTagStyle(gameBus.changePool.player)"
         >
             {{ gameBus.changePool.player!.name }}
         </span>
@@ -54,6 +52,7 @@ import { computed, ref, watch } from 'vue'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { display } from '@/client/game/display.ts'
+import { playerTagStyle } from '@/client/colors.ts'
 
 const gameBus = useGameBusStore()
 const changePoolRef = ref<HTMLElement | null>(null)
@@ -88,7 +87,8 @@ watch(
 
 <style lang="scss">
 .pool-menu {
-    background-color: $silver-grey;
+    background-color: var(--ui-raised-bg);
+    color: var(--ui-panel-text);
     width: 450px;
     height: 150px;
 

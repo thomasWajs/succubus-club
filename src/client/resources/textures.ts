@@ -13,7 +13,6 @@ export enum Texture {
     CardbackCryptLoading = 'cardbackCryptLoading',
     CardbackLibraryLoading = 'cardbackLibraryLoading',
     TheEdgeEmblem = 'theEdgeEmblem',
-    TheEdgeBig = 'theEdgeBig',
 }
 
 // Atlas textures loaded before the game starts, keyed by atlas name

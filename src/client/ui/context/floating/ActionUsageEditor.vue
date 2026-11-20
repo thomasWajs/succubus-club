@@ -364,22 +364,24 @@ function updateX(event: Event) {
     padding: 8px 10px;
     min-width: 90px;
 
-    background: $ash-grey;
-    color: $ghost-white;
-    border: 2px solid rgba($blood-red, 0.2);
+    // Accent instead of teal for the hovered / chosen options on the dark theme. The end button
+    // keeps its blood hint.
+    background: var(--ui-floating-bg);
+    color: var(--ui-text-on-dark);
+    border: 2px solid var(--ui-floating-border);
 
     user-select: none;
     cursor: move;
 
     &.read-only {
-        border-color: rgba($ghost-white, 0.15);
+        border-color: var(--ui-floating-control-border);
     }
 
     .usage-title {
         font-size: 11px;
         letter-spacing: 0.3px;
         text-align: center;
-        color: $silver-grey;
+        color: var(--ui-text-on-dark-muted);
         text-transform: capitalize;
     }
 
@@ -398,24 +400,24 @@ function updateX(event: Event) {
         font-size: 20px;
         cursor: pointer;
 
-        background: $slate-grey;
-        color: $silver-grey;
-        border: 1px solid rgba($ghost-white, 0.15);
+        background: var(--ui-floating-control-bg);
+        color: var(--ui-text-on-dark-muted);
+        border: 1px solid var(--ui-floating-control-border);
 
         &:hover:not(.static) {
-            background: $shadow-teal;
-            color: $ghost-white;
+            background: var(--ui-floating-hover-bg);
+            color: var(--ui-text-on-dark);
         }
 
         &.selected {
-            background: $dark-teal;
-            color: $ghost-white;
-            border-color: rgba($ghost-white, 0.35);
+            background: light-dark($dark-teal, $ui-accent);
+            color: var(--ui-text-on-dark);
+            border-color: light-dark(rgba($ghost-white, 0.35), $ui-accent-light);
         }
 
         &.static {
             cursor: default;
-            background: $slate-grey;
+            background: var(--ui-floating-control-bg);
         }
     }
 
@@ -423,7 +425,7 @@ function updateX(event: Event) {
     .usage-divider {
         height: 1px;
         margin: 3px 0;
-        background: rgba($ghost-white, 0.4);
+        background: light-dark(rgba($ghost-white, 0.4), $ui-border);
     }
 
     .usage-target-button {
@@ -432,13 +434,13 @@ function updateX(event: Event) {
         text-align: center;
         cursor: pointer;
 
-        background: $slate-grey;
-        color: $silver-grey;
-        border: 1px solid rgba($ghost-white, 0.15);
+        background: var(--ui-floating-control-bg);
+        color: var(--ui-text-on-dark-muted);
+        border: 1px solid var(--ui-floating-control-border);
 
         &:hover {
-            background: $shadow-teal;
-            color: $ghost-white;
+            background: var(--ui-floating-hover-bg);
+            color: var(--ui-text-on-dark);
         }
     }
 
@@ -448,16 +450,23 @@ function updateX(event: Event) {
         justify-content: center;
         gap: 6px;
         font-size: 12px;
-        color: $silver-grey;
+        color: var(--ui-text-on-dark-muted);
 
         .usage-x-select {
             padding: 2px 4px;
             font-size: 12px;
             cursor: pointer;
 
-            background: $slate-grey;
-            color: $ghost-white;
-            border: 1px solid rgba($ghost-white, 0.15);
+            background: light-dark($slate-grey, $ui-section);
+            color: var(--ui-text-on-dark);
+            border: 1px solid var(--ui-floating-control-border);
+
+            @include dark-ui {
+                &:focus {
+                    outline: none;
+                    border-color: $ui-accent-light;
+                }
+            }
         }
     }
 
@@ -469,13 +478,13 @@ function updateX(event: Event) {
         text-align: center;
         cursor: pointer;
 
-        background: rgba($blood-red, 0.2);
-        color: $ghost-white;
-        border: 1px solid rgba($blood-red, 0.35);
+        background: light-dark(rgba($blood-red, 0.2), $ui-danger);
+        color: var(--ui-text-on-dark);
+        border: 1px solid light-dark(rgba($blood-red, 0.35), $ui-danger-border);
 
         &:hover {
-            background: rgba($blood-red, 0.4);
-            color: $ghost-white;
+            background: light-dark(rgba($blood-red, 0.4), $ui-danger-border);
+            color: var(--ui-text-on-dark);
         }
     }
 }

@@ -65,5 +65,39 @@ $right-column-section-bg: $pearl-grey;
 
 // top area
 $central-panel-surface: rgba($pearl-grey, 0.7);
+$teal-accent: #2f4b4b; // light theme : the current state ( turn, phase ), muted so it differs from the game buttons
+$teal-accent-light: #8cc2bd;
+
+// Dark in-game theme ( dark values of the `--ui-*` tokens in `_theme.scss` ). Keep in sync with the DARK_* constants
+// in src/shared/const/game.ts
+// Neutral greys, darker than the charcoal tabletop so the chrome frames it. Purple only on accents.
+$ui-tabletop: #38383a; // average colour of the charcoal tabletop : covers it without a flash
+$ui-background: #1b1a1d; // opaque chrome ( right column )
+// Opaque : the central panels can overlap the play areas, whose texts would show through
+$ui-surface: #1e1d20; // panels laid over the tabletop
+$ui-section: #232225; // sections inside the right column
+$ui-surface-raised: #2e2d31; // controls inside a panel
+$ui-border: #47454b;
+$ui-text: #e6e4e8;
+$ui-text-muted: #9c99a1;
+$ui-accent: #382749; // muted purple : the current state ( active, hovered in menus ), not buttons
+$ui-accent-border: #664e7e;
+$ui-accent-light: #9b80d6; // violet, not dusty lavender ( that one leans pink on the dark chrome )
+$ui-surface-hover: #3a393e; // hovered menu rows
+$ui-outline: #121114; // dark rim around floating menus, so their edge reads on any background
+$ui-danger: #3a2729; // destructive buttons ( Cancel )
+$ui-danger-border: #5a3a3c;
+// Card names ( logs, action infos ) : pale tints, kept apart from the seat colors
+$ui-crypt-card: #d8c2a4;
+$ui-library-card: #b1c6bb;
+$ui-in-favour: #8cc48f; // referendum sides
+$ui-against: #d98a8a;
+$ui-danger-text: $rose-red; // time-critical / cancelled texts ( blood red is too dark on the dark UI )
+
+// Fonts ( `_fonts.scss` ). The Phaser texts use their own font, see src/client/game/textFont.ts
+$ui-font: 'Source Sans 3', 'Segoe UI', Tahoma, sans-serif;
+$ui-title-font: 'Cormorant SC', Georgia, serif; // a few titles only, never buttons nor numbers
+$font-serif: 'Times New Roman', serif; // Windows and macOS ; other systems get their default serif
+$font-mono: monospace;
 $game-mutations-width: 225px;
 $right-controls-width: 262px;

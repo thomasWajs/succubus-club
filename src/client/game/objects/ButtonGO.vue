@@ -11,7 +11,7 @@
         :scale="scale"
         :rotation="rotation"
         :lineWidth="BUTTON_BORDER_WIDTH"
-        :strokeColor="borderColor.color"
+        :strokeColor="border.color"
         :fillColor="bgColor.color"
         :fillAlpha="bgColor.alphaGL"
         :depth="depth"
@@ -46,12 +46,7 @@ import { PhaserDataKey } from '@/client/game/types.ts'
 import Color = Phaser.Display.Color
 import Pointer = Phaser.Input.Pointer
 
-const {
-    name,
-    textStyle,
-    backgroundColor = Colors.BUTTON_BACKGROUND,
-    borderColor = Colors.BUTTON_BORDER,
-} = defineProps<{
+const { name, textStyle, backgroundColor, borderColor } = defineProps<{
     x: number
     y: number
     width: number
@@ -95,8 +90,11 @@ function onClick(pointer: Pointer) {
     emit('click', pointer)
 }
 
+// Default colors are resolved here ( not as prop defaults ) so they follow the UI theme
+const border = computed(() => borderColor ?? Colors.BUTTON_BORDER)
 const bgColor = computed(() => {
-    return isHovered.value ? backgroundColor.clone().brighten(12) : backgroundColor
+    const background = backgroundColor ?? Colors.BUTTON_BACKGROUND
+    return isHovered.value ? background.clone().brighten(12) : background
 })
 
 function bringToTop() {

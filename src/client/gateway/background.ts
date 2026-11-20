@@ -1,6 +1,9 @@
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { db } from '@/client/gateway/db.ts'
+import { isLightUi } from '@/client/gateway/uiTheme.ts'
 import {
+    DARK_REGION_LUMINANCE_MAX,
+    DARK_REGION_LUMINANCE_MIN,
     OPAQUE_ALPHA,
     REGION_ALPHA,
     REGION_LUMINANCE_MAX,
@@ -13,7 +16,8 @@ import {
  *
  * The background can be one of:
  *  - a built-in background: a tileable texture shipped as a static asset,
- *    referenced by name (the default for new users is {@link DEFAULT_BACKGROUND}).
+ *    referenced by name (when the user never picked one, the UI theme decides, see
+ *    {@link defaultBackground}).
  *  - a custom background: an image uploaded by the user, stored as a Blob in
  *    IndexedDB (well suited for binary data and kept out of the frequently-saved
  *    user profile).
@@ -25,10 +29,46 @@ import {
  * changes and revoked to avoid leaks.
  */
 
-export const BUILTIN_BACKGROUNDS = ['grey', 'beige', 'black', 'brown', 'purple', 'wood'] as const
+export const BUILTIN_BACKGROUNDS = [
+    'charcoal',
+    'grey',
+    'beige',
+    'black',
+    'brown',
+    'purple',
+    'wood',
+] as const
 export type BuiltinBackground = (typeof BUILTIN_BACKGROUNDS)[number]
 
-export const DEFAULT_BACKGROUND: BuiltinBackground = 'grey'
+/**
+ * Built-ins drawn as seamless tiles at their image size ( one image pixel per CSS pixel ) : not
+ * stretched on large screens. The others are stretched over the table ( `cover` ).
+ */
+const BUILTIN_TILE_SIZES: Partial<Record<BuiltinBackground, number>> = {
+    charcoal: 1280,
+}
+
+/**
+ * Average colour of each built-in, shown as a uniform colour until its image is loaded ( otherwise
+ * the table stays black meanwhile ).
+ */
+const BUILTIN_AVERAGE_COLORS: Record<BuiltinBackground, string> = {
+    charcoal: '#373739',
+    grey: '#7b7b7b',
+    beige: '#9a8470',
+    black: '#181815',
+    brown: '#333b22',
+    purple: '#4f4256',
+    wood: '#835527',
+}
+
+const LIGHT_DEFAULT_BACKGROUND: BuiltinBackground = 'grey'
+const DARK_DEFAULT_BACKGROUND: BuiltinBackground = 'charcoal'
+
+/** The background used until the user picks one : it follows the UI theme. */
+const defaultBackground = computed<BuiltinBackground>(() =>
+    isLightUi.value ? LIGHT_DEFAULT_BACKGROUND : DARK_DEFAULT_BACKGROUND,
+)
 
 const SETTINGS_KEY = 'tabletopBackground'
 
@@ -36,8 +76,10 @@ export function builtinBackgroundUrl(name: BuiltinBackground): string {
     return `/assets/tabletopBackground/${name}.jpg`
 }
 
+// The built-in background picked by the user, or null when they never picked one.
+const pickedBuiltinName = ref<BuiltinBackground | null>(null)
 // The active built-in background name (used when no custom image is set).
-const builtinName = ref<BuiltinBackground>(DEFAULT_BACKGROUND)
+const builtinName = computed(() => pickedBuiltinName.value ?? defaultBackground.value)
 // Object URL for a custom uploaded background, or null when using a built-in.
 const customBackgroundUrl = ref<string | null>(null)
 
@@ -56,20 +98,33 @@ export const tabletopBackgroundUrl = computed(
 
 /**
  * Style to apply on the background elements (`#PhavuerGame`, `#LoadingBackground`).
- * Built-in backgrounds are tileable textures (repeated); a custom image is shown
- * cover/centered without tiling.
+ * Built-in backgrounds are tileable textures (repeated), see {@link BUILTIN_TILE_SIZES};
+ * a custom image is shown cover/centered without tiling.
  */
 export const tabletopBackgroundStyle = computed(() => {
+    const tileSize = customBackgroundUrl.value ? undefined : BUILTIN_TILE_SIZES[builtinName.value]
     return {
         backgroundImage:
             customBackgroundUrl.value ?
                 `url("${customBackgroundUrl.value}")`
             :   `url("${builtinBackgroundUrl(builtinName.value)}")`,
         backgroundRepeat: 'repeat',
-        backgroundSize: 'cover',
+        backgroundSize: tileSize ? `${tileSize}px` : 'cover',
         backgroundPosition: 'center',
     }
 })
+
+/**
+ * {@link tabletopBackgroundStyle} plus a uniform colour close to the background, visible until the
+ * image is loaded. Not for `#LoadingBackground`, whose own background colour darkens the image.
+ */
+export const tabletopBackgroundWithFallbackStyle = computed(() => ({
+    ...tabletopBackgroundStyle.value,
+    backgroundColor:
+        customBackgroundUrl.value ?
+            `rgb(${backgroundAverage.value.r}, ${backgroundAverage.value.g}, ${backgroundAverage.value.b})`
+        :   BUILTIN_AVERAGE_COLORS[builtinName.value],
+}))
 
 /**
  * Play area fill.
@@ -98,9 +153,17 @@ function clampByte(value: number): number {
     return Math.min(255, Math.max(0, Math.round(value)))
 }
 
+/** The luminance range the play areas are clamped to : light or dark, after the UI theme. */
+export const regionLuminanceRange = computed(() =>
+    isLightUi.value ?
+        { min: REGION_LUMINANCE_MIN, max: REGION_LUMINANCE_MAX }
+    :   { min: DARK_REGION_LUMINANCE_MIN, max: DARK_REGION_LUMINANCE_MAX },
+)
+
 const regionShift = computed(() => {
     const lum = luminance(backgroundAverage.value)
-    return Math.min(REGION_LUMINANCE_MAX, Math.max(REGION_LUMINANCE_MIN, lum)) - lum
+    const { min, max } = regionLuminanceRange.value
+    return Math.min(max, Math.max(min, lum)) - lum
 })
 
 /** The colour the play areas appear as : the background with its luminance clamped. */
@@ -178,32 +241,62 @@ function setCustomBlob(blob: Blob | null) {
     customBackgroundUrl.value = blob ? URL.createObjectURL(blob) : null
 }
 
-/** Load the persisted background selection. Call once at startup. */
+/** Load the persisted background selection. Call once at startup, after the UI theme. */
 export async function initTabletopBackground() {
     const value = (await db.settings.get(SETTINGS_KEY))?.value
     if (value instanceof Blob) {
         setCustomBlob(value)
     } else {
         setCustomBlob(null)
-        builtinName.value =
+        pickedBuiltinName.value =
             BUILTIN_BACKGROUNDS.includes(value as BuiltinBackground) ?
                 (value as BuiltinBackground)
-            :   DEFAULT_BACKGROUND
+            :   null
     }
     await refreshBackgroundAverage()
+    preloadThemeDefaults()
+
+    // Follow later changes : user selection, or the theme changing the default background
+    watch(tabletopBackgroundUrl, refreshBackgroundAverage)
+    // A background picked for one theme is usually illegible with the other : switching the
+    // theme goes back to its default background
+    watch(isLightUi, resetTabletopBackground)
+}
+
+// Kept referenced, so that the browser keeps the decoded images in its memory cache
+const preloadedImages: HTMLImageElement[] = []
+
+/**
+ * Load the default background of both themes in advance : switching the theme then shows the
+ * new background at once instead of waiting for its download.
+ */
+function preloadThemeDefaults() {
+    for (const name of [LIGHT_DEFAULT_BACKGROUND, DARK_DEFAULT_BACKGROUND]) {
+        const image = new Image()
+        image.src = builtinBackgroundUrl(name)
+        image.decode().catch(() => {
+            // Not critical : the background will be loaded when displayed
+        })
+        preloadedImages.push(image)
+    }
+}
+
+/** Forget the user selection : the default background of the UI theme applies again. */
+async function resetTabletopBackground() {
+    setCustomBlob(null)
+    pickedBuiltinName.value = null
+    await db.settings.delete(SETTINGS_KEY)
 }
 
 /** Store a custom uploaded background and make it active. */
 export async function setTabletopBackground(blob: Blob) {
     await db.settings.put({ key: SETTINGS_KEY, value: blob })
     setCustomBlob(blob)
-    await refreshBackgroundAverage()
 }
 
 /** Select one of the built-in backgrounds. */
 export async function setBuiltinBackground(name: BuiltinBackground) {
     await db.settings.put({ key: SETTINGS_KEY, value: name })
     setCustomBlob(null)
-    builtinName.value = name
-    await refreshBackgroundAverage()
+    pickedBuiltinName.value = name
 }

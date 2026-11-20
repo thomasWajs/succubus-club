@@ -10,7 +10,7 @@
 
             <span class="turn-number"> Turn<br />#{{ gameState.turnNumber }} </span>
             <span
-                :style="{ backgroundColor: gameState.activePlayer?.rgbaColor }"
+                :style="playerTagStyle(gameState.activePlayer)"
                 class="active-player inline-player-name"
             >
                 {{ gameState.activePlayer?.shortName }}
@@ -70,6 +70,7 @@ import { TurnSequence } from '@/shared/const/model.ts'
 import { useCommands } from '@/client/game/composables/useCommands.ts'
 import CommandButton from '@/client/ui/ingame/CommandButton.vue'
 import TimerDisplay from '@/client/ui/ingame/topArea/TimerDisplay.vue'
+import { playerTagStyle } from '@/client/colors.ts'
 
 const gameState = useGameStateStore()
 const players = usePlayersStore()
@@ -78,7 +79,7 @@ const commands = useCommands()
 
 <style lang="scss">
 .turn-controls {
-    color: $shadow-grey;
+    color: var(--ui-panel-text);
     font-weight: bold;
     font-size: 14px;
 
@@ -89,25 +90,38 @@ const commands = useCommands()
 
     .turn {
         height: 35px;
-        width: 225px;
+        // Same width as .game-mutations below : both blocks share their left and right edges
+        width: $game-mutations-width;
         justify-self: left;
         @include flex-center;
         align-items: stretch;
 
         .turn-number {
             @include flex-center;
-            background: $lighter-teal;
+            // Same fill as the active phase box. Muted purple on the dark theme = the current state
+            // ( turn, phase ), apart from the grey name cell and buttons
+            background: var(--ui-current-bg);
+            color: var(--ui-contrast-text);
+            border: solid 1px var(--ui-border);
             padding: 0 5px;
             white-space: nowrap;
         }
 
+        // Light : filled with the seat color ( inline background ). Dark : the name colored ( inline
+        // color ), in a raised cell. Wide for longer names, still within the block width.
         .active-player {
+            background: light-dark(transparent, $ui-surface-raised);
             display: block;
             text-align: center;
             line-height: 35px;
-            width: 100px;
-            max-width: 100px;
+            width: 119px;
+            max-width: 119px;
             padding: 0 5px;
+            border: solid 1px var(--ui-border);
+            border-left: none;
+            border-right: none;
+            box-sizing: border-box;
+            font-weight: bold;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -140,21 +154,25 @@ const commands = useCommands()
             @include flex-center;
             width: 32px;
             height: 35px;
-            border: solid 1px $shadow-grey;
-            background: $pearl-grey;
-            color: $ash-grey;
+            border: solid 1px var(--ui-border);
+            background: light-dark($silver-grey, $ui-surface);
+            color: var(--ui-label-text);
             box-sizing: border-box;
 
-            opacity: 0.7;
-
-            &.active {
-                background: $lighter-teal;
-                color: black;
-                width: 70px;
-                opacity: 1;
-            }
             &:not(.active) {
                 cursor: pointer;
+            }
+
+            &:not(.active):hover {
+                color: light-dark(black, $ui-text);
+                background: light-dark($pearl-grey, $ui-surface-raised);
+            }
+
+            &.active {
+                background: var(--ui-current-bg);
+                border-bottom: solid 2px var(--ui-current-marker);
+                color: var(--ui-contrast-text);
+                width: 70px;
             }
         }
     }

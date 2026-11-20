@@ -299,7 +299,7 @@ function onImageError() {
     display: flex;
     flex-direction: column;
     gap: 2rem;
-    font-family: monospace;
+    font-family: $font-mono;
     color: $pearl-grey;
 }
 

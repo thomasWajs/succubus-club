@@ -193,11 +193,15 @@ function pingCardsDuringCurrentPhase() {
 .cards-during-current-phase {
     display: flex;
     align-items: center;
-    background-color: $pale-grey;
+    background-color: light-dark($pale-grey, $ui-surface);
+    border: solid 1px var(--ui-subtle-border);
+    color: var(--ui-panel-text-muted);
     padding: 0 5px;
 
     &.has-effect {
         background-color: darken(desaturate(rgba(180, 90, 40, 0.8), 15%), 5%);
+        border-color: $mist-grey;
+        color: var(--ui-panel-text);
         transition: background-color 0.4s linear;
         cursor: pointer;
     }
@@ -277,8 +281,8 @@ function pingCardsDuringCurrentPhase() {
                 min-width: 26px;
 
                 padding: 3px 0;
-                border: 1px solid $silver-grey;
-                background: $dark-teal;
+                border: 1px solid var(--ui-control-border);
+                background: var(--ui-control-bg);
                 color: white;
                 cursor: pointer;
 

@@ -1,13 +1,12 @@
 @use 'variables' as *;
 @use 'mixins' as *;
-@use 'sass:color';
 
 @use 'normalize';
 
 /** General Styles **/
 
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: $ui-font;
     background-color: black;
     color: $ghost-white;
 }
@@ -18,12 +17,12 @@ a {
 }
 
 kbd {
-    background-color: $silver-grey;
-    color: $shadow-grey;
+    background-color: var(--ui-raised-bg);
+    color: var(--ui-panel-text);
 
     border-radius: 0.25rem;
-    border: 1px solid $bone-grey;
-    box-shadow: 0 2px 0 1px $bone-grey;
+    border: 1px solid var(--ui-kbd-border);
+    box-shadow: 0 2px 0 1px var(--ui-kbd-border);
 
     font-size: 12px;
     line-height: 1;
@@ -33,6 +32,12 @@ kbd {
     padding: 2px 5px;
     position: relative;
     top: -1px;
+
+    // Flat key on the dark theme : a thicker bottom border stands for the key depth
+    @include dark-ui {
+        border-bottom-width: 3px;
+        box-shadow: none;
+    }
 }
 
 /** Menu styles **/
@@ -60,7 +65,7 @@ kbd {
     @include input-base;
     min-height: 250px;
     resize: vertical;
-    font-family: monospace;
+    font-family: $font-mono;
     font-size: 0.85rem;
     line-height: 1.4;
 }
@@ -185,18 +190,18 @@ select {
 .game-button {
     padding: 5px 5px;
 
-    border: 1px solid $shadow-grey;
-    $button-darker-teal: color.adjust($dark-teal, $lightness: -3%);
+    border: 1px solid var(--ui-border);
+    // Gradient on the light theme, flat on the dark one ( both stops are the same color )
     background: linear-gradient(
         125deg,
-        $dark-teal 0%,
-        $button-darker-teal 20%,
-        $button-darker-teal 80%,
-        $dark-teal 100%
+        var(--ui-control-bg) 0%,
+        var(--ui-button-bg) 20%,
+        var(--ui-button-bg) 80%,
+        var(--ui-control-bg) 100%
     );
-    color: white;
+    color: var(--ui-contrast-text);
 
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: $ui-font;
     font-size: 13px;
     font-weight: 600;
 
@@ -210,7 +215,7 @@ select {
 
     &:disabled {
         opacity: 0.6;
-        color: $pearl-grey;
+        color: var(--ui-chrome-text-muted);
         cursor: not-allowed;
     }
 
@@ -221,19 +226,20 @@ select {
     }
 
     &.is-muted {
-        background: $shadow-grey;
-        color: $pearl-grey;
-        border-color: $pale-grey;
+        background: var(--ui-button-muted-bg);
+        color: var(--ui-button-muted-text);
+        border-color: var(--ui-button-muted-border);
     }
 
     &.is-danger {
-        background: $burgundy-red;
+        background: var(--ui-button-danger-bg);
+        border-color: var(--ui-button-danger-border);
     }
 }
 
 .floating-menu {
     position: absolute;
-    border: solid 2px $shadow-grey;
+    border: solid 2px var(--ui-border);
     padding: 5px;
     font-weight: 600;
 }
@@ -243,13 +249,26 @@ select {
 
     display: flex;
     flex-direction: column;
-    background: $shadow-teal;
+    background: var(--ui-menu-bg);
     z-index: 1050;
+    // A thin border plus a dark outline : the edge reads over the cards as over the table
+    border-width: 1px;
+    outline: solid 1px var(--ui-menu-outline);
 
+    // Hovered rows get a lighter fill and an accent marker on the left
     .game-button {
         margin-bottom: 2px;
         border: none;
-        background: $shadow-teal;
+        background: var(--ui-menu-bg);
+
+        &:hover:not(:disabled) {
+            filter: none;
+            background: linear-gradient(
+                to right,
+                var(--ui-accent-line) 2px,
+                var(--ui-menu-hover-bg) 2px
+            );
+        }
     }
 }
 
@@ -266,10 +285,10 @@ select {
 .game-tooltip {
     position: absolute;
     padding: 8px 12px;
-    border: solid 1px black;
+    border: solid 1px var(--ui-tooltip-border);
 
-    background: $ash-grey;
-    color: $ghost-white;
+    background: var(--ui-floating-bg);
+    color: var(--ui-text-on-dark);
 
     white-space: nowrap;
     pointer-events: none;

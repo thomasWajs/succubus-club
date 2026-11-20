@@ -14,7 +14,7 @@
             :y="0"
             :radius="RADIUS"
             :lineWidth="2"
-            :strokeColor="playerColor.color"
+            :strokeColor="borderColor.color"
             :fillColor="Colors.REGION_BACKGROUND.color"
             :fillAlpha="Colors.REGION_BACKGROUND.alphaGL"
         />
@@ -22,7 +22,7 @@
         <!-- Username -->
         <Text
             :text="player.shortName"
-            :style="{ color: playerColor.rgba, fontStyle: 'Bold', fontSize: '16px' }"
+            :style="{ color: nameColor, fontSize: '16px' }"
             :origin="0.5"
             :x="0"
             :y="USERNAME_Y"
@@ -95,7 +95,7 @@
             :y="0"
             :radius="RADIUS"
             :lineWidth="playerIsOutlined ? CARD_OUTLINE_THICKNESS : 1"
-            :strokeColor="playerIsOutlined ? Colors.CARD_OUTLINE_HOVER.color : playerColor.color"
+            :strokeColor="playerIsOutlined ? Colors.CARD_OUTLINE_HOVER.color : borderColor.color"
             @pointerover="isTargetHovered = true"
             @pointerout="isTargetHovered = false"
         />
@@ -106,7 +106,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { GameObjects } from 'phaser'
 import { Circle, Container, refObj, Text } from 'phavuer'
-import { Colors } from '@/client/colors.ts'
+import { Colors, playAreaColor, playerNameRgba } from '@/client/colors.ts'
 import { CARD_OUTLINE_THICKNESS, FREE_TABLE_WIDGET_RADIUS } from '@/shared/const/game.ts'
 import { PhaserDataKey } from '@/client/game/types.ts'
 import { Player } from '@/shared/model/Player.ts'
@@ -114,7 +114,6 @@ import { Point2D } from '@/shared/types/model.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
-import { getPlayerColor } from '@/client/game/utils.ts'
 import { cameraTick, getFreeTableCameraRotation } from '@/client/game/camera.ts'
 import { useWidgetDrag } from '@/client/game/composables/useWidgetDrag.ts'
 import PoolWidget from '@/client/game/objects/PoolWidget.vue'
@@ -156,7 +155,10 @@ const BOX_HEIGHT = 24
 const players = usePlayersStore()
 const gameBus = useGameBusStore()
 
-const playerColor = getPlayerColor(player)
+// The seat color in light ; in dark the border is neutral and only the name is colored, like the
+// play areas ( see PlayAreaGO.vue )
+const borderColor = computed(() => playAreaColor(player))
+const nameColor = computed(() => playerNameRgba(player))
 
 /**
  * The widget body no longer faces the table center ( which left opponents'

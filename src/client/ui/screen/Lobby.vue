@@ -695,7 +695,7 @@ if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
 .player-name {
     font-size: 0.9rem;
     color: $pearl-grey;
-    font-family: serif;
+    font-family: $font-serif;
 }
 
 /**
@@ -843,7 +843,7 @@ if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
         margin: 0 0 0 0.5rem;
         font-size: 1.1rem;
         font-weight: 400;
-        font-family: serif;
+        font-family: $font-serif;
         line-height: 1.2;
     }
 }

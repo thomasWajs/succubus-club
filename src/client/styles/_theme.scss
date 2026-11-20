@@ -1,0 +1,115 @@
+@use 'sass:color';
+@use 'variables' as *;
+
+// In-game UI theme tokens ( see src/client/gateway/uiTheme.ts ).
+//
+// `uiTheme.ts` sets `data-ui-theme` on the root element, which sets `color-scheme` here. Each token
+// is a pair `light-dark( light value, dark value )` : components read `var(--ui-...)` and need no
+// per-theme override, states ( hover, disabled... ) are written once.
+//
+// `light-dark()` only switches colors. Rules that differ structurally between themes ( widths,
+// shadows, other properties ) still use the `dark-ui` mixin.
+//
+// Emitted once, from `main.scss`. The dark values are the `$ui-*` variables, which must stay in
+// sync with the DARK_* constants in src/shared/const/game.ts ( Phaser side ).
+//
+// Tokens are for roles shared by several components. A one-off pair in a component is written
+// inline : `color: light-dark($blood-red, $ui-danger-text)`.
+
+@mixin token($name, $light, $dark) {
+    --ui-#{$name}: light-dark(#{$light}, #{$dark});
+}
+
+:root {
+    color-scheme: light;
+
+    &[data-ui-theme='dark'] {
+        color-scheme: dark;
+    }
+
+    // Borders of controls and floating panels
+    @include token('border', $shadow-grey, $ui-border);
+    @include token('subtle-border', $mist-grey, $ui-border);
+    @include token('divider', rgba($shadow-grey, 0.4), $ui-border);
+
+    // Panels laid over the tabletop ( top area : central panels, timer, controls bar )
+    @include token('panel-bg', $central-panel-surface, $ui-surface);
+    @include token('panel-text', $shadow-grey, $ui-text);
+    @include token('panel-text-muted', $shadow-grey, $ui-text-muted);
+
+    // Sections of the right column, and the column itself
+    @include token('section-bg', $right-column-section-bg, $ui-section);
+    @include token('column-bg', $purple-grey, $ui-background);
+    @include token('column-border', $purple-grey, $ui-border);
+    @include token('label-text', $bone-grey, $ui-text-muted);
+
+    // Raised plates : keys, chips, rows
+    @include token('raised-bg', $silver-grey, $ui-surface-raised);
+
+    // Texts over dark fills ( the light theme has dark panels too ) : floating panels, referendum
+    // sides, menus. `contrast-text` is the pure white of the teal controls
+    @include token('text-on-dark', $ghost-white, $ui-text);
+    @include token('text-on-dark-muted', $silver-grey, $ui-text-muted);
+    @include token('contrast-text', white, $ui-text);
+    @include token('chrome-text-muted', $pearl-grey, $ui-text-muted);
+
+    // Card names ( logs, action infos )
+    @include token('crypt-card', $crypt-orange, $ui-crypt-card);
+    @include token('library-card', $library-green, $ui-library-card);
+
+    // Meaning colours for texts : referendum sides, accent, time-critical
+    @include token('in-favour', $dark-forest, $ui-in-favour);
+    @include token('against', $wine-crimson, $ui-against);
+    @include token('accent-text', $royal-purple, $ui-accent-light);
+    @include token('danger-text', $blood-red, $ui-danger-text);
+
+    // Accent lines : focused inputs, hovered menu rows, active tabs
+    @include token('accent-line', $lighter-teal, $ui-accent-light);
+    // Borders of what just changed ( turn notification, Edge hint )
+    @include token('highlight-border', $light-teal, $ui-accent-light);
+
+    // The current state ( turn, phase ) : muted, so it differs from the game buttons
+    @include token('current-bg', $teal-accent, $ui-accent);
+    @include token('current-marker', $teal-accent-light, $ui-accent-light);
+
+    // Teal controls ( small buttons, chat send, edges of the game buttons )
+    @include token('control-bg', $dark-teal, $ui-surface-raised);
+    @include token('control-border', $silver-grey, $ui-border);
+
+    // Toggles on the dark purple chrome ( camera controls, chat commands )
+    @include token('toggle-bg', $midnight-purple, $ui-surface-raised);
+    @include token('toggle-border', $burgundy-red, $ui-border);
+
+    // Heads-up bubble
+    @include token('callout-bg', $shadow-purple, $ui-accent);
+
+    // Game buttons ( `.game-button` ) : the light theme has a teal gradient, the dark one a flat fill
+    @include token('button-bg', color.adjust($dark-teal, $lightness: -3%), $ui-surface-raised);
+    @include token('button-muted-bg', $shadow-grey, $ui-surface-raised);
+    @include token('button-muted-text', $pearl-grey, $ui-text);
+    @include token('button-muted-border', $pale-grey, $ui-border);
+    @include token('button-danger-bg', $burgundy-red, $ui-danger);
+    @include token('button-danger-border', $shadow-grey, $ui-danger-border);
+
+    // Floating panels : action cloud, usage editor, tooltips, dialogs
+    @include token('floating-bg', $ash-grey, $ui-surface-raised);
+    @include token('floating-border', rgba($blood-red, 0.2), $ui-border);
+    @include token('floating-control-bg', $slate-grey, $ui-surface);
+    @include token('floating-control-border', rgba($ghost-white, 0.15), $ui-border);
+    @include token('floating-hover-bg', $shadow-teal, $ui-accent);
+
+    // Context menus
+    @include token('menu-bg', $shadow-teal, $ui-surface-raised);
+    @include token('menu-outline', $shadow-grey, $ui-outline);
+    @include token('menu-hover-bg', color.adjust($shadow-teal, $lightness: 8%), $ui-surface-hover);
+
+    // Tooltips ( on the floating panel colors )
+    @include token('tooltip-border', black, $ui-border);
+
+    // Keyboard keys ( `kbd` )
+    @include token('kbd-border', $bone-grey, $ui-border);
+
+    // Text inputs ( `ui-input` mixin )
+    @include token('input-bg', $ghost-white, $ui-section);
+    @include token('input-border', $slate-grey, $ui-border);
+}

@@ -112,6 +112,7 @@ import SelectionArea from '@/client/game/objects/SelectionArea.vue'
 import CardGroupGO from '@/client/game/objects/CardGroupGO.vue'
 import { createFreeTableUICamera, setupCamera } from '@/client/game/camera.ts'
 import { setupTextResolution } from '@/client/game/textResolution.ts'
+import { setupTextFont } from '@/client/game/textFont.ts'
 import { setupKeyboardHandlers, setupPointerHandlers } from '@/client/game/input.ts'
 import { useTargetArrows } from '@/client/game/composables/useTargetArrows.ts'
 import RegionGO from '@/client/game/objects/RegionGO.vue'
@@ -144,6 +145,7 @@ function init(_scene: Phaser.Scene) {
     setupCamera(scene)
     uiCamera = createFreeTableUICamera(scene)
     setupTextResolution(scene)
+    setupTextFont(scene)
     setupPointerHandlers(scene)
     setupKeyboardHandlers(scene)
     setupDisplayWatcher()

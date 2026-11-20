@@ -79,7 +79,12 @@ watch(
     height: 100vh;
     overflow: hidden;
     display: flex;
-    color: $shadow-grey;
+    // Inherited by everything that sets no colour of its own
+    color: var(--ui-panel-text);
+
+    font-family: $ui-font;
+    // Equal-width digits : counters and timers don't shift when they change
+    font-variant-numeric: tabular-nums;
 }
 
 .loading-screen {
@@ -113,14 +118,14 @@ watch(
         0 0 20px rgba($ghost-white, 0.5),
         2px 2px 4px rgba(black, 0.8);
     animation: gothic-pulse 2s ease-in-out infinite;
-    font-family: serif;
+    font-family: $font-serif;
     font-weight: bold;
 }
 
 .loading-text {
     font-size: 1.8rem;
     color: $ghost-white;
-    font-family: serif;
+    font-family: $ui-title-font;
     font-weight: 300;
     letter-spacing: 0.3em;
     text-transform: uppercase;
@@ -137,7 +142,7 @@ watch(
         font-size: 2rem;
         color: $mist-grey;
         animation: ellipsis-fade 1.5s ease-in-out infinite;
-        font-family: serif;
+        font-family: $font-serif;
         text-shadow: 1px 1px 2px rgba(black, 0.8);
 
         &:nth-child(2) {
@@ -168,7 +173,8 @@ watch(
 .focus-overlay {
     position: absolute;
     inset: 0;
-    background: $pale-grey;
+    // Close to the tabletop of each theme ( grey, charcoal ), so the cover doesn't flash
+    background: light-dark($pale-grey, $ui-tabletop);
     opacity: 1;
     z-index: 1500;
     pointer-events: none;

@@ -22,7 +22,7 @@
                 >
                     <span
                         class="inline-player-name methuselah-votes-player"
-                        :style="{ backgroundColor: row.player.rgbaColor }"
+                        :style="playerTagStyle(row.player)"
                     >
                         {{ row.player.shortName }}
                     </span>
@@ -201,6 +201,7 @@ import {
 import { Player } from '@/shared/model/Player.ts'
 import PropertyStepper from '@/client/ui/components/PropertyStepper.vue'
 import CentralPanel from '@/client/ui/ingame/topArea/central/CentralPanel.vue'
+import { playerTagStyle } from '@/client/colors.ts'
 
 const props = defineProps<{
     referendum: ReferendumState
@@ -336,6 +337,8 @@ $referendum-tab-offset: ($game-mutations-width - $right-controls-width) * 0.5;
     // edge is the panel's padding edge, so it sits right over the top border,
     // which it hides because both share the same opaque surface.
     .referendum-title {
+        @include ui-title;
+        font-size: 18px;
         position: absolute;
         bottom: 100%;
         // 1px : the panel's border sits between its border box and padding box
@@ -346,9 +349,8 @@ $referendum-tab-offset: ($game-mutations-width - $right-controls-width) * 0.5;
         display: flex;
         align-items: center;
         justify-content: center;
-        background: $central-panel-surface;
-        border: solid 1px $shadow-grey;
-        font-weight: bold;
+        background: var(--ui-panel-bg);
+        border: solid 1px var(--ui-border);
         white-space: nowrap;
     }
 
@@ -415,7 +417,7 @@ $referendum-tab-offset: ($game-mutations-width - $right-controls-width) * 0.5;
         justify-content: space-between;
         gap: 0.4rem;
         padding-left: 1rem;
-        border-left: solid 1px rgba($shadow-grey, 0.4);
+        border-left: solid 1px var(--ui-divider);
     }
 
     .referendum-tally,
@@ -461,17 +463,17 @@ $referendum-tab-offset: ($game-mutations-width - $right-controls-width) * 0.5;
         }
 
         &.in-favour .tally-amount {
-            color: $dark-forest;
+            color: var(--ui-in-favour);
         }
 
         &.against .tally-amount {
-            color: $wine-crimson;
+            color: var(--ui-against);
         }
 
         // The side that carried an uninterrupted last call
         &.is-winner {
-            border-color: $shadow-grey;
-            background: rgba($ghost-white, 0.9);
+            border-color: light-dark($shadow-grey, $ui-accent-light);
+            background: light-dark(rgba($ghost-white, 0.9), $ui-surface-raised);
         }
     }
 
@@ -486,7 +488,7 @@ $referendum-tab-offset: ($game-mutations-width - $right-controls-width) * 0.5;
         justify-content: center;
         gap: 0.5rem;
         padding: 2px 4px;
-        border: solid 1px $royal-purple;
+        border: solid 1px light-dark($royal-purple, $ui-border);
     }
 
     .subreferendum-title {
@@ -494,7 +496,7 @@ $referendum-tab-offset: ($game-mutations-width - $right-controls-width) * 0.5;
         font-weight: bold;
         text-transform: uppercase;
         letter-spacing: 0.5px;
-        color: $royal-purple;
+        color: var(--ui-accent-text);
     }
 
     .subreferendum-side {
@@ -505,16 +507,16 @@ $referendum-tab-offset: ($game-mutations-width - $right-controls-width) * 0.5;
         border: solid 1px transparent;
 
         &.in-favour {
-            color: $dark-forest;
+            color: var(--ui-in-favour);
         }
 
         &.against {
-            color: $wine-crimson;
+            color: var(--ui-against);
         }
 
         // The side that carried the subreferendum, and so granted its votes
         &.is-winner {
-            border-color: $royal-purple;
+            border-color: var(--ui-accent-text);
         }
     }
 
@@ -522,7 +524,7 @@ $referendum-tab-offset: ($game-mutations-width - $right-controls-width) * 0.5;
     .subreferendum-grant {
         font-size: 11px;
         font-weight: bold;
-        color: $royal-purple;
+        color: var(--ui-accent-text);
     }
 
     // Both controls share one width, at the right edge of the panel
@@ -547,7 +549,7 @@ $referendum-tab-offset: ($game-mutations-width - $right-controls-width) * 0.5;
         font-variant-numeric: tabular-nums;
         white-space: nowrap;
         text-align: center;
-        color: $blood-red;
+        color: var(--ui-danger-text);
         animation: ReferendumLastCallAppear 0.3s ease-out;
     }
 }

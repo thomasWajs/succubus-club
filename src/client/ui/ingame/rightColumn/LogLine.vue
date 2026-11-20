@@ -25,7 +25,12 @@
         </span>
         <span
             class="author"
-            :style="{ background: logEntry.authorColorRgba }"
+            :class="{ 'seat-author': darkAuthorColor }"
+            :style="
+                darkAuthorColor ?
+                    { color: darkAuthorColor }
+                :   { background: logEntry.authorColorRgba }
+            "
         >
             {{ logEntry.authorName }}
         </span>
@@ -96,6 +101,8 @@ import { OID_PREFIX } from '@/shared/const/multiplayer.ts'
 import { LogEntry } from '@/shared/types/history.ts'
 import { CardOid } from '@/shared/types/model.ts'
 import { cancelMutation } from '@/client/state/gameMutations.ts'
+import { darkAuthorRgba } from '@/client/colors.ts'
+import { isLightUi } from '@/client/gateway/uiTheme.ts'
 
 const players = usePlayersStore()
 const gameBus = useGameBusStore()
@@ -107,6 +114,11 @@ const { logEntry, index, showTime } = defineProps<{
     index: number
     showTime: boolean
 }>()
+
+// Dark theme : the author of a seat is written in the player color, without a filled tag
+const darkAuthorColor = computed(() =>
+    isLightUi.value ? null : darkAuthorRgba(logEntry.authorColorRgba),
+)
 
 const selfHasVision = computed(() => {
     const vision = logEntry.playerVision
@@ -211,7 +223,7 @@ function onLogLineClick(logEntry: LogEntry) {
 
     .cancel-arrow {
         font-weight: bold;
-        color: $blood-red;
+        color: var(--ui-danger-text);
         cursor: pointer;
     }
 
@@ -219,15 +231,26 @@ function onLogLineClick(logEntry: LogEntry) {
         margin: 0;
     }
 
+    // A seat author is written in the player color on the dark theme ( inline style ). Other tags
+    // ( chat without a seat, cancelled authors ) keep the pastel fill stored in the log entry :
+    // dark text.
     .author {
         margin: 0 2px;
         padding: 0 1px;
         font-weight: bold;
+        color: $shadow-grey;
+    }
+
+    // Only set on the dark theme. Regular weight and dimmed : the card names are what the eye
+    // should catch first
+    .seat-author {
+        font-weight: normal;
+        opacity: 0.8;
     }
 
     .cancel-text {
         font-style: italic;
-        color: $dark-blood;
+        color: light-dark($dark-blood, $rose-red);
     }
 
     .mutation {
@@ -235,18 +258,18 @@ function onLogLineClick(logEntry: LogEntry) {
     }
 
     :is(.cryptCard) {
-        color: $crypt-orange;
+        color: var(--ui-crypt-card);
         font-weight: bold;
     }
 
     :is(.libCard) {
-        color: $library-green;
+        color: var(--ui-library-card);
         font-weight: bold;
     }
 
     :is(.hidden) {
-        color: $royal-purple;
-        font-weight: bold;
+        color: light-dark($royal-purple, $ui-text-muted);
+        font-style: italic;
     }
 }
 
@@ -254,9 +277,9 @@ function onLogLineClick(logEntry: LogEntry) {
     position: fixed;
     transform: translate(-50%, calc(-100% - 8px));
 
-    background: $pearl-grey;
-    color: $ash-grey;
-    border: 2px solid $dark-blood;
+    background: light-dark($pearl-grey, $ui-surface-raised);
+    color: light-dark($ash-grey, $ui-text);
+    border: 2px solid light-dark($dark-blood, $ui-border);
 
     padding: 6px 10px;
     font-size: 13px;
@@ -266,23 +289,26 @@ function onLogLineClick(logEntry: LogEntry) {
     user-select: none;
     z-index: 1100;
 
+    // Teleported out of the game screen : the font isn't inherited
+    font-family: $ui-font;
+
     .popup-title {
         font-weight: bold;
         margin-bottom: 4px;
     }
 
     .cryptCard {
-        color: $crypt-orange;
+        color: var(--ui-crypt-card);
         font-weight: bold;
     }
 
     .libCard {
-        color: $library-green;
+        color: var(--ui-library-card);
         font-weight: bold;
     }
 
     .hidden {
-        color: $royal-purple;
+        color: var(--ui-accent-text);
         font-weight: bold;
     }
 }

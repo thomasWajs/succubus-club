@@ -67,7 +67,7 @@ function showSubmenu() {
 <style lang="scss">
 .caret {
     font-size: 1rem;
-    color: $silver-grey;
+    color: var(--ui-text-on-dark-muted);
     margin-right: 6px;
 }
 </style>

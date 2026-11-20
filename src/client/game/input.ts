@@ -103,6 +103,7 @@ function onPointerDown(
         name == 'separator' ||
         name == 'playButton' ||
         name == 'playerWidget' ||
+        name == 'theEdgeWidget' ||
         gameObject?.getData(PhaserDataKey.OverlayButton) === true
     ) {
         // nothing more to do, but prevent the default behavior of the click event.

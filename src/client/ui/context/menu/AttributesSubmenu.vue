@@ -110,7 +110,7 @@ function changeAttribute(attribute: CardBaseAttribute, amount: number) {
     column-gap: 8px;
     padding: 3px 5px;
 
-    color: white;
+    color: var(--ui-contrast-text);
 
     .attribute-label {
         font-size: 13px;
@@ -129,13 +129,23 @@ function changeAttribute(attribute: CardBaseAttribute, amount: number) {
         padding: 2px 0;
         text-align: center;
 
-        border: 1px solid $silver-grey;
-        background: $dark-teal;
-        color: white;
+        // Darker than the menu on the dark theme ( itself on the raised surface ) so the buttons
+        // stand out
+        border: 1px solid var(--ui-control-border);
+        background: light-dark($dark-teal, $ui-surface);
+        color: var(--ui-contrast-text);
         cursor: pointer;
 
         &:hover {
             filter: brightness(1.25);
+        }
+
+        // Undo the flat context menu hover, which would hide the button fill ( the gradient of the
+        // light theme can't go through light-dark )
+        @include dark-ui {
+            &:hover:not(:disabled) {
+                background: $ui-surface;
+            }
         }
     }
 }

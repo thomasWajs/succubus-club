@@ -24,6 +24,12 @@ export const TRANSPARENT_ALPHA = 0
 
 export const HIGHLIGHT_YELLOW = 'rgb(255,200,80)'
 
+// Font of the numbers drawn on the canvas ( counters, pool, card counts, costs ). Verdana digits
+// render poorly, so these keep the Phaser default look. Written with a fallback so that it is not
+// equal to Phaser's default 'Courier' : the other texts get the UI font ( see textFont.ts ), a text
+// with any other family keeps its own
+export const NUMBER_FONT_FAMILY = 'Courier, monospace'
+
 export const HD_WIDTH = 1920
 export const HD_HEIGHT = 1080
 
@@ -61,6 +67,7 @@ export const CARD_PING_COLOR = 'rgb(152,32,56)'
 // card and fades out.
 export const CARD_COST_FX_DURATION = 1200 // Total duration of the rise/fade in ms
 const CARD_COST_FX_TEXT_STYLE_BASE = {
+    fontFamily: NUMBER_FONT_FAMILY,
     fontStyle: 'bold',
     fontSize: '24px',
     stroke: 'black',
@@ -127,9 +134,15 @@ export const REGION_ALPHA = OPAQUE_ALPHA * 0.83
 // around the cards keeps a luminance within this range ( cards stay readable on any background )
 export const REGION_LUMINANCE_MIN = 100
 export const REGION_LUMINANCE_MAX = 150
+// Same, for the dark theme : dark play areas, a step lighter than the charcoal default tabletop
+// ( luminance 57 )
+export const DARK_REGION_LUMINANCE_MIN = 70
+export const DARK_REGION_LUMINANCE_MAX = 88
 export const REGION_BACKGROUND_COLOR = `rgba(128,128,128,${REGION_ALPHA / 255})`
 // The card count plate is the play area color, blended this far ( 0 - 1 ) toward white
 export const REGION_STACK_SIZE_LIGHTEN = 0.18
+// Dark theme : the plate is the play area color itself, outlined
+export const DARK_REGION_STACK_SIZE_LIGHTEN = 0
 // The Edge when nobody controls it : a disc of the tabletop color, this far ( luminance )
 // lighter on a dark background and darker on a light one, with a faded emblem, against the
 // saturated teal disc and opaque emblem of the controlled state
@@ -140,6 +153,9 @@ export const THE_EDGE_CONTROLLED_DISC_COLOR = 'rgb(42,92,92)'
 // Region names are a discreet hint : the player color, opaque ( crisp edges ), blended this far
 // ( 0 - 1 ) toward the mid-grey play area fill to lower its contrast
 export const REGION_NAME_FADE = 0.25
+// Dark theme : seat colors outside of DARK_PLAYER_COLORS are lightened by this amount
+// ( HSL lightness, % ) for the player names on the dark tabletop
+export const DARK_PLAYER_COLOR_LIGHTEN = 25
 
 // Matches the CSS right-column resize handles ( $lighter-teal #3a7d7d )
 export const SEPARATOR_COLOR = 'rgb(58,125,125)'
@@ -160,6 +176,41 @@ export const ORDERED_PLAYER_COLORS = [
     PLAYER_COLORS.green,
     PLAYER_COLORS.amber,
 ]
+
+/**
+ * Dark UI theme ( the light theme uses the colors defined elsewhere in this file ).
+ * Neutral greys, purple only marks the current state ( active phase, selection ); keep in sync
+ * with `_variables.scss`.
+ */
+
+export const DARK_ACCENT_COLOR = 'rgb(56,39,73)' // $ui-accent
+export const DARK_ACCENT_LIGHT_COLOR = 'rgb(158,129,187)' // $ui-accent-light
+export const DARK_CARD_OUTLINE_COLOR_SELECTED = 'rgb(204,176,232)'
+// The hover / area select highlight : a muted gold rather than the light theme's bright yellow
+export const DARK_HIGHLIGHT_COLOR = 'rgb(206,180,118)'
+export const DARK_CARD_OUTLINE_COLOR_INDIRECT_HOVER = 'rgb(176,166,140)'
+export const DARK_SURFACE_COLOR = 'rgb(30,29,32)' // $ui-surface
+export const DARK_SURFACE_RAISED_COLOR = 'rgb(46,45,49)' // $ui-surface-raised
+export const DARK_BORDER_COLOR = 'rgb(71,69,75)' // $ui-border
+// Darker than the play area background : a groove rather than a frame
+export const DARK_PLAY_AREA_EDGE_COLOR = 'rgb(38,37,41)'
+export const DARK_REGION_NAME_COLOR = 'rgb(143,141,147)'
+// Secondary texts on the play areas : votes, VP, stack sizes
+export const DARK_PLAY_AREA_TEXT_COLOR = 'rgb(168,165,172)'
+
+/**
+ * Dark theme : the seat colors are stored in the game state ( shared by every client ) as the
+ * light PLAYER_COLORS, and only displayed differently, as player name texts. Muted tones with
+ * hues spread evenly ( no purple, to keep them apart from the accent ), and lightness offsets
+ * between hue neighbours ( cyan / blue, red / gold ) so they stay apart despite the low saturation.
+ */
+export const DARK_PLAYER_COLORS: Record<string, string> = {
+    [PLAYER_COLORS.purple]: 'rgb(103,190,199)', // cyan
+    [PLAYER_COLORS.azure]: 'rgb(111,132,189)', // dusk blue
+    [PLAYER_COLORS.crimson]: 'rgb(190,112,110)', // red
+    [PLAYER_COLORS.green]: 'rgb(125,166,111)', // green
+    [PLAYER_COLORS.amber]: 'rgb(199,180,108)', // gold
+}
 
 /**
  * Selection Area
@@ -190,8 +241,9 @@ export const COUNTER_HOVER_OFFSET_MULTIPLIER = 1.6
 export const COUNTER_OUTLINE_COLOR = BLACK
 export const COUNTER_TEXT_STYLE = {
     color: 'black',
-    fontStyle: 'bold',
+    fontFamily: NUMBER_FONT_FAMILY,
     fontSize: '18px',
+    fontStyle: 'bold',
 }
 export const BLOOD_COUNTER_FILL_COLOR = 'rgb(150,0,0)'
 export const GREEN_COUNTER_FILL_COLOR = 'rgb(0,150,0)'
@@ -206,7 +258,6 @@ export const BUTTON_BORDER_COLOR = 'rgb(26,26,26)'
 export const BUTTON_BACKGROUND_COLOR = 'rgb(21,47,47)'
 export const BUTTON_TEXT_STYLE = {
     color: 'white',
-    fontStyle: 'bold',
     fontSize: '14px',
 }
 

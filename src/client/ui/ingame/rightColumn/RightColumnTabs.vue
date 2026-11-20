@@ -64,7 +64,7 @@
         :class="{ enlarged: isEnlarged }"
     >
         <button
-            class="game-button"
+            class="menu-button"
             :disabled="gameBus.savingState != SavingState.None"
             @click="saveGame(false)"
         >
@@ -79,14 +79,14 @@
 
         <button
             v-if="gameState.gameType == GameType.Multiplayer"
-            class="game-button"
+            class="menu-button"
             @click="requestResyncGameState(true)"
         >
             Resync Game
         </button>
 
         <button
-            class="game-button"
+            class="menu-button"
             @click="bus.isUserProfilePanelOpen = true"
         >
             User preferences
@@ -94,14 +94,14 @@
 
         <button
             v-if="isFeedbackAvailable()"
-            class="game-button"
+            class="menu-button"
             @click="openFeedbackForm"
         >
             Report a bug
         </button>
 
         <button
-            class="game-button"
+            class="menu-button"
             @click="leaveDialog?.showModal()"
         >
             Leave game
@@ -109,7 +109,7 @@
 
         <button
             v-if="gameState.gameType == GameType.Multiplayer"
-            class="game-button"
+            class="menu-button"
             :disabled="!multiplayer.selfIsRoomWriter"
             :title="multiplayer.selfIsRoomWriter ? '' : 'Only the room host can start a new table'"
             @click="newTableDialog?.showModal()"
@@ -149,6 +149,22 @@
         >
             {{ tab.title }}
         </button>
+
+        <!-- Each side is drawn in the colours of its theme -->
+        <div
+            class="theme-toggle"
+            title="Interface theme"
+        >
+            <button
+                v-for="option in UI_THEME_CHOICES"
+                :key="option.value"
+                class="theme-option"
+                :class="[option.value, { active: uiThemeChoice === option.value }]"
+                @click="setUiThemeChoice(option.value)"
+            >
+                {{ option.label }}
+            </button>
+        </div>
     </div>
 
     <!--Heads-up on the Manual tab for first-time users -->
@@ -247,6 +263,7 @@ import LogLine from '@/client/ui/ingame/rightColumn/LogLine.vue'
 import { leaveGame } from '@/client/state/setup.ts'
 import { getAuthorColorRgba } from '@/shared/colors.ts'
 import { isFeedbackAvailable, openFeedbackForm } from '@/client/logging.ts'
+import { setUiThemeChoice, uiThemeChoice, UI_THEME_CHOICES } from '@/client/gateway/uiTheme.ts'
 
 const gameState = useGameStateStore()
 const players = usePlayersStore()
@@ -406,7 +423,8 @@ function dismissManualHeadsUp() {
     overflow-y: auto;
     flex-grow: 1;
     padding: 4px;
-    background-color: $right-column-section-bg;
+    background-color: var(--ui-section-bg);
+    color: var(--ui-panel-text);
     transition: 0.6s cubic-bezier(0.4, 0, 0.2, 1);
     transition-property: padding, transform, width, height, max-width, max-height, box-shadow;
     position: relative;
@@ -425,11 +443,11 @@ function dismissManualHeadsUp() {
         z-index: 1000;
         box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
         border-radius: 4px;
-        border: 2px solid $purple-grey;
+        border: 2px solid var(--ui-column-border);
     }
 
     &.placeholder {
-        background-color: $purple-grey;
+        background-color: var(--ui-column-bg);
     }
 }
 
@@ -464,6 +482,21 @@ function dismissManualHeadsUp() {
         .chat-input {
             flex-grow: 1;
             margin-right: 5px;
+            @include ui-input;
+            padding: 3px 5px;
+        }
+
+        .chat-send {
+            padding: 2px 10px;
+            border: solid 1px var(--ui-border);
+            background: var(--ui-control-bg);
+            color: var(--ui-contrast-text);
+            font-weight: 600;
+            cursor: pointer;
+
+            &:hover {
+                filter: brightness(125%);
+            }
         }
     }
 
@@ -480,15 +513,15 @@ function dismissManualHeadsUp() {
             font-size: 11px;
             padding: 2px;
             cursor: pointer;
-            border: 2px solid $burgundy-red;
-            background: $midnight-purple;
-            color: $pearl-grey;
+            border: 1px solid var(--ui-toggle-border);
+            background: var(--ui-toggle-bg);
+            color: var(--ui-chrome-text-muted);
             opacity: 0.6;
-            font-family: monospace;
+            font-family: $font-mono;
 
             &:hover {
                 opacity: 1;
-                color: $ghost-white;
+                color: var(--ui-text-on-dark);
             }
         }
 
@@ -512,7 +545,12 @@ function dismissManualHeadsUp() {
     align-items: center;
     gap: 10px;
 
-    .game-button {
+    .menu-button {
+        @include button-purple;
+        // Square corners, a tighter box than the lobby buttons
+        border-radius: 0;
+        padding: 8px 12px;
+        font-size: 15px;
         width: 100%;
         max-width: 200px;
     }
@@ -526,14 +564,72 @@ function dismissManualHeadsUp() {
     padding-bottom: 4px;
     position: relative;
     z-index: 1001; /* Above the enlarged tab */
+    display: flex;
+    align-items: flex-start;
+    // Below this width the theme toggle would run into the tabs : it hides
+    container-type: inline-size;
+
+    // Right end of the tab row. Each side previews its theme; the current one is the only one
+    // fully opaque ( no underline, it would read as a tab )
+    .theme-toggle {
+        display: flex;
+        flex-shrink: 0;
+        align-self: stretch; // As tall as the tabs
+        margin-left: auto;
+        border: 1px solid light-dark($slate-grey, $ui-border);
+        border-top: none;
+
+        @container (max-width: 330px) {
+            display: none;
+        }
+
+        .theme-option {
+            padding: 3px 6px;
+            border: none;
+            font-family: $ui-font;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            opacity: 0.55;
+            cursor: pointer;
+            transition: opacity 0.2s ease;
+
+            &.dark {
+                background: $ui-background;
+                color: $ui-text;
+            }
+
+            // A shade above the light column, so the swatch stands out on it
+            &.light {
+                background: $ghost-white;
+                color: $shadow-grey;
+            }
+
+            // In between : it resolves to either theme
+            &.system {
+                background: $mist-grey;
+                color: white;
+            }
+
+            &:hover {
+                opacity: 0.85;
+            }
+
+            &.active {
+                opacity: 1;
+                cursor: default;
+            }
+        }
+    }
 
     .tab-button {
         margin: 0 6px 0 0;
         padding: 4px 5px;
         border-radius: 0 0 4px 4px;
         border: none;
-        color: $pearl-grey;
-        background: $purple-grey;
+        color: var(--ui-chrome-text-muted);
+        background: light-dark($purple-grey, $ui-surface-raised);
         cursor: pointer;
         transition: all 0.2s ease;
 
@@ -543,8 +639,9 @@ function dismissManualHeadsUp() {
         }
 
         &.active:not(.enlarge) {
-            color: $shadow-grey;
-            background: $right-column-section-bg;
+            color: var(--ui-panel-text);
+            background: var(--ui-section-bg);
+            border-bottom: solid 2px var(--ui-accent-line);
             cursor: default;
         }
 
@@ -560,8 +657,8 @@ function dismissManualHeadsUp() {
             min-width: 24px;
 
             &.active {
-                color: $vibrant-emerald;
-                background-color: rgba($vibrant-emerald, 0.3);
+                color: light-dark($vibrant-emerald, $ui-text);
+                background-color: light-dark(rgba($vibrant-emerald, 0.3), $ui-accent);
             }
         }
     }
@@ -572,7 +669,7 @@ function dismissManualHeadsUp() {
         background-color: transparent;
     }
     10% {
-        background-color: $light-teal;
+        background-color: light-dark($light-teal, $ui-accent);
     }
     100% {
         background-color: transparent;
@@ -591,11 +688,11 @@ function dismissManualHeadsUp() {
     }
 
     .heads-up-content {
-        background: $shadow-purple;
+        background: var(--ui-callout-bg);
         padding: 12px 16px;
         min-width: 260px;
         max-width: 300px;
-        color: $ghost-white;
+        color: var(--ui-text-on-dark);
         font-size: 14px;
         line-height: 1.4;
         display: flex;
@@ -614,7 +711,7 @@ function dismissManualHeadsUp() {
     .heads-up-button {
         @include button-grey;
         align-self: flex-end;
-        color: $ghost-white;
+        color: var(--ui-text-on-dark);
         padding: 6px 12px;
     }
 
@@ -626,7 +723,7 @@ function dismissManualHeadsUp() {
         height: 0;
         border-top: 8px solid transparent;
         border-bottom: 8px solid transparent;
-        border-left: 8px solid $shadow-purple;
+        border-left: 8px solid var(--ui-callout-bg);
     }
 }
 
@@ -642,9 +739,9 @@ function dismissManualHeadsUp() {
 }
 
 .confirm-dialog {
-    border: 2px solid $shadow-grey;
+    border: 2px solid var(--ui-border);
     padding: 0;
-    background: $ash-grey;
+    background: var(--ui-floating-bg);
     max-width: 400px;
 
     &::backdrop {
@@ -653,7 +750,7 @@ function dismissManualHeadsUp() {
 
     .dialog-content {
         padding: 24px;
-        color: $ghost-white;
+        color: var(--ui-text-on-dark);
 
         h3 {
             margin: 0;
@@ -672,7 +769,7 @@ function dismissManualHeadsUp() {
 
             .game-button {
                 min-width: 80px;
-                border-color: $shadow-grey;
+                border-color: var(--ui-border);
             }
         }
     }

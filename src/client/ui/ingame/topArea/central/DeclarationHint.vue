@@ -56,7 +56,7 @@ const hasHint = computed(() => {
 .central-panel.declaration-hint {
     padding: 1rem 2rem;
     font-size: 20px;
-    color: $midnight-blue;
+    color: light-dark($midnight-blue, $ui-text);
     text-decoration: underline;
     text-align: center;
 }

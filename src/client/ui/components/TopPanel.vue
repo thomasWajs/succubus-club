@@ -114,7 +114,9 @@ const handleOverlayClick = () => {
 }
 
 .top-panel-title {
-    @include serif-heading(1.25rem);
+    @include ui-title;
+    margin: 0;
+    font-size: 1.25rem;
     flex: 1;
     color: $pearl-grey;
 }

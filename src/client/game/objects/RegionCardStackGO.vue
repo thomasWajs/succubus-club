@@ -19,7 +19,7 @@
     >
         <FxHighlightRegionDrop
             v-if="highlightDropZone"
-            :color="color"
+            :color="dropColor"
         />
     </Rectangle>
 
@@ -39,7 +39,8 @@
         ref="cardCount"
         :text="cardRegion.cards.length.toString()"
         :style="{
-            color: color.rgba,
+            color: isLightUi ? color.rgba : DARK_PLAY_AREA_TEXT_COLOR,
+            fontFamily: NUMBER_FONT_FAMILY,
             fontSize: 22,
         }"
         :origin="1"
@@ -103,7 +104,13 @@ import { computed, ref } from 'vue'
 import Phaser, { GameObjects } from 'phaser'
 import { Image, Rectangle, refObj, Text } from 'phavuer'
 import { Colors, regionNameColor } from '@/client/colors.ts'
-import { CARD_IN_STACK_SCALE, CARD_OUTLINE_THICKNESS } from '@/shared/const/game.ts'
+import {
+    CARD_IN_STACK_SCALE,
+    CARD_OUTLINE_THICKNESS,
+    DARK_PLAY_AREA_TEXT_COLOR,
+    NUMBER_FONT_FAMILY,
+} from '@/shared/const/game.ts'
+import { isLightUi } from '@/client/gateway/uiTheme.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { PhaserDataKey, RegionCategory } from '@/client/game/types.ts'
@@ -119,6 +126,7 @@ const { color, cardRegion, draw } = defineProps<{
     width: number
     height: number
     color: Color
+    dropColor: Color
     cardRegion: AnyCardRegion
     showTopCard: boolean
     draw?: 'crypt' | 'library'

@@ -111,6 +111,7 @@ import { GameType } from '@/shared/types/state.ts'
 import { setupKeyboardHandlers, setupPointerHandlers } from '@/client/game/input.ts'
 import { setupCamera } from '@/client/game/camera.ts'
 import { setupTextResolution } from '@/client/game/textResolution.ts'
+import { setupTextFont } from '@/client/game/textFont.ts'
 import ArrowGO from '@/client/game/objects/ArrowGO.vue'
 import { useTargetArrows } from '@/client/game/composables/useTargetArrows.ts'
 import ChangePoolMenu from '@/client/ui/ingame/ChangePoolMenu.vue'
@@ -136,6 +137,7 @@ function init(_scene: Phaser.Scene) {
     scene = _scene
     setupCamera(scene)
     setupTextResolution(scene)
+    setupTextFont(scene)
     setupPointerHandlers(scene)
     setupKeyboardHandlers(scene)
     setupDisplayWatcher()

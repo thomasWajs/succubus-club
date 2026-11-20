@@ -321,6 +321,12 @@ import {
     setTabletopBackground,
     tabletopBackgroundUrl,
 } from '@/client/gateway/background.ts'
+import {
+    setUiThemeChoice,
+    uiThemeChoice,
+    UiThemeChoice,
+    UI_THEME_CHOICES,
+} from '@/client/gateway/uiTheme.ts'
 
 const core = useCoreStore()
 const bus = useBusStore()
@@ -479,7 +485,8 @@ enum UserPreferenceType {
 
 interface BasePreference {
     type: UserPreferenceType
-    key: PreferenceKey
+    /** Not always a profile preference key: see the in-game theme, which is stored apart */
+    key: string
     label: string
 }
 
@@ -537,7 +544,23 @@ function createSelectPreference(
     }
 }
 
+// The in-game theme is persisted in the settings table, not in the user profile
+const uiThemePreference: SelectPreference = {
+    type: UserPreferenceType.Select,
+    key: 'uiTheme',
+    label: 'In-game theme',
+    options: UI_THEME_CHOICES,
+    value: computed({
+        get: () => uiThemeChoice.value,
+        set: async (value: string) => {
+            await setUiThemeChoice(value as UiThemeChoice)
+            showSaveFeedback('preferences', 'uiTheme')
+        },
+    }),
+}
+
 const preferences: Preference[] = [
+    uiThemePreference,
     createCheckboxPreference('glowInHand', 'Highlight playable cards in hand'),
     createCheckboxPreference('glowInPlay', 'Highlight cards in play with a "during X do Y" effect'),
     createCheckboxPreference('snapToGrid', 'Snap cards to grid ( structured mode only )'),

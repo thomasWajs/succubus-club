@@ -268,7 +268,7 @@ async function continueSavedGame(savedGame: DbSavedGame) {
 
 .delete-confirm-btn {
     cursor: pointer;
-    font-family: serif;
+    font-family: $font-serif;
     font-size: 0.85rem;
     transition: all 0.3s ease;
     border-radius: 0;

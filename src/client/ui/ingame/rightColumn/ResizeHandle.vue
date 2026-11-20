@@ -60,7 +60,7 @@ function onPointerDown(event: PointerEvent) {
 
     &:hover,
     &:active {
-        background: rgba($lighter-teal, 0.6);
+        background: light-dark(rgba($lighter-teal, 0.6), rgba($ui-accent-light, 0.6));
     }
 
     // The vertical handle overlays the column's left border (the divider with

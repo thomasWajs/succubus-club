@@ -826,7 +826,7 @@ $max-width: 1200px;
     color: $pearl-grey;
     font-size: 1.1rem;
     font-weight: 500;
-    font-family: serif;
+    font-family: $font-serif;
     margin: 0 0 0.5rem 0;
     letter-spacing: 0.3px;
 }

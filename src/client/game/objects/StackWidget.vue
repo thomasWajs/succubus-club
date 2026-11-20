@@ -20,7 +20,7 @@
     <template v-if="showTopCard">
         <Text
             :text="`${cardRegion.name} (${cardRegion.length})`"
-            :style="{ color: '#000', fontSize: '13px' }"
+            :style="{ color: playAreaTextColor(), fontSize: '13px' }"
             :origin="0.5"
             :x="x"
             :y="titleY"
@@ -59,7 +59,7 @@
     <Text
         v-else
         :text="`${cardRegion.name} (${cardRegion.length})`"
-        :style="{ color: '#000', fontSize: '13px' }"
+        :style="{ color: playAreaTextColor(), fontSize: '13px' }"
         :origin="0.5"
         :x="x"
         :y="y"
@@ -81,7 +81,7 @@
 import { computed } from 'vue'
 import { GameObjects } from 'phaser'
 import { Image, Rectangle, refObj, Text } from 'phavuer'
-import { Colors } from '@/client/colors.ts'
+import { Colors, playAreaTextColor } from '@/client/colors.ts'
 import { CARD_HEIGHT, CARD_OUTLINE_THICKNESS, CARD_WIDTH } from '@/shared/const/game.ts'
 import { AnyCardRegion } from '@/shared/types/model.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
