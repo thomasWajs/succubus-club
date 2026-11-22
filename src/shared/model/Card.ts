@@ -48,12 +48,22 @@ class VampireAttributes {
     //traits: Trait[]
 }
 
+export type CounterColor = 'green' | 'orange' | 'purple'
+
+// The Card field holding the amount of counters, for each color
+export const COUNTER_FIELDS = {
+    green: 'greenCounter',
+    orange: 'orangeCounter',
+    purple: 'purpleCounter',
+} as const satisfies Record<CounterColor, string>
+
 export type PropertiesInPlay = {
     isLocked: boolean
     isFlipped: boolean
     blood: number
     greenCounter: number
     orangeCounter: number
+    purpleCounter: number
     markers: string[]
 }
 
@@ -72,6 +82,7 @@ export abstract class Card extends BaseModel implements PropertiesInPlay {
     blood = 0
     greenCounter = 0
     orangeCounter = 0
+    purpleCounter = 0
 
     markers = [] as string[]
 

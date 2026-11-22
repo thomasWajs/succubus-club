@@ -1,6 +1,12 @@
 import { Player } from '@/shared/model/Player.ts'
 import { CardRegion } from '@/shared/model/CardRegion.ts'
-import { Card, Minion, PropertiesInPlay } from '@/shared/model/Card.ts'
+import {
+    Card,
+    COUNTER_FIELDS,
+    CounterColor,
+    Minion,
+    PropertiesInPlay,
+} from '@/shared/model/Card.ts'
 import { Marker, TurnSequence } from '@/shared/const/model.ts'
 import {
     CARD_LOG_PLACEHOLDER,
@@ -235,6 +241,10 @@ interface ChangeCounterParams extends GameMutationParams {
     amount: number
 }
 
+interface ChangeColoredCounterParams extends ChangeCounterParams {
+    color: CounterColor
+}
+
 // Used to flip or lock a card
 interface ChangeCardBoolParams extends GameMutationParams {
     card: Card
@@ -260,7 +270,9 @@ abstract class CardMutation extends GameMutation<CardParams> {
     }
 }
 
-abstract class ChangeCounterMutation extends GameMutation<ChangeCounterParams> {
+abstract class ChangeCounterMutation<
+    P extends ChangeCounterParams = ChangeCounterParams,
+> extends GameMutation<P> {
     get card() {
         return this.params.card
     }
@@ -422,10 +434,10 @@ class ChangeBlood extends ChangeCounterMutation {
 }
 
 /**
- * Change Green counter
+ * Change a colored counter (green, orange, purple)
  */
 
-class ChangeGreenCounter extends ChangeCounterMutation {
+class ChangeCounter extends ChangeCounterMutation<ChangeColoredCounterParams> {
     readonly syncMode = MutationSyncMode.Merge
 
     getValidity() {
@@ -436,7 +448,7 @@ class ChangeGreenCounter extends ChangeCounterMutation {
             )
 
         // Cannot get a negative counter amount
-        if (this.params.card.greenCounter + this.params.amount < 0) {
+        if (this.params.card[COUNTER_FIELDS[this.params.color]] + this.params.amount < 0) {
             return Invalid(
                 `${secureName(this.params.card, this.author)} : Cannot go below 0 counter`,
             )
@@ -446,62 +458,18 @@ class ChangeGreenCounter extends ChangeCounterMutation {
     }
 
     protected updateGameState() {
-        this.params.card.greenCounter = Math.max(
-            0,
-            this.params.card.greenCounter + this.params.amount,
-        )
+        const field = COUNTER_FIELDS[this.params.color]
+        this.params.card[field] = Math.max(0, this.params.card[field] + this.params.amount)
     }
 
     formatForLog() {
-        return `${this.params.amount > 0 ? '+' : ''}${this.params.amount} green counter on ${CARD_LOG_PLACEHOLDER}`
+        return `${this.params.amount > 0 ? '+' : ''}${this.params.amount} ${this.params.color} counter on ${CARD_LOG_PLACEHOLDER}`
     }
 
     getCancelMutation(): AnyGameMutation {
-        return gameMutations.changeGreenCounter.createCancelMutation(this, {
+        return gameMutations.changeCounter.createCancelMutation(this, {
             card: this.params.card,
-            amount: this.params.amount * -1,
-        })
-    }
-}
-
-/**
- * Change Orange counter
- */
-
-class ChangeOrangeCounter extends ChangeCounterMutation {
-    readonly syncMode = MutationSyncMode.Merge
-
-    getValidity() {
-        // There's no counters outside of the play area
-        if (!this.params.card.isIn.play)
-            return Invalid(
-                `${secureName(this.params.card, this.author)} : Cannot change counter because it is not in play`,
-            )
-
-        // Cannot get a negative counter amount
-        if (this.params.card.orangeCounter + this.params.amount < 0) {
-            return Invalid(
-                `${secureName(this.params.card, this.author)} : Cannot go below 0 counter`,
-            )
-        }
-
-        return VALID
-    }
-
-    protected updateGameState() {
-        this.params.card.orangeCounter = Math.max(
-            0,
-            this.params.card.orangeCounter + this.params.amount,
-        )
-    }
-
-    formatForLog() {
-        return `${this.params.amount > 0 ? '+' : ''}${this.params.amount} orange counter on ${CARD_LOG_PLACEHOLDER}`
-    }
-
-    getCancelMutation(): AnyGameMutation {
-        return gameMutations.changeOrangeCounter.createCancelMutation(this, {
-            card: this.params.card,
+            color: this.params.color,
             amount: this.params.amount * -1,
         })
     }
@@ -1100,12 +1068,21 @@ class MoveCardToRegion extends GameMutation<MoveCardToRegionParams> {
     protected updateGameState(gameState: GameState) {
         const card = this.params.card
 
-        const { isLocked, isFlipped, blood, greenCounter, orangeCounter, markers } = this.card
+        const { isLocked, isFlipped, blood, greenCounter, orangeCounter, purpleCounter, markers } =
+            this.card
         this.previousState = {
             position: card.position,
             x: card.x,
             y: card.y,
-            propsInPlay: { isLocked, isFlipped, blood, greenCounter, orangeCounter, markers },
+            propsInPlay: {
+                isLocked,
+                isFlipped,
+                blood,
+                greenCounter,
+                orangeCounter,
+                purpleCounter,
+                markers,
+            },
         }
 
         gameState.moveCardToRegion(card, this.params.toCardRegion, this.params.position)
@@ -2934,8 +2911,7 @@ export const gameMutations = {
     becomeVampireInverse: defineMutation(BecomeVampireInverse),
     changeBlood: defineMutation(ChangeBlood),
     changeCardAttribute: defineMutation(ChangeCardAttribute),
-    changeGreenCounter: defineMutation(ChangeGreenCounter),
-    changeOrangeCounter: defineMutation(ChangeOrangeCounter),
+    changeCounter: defineMutation(ChangeCounter),
     changeMarker: defineMutation(ChangeMarker),
     changePool: defineMutation(ChangePool),
     changeTheEdgeControl: defineMutation(ChangeTheEdgeControl),

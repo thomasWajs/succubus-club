@@ -264,6 +264,7 @@ export class GameState {
                 blood: 0,
                 greenCounter: 0,
                 orangeCounter: 0,
+                purpleCounter: 0,
                 markers: [],
             })
         }

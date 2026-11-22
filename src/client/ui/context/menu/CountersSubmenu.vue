@@ -15,6 +15,14 @@
             :burn="commands.BurnOrangeCounter"
             :color="ORANGE_COUNTER_FILL_COLOR"
         />
+
+        <CommandStepperRow
+            label="Purple"
+            :value="singleCard ? singleCard.purpleCounter : '-'"
+            :gain="commands.GainPurpleCounter"
+            :burn="commands.BurnPurpleCounter"
+            :color="PURPLE_COUNTER_FILL_COLOR"
+        />
     </template>
 </template>
 
@@ -26,7 +34,11 @@
  *
  * Each row takes the color of its counter on the cards.
  */
-import { GREEN_COUNTER_FILL_COLOR, ORANGE_COUNTER_FILL_COLOR } from '@/shared/const/game.ts'
+import {
+    GREEN_COUNTER_FILL_COLOR,
+    ORANGE_COUNTER_FILL_COLOR,
+    PURPLE_COUNTER_FILL_COLOR,
+} from '@/shared/const/game.ts'
 import CommandStepperRow from '@/client/ui/context/menu/CommandStepperRow.vue'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { useCommands } from '@/client/game/composables/useCommands.ts'

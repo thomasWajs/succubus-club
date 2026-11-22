@@ -5,7 +5,7 @@ import { useGameBusStore } from '@/client/store/bus.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
 import { TurnSequence } from '@/shared/const/model.ts'
-import { Card } from '@/shared/model/Card.ts'
+import { Card, CounterColor } from '@/shared/model/Card.ts'
 import { resetCamera } from '@/client/game/camera.ts'
 import { useHistoryStore } from '@/client/store/history.ts'
 import { useCoreStore } from '@/client/store/core.ts'
@@ -87,6 +87,26 @@ function createCommands(): Commands {
                 gameBus.selectedCards.forEach(card => command.cardAction(card))
             },
             ...command,
+        })
+    }
+
+    // Gain (amount > 0) or burn (amount < 0) a counter of the given color.
+    // The command name is part of the user's saved key bindings : keep it stable.
+    function createCounterCommand(
+        color: CounterColor,
+        amount: 1 | -1,
+        key: 'G' | 'H' | 'B' | 'N' | 'J' | 'K',
+    ): Command {
+        const verb = amount > 0 ? 'Gain' : 'Burn'
+        const colorName = color.charAt(0).toUpperCase() + color.slice(1)
+        return createCardCommand({
+            name: `${verb}${colorName}Counter`,
+            label: `${verb} ${colorName} Counter`,
+            repr: key,
+            keyCodes: [KeyCodes[key]],
+            cardAction: (card: Card) => {
+                gameMutations.changeCounter.actSelf({ card, color, amount })
+            },
         })
     }
 
@@ -279,56 +299,14 @@ function createCommands(): Commands {
             },
         }),
 
-        GainGreenCounter: createCardCommand({
-            name: 'GainGreenCounter',
-            label: 'Gain Green Counter',
-            repr: 'G',
-            keyCodes: [KeyCodes.G],
-            cardAction: (card: Card) => {
-                gameMutations.changeGreenCounter.actSelf({
-                    card,
-                    amount: 1,
-                })
-            },
-        }),
-        BurnGreenCounter: createCardCommand({
-            name: 'BurnGreenCounter',
-            label: 'Burn Green Counter',
-            repr: 'H',
-            keyCodes: [KeyCodes.H],
-            cardAction: (card: Card) => {
-                gameMutations.changeGreenCounter.actSelf({
-                    card,
-                    amount: -1,
-                })
-            },
-        }),
+        GainGreenCounter: createCounterCommand('green', 1, 'G'),
+        BurnGreenCounter: createCounterCommand('green', -1, 'H'),
 
-        GainOrangeCounter: createCardCommand({
-            name: 'GainOrangeCounter',
-            label: 'Gain Orange Counter',
-            repr: 'B',
-            keyCodes: [KeyCodes.B],
-            cardAction: (card: Card) => {
-                gameMutations.changeOrangeCounter.actSelf({
-                    card,
-                    amount: 1,
-                })
-            },
-        }),
-        BurnOrangeCounter: createCardCommand({
-            name: 'BurnOrangeCounter',
-            label: 'Burn Orange Counter',
-            repr: 'N',
-            keyCodes: [KeyCodes.N],
-            cardAction: (card: Card) => {
-                gameMutations.changeOrangeCounter.actSelf({
-                    card,
-                    amount: -1,
-                })
-            },
-        }),
+        GainOrangeCounter: createCounterCommand('orange', 1, 'B'),
+        BurnOrangeCounter: createCounterCommand('orange', -1, 'N'),
 
+        GainPurpleCounter: createCounterCommand('purple', 1, 'J'),
+        BurnPurpleCounter: createCounterCommand('purple', -1, 'K'),
         Influence: createCardCommand({
             name: 'Influence',
             label: 'Influence',

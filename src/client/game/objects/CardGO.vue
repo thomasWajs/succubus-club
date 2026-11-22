@@ -235,6 +235,34 @@
         />
     </template>
 
+    <template v-if="card.purpleCounter > 0">
+        <Circle
+            ref="purpleCounterCircle"
+            :key="key + 'purpleCircle'"
+            :radius="COUNTER_RADIUS"
+            :fillColor="Colors.PURPLE_COUNTER_FILL.color"
+            :fillAlpha="1"
+            :lineWidth="COUNTER_OUTLINE_THICKNESS"
+            :strokeColor="Colors.COUNTER_OUTLINE.color"
+            :origin="0.5"
+            :x="overlays.purpleCounters.x"
+            :y="overlays.purpleCounters.y"
+            :scale="scale"
+            :rotation="ownerFacingRotation"
+        />
+        <Text
+            ref="purpleCounterText"
+            :key="key + 'purpleText'"
+            :text="card.purpleCounter.toString()"
+            :style="COUNTER_TEXT_STYLE"
+            :origin="0.5"
+            :x="overlays.purpleCounters.x"
+            :y="overlays.purpleCounters.y"
+            :scale="scale"
+            :rotation="ownerFacingRotation"
+        />
+    </template>
+
     <template
         v-for="(marker, index) in card.markers"
         :key="`${marker}${index}`"
@@ -344,6 +372,8 @@ const greenCounterCircle = refObj<GameObjects.Arc>()
 const greenCounterText = refObj<GameObjects.Text>()
 const orangeCounterCircle = refObj<GameObjects.Arc>()
 const orangeCounterText = refObj<GameObjects.Text>()
+const purpleCounterCircle = refObj<GameObjects.Arc>()
+const purpleCounterText = refObj<GameObjects.Text>()
 const markersRectangles = [] as (GameObjects.Rectangle | null)[]
 const markersTexts = [] as (GameObjects.Text | null)[]
 
@@ -457,6 +487,8 @@ function bringToTop() {
         greenCounterText,
         orangeCounterCircle,
         orangeCounterText,
+        purpleCounterCircle,
+        purpleCounterText,
         bloodCounterCircle,
         bloodCounterText,
         cardOutline,
@@ -527,6 +559,8 @@ const overlays = computed(() => {
         greenCounterY,
         orangeCounterX,
         orangeCounterY,
+        purpleCounterX,
+        purpleCounterY,
         ashHeapX,
         ashHeapY,
         influenceX,
@@ -534,6 +568,8 @@ const overlays = computed(() => {
 
     // Unlocked card
     if (!card.isLocked) {
+        purpleCounterX = card.x + displaySize.value.width / 2
+        purpleCounterY = card.y + displaySize.value.height - counterRadius
         bloodX = baseBloodX + displaySize.value.width
         bloodY = card.y + counterRadius
         greenCounterY = card.y + displaySize.value.height - counterRadius
@@ -546,6 +582,8 @@ const overlays = computed(() => {
     }
     // Locked card
     else {
+        purpleCounterX = card.x + counterRadius
+        purpleCounterY = card.y + displaySize.value.width / 2
         bloodX = baseBloodX + displaySize.value.height
         bloodY = card.y + displaySize.value.width - counterRadius
         greenCounterY = card.y + counterRadius
@@ -561,6 +599,7 @@ const overlays = computed(() => {
         blood: rotateAroundCardCenter({ x: bloodX, y: bloodY }),
         greenCounters: rotateAroundCardCenter({ x: card.x + counterRadius, y: greenCounterY }),
         orangeCounters: rotateAroundCardCenter({ x: orangeCounterX, y: orangeCounterY }),
+        purpleCounters: rotateAroundCardCenter({ x: purpleCounterX, y: purpleCounterY }),
         burnBlood: rotateAroundCardCenter({ x: bloodX - changeBloodOffset, y: bloodY }),
         gainBlood: rotateAroundCardCenter({ x: bloodX + changeBloodOffset, y: bloodY }),
         ashHeap: rotateAroundCardCenter({ x: ashHeapX, y: ashHeapY }),
