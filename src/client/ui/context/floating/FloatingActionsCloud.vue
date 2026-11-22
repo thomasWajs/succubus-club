@@ -252,8 +252,9 @@ function getActingMinionActions(actingMinion: Minion): FloatingActionData[] {
         if (prey) {
             actions.push({
                 label: 'Bleed',
-                left: eastActionsLeft,
-                top: cardTop + cardActionHeight + cardActionGap,
+                left: x - cardActionGap,
+                top: northActionsTop,
+                translate: 'translateX(-100%)',
                 onClick: () => {
                     declareAction({
                         type: MinionActionType.Bleed,
@@ -267,9 +268,8 @@ function getActingMinionActions(actingMinion: Minion): FloatingActionData[] {
         if (actingMinion.isVampire()) {
             actions.push({
                 label: 'Hunt',
-                left: westActionsRight,
-                top: cardTop + cardActionHeight + cardActionGap,
-                translate: 'translateX(-100%)',
+                left: x,
+                top: northActionsTop,
                 onClick: () => {
                     declareAction({
                         type: MinionActionType.Hunt,
@@ -281,7 +281,7 @@ function getActingMinionActions(actingMinion: Minion): FloatingActionData[] {
             actions.push({
                 label: 'Diablerize',
                 left: eastActionsLeft,
-                top: cardTop,
+                top: cardTop + cardActionHeight + cardActionGap,
                 disabled: allVampiresInTorpor.length == 0,
                 onClick: () => {
                     startTargetDeclaration(actingMinion)
@@ -298,7 +298,7 @@ function getActingMinionActions(actingMinion: Minion): FloatingActionData[] {
             actions.push({
                 label: 'Rescue',
                 left: westActionsRight,
-                top: cardTop,
+                top: cardTop + cardActionHeight + cardActionGap,
                 translate: 'translateX(-100%)',
                 disabled: allVampiresInTorpor.length == 0,
                 onClick: () => {
@@ -316,8 +316,8 @@ function getActingMinionActions(actingMinion: Minion): FloatingActionData[] {
 
         actions.push({
             label: 'Card In Hand',
-            left: x,
-            top: northActionsTop,
+            left: eastActionsLeft,
+            top: cardTop,
             disabled: actionsInHand.length == 0,
             onClick: () => {
                 gameBus.actionDeclaration = {
@@ -332,8 +332,8 @@ function getActingMinionActions(actingMinion: Minion): FloatingActionData[] {
 
         actions.push({
             label: 'Card In Play',
-            left: x - cardActionGap,
-            top: northActionsTop,
+            left: westActionsRight,
+            top: cardTop,
             translate: 'translateX(-100%)',
             onClick: () => {
                 gameBus.actionDeclaration = {

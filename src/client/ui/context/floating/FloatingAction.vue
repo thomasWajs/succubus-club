@@ -63,6 +63,13 @@ const emit = defineEmits(['click'])
 
     z-index: 1049;
 
+    // A common minimum width keeps the wheel balanced : short labels like Bleed
+    // or Hunt would otherwise look much narrower than Card In Hand.
+    &:not(.small) {
+        min-width: 105px;
+        text-align: center;
+    }
+
     &.small {
         height: 26px;
         padding: 4px 5px;
