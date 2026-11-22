@@ -273,7 +273,60 @@ select {
 }
 
 .context-submenu {
-    width: 200px;
+    width: 220px;
+}
+
+// A row of the context menus built around a PropertyStepper. A four-column grid so the buttons
+// line up across every row : the label takes the leftover width, then the -1 button, the
+// value, and the +1 button each sit in a fixed track. Scoped under .context-menu to
+// outweigh the flat .context-menu .game-button treatment, which would otherwise hide that
+// these are buttons.
+.context-menu .stepper-entry {
+    display: grid;
+    grid-template-columns: 1fr auto minmax(2ch, auto) auto;
+    align-items: center;
+    column-gap: 6px;
+    padding: 3px 5px;
+
+    color: var(--ui-contrast-text);
+
+    .stepper-label {
+        font-size: 13px;
+        font-weight: 600;
+    }
+
+    // Centered so a two-digit count doesn't push the +1 button out of line
+    strong {
+        text-align: center;
+    }
+
+    // Restore a proper button look : bordered, filled, and lighting up on hover
+    .game-button {
+        margin: 0;
+        min-width: 34px;
+        padding: 3px 4px;
+        text-align: center;
+
+        // Lays the shortcut out beside the delta : before it on the -1 button, after it on +1
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+
+        // Darker than the menu on the dark theme ( itself on the raised surface ) so the buttons
+        // stand out
+        border: 1px solid var(--ui-control-border);
+        background: light-dark($dark-teal, $ui-surface);
+        color: var(--ui-contrast-text);
+        cursor: pointer;
+
+        // Undo the flat context menu hover, which would replace the button fill with a gradient
+        // and its accent bar on the left
+        &:hover:not(:disabled) {
+            filter: brightness(1.25);
+            background: light-dark($dark-teal, $ui-surface);
+        }
+    }
 }
 
 .inline-player-name {

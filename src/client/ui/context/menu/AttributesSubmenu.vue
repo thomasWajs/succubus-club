@@ -2,9 +2,9 @@
     <div
         v-for="row in rows"
         :key="row.attribute"
-        class="attribute-entry"
+        class="stepper-entry"
     >
-        <span class="attribute-label">{{ row.label }}</span>
+        <span class="stepper-label">{{ row.label }}</span>
         <PropertyStepper
             :value="row.value"
             @change="changeAttribute(row.attribute, $event)"
@@ -96,57 +96,3 @@ function changeAttribute(attribute: CardBaseAttribute, amount: number) {
     }
 }
 </script>
-
-<style lang="scss">
-// A four-column grid so the buttons line up across every row : the label takes
-// the leftover width, then the -1 button, the value, and the +1 button each sit
-// in a fixed track. Scoped under .context-submenu to outweigh the flat
-// .context-menu .game-button treatment, which would otherwise hide that these
-// are buttons.
-.context-submenu .attribute-entry {
-    display: grid;
-    grid-template-columns: 1fr auto minmax(2ch, auto) auto;
-    align-items: center;
-    column-gap: 8px;
-    padding: 3px 5px;
-
-    color: var(--ui-contrast-text);
-
-    .attribute-label {
-        font-size: 13px;
-        font-weight: 600;
-    }
-
-    // Centered so a two-digit count doesn't push the +1 button out of line
-    strong {
-        text-align: center;
-    }
-
-    // Restore a proper button look : bordered, filled, and lighting up on hover
-    .game-button {
-        margin: 0;
-        min-width: 34px;
-        padding: 2px 0;
-        text-align: center;
-
-        // Darker than the menu on the dark theme ( itself on the raised surface ) so the buttons
-        // stand out
-        border: 1px solid var(--ui-control-border);
-        background: light-dark($dark-teal, $ui-surface);
-        color: var(--ui-contrast-text);
-        cursor: pointer;
-
-        &:hover {
-            filter: brightness(1.25);
-        }
-
-        // Undo the flat context menu hover, which would hide the button fill ( the gradient of the
-        // light theme can't go through light-dark )
-        @include dark-ui {
-            &:hover:not(:disabled) {
-                background: $ui-surface;
-            }
-        }
-    }
-}
-</style>

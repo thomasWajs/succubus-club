@@ -7,7 +7,8 @@
             left: gameBus.contextMenu.x + 20 + 'px',
             top: gameBus.contextMenu.y + 10 + 'px',
         }"
-        @mousedown.stop
+        @mousedown="onMouseDown"
+        @mouseup="onMouseUp"
         @touchstart.stop
     >
         <CommandContextMenuButton
@@ -21,19 +22,13 @@
             :command="commands.Influence"
         />
 
-        <CommandContextMenuButton
+        <CommandStepperRow
             v-if="firstCard.isIn.play"
-            :command="commands.GainBlood"
-        >
-            Gain {{ bloodLabel }}
-        </CommandContextMenuButton>
-
-        <CommandContextMenuButton
-            v-if="firstCard.isIn.play"
-            :command="commands.BurnBlood"
-        >
-            Burn {{ bloodLabel }}
-        </CommandContextMenuButton>
+            :label="bloodLabel"
+            :value="singleCard ? singleCard.blood : '-'"
+            :gain="commands.GainBlood"
+            :burn="commands.BurnBlood"
+        />
 
         <CommandContextMenuButton
             v-if="firstCard.isIn.controlled"
@@ -121,6 +116,7 @@ import { gameMutations } from '@/shared/state/gameMutations.ts'
 import { Card } from '@/shared/model/Card.ts'
 import ContextMenuButton from '@/client/ui/context/menu/ContextMenuButton.vue'
 import CommandContextMenuButton from '@/client/ui/context/menu/CommandContextMenuButton.vue'
+import CommandStepperRow from '@/client/ui/context/menu/CommandStepperRow.vue'
 import SubmenuContextMenuButton from '@/client/ui/context/menu/SubmenuContextMenuButton.vue'
 import MarkersSubmenu from '@/client/ui/context/menu/MarkersSubmenu.vue'
 import CountersSubmenu from '@/client/ui/context/menu/CountersSubmenu.vue'
@@ -133,6 +129,9 @@ import { useGameBusStore } from '@/client/store/bus.ts'
 import { useCommands } from '@/client/game/composables/useCommands.ts'
 import { useSelection } from '@/client/game/composables/useSelection.ts'
 import { getShuffleSelection } from '@/client/utils.ts'
+import { useCanvasShield } from '@/client/game/composables/useCanvasShield.ts'
+
+const { onMouseDown, onMouseUp } = useCanvasShield()
 
 const gameState = useGameStateStore()
 const gameBus = useGameBusStore()
@@ -155,6 +154,6 @@ const shuffleSelectionSize = computed(() =>
 
 <style lang="scss" scoped>
 .card-context-menu {
-    width: 230px;
+    width: 250px;
 }
 </style>

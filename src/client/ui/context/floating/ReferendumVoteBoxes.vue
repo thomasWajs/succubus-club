@@ -11,6 +11,9 @@
             'voted-against': !voteBox.isSelfControlled && voteBox.castVote.side == VoteSide.Against,
         }"
         :style="voteBox.style"
+        @mousedown="onMouseDown"
+        @mouseup="onMouseUp"
+        @touchstart.stop
     >
         <!-- Own vampires : the sides are the way to announce a vote -->
         <template v-if="voteBox.isSelfControlled">
@@ -65,6 +68,10 @@
  * their own votes, so theirs are displayed as a read-only state.
  *
  * Clicking the side one of your vampires already voted for retracts its vote.
+ *
+ * The boxes overlap the cards, so the mouse and touch presses stop at the box :
+ * Phaser also listens on the window, and would select or hover the card under
+ * the click.
  */
 import { computed } from 'vue'
 import { useGameBusStore } from '@/client/store/bus.ts'
@@ -76,7 +83,9 @@ import { getCastBallot, getCastVote, isBallotVampire } from '@/shared/state/refe
 import { CastVote, VoteSide } from '@/shared/types/state.ts'
 import { Vampire } from '@/shared/model/Card.ts'
 import PropertyStepper from '@/client/ui/components/PropertyStepper.vue'
+import { useCanvasShield } from '@/client/game/composables/useCanvasShield.ts'
 
+const { onMouseDown, onMouseUp } = useCanvasShield()
 const gameState = useGameStateStore()
 const gameBus = useGameBusStore()
 const players = usePlayersStore()
