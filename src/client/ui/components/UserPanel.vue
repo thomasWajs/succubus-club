@@ -1,6 +1,7 @@
 <template>
     <TopPanel
         :isOpen="bus.isUserProfilePanelOpen"
+        @open="onOpen"
         @close="bus.isUserProfilePanelOpen = false"
     >
         <template #title> User </template>
@@ -334,6 +335,11 @@ const bus = useBusStore()
 /** Tab Management **/
 
 const activeTab = ref('userProfile')
+
+function onOpen() {
+    activeTab.value = bus.userPanelInitialTab
+    bus.userPanelInitialTab = 'userProfile'
+}
 
 const tabs = [
     { id: 'userProfile', title: 'User Profile' },

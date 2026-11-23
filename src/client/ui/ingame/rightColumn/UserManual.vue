@@ -5,7 +5,15 @@
             <div class="info-list">
                 <div class="info-item">Logs won't reveal cards to other players</div>
                 <div class="info-item">Only you can see your uncontrolled zone</div>
-                <div class="info-item">UI features are configurables in the user preferences</div>
+                <div class="info-item">
+                    UI features are configurables in the
+                    <a
+                        href="#"
+                        class="preferences-link"
+                        @click.prevent="openPreferences"
+                        >user preferences</a
+                    >
+                </div>
             </div>
         </section>
 
@@ -122,7 +130,16 @@
     </div>
 </template>
 
-<script setup lang="ts"></script>
+<script setup lang="ts">
+import { useBusStore } from '@/client/store/bus.ts'
+
+const bus = useBusStore()
+
+function openPreferences() {
+    bus.userPanelInitialTab = 'preferences'
+    bus.isUserProfilePanelOpen = true
+}
+</script>
 
 <style lang="scss" scoped>
 .user-manual {
@@ -167,6 +184,10 @@
     content: '✓';
     margin-right: 0.25rem;
     color: light-dark($shadow-grey, $ui-accent-light);
+}
+
+.preferences-link:hover {
+    text-decoration: underline;
 }
 
 .control-item {
