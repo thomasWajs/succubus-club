@@ -1,6 +1,6 @@
 import { computed, ref, watch } from 'vue'
 import { db } from '@/client/gateway/db.ts'
-import { isLightUi } from '@/client/gateway/uiTheme.ts'
+import { isLightUi, setUiThemeChoice, UiThemeChoice } from '@/client/gateway/uiTheme.ts'
 import {
     DARK_REGION_LUMINANCE_MAX,
     DARK_REGION_LUMINANCE_MIN,
@@ -259,8 +259,33 @@ export async function initTabletopBackground() {
     // Follow later changes : user selection, or the theme changing the default background
     watch(tabletopBackgroundUrl, refreshBackgroundAverage)
     // A background picked for one theme is usually illegible with the other : switching the
-    // theme goes back to its default background
-    watch(isLightUi, resetTabletopBackground)
+    // theme goes back to its default background. Synchronous, so that
+    // {@link setUiThemeKeepingBackground} can skip it.
+    watch(
+        isLightUi,
+        () => {
+            if (!keepBackgroundOnThemeChange) {
+                resetTabletopBackground()
+            }
+        },
+        { flush: 'sync' },
+    )
+}
+
+let keepBackgroundOnThemeChange = false
+
+/** Change the UI theme, but keep the current background instead of the theme default. */
+export async function setUiThemeKeepingBackground(value: UiThemeChoice) {
+    keepBackgroundOnThemeChange = true
+    // The theme changes synchronously, before the first await of the call
+    const saved = setUiThemeChoice(value)
+    keepBackgroundOnThemeChange = false
+    await saved
+}
+
+/** Whether the user ever picked a background ( built-in or custom ). */
+export function backgroundWasPicked(): boolean {
+    return hasCustomBackground.value || pickedBuiltinName.value !== null
 }
 
 // Kept referenced, so that the browser keeps the decoded images in its memory cache

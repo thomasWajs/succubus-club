@@ -55,12 +55,23 @@ function parseChoice(value: unknown): UiThemeChoice {
     return Object.values(UiThemeChoice).find(candidate => candidate === value) ?? UiThemeChoice.Dark
 }
 
+// Whether the player ever picked a theme ( otherwise the default applies )
+let themeWasPicked = false
+
+/** Whether the player ever picked a theme. Valid after {@link initUiTheme}. */
+export function uiThemeWasPicked(): boolean {
+    return themeWasPicked
+}
+
 /** Load the persisted theme. Call once at startup. */
 export async function initUiTheme() {
-    choice.value = parseChoice((await db.settings.get(SETTINGS_KEY))?.value)
+    const stored = (await db.settings.get(SETTINGS_KEY))?.value
+    themeWasPicked = stored !== undefined
+    choice.value = parseChoice(stored)
 }
 
 export async function setUiThemeChoice(value: UiThemeChoice) {
     choice.value = value
+    themeWasPicked = true
     await db.settings.put({ key: SETTINGS_KEY, value })
 }

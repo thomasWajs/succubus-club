@@ -38,6 +38,7 @@
             />
         </Transition>
         <FocusModeDisclaimer ref="focusModeDisclaimerRef" />
+        <ThemePrompt ref="themePromptRef" />
     </div>
 </template>
 
@@ -51,7 +52,9 @@ import { useGameBusStore } from '@/client/store/bus.ts'
 import { display } from '@/client/game/display.ts'
 import ZoomedCard from '@/client/ui/ingame/ZoomedCard.vue'
 import FocusModeDisclaimer from '@/client/ui/ingame/FocusModeDisclaimer.vue'
-import { onMounted, onUnmounted, ref, watch } from 'vue'
+import ThemePrompt from '@/client/ui/ingame/ThemePrompt.vue'
+import { themePromptPending } from '@/client/gateway/themePrompt.ts'
+import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { setFeedbackButtonVisible } from '@/client/logging.ts'
 
 const core = useCoreStore()
@@ -62,6 +65,21 @@ onMounted(() => setFeedbackButtonVisible(false))
 onUnmounted(() => setFeedbackButtonVisible(true))
 
 const focusModeDisclaimerRef = ref<InstanceType<typeof FocusModeDisclaimer> | null>(null)
+
+const themePromptRef = ref<InstanceType<typeof ThemePrompt> | null>(null)
+
+// Offer the dark theme to players from before it, once the table is shown
+watch(
+    () => core.gameIsReady && themePromptPending.value,
+    async ask => {
+        if (ask) {
+            // The dialog is in #Game, rendered once the game state is ready
+            await nextTick()
+            themePromptRef.value?.show()
+        }
+    },
+    { immediate: true },
+)
 
 watch(
     () => gameBus.focusMode,

@@ -6,6 +6,7 @@ import { shallowRef } from 'vue'
 import { storeAvatar } from '@/client/gateway/user.ts'
 import { initTabletopBackground } from '@/client/gateway/background.ts'
 import { initUiTheme } from '@/client/gateway/uiTheme.ts'
+import { initThemePrompt } from '@/client/gateway/themePrompt.ts'
 
 const userProfile = await DbUserProfile.get()
 
@@ -15,6 +16,8 @@ await initUiTheme()
 // Load the custom tabletop background (if any) before the app renders, so both the
 // loading screen and the game show it right away.
 await initTabletopBackground()
+// Needs both the theme and the background
+await initThemePrompt()
 let lastDeck = null as DbDeck | null
 if (userProfile.lastDeckId) {
     lastDeck = await DbDeck.get(userProfile.lastDeckId)
