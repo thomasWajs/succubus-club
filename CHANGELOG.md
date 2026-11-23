@@ -1,3 +1,15 @@
+## [1.1.0] - 2026-11-23
+
+Features:
+- New theme : dark mode, which become the default. Legacy still exists as light mode. Can follow the system setting.
+- Use svg icons instead of emoji characters
+- Filter preco on actually playable ones
+- Add a purple counter
+
+Bugfix:
+- Pinging a card no longer blur it
+- In the logs, a counter on ally is now "life" instead of "blood"
+
 ## [1.0.4] - 2026-11-12
 
 Features:
