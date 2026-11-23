@@ -14,9 +14,11 @@
         @create="onBoundariesCreate"
     />
 
-    <!-- Active player : a color in the centre, fading out toward both ends. It breathes
-         ( onPreUpdate ) : spreads from the centre, then contracts back. Hidden rather than
-         removed : created when the turn passes, it would be drawn over the bar's buttons -->
+    <!--
+        Active player : a color in the centre, fading out toward both ends. It breathes
+        ( onPreUpdate ) : spreads from the centre, then contracts back. Hidden rather than
+        removed : created when the turn passes, it would be drawn over the bar's buttons
+    -->
     <Image
         ref="activeGradient"
         :visible="isActive"
@@ -120,8 +122,10 @@
         "
     />
 
-    <!-- Ballots, votes and victory points : the count in a badge styled like the pool diamond, then
-         a label -->
+    <!--
+        Ballots, votes and victory points : the count in a badge styled like the pool diamond,
+        then a label
+    -->
     <template
         v-for="badge in countBadges"
         :key="badge.label"
