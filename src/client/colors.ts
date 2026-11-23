@@ -16,9 +16,9 @@ import {
     CARD_OUTLINE_COLOR_SELECTED,
     CARD_PING_COLOR,
     COUNTER_OUTLINE_COLOR,
+    DARK_ACCENT_BORDER_COLOR,
     DARK_ACCENT_COLOR,
     DARK_ACCENT_LIGHT_COLOR,
-    DARK_ACCENT_VIVID_COLOR,
     DARK_ACTIVE_PLAYER_GLOW_COLOR,
     DARK_BORDER_COLOR,
     DARK_CARD_OUTLINE_COLOR_INDIRECT_HOVER,
@@ -174,7 +174,7 @@ function themed(light: string, dark: string) {
     return () => (isLightUi.value ? lightColor : darkColor)
 }
 
-const themedActivePlayerIcon = themed(BLACK, DARK_ACCENT_VIVID_COLOR)
+const themedActivePlayerIcon = themed(BLACK, DARK_ACCENT_BORDER_COLOR)
 const themedButtonBackground = themed(BUTTON_BACKGROUND_COLOR, DARK_SURFACE_RAISED_COLOR)
 const themedButtonBorder = themed(BUTTON_BORDER_COLOR, DARK_BORDER_COLOR)
 const themedCardOutlineSelected = themed(

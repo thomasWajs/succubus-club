@@ -66,7 +66,7 @@
     // Accent lines : focused inputs, hovered menu rows, active tabs
     @include token('accent-line', $lighter-teal, $ui-accent-light);
     // Borders of what just changed ( turn notification, Edge hint )
-    @include token('highlight-border', $light-teal, $ui-accent-light);
+    @include token('highlight-border', $light-teal, $ui-accent-border);
 
     // The current state ( turn, phase ) : muted, so it differs from the game buttons
     @include token('current-bg', $teal-accent, $ui-accent);

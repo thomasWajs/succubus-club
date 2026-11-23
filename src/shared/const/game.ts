@@ -203,8 +203,8 @@ export const ORDERED_PLAYER_COLORS = [
  */
 
 export const DARK_ACCENT_COLOR = 'rgb(56,39,73)' // $ui-accent
+export const DARK_ACCENT_BORDER_COLOR = 'rgb(102,78,126)' // $ui-accent-border
 export const DARK_ACCENT_LIGHT_COLOR = 'rgb(158,129,187)' // $ui-accent-light
-export const DARK_ACCENT_VIVID_COLOR = 'rgb(107,73,159)'
 export const DARK_CARD_OUTLINE_COLOR_SELECTED = 'rgb(204,176,232)'
 // The hover / area select highlight : a muted gold rather than the light theme's bright yellow
 export const DARK_HIGHLIGHT_COLOR = 'rgb(206,180,118)'
