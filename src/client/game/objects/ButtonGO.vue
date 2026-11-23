@@ -33,20 +33,42 @@
         :depth="depth"
     />
 
+    <Image
+        v-if="icon"
+        ref="buttonIcon"
+        :texture="iconTextureKey(icon)"
+        :x="x"
+        :y="y"
+        :scale="iconScale"
+        :rotation="rotation"
+        :tint="iconColor?.color ?? Colors.WHITE.color"
+        :depth="depth"
+    />
+
     <slot />
 </template>
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import Phaser, { GameObjects } from 'phaser'
-import { Rectangle, refObj, Text } from 'phavuer'
+import { Image, Rectangle, refObj, Text } from 'phavuer'
 import { Colors } from '@/client/colors.ts'
-import { BUTTON_BORDER_WIDTH, BUTTON_TEXT_STYLE } from '@/shared/const/game.ts'
+import { BUTTON_BORDER_WIDTH, BUTTON_ICON_RATIO, BUTTON_TEXT_STYLE } from '@/shared/const/game.ts'
 import { PhaserDataKey } from '@/client/game/types.ts'
+import { IconName } from '@/client/resources/icons.ts'
+import { CANVAS_ICON_SIZE, iconTextureKey } from '@/client/resources/textures.ts'
 import Color = Phaser.Display.Color
 import Pointer = Phaser.Input.Pointer
 
-const { name, textStyle, backgroundColor, borderColor } = defineProps<{
+const {
+    width,
+    height,
+    scale = 1,
+    name,
+    textStyle,
+    backgroundColor,
+    borderColor,
+} = defineProps<{
     x: number
     y: number
     width: number
@@ -55,6 +77,9 @@ const { name, textStyle, backgroundColor, borderColor } = defineProps<{
     rotation?: number
     text?: string
     textStyle?: object
+    // One of CANVAS_ICONS, drawn in the button centre
+    icon?: IconName
+    iconColor?: Color
     backgroundColor?: Color
     borderColor?: Color
     name?: string
@@ -66,9 +91,15 @@ const { name, textStyle, backgroundColor, borderColor } = defineProps<{
 
 const buttonRectangle = refObj<GameObjects.Rectangle>()
 const buttonText = refObj<GameObjects.Text>()
+const buttonIcon = refObj<GameObjects.Image>()
 const isHovered = ref(false)
 
 const mergedTextStyle = { ...BUTTON_TEXT_STYLE, ...textStyle }
+
+// Scaled with the button, unlike the text
+const iconScale = computed(
+    () => (Math.min(width, height) * scale * BUTTON_ICON_RATIO) / CANVAS_ICON_SIZE,
+)
 
 function onRectangleCreate(rectangle: GameObjects.Rectangle) {
     rectangle.setInteractive({ cursor: 'pointer' })
@@ -103,6 +134,7 @@ function bringToTop() {
     const container = buttonRectangle.value.parentContainer
     container.bringToTop(buttonRectangle.value)
     if (buttonText.value) container.bringToTop(buttonText.value)
+    if (buttonIcon.value) container.bringToTop(buttonIcon.value)
 
     // If the player is ousted, the ousted overlay always takes precedence
     if (name != 'hidePLayAreaButton') {

@@ -67,14 +67,15 @@
                     v-if="isSavedGame && !multiplayer.currentGameRoom.isStarted"
                     class="saved-game-message"
                 >
-                    💾 This is a saved game. All non-ousted players must join to start.
+                    <Icon name="save" /> This is a saved game. All non-ousted players must join to
+                    start.
                 </span>
 
                 <span
                     v-else-if="multiplayer.isSeatingReady && !isPickSeatingMode"
                     class="seating-rolled-message"
                 >
-                    ✅ All players seated
+                    <Icon name="success" /> All players seated
                 </span>
 
                 <button
@@ -97,7 +98,10 @@
                         class="available-seat"
                         @click="pickSeat(0)"
                     >
-                        <div class="seat-icon">📍</div>
+                        <Icon
+                            class="seat-icon"
+                            name="seat"
+                        />
                         <div class="seat-label">Pick</div>
                     </div>
 
@@ -140,7 +144,10 @@
                             class="available-seat"
                             @click="pickSeat(index + 1)"
                         >
-                            <div class="seat-icon">📍</div>
+                            <Icon
+                                class="seat-icon"
+                                name="seat"
+                            />
                             <div class="seat-label">Pick</div>
                         </div>
                     </template>
@@ -151,7 +158,10 @@
                         class="available-seat first-seat"
                         @click="pickSeat(0)"
                     >
-                        <div class="seat-icon">📍</div>
+                        <Icon
+                            class="seat-icon"
+                            name="seat"
+                        />
                         <div class="seat-label">Pick First Seat</div>
                     </div>
                 </div>
@@ -196,7 +206,7 @@
                                         :key="idx"
                                         class="deck-warning"
                                     >
-                                        ⚠ {{ warning }}
+                                        <Icon name="warning" /> {{ warning }}
                                     </span>
                                 </div>
                             </div>
@@ -321,14 +331,22 @@
                                 "
                                 @click="multiplayer.selfIsReady = true"
                             >
-                                ✔️ I'm Ready
+                                <Icon
+                                    class="ready-icon"
+                                    name="ready"
+                                />
+                                I'm Ready
                             </button>
                             <button
                                 v-else
                                 class="unready-btn"
                                 @click="multiplayer.selfIsReady = false"
                             >
-                                ❌ Not Ready
+                                <Icon
+                                    class="unready-icon"
+                                    name="unready"
+                                />
+                                Not Ready
                             </button>
 
                             <span
@@ -546,6 +564,7 @@ import { CommunicationMode, EMPTY_SEATING, RoomRole, User } from '@/shared/types
 import { isSeated, ROOM_ROLES } from '@/shared/multiplayer/roles.ts'
 import UserAvatar from '@/client/ui/components/UserAvatar.vue'
 import LobbyChat from '@/client/ui/components/LobbyChat.vue'
+import Icon from '@/client/ui/components/Icon.vue'
 import * as logging from '@/client/logging.ts'
 import { useBusStore } from '@/client/store/bus.ts'
 import { countCards } from '@/client/gateway/deck.ts'
@@ -945,6 +964,8 @@ async function startConnectIntoGame(gameRoom?: any) {
 
 @mixin top-message {
     @include flex-center;
+    // A flex box drops the space between the icon and the text
+    gap: 0.4em;
     font-size: 0.9rem;
     font-weight: 500;
     font-style: italic;
@@ -1225,10 +1246,18 @@ async function startConnectIntoGame(gameRoom?: any) {
 
 .ready-btn {
     @include button-light-grey;
+
+    &:not(:disabled) .ready-icon {
+        color: $ready-green;
+    }
 }
 
 .unready-btn {
     @include button-grey;
+
+    .unready-icon {
+        color: $icon-red;
+    }
 }
 
 .start-game-btn {
@@ -1368,6 +1397,7 @@ async function startConnectIntoGame(gameRoom?: any) {
 
 .seat-icon {
     font-size: 2rem;
+    color: $silver-grey;
 }
 
 .seat-label {

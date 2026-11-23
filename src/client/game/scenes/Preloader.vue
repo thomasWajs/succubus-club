@@ -13,9 +13,12 @@ import { Scene } from 'phavuer'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { ATLASES } from '@/client/resources/cards.ts'
 import {
+    CANVAS_ICONS,
     enqueueTextureLoading,
     getFrequentCards,
+    iconTextureKey,
     preloadedAtlasTextures,
+    preloadedIconTextures,
     preloadedTextures,
     setupTextureListener,
     Texture,
@@ -32,6 +35,13 @@ function preload(scene: Phaser.Scene) {
             textureName,
             preloadedTextures[textureName as keyof typeof preloadedTextures],
         )
+    }
+
+    for (const icon of CANVAS_ICONS) {
+        const canvas = preloadedIconTextures[icon]
+        if (canvas) {
+            scene.textures.addCanvas(iconTextureKey(icon), canvas)
+        }
     }
 
     for (const atlasName of ATLASES) {

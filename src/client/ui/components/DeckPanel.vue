@@ -315,7 +315,10 @@
                             v-if="deckWarnings.length"
                             class="alert-message"
                         >
-                            <span class="alert-icon">⚠</span>
+                            <Icon
+                                name="warning"
+                                class="alert-icon"
+                            />
                             <div class="alert-text">
                                 <div>Validation warnings:</div>
                                 <ul class="warnings-list">
@@ -378,6 +381,7 @@ import { computed, ref } from 'vue'
 import { useBusStore } from '@/client/store/bus.ts'
 import DeckViewer from '@/client/ui/components/DeckViewer.vue'
 import TopPanel from '@/client/ui/components/TopPanel.vue'
+import Icon from '@/client/ui/components/Icon.vue'
 import {
     getOrImportFromDeckBuilder,
     getOrImportPrecon,

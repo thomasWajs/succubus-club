@@ -11,7 +11,7 @@
             title="Camera controls"
             @click="isOpen = !isOpen"
         >
-            📷
+            <Icon name="camera" />
         </button>
 
         <div
@@ -30,11 +30,11 @@
 
             <div class="controls-list">
                 <div class="control-item">
-                    <span class="action">🖱️ Wheel</span>
+                    <span class="action"><Icon name="mouse" /> Wheel</span>
                     <span class="result">Zoom in/out</span>
                 </div>
                 <div class="control-item">
-                    <span class="action">🖱️ Middle-click + Move</span>
+                    <span class="action"><Icon name="mouse" /> Middle-click + Move</span>
                     <span class="result">Pan</span>
                 </div>
                 <div class="control-item">
@@ -59,6 +59,7 @@ import { useGameStateStore } from '@/client/store/gameState.ts'
 import { display, layout } from '@/client/game/display.ts'
 import { resetFreeTableCamera } from '@/client/game/camera.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
+import Icon from '@/client/ui/components/Icon.vue'
 
 const gameState = useGameStateStore()
 const gameBus = useGameBusStore()
@@ -147,12 +148,16 @@ const rightOffset = computed(() => (display.rightColumnVisible ? layout.rightCol
     background: var(--ui-raised-bg);
     border-radius: 0.25rem;
     padding: 8px 10px;
-    font-size: 13px;
+    font-size: 14px;
 
     .action {
         display: flex;
         align-items: center;
         gap: 0.25rem;
+
+        .ui-icon {
+            font-size: 20px;
+        }
     }
 
     .result {

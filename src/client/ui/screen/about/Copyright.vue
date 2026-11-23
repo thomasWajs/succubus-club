@@ -24,6 +24,20 @@
             Darkness material
         </p>
         <p>
+            Some icons are from
+            <a
+                href="https://game-icons.net"
+                target="_blank"
+                >game-icons.net</a
+            >
+            , licensed under
+            <a
+                href="https://creativecommons.org/licenses/by/3.0/"
+                target="_blank"
+                >CC BY 3.0</a
+            >.
+        </p>
+        <p>
             <a
                 href="https://www.paradoxinteractive.com/games/world-of-darkness/community/dark-pack-agreement"
                 target="_blank"

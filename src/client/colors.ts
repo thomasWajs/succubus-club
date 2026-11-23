@@ -6,6 +6,7 @@ import {
     BLOOD_COUNTER_FILL_COLOR,
     BUTTON_BACKGROUND_COLOR,
     BUTTON_BORDER_COLOR,
+    BURN_ICON_COLOR,
     CARD_GLOW_COLOR,
     CARD_GROUP_BACKGROUND_COLOR,
     CARD_GROUP_BOUNDING_BOX_COLOR,
@@ -44,6 +45,8 @@ import {
     DARK_REGION_STACK_SIZE_LIGHTEN,
     DARK_SURFACE_COLOR,
     DARK_SURFACE_RAISED_COLOR,
+    DISCONNECTED_ICON_COLOR,
+    DARK_DISCONNECTED_ICON_COLOR,
 } from '@/shared/const/game.ts'
 import Phaser from 'phaser'
 import { computed } from 'vue'
@@ -181,6 +184,7 @@ const themedCardOutlineIndirectHover = themed(
     DARK_CARD_OUTLINE_COLOR_INDIRECT_HOVER,
 )
 const themedSelectionArea = themed(SELECTION_AREA_COLOR, DARK_HIGHLIGHT_COLOR)
+const themedDisconnectedIcon = themed(DISCONNECTED_ICON_COLOR, DARK_DISCONNECTED_ICON_COLOR)
 const themedSeparator = themed(SEPARATOR_COLOR, DARK_ACCENT_LIGHT_COLOR)
 const themedTheEdgeControlledDisc = themed(THE_EDGE_CONTROLLED_DISC_COLOR, DARK_ACCENT_COLOR)
 const themedWieldBackground = themed(WIELD_BACKGROUND_COLOR, DARK_SURFACE_COLOR)
@@ -214,6 +218,9 @@ export const Colors = {
     get CARD_OUTLINE_INDIRECT_HOVER() {
         return themedCardOutlineIndirectHover()
     },
+    get DISCONNECTED_ICON() {
+        return themedDisconnectedIcon()
+    },
     get SELECTION_AREA() {
         return themedSelectionArea()
     },
@@ -239,6 +246,7 @@ export const Colors = {
     ARROW: toColor(ARROW_COLOR),
     BLACK: toColor(BLACK),
     BLOOD_COUNTER_FILL: toColor(BLOOD_COUNTER_FILL_COLOR),
+    BURN_ICON: toColor(BURN_ICON_COLOR),
     CARD_GLOW: toColor(CARD_GLOW_COLOR),
     CARD_GROUP_BACKGROUND: toColor(CARD_GROUP_BACKGROUND_COLOR),
     CARD_GROUP_BOUNDING_BOX: toColor(CARD_GROUP_BOUNDING_BOX_COLOR),

@@ -149,11 +149,12 @@
             name="ashHeapButton"
             :x="overlays.ashHeap.x"
             :y="overlays.ashHeap.y"
-            :width="OVERLAY_BUTTON_SIZE"
-            :height="OVERLAY_BUTTON_SIZE"
+            :width="ASH_HEAP_BUTTON_SIZE"
+            :height="ASH_HEAP_BUTTON_SIZE"
             :scale="scale"
             :rotation="ownerFacingRotation"
-            text="🔥"
+            icon="burn"
+            :iconColor="Colors.BURN_ICON"
             @pointerover="onPointerOver"
             @pointerout="onPointerOut"
             @click="overlayClick($event, commands.MoveToAshHeap.cardAction)"
@@ -329,6 +330,7 @@ import {
     MARKER_WIDTH_PER_CHAR,
     MARKERS_CARD_GAP,
     MARKERS_TEXT_STYLE,
+    OVERLAY_BUTTON_EDGE_GAP,
     OVERLAY_BUTTON_SIZE,
 } from '@/shared/const/game.ts'
 import { Card } from '@/shared/model/Card.ts'
@@ -514,6 +516,8 @@ function bringToTop() {
  * Overlay ( counters & buttons )
  */
 
+const ASH_HEAP_BUTTON_SIZE = OVERLAY_BUTTON_SIZE * 0.8
+
 const showOverlay = computed(() => {
     return (
         showOverlayButtons.value &&
@@ -553,6 +557,8 @@ const overlays = computed(() => {
         (COUNTER_RADIUS + COUNTER_OUTLINE_THICKNESS + 1) *
         COUNTER_HOVER_OFFSET_MULTIPLIER *
         scale.value
+    // Distance from the card edges to the ash heap button center : the button sits in the corner
+    const ashHeapInset = (ASH_HEAP_BUTTON_SIZE / 2 + OVERLAY_BUTTON_EDGE_GAP) * scale.value
 
     let bloodX,
         bloodY,
@@ -575,8 +581,8 @@ const overlays = computed(() => {
         greenCounterY = card.y + displaySize.value.height - counterRadius
         orangeCounterX = card.x + displaySize.value.width - counterRadius
         orangeCounterY = card.y + displaySize.value.height - counterRadius
-        ashHeapX = card.x + displaySize.value.width - counterRadius
-        ashHeapY = card.y + displaySize.value.height - counterRadius
+        ashHeapX = card.x + displaySize.value.width - ashHeapInset
+        ashHeapY = card.y + displaySize.value.height - ashHeapInset
         influenceX = card.x + displaySize.value.width / 2
         influenceY = card.y + displaySize.value.height - counterRadius
     }
@@ -589,8 +595,8 @@ const overlays = computed(() => {
         greenCounterY = card.y + counterRadius
         orangeCounterX = card.x + counterRadius
         orangeCounterY = card.y + displaySize.value.width - counterRadius
-        ashHeapX = card.x + counterRadius
-        ashHeapY = card.y + displaySize.value.width - counterRadius
+        ashHeapX = card.x + ashHeapInset
+        ashHeapY = card.y + displaySize.value.width - ashHeapInset
         influenceX = card.x + displaySize.value.height / 2
         influenceY = card.y + counterRadius
     }

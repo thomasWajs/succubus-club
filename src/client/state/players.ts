@@ -5,6 +5,7 @@ import { Player } from '@/shared/model/Player.ts'
 import { PlayerOid } from '@/shared/types/model.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { GameType } from '@/shared/types/state.ts'
+import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 
 export const usePlayersStore = defineStore('players', {
     state: () => ({
@@ -66,6 +67,20 @@ export const usePlayersStore = defineStore('players', {
 
         isSpectator(): boolean {
             return !this.selfPlayerOid
+        },
+
+        // Human players of a multiplayer game who have left the room
+        disconnectedPlayers(): Set<PlayerOid> {
+            const gameState = useGameStateStore()
+            if (gameState.gameType != GameType.Multiplayer) {
+                return new Set()
+            }
+            const multiplayer = useMultiplayerStore()
+            return new Set(
+                Object.values(gameState.players)
+                    .filter(player => !player.isBot && !multiplayer.users[player.permId])
+                    .map(player => player.oid),
+            )
         },
 
         /**

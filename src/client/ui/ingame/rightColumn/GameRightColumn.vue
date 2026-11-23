@@ -19,7 +19,7 @@
                 class="pin-flash"
                 @animationend="showPinFlash = false"
             >
-                📌
+                <Icon name="pin" />
             </div>
 
             <div
@@ -82,6 +82,7 @@ import { useGameBusStore } from '@/client/store/bus.ts'
 import RightColumnPlayers from '@/client/ui/ingame/rightColumn/RightColumnPlayers.vue'
 import RightColumnTabs from '@/client/ui/ingame/rightColumn/RightColumnTabs.vue'
 import ResizeHandle from '@/client/ui/ingame/rightColumn/ResizeHandle.vue'
+import Icon from '@/client/ui/components/Icon.vue'
 import { useCoreStore } from '@/client/store/core.ts'
 import { useCardTexture } from '@/client/game/composables/useCardTexture.ts'
 import {
@@ -197,6 +198,8 @@ watch(
         align-items: center;
         justify-content: center;
         font-size: 48px;
+        // Over the card image : the red of a pushpin
+        color: $rose-red;
 
         background: rgba(white, 0.15);
 

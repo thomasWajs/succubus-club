@@ -56,7 +56,7 @@
                         v-if="showDiscoveryMessage"
                         class="discovery-message"
                     >
-                        ⏳ Discovering players... This may take a few seconds
+                        <Icon name="waiting" /> Discovering players... This may take a few seconds
                     </div>
                 </div>
             </div>
@@ -107,7 +107,11 @@
                         <div class="room-info">
                             <div class="room-info-left">
                                 <span class="room-lock">
-                                    <template v-if="gameRoom.hasPassword">🔒</template>
+                                    <Icon
+                                        v-if="gameRoom.hasPassword"
+                                        name="locked"
+                                        title="Password protected"
+                                    />
                                 </span>
                                 <span class="room-setting-badge">
                                     {{ gameRoom.isCasual ? 'Casual' : 'Competitive' }}
@@ -339,6 +343,7 @@ import {
     warmUpChatAuth,
 } from '@/client/gateway/lobbyChat.ts'
 import ToggleSwitch from '@/client/ui/components/ToggleSwitch.vue'
+import Icon from '@/client/ui/components/Icon.vue'
 import { NotInAGameRoom } from '@/client/types.ts'
 import router, { ROUTES } from '@/client/ui/router.ts'
 
@@ -826,12 +831,14 @@ if (import.meta.env.VITE_FAST_TRACK_MULTIPLAYER) {
     align-items: center;
     gap: 0.25rem;
 
+    // Always there, empty without a password : the badges line up across the rooms
     .room-lock {
-        font-size: 0.75rem;
-        color: $mist-grey;
+        font-size: 1rem;
+        color: $warm-coral;
         display: flex;
         align-items: center;
-        width: 0.5rem;
+        width: 1.1rem;
+        margin-right: 0.25rem;
     }
 
     .room-setting-badge {

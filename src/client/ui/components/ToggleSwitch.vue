@@ -20,8 +20,9 @@
                         v-if="option.tooltip"
                         class="option-info"
                         :title="option.tooltip"
-                        >ⓘ</span
                     >
+                        <Icon name="info" />
+                    </span>
                 </div>
                 <div class="option-description">{{ option.description }}</div>
             </div>
@@ -30,6 +31,8 @@
 </template>
 
 <script setup lang="ts">
+import Icon from '@/client/ui/components/Icon.vue'
+
 export interface ToggleOption {
     value: string
     label: string
@@ -118,7 +121,7 @@ function handleSelect(value: string) {
     @include flex-center-inline;
     width: 24px;
     height: 24px;
-    font-size: 1.25rem;
+    font-size: 1rem;
     color: $silver-grey;
     cursor: help;
     opacity: 0.8;

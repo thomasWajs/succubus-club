@@ -103,11 +103,11 @@
             <h2 class="section-title">Camera</h2>
             <div class="controls-list">
                 <div class="control-item">
-                    <span class="action">🖱️ Wheel</span>
+                    <span class="action"><Icon name="mouse" /> Wheel</span>
                     <span class="result">Zoom in/out</span>
                 </div>
                 <div class="control-item">
-                    <span class="action">🖱️ Middle click + Move</span>
+                    <span class="action"><Icon name="mouse" /> Middle click + Move</span>
                     <span class="result">Move</span>
                 </div>
                 <div class="controls-list">

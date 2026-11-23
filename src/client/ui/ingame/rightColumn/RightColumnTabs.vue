@@ -68,12 +68,18 @@
             :disabled="gameBus.savingState != SavingState.None"
             @click="saveGame(false)"
         >
-            <template v-if="gameBus.savingState == SavingState.Saving"> 💾Saving... </template>
-            <template v-else-if="gameBus.savingState == SavingState.AutoSaving">
-                💾Auto-Saving...
+            <template v-if="gameBus.savingState == SavingState.Saving">
+                <Icon name="save" /> Saving...
             </template>
-            <template v-else-if="gameBus.savingState == SavingState.Done"> 👍Save OK </template>
-            <template v-else-if="gameBus.savingState == SavingState.Error"> 😵Save Error </template>
+            <template v-else-if="gameBus.savingState == SavingState.AutoSaving">
+                <Icon name="save" /> Auto-Saving...
+            </template>
+            <template v-else-if="gameBus.savingState == SavingState.Done">
+                <Icon name="success" /> Save OK
+            </template>
+            <template v-else-if="gameBus.savingState == SavingState.Error">
+                <Icon name="error" /> Save Error
+            </template>
             <template v-else>Save Game</template>
         </button>
 
@@ -175,7 +181,8 @@
     >
         <div class="heads-up-content">
             <div class="heads-up-message">
-                📖 Check out the <strong>Manual</strong> tab for help & game commands !
+                <Icon name="manual" /> Check out the <strong>Manual</strong> tab for help & game
+                commands !
             </div>
             <button
                 class="heads-up-button"
@@ -256,6 +263,7 @@ import { saveGame, SavingState } from '@/client/gateway/savedGames.ts'
 import { GameType } from '@/shared/types/state.ts'
 import { requestResyncGameState, sendChat, startNewTable } from '@/client/multiplayer/room.ts'
 import UserManual from '@/client/ui/ingame/rightColumn/UserManual.vue'
+import Icon from '@/client/ui/components/Icon.vue'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
@@ -263,7 +271,7 @@ import LogLine from '@/client/ui/ingame/rightColumn/LogLine.vue'
 import { leaveGame } from '@/client/state/setup.ts'
 import { getAuthorColorRgba } from '@/shared/colors.ts'
 import { isFeedbackAvailable, openFeedbackForm } from '@/client/logging.ts'
-import { setUiThemeChoice, uiThemeChoice, UI_THEME_CHOICES } from '@/client/gateway/uiTheme.ts'
+import { setUiThemeChoice, UI_THEME_CHOICES, uiThemeChoice } from '@/client/gateway/uiTheme.ts'
 
 const gameState = useGameStateStore()
 const players = usePlayersStore()

@@ -64,7 +64,8 @@
             :y="overlays.ashHeap.y"
             :width="ASH_HEAP_BUTTON_SIZE"
             :height="ASH_HEAP_BUTTON_SIZE"
-            text="🔥"
+            icon="burn"
+            :iconColor="Colors.BURN_ICON"
             @pointerover="onPointerOver"
             @pointerout="onPointerOut"
             @click="overlayClick(commands.MoveToAshHeap.cardAction)"
@@ -76,8 +77,8 @@
             name="moveToBottomButton"
             :x="overlays.moveToBottom.x"
             :y="overlays.moveToBottom.y"
-            :width="80"
-            :height="25"
+            :width="MOVE_TO_BOTTOM_BUTTON_WIDTH"
+            :height="MOVE_TO_BOTTOM_BUTTON_HEIGHT"
             text="To Bottom"
             :textStyle="{ fontSize: '12px' }"
             @pointerover="onPointerOver"
@@ -101,8 +102,8 @@ import {
     CARD_IN_HAND_SCALE,
     CARD_OUTLINE_THICKNESS,
     CARD_WIDTH,
-    COUNTER_OUTLINE_THICKNESS,
     HAND_WIDTH,
+    OVERLAY_BUTTON_EDGE_GAP,
     OVERLAY_BUTTON_SIZE,
 } from '@/shared/const/game.ts'
 import { Card, LibraryCard } from '@/shared/model/Card.ts'
@@ -211,10 +212,14 @@ function bringToTop(withOutline = false) {
  * Overlay ( counters & buttons )
  */
 
-const ASH_HEAP_BUTTON_SIZE = OVERLAY_BUTTON_SIZE * 1.5
+const ASH_HEAP_BUTTON_SIZE = OVERLAY_BUTTON_SIZE * 1.4
+
+const MOVE_TO_BOTTOM_BUTTON_WIDTH = 80
+const MOVE_TO_BOTTOM_BUTTON_HEIGHT = 25
 
 const overlays = computed(() => {
-    const totalAshHeapButtonSize = ASH_HEAP_BUTTON_SIZE + COUNTER_OUTLINE_THICKNESS
+    // Distance from the card edges to the ash heap button center : the button sits in the corner
+    const ashHeapInset = ASH_HEAP_BUTTON_SIZE / 2 + OVERLAY_BUTTON_EDGE_GAP
     const leftEdge = cardAttrs.value.x
     const rightEdge = cardAttrs.value.x + CARD_WIDTH * CARD_IN_HAND_SCALE
     const bottomEdge = cardAttrs.value.y + CARD_HEIGHT * CARD_IN_HAND_SCALE
@@ -225,12 +230,13 @@ const overlays = computed(() => {
             y: cardAttrs.value.y + 15,
         },
         ashHeap: {
-            x: rightEdge - totalAshHeapButtonSize / 2 - 1, // -1 is to account for outline thickness
-            y: bottomEdge - totalAshHeapButtonSize / 2 - 1, // -1 is to account for outline thickness
+            x: rightEdge - ashHeapInset,
+            y: bottomEdge - ashHeapInset,
         },
+        // Bottom left corner, same gap to the edges as the ash heap button
         moveToBottom: {
-            x: leftEdge + 44,
-            y: bottomEdge - 15,
+            x: leftEdge + MOVE_TO_BOTTOM_BUTTON_WIDTH / 2 + OVERLAY_BUTTON_EDGE_GAP,
+            y: bottomEdge - MOVE_TO_BOTTOM_BUTTON_HEIGHT / 2 - OVERLAY_BUTTON_EDGE_GAP,
         },
     }
 })

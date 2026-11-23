@@ -4,6 +4,7 @@ import { ASSETS_URL, ATLASES, atlasUrls, CARDS_PATH } from '@/client/resources/c
 import { fetchWithRetry } from '@/client/resources/index.ts'
 import { useCoreStore } from '@/client/store/core.ts'
 import * as logging from '@/client/logging.ts'
+import { IconName, iconSvg } from '@/client/resources/icons.ts'
 
 export enum Texture {
     BrokenChain = 'brokenChain',
@@ -54,6 +55,51 @@ async function preloadTexture(url: string, store: (img: HTMLImageElement) => voi
     })
 }
 
+// Icons drawn on the canvas, keyed by `iconTextureKey`
+export const CANVAS_ICONS: IconName[] = ['burn', 'disconnected']
+export const CANVAS_ICON_SIZE = 64
+export const preloadedIconTextures: Partial<Record<IconName, HTMLCanvasElement>> = {}
+
+export function iconTextureKey(icon: IconName): string {
+    return `icon-${icon}`
+}
+
+// Like on the HTML side, only the icon shape counts : it is filled with white, so a tint gives it
+// any colour. Rasterized larger than its display size, for zoom and hi-dpi screens.
+function preloadIconTexture(icon: IconName): Promise<void> {
+    const svg = new DOMParser().parseFromString(iconSvg(icon), 'image/svg+xml')
+    // An SVG without a size can't be drawn on a canvas
+    svg.documentElement.setAttribute('width', `${CANVAS_ICON_SIZE}`)
+    svg.documentElement.setAttribute('height', `${CANVAS_ICON_SIZE}`)
+    const blob = new Blob([new XMLSerializer().serializeToString(svg)], { type: 'image/svg+xml' })
+    const imageUrl = URL.createObjectURL(blob)
+
+    return new Promise<void>(resolve => {
+        const img = new Image()
+        img.onload = () => {
+            const canvas = document.createElement('canvas')
+            canvas.width = CANVAS_ICON_SIZE
+            canvas.height = CANVAS_ICON_SIZE
+            const context = canvas.getContext('2d')
+            if (context) {
+                context.drawImage(img, 0, 0, CANVAS_ICON_SIZE, CANVAS_ICON_SIZE)
+                context.globalCompositeOperation = 'source-in'
+                context.fillStyle = 'white'
+                context.fillRect(0, 0, CANVAS_ICON_SIZE, CANVAS_ICON_SIZE)
+                preloadedIconTextures[icon] = canvas
+            }
+            URL.revokeObjectURL(imageUrl)
+            resolve()
+        }
+        img.onerror = () => {
+            logging.captureException(new Error(`Icon texture failed to load : ${icon}`))
+            URL.revokeObjectURL(imageUrl)
+            resolve()
+        }
+        img.src = imageUrl
+    })
+}
+
 // Preload texture to speed up game loading
 export function preloadAllTextures() {
     const promises: Promise<void>[] = ATLASES.map(name =>
@@ -67,6 +113,10 @@ export function preloadAllTextures() {
                 img => (preloadedTextures[textureName] = img),
             ),
         )
+    }
+
+    for (const icon of CANVAS_ICONS) {
+        promises.push(preloadIconTexture(icon))
     }
     return promises
 }

@@ -14,6 +14,17 @@
         @create="onBoundariesCreate"
     />
 
+    <!-- Disconnected ( multiplayer ), before the name -->
+    <Image
+        v-if="isDisconnected"
+        :texture="iconTextureKey('disconnected')"
+        :origin="0"
+        :x="x + 5"
+        :y="y + 6"
+        :scale="DISCONNECTED_ICON_SIZE / CANVAS_ICON_SIZE"
+        :tint="Colors.DISCONNECTED_ICON.color"
+    />
+
     <!-- Player Name -->
     <Text
         :text="player.shortName"
@@ -22,7 +33,7 @@
             fontSize: '18px',
         }"
         :origin="0"
-        :x="x + 5"
+        :x="x + 5 + (isDisconnected ? DISCONNECTED_ICON_SIZE + 4 : 0)"
         :y="y + 5"
     />
 
@@ -124,7 +135,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted } from 'vue'
 import Phaser, { GameObjects } from 'phaser'
-import { Polygon, Rectangle, refObj, Text } from 'phavuer'
+import { Image, Polygon, Rectangle, refObj, Text } from 'phavuer'
 import { Colors, playerNameRgba, playAreaTextColor } from '@/client/colors.ts'
 import { COUNTER_OUTLINE_THICKNESS, COUNTER_TEXT_STYLE } from '@/shared/const/game.ts'
 import { isLightUi } from '@/client/gateway/uiTheme.ts'
@@ -135,7 +146,11 @@ import ButtonGO from '@/client/game/objects/ButtonGO.vue'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
 import { getPlayerColor } from '@/client/game/utils.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
+import { CANVAS_ICON_SIZE, iconTextureKey } from '@/client/resources/textures.ts'
 import Color = Phaser.Display.Color
+
+// Same height as the 18px name
+const DISCONNECTED_ICON_SIZE = 18
 
 const { x, y, width, height, color, player } = defineProps<{
     x: number
@@ -158,6 +173,7 @@ const playerColor = computed(() =>
 const nameColor = computed(() => (isLightUi.value ? playAreaTextColor() : playerNameRgba(player)))
 const barAlpha = computed(() => (isLightUi.value ? 0.5 : 0.9))
 const textColor = computed(playAreaTextColor)
+const isDisconnected = computed(() => players.disconnectedPlayers.has(player.oid))
 
 // Total votes and ballots granted by the player's vampires in the ready region
 const totalVotes = computed(() =>

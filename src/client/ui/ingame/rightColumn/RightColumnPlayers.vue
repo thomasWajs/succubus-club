@@ -20,16 +20,21 @@
                 :class="{
                     acting: player === gameState.activePlayer,
                     ousted: player.isOusted,
-                    disconnected: disconnectedPlayers[player.oid],
+                    disconnected: players.disconnectedPlayers.has(player.oid),
                 }"
             >
-                <span
-                    v-if="player == gameState.activePlayer"
-                    class="active-player"
-                    >▶
-                </span>
-
-                <span v-if="player.isOusted"> 💀 </span>
+                <Icon
+                    v-if="players.disconnectedPlayers.has(player.oid)"
+                    class="disconnected-icon"
+                    name="disconnected"
+                    title="Disconnected"
+                />
+                <Icon
+                    v-if="player.isOusted"
+                    class="ousted-icon"
+                    name="ousted"
+                    title="Ousted"
+                />
                 <span
                     class="player-name"
                     :style="{ color: playerNameRgba(player) }"
@@ -37,31 +42,12 @@
                     {{ player.shortName }}
                 </span>
 
-                <span
+                <Icon
                     class="visibility-icon"
+                    :name="players.hiddenPlayers.has(player.oid) ? 'hidden' : 'visible'"
                     :title="players.hiddenPlayers.has(player.oid) ? 'Hidden' : 'Visible'"
                     @click="players.toggleHidden(player.oid)"
-                    >{{ players.hiddenPlayers.has(player.oid) ? '🙈' : '👁️' }}</span
-                >
-
-                <span
-                    v-if="player.isBot"
-                    class="role-icon"
-                >
-                    🤖
-                </span>
-                <span
-                    v-else-if="disconnectedPlayers[player.oid]"
-                    class="role-icon"
-                >
-                    🔌
-                </span>
-                <span
-                    v-else
-                    class="role-icon"
-                >
-                    👤
-                </span>
+                />
             </div>
 
             <template v-if="gameState.gameType == GameType.Multiplayer">
@@ -102,6 +88,7 @@ import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import { GameType } from '@/shared/types/state.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
 import { playerNameRgba } from '@/client/colors.ts'
+import Icon from '@/client/ui/components/Icon.vue'
 
 const gameState = useGameStateStore()
 const multiplayer = useMultiplayerStore()
@@ -109,22 +96,9 @@ const players = usePlayersStore()
 
 const isCollapsed = ref(true)
 
-const disconnectedPlayers = computed(() => {
-    if (gameState.gameType != GameType.Multiplayer) {
-        return {}
-    }
-
-    return Object.fromEntries(
-        Object.values(gameState.players).map(player => [
-            player.oid,
-            multiplayer.users[player.permId] === undefined,
-        ]),
-    )
-})
-
 const connectedUsersCount = computed(() => {
     const playersCount = Object.values(gameState.players).filter(
-        player => !disconnectedPlayers.value[player.oid],
+        player => !players.disconnectedPlayers.has(player.oid),
     ).length
     return playersCount + multiplayer.judgeUsers.length + multiplayer.spectatorUsers.length
 })
@@ -205,14 +179,14 @@ $window-right: 340px;
             color: var(--ui-panel-text-muted);
         }
 
-        .active-player {
-            color: light-dark($dark-forest, $ui-accent-light);
-            font-weight: bold;
+        .disconnected-icon {
+            font-size: 14px;
         }
 
-        .disconnected {
-            color: $blood-red;
-            flex-shrink: 0;
+        // Same red as the OUSTED text over the play area
+        .ousted-icon {
+            font-size: 20px;
+            color: $crimson-red;
         }
 
         .player-name {
@@ -226,13 +200,8 @@ $window-right: 340px;
 
         .visibility-icon {
             flex-shrink: 0;
-            font-size: 12px;
+            font-size: 18px;
             cursor: pointer;
-        }
-
-        .role-icon {
-            flex-shrink: 0;
-            font-size: 14px;
         }
     }
 }

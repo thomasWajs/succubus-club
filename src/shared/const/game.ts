@@ -262,7 +262,18 @@ export const BUTTON_TEXT_STYLE = {
     fontSize: '14px',
 }
 
+// Icon size, relative to the button's smaller side
+export const BUTTON_ICON_RATIO = 0.75
+// Burn ( send to the ash heap ) icon : fire orange, readable on the button of both themes
+export const BURN_ICON_COLOR = 'rgb(240,140,60)'
+// Disconnected player icon, in the player bar. Light : a deep red, readable on the greyed seat
+// color ; dark : the rose red of the HTML theme
+export const DISCONNECTED_ICON_COLOR = 'rgb(125,15,30)'
+export const DARK_DISCONNECTED_ICON_COLOR = 'rgb(212,103,122)'
+
 export const OVERLAY_BUTTON_SIZE = COUNTER_RADIUS * COUNTER_HOVER_OFFSET_MULTIPLIER
+// Gap between an overlay button sitting in a card corner and the card edges
+export const OVERLAY_BUTTON_EDGE_GAP = 1.5
 
 /**
  * Markers

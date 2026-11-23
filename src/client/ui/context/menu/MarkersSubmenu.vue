@@ -18,7 +18,10 @@
                     v-if="gameBus.contextMenu.cards.some(card => card.hasMarker(marker))"
                     #right
                 >
-                    ❌
+                    <Icon
+                        class="remove-marker"
+                        name="remove"
+                    />
                 </template>
             </ContextMenuButton>
         </template>
@@ -53,7 +56,12 @@
             :cardAction="(card: Card) => toggleMarker(card, marker)"
         >
             {{ marker }}
-            <template #right>❌</template>
+            <template #right>
+                <Icon
+                    class="remove-marker"
+                    name="remove"
+                />
+            </template>
         </ContextMenuButton>
     </template>
 </template>
@@ -65,6 +73,7 @@ import { Card } from '@/shared/model/Card.ts'
 import { MainMarkers, Marker } from '@/shared/const/model.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
 import { useGameBusStore } from '@/client/store/bus.ts'
+import Icon from '@/client/ui/components/Icon.vue'
 
 const gameBus = useGameBusStore()
 
@@ -108,6 +117,11 @@ const customMarkers = computed(() => {
 }
 .offset-menu-button {
     padding-left: 20px;
+}
+// The context menu is dark in both themes
+.remove-marker {
+    font-size: 1.3em;
+    color: $icon-red;
 }
 .create-marker {
     display: flex;
