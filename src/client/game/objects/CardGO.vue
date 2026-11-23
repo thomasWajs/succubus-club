@@ -14,6 +14,36 @@
         :visible="dragAttrs.isDragging"
     />
 
+    <!-- Glow backdrop : a copy of the card, behind it, carrying the glow FX. Phaser
+    renders FX off-screen at CSS resolution, so FX on the card image itself would blur
+    it on HiDPI screens. Only the glow around the card shows, the card stays sharp. -->
+    <Image
+        ref="glowBackdrop"
+        :key="key + 'glowBackdrop'"
+        :origin="0.5"
+        :x="cardAttrs.x"
+        :y="cardAttrs.y"
+        :texture="displayedTexture.textureName"
+        :frame="displayedTexture.frameName"
+        :scale="cardAttrs.scale"
+        :rotation="cardAttrs.rotation"
+        :tween="rotationTween"
+        :visible="(showGlowEffect || isPinged) && !dragAttrs.isDragging"
+    >
+        <!-- Glow effect for "isDuringCurrentPhase" -->
+        <FxGlow
+            v-if="showGlowEffect"
+            :color="Colors.CARD_GLOW.color"
+            :outerStrength="CARD_IN_PLAY_GLOW_OUTER_STRENGTH"
+            :innerStrength="CARD_IN_PLAY_GLOW_INNER_STRENGTH"
+        />
+
+        <FxPingCard
+            v-if="isPinged"
+            :tint="pingTint"
+        />
+    </Image>
+
     <!-- Main Card Image -->
     <Image
         ref="image"
@@ -43,17 +73,24 @@
         @drag="dispatchDrag"
         @dragend="dispatchDragEnd"
         @drop="dispatchDrop"
-    >
-        <!-- Glow effect for "isDuringCurrentPhase" -->
-        <FxGlow
-            v-if="showGlowEffect"
-            :color="Colors.CARD_GLOW.color"
-            :outerStrength="CARD_IN_PLAY_GLOW_OUTER_STRENGTH"
-            :innerStrength="CARD_IN_PLAY_GLOW_INNER_STRENGTH"
-        />
+    />
 
-        <FxPingCard v-if="gameBus.pingedCards.includes(card.oid)" />
-    </Image>
+    <!-- Ping colour pulse over the card, alpha tweened by FxPingCard -->
+    <Image
+        ref="pingTint"
+        :key="key + 'pingTint'"
+        :origin="0.5"
+        :x="cardAttrs.x"
+        :y="cardAttrs.y"
+        :texture="displayedTexture.textureName"
+        :frame="displayedTexture.frameName"
+        :scale="cardAttrs.scale"
+        :rotation="cardAttrs.rotation"
+        :tween="rotationTween"
+        :alpha="0"
+        :visible="isPinged && !dragAttrs.isDragging"
+        @create="onPingTintCreate"
+    />
 
     <!-- Card Outline -->
     <Rectangle
@@ -367,6 +404,8 @@ const { displayedTexture } = useCardTexture(card)
 const { glowInPlayEnabled } = useUIFeatures()
 
 const image = refObj<GameObjects.Image>()
+const glowBackdrop = refObj<GameObjects.Image>()
+const pingTint = refObj<GameObjects.Image>()
 const cardOutline = refObj<GameObjects.Rectangle>()
 const bloodCounterCircle = refObj<GameObjects.Arc>()
 const bloodCounterText = refObj<GameObjects.Text>()
@@ -473,6 +512,17 @@ const showGlowEffect = computed(
 )
 
 /**
+ * Ping
+ */
+
+const isPinged = computed(() => gameBus.pingedCards.includes(card.oid))
+
+function onPingTintCreate(tint: GameObjects.Image) {
+    // Flat colour following the card shape, rounded corners included
+    tint.setTintFill(Colors.CARD_PING.color)
+}
+
+/**
  * Bring to top
  */
 
@@ -482,9 +532,11 @@ function bringToTop() {
     }
 
     const container = image.value.parentContainer
+    if (glowBackdrop.value) container.bringToTop(glowBackdrop.value)
     container.bringToTop(image.value)
 
     for (const gameObject of [
+        pingTint,
         greenCounterCircle,
         greenCounterText,
         orangeCounterCircle,

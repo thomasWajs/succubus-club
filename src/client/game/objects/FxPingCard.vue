@@ -5,30 +5,27 @@
         :innerStrength="0"
         @create="onGlowCreate"
     />
-
-    <FxGradient
-        :color1="Colors.CARD_PING.color"
-        :color2="Colors.CARD_PING.color"
-        :alpha="gradientAlpha"
-        @create="onGradientCreate"
-    />
-
-    <FxColorMatrix
-        :brightness="brightness"
-        @create="onColorMatrixCreate"
-    />
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-import { FxColorMatrix, FxGlow, FxGradient, useScene } from 'phavuer'
-import Phaser from 'phaser'
+import { onMounted } from 'vue'
+import { FxGlow, useScene } from 'phavuer'
+import Phaser, { GameObjects } from 'phaser'
 import { Colors } from '@/client/colors.ts'
-import { CARD_PING_DURATION, CARD_PING_NB_BEATS } from '@/shared/const/game.ts'
+import {
+    CARD_PING_DURATION,
+    CARD_PING_NB_BEATS,
+    CARD_PING_TINT_ALPHA,
+} from '@/shared/const/game.ts'
+
+// Goes on the glow backdrop behind the card, never on the card image itself : Phaser
+// renders FX off-screen at CSS resolution, which blurs the card on HiDPI screens. The
+// colour pulse over the card is done by tweening the plain `tint` image instead.
+const { tint } = defineProps<{
+    tint?: GameObjects.Image
+}>()
 
 const scene = useScene()
-const brightness = ref(1)
-const gradientAlpha = ref(1)
 
 function addTween(tweenConfig: Phaser.Types.Tweens.TweenBuilderConfig) {
     scene.tweens.add({
@@ -45,21 +42,15 @@ function onGlowCreate(glowFx: Phaser.FX.Glow) {
     addTween({
         targets: glowFx,
         outerStrength: 8,
-        innerStrength: 1,
     })
 }
 
-function onColorMatrixCreate() {
-    addTween({
-        targets: brightness,
-        value: 1.1,
-    })
-}
-
-function onGradientCreate() {
-    addTween({
-        targets: gradientAlpha,
-        value: 0.85,
-    })
-}
+onMounted(() => {
+    if (tint) {
+        addTween({
+            targets: tint,
+            alpha: { from: 0, to: CARD_PING_TINT_ALPHA },
+        })
+    }
+})
 </script>

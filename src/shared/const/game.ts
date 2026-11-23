@@ -62,6 +62,7 @@ export const CARD_IN_PLAY_GLOW_OUTER_STRENGTH = 3
 export const CARD_PING_DURATION = 2000 // Total duration of the ping animation in ms
 export const CARD_PING_NB_BEATS = 4 // Number of ping beats
 export const CARD_PING_COLOR = 'rgb(152,32,56)'
+export const CARD_PING_TINT_ALPHA = 0.15 // Peak opacity of the ping colour over the card
 
 // Floating cost indicator ( automatic cost payment ) : the cost rises above the
 // card and fades out.
