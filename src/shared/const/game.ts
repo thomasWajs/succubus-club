@@ -91,25 +91,26 @@ export const PLAY_AREA_X = (WORLD_WIDTH - PLAY_AREA_WIDTH) / 2 // 469 px
 export const PLAY_AREA_Y = WORLD_HEIGHT * 0.25 + 1 // 271px
 
 export const PLAYER_BAR_HEIGHT = 3 * GRID_SIZE // 30px
-// The active player's bar differs by its background, and an icon after the name. Light : the seat
-// color, less greyed than the other bars ( desaturation, % ). Dark : the same grey as the other bars,
-// plus a purple ( DARK_ACTIVE_PLAYER_GLOW_COLOR ) at this opacity in the centre, fading out toward
-// both ends
+// Light player bars : the seat color, greyed ( desaturation, % )
 export const PLAYER_BAR_DESATURATE = 60
-export const ACTIVE_PLAYER_BAR_DESATURATE = 30
-export const ACTIVE_PLAYER_GRADIENT_ALPHA = 0.25
-// The purple slowly breathes, to show the player is acting : from the centre, it spreads from this
+// The active player's bar differs by an icon before the name, and a color at this opacity in the
+// centre of its background, fading out toward both ends ( same background as the other bars there ).
+// Light : its seat color, not greyed. Dark : a purple ( DARK_ACTIVE_PLAYER_GLOW_COLOR ).
+export const ACTIVE_PLAYER_GRADIENT_ALPHA = 0.4
+export const DARK_ACTIVE_PLAYER_GRADIENT_ALPHA = 0.25
+// The color slowly breathes, to show the player is acting : from the centre, it spreads from this
 // share of the bar width to the whole bar, then contracts back, over this period ( ms )
 export const ACTIVE_PLAYER_GRADIENT_MIN_REACH = 0.85
 export const ACTIVE_PLAYER_GRADIENT_PERIOD = 6000
-// Pool - / + buttons and the victory points badge of the player bar
+// Pool - / + buttons and the votes / victory points badges of the player bar
 export const POOL_BUTTON_WIDTH = 28
 export const POOL_BUTTON_HEIGHT = 24
 export const POOL_BUTTON_OFFSET = 40 // From the pool diamond centre
-export const VP_BADGE_WIDTH = 30
-export const VP_BADGE_HEIGHT = 22
-// Dimmer than the pool diamond ( 0.6 ) : the pool stays the main figure of the bar
-export const VP_BADGE_FILL_ALPHA = 0.3
+export const COUNT_BADGE_WIDTH = 30
+export const COUNT_BADGE_HEIGHT = 22
+// Much dimmer than the pool diamond ( 0.6 ), a grey close to the bar : the pool stays the main
+// figure of the bar
+export const COUNT_BADGE_FILL_ALPHA = 0.12
 export const CONTROLLED_ZONE_HEIGHT = 39 * GRID_SIZE // 370px
 export const TORPOR_ZONE_HEIGHT = 10 * GRID_SIZE // 100px
 export const TORPOR_ZONE_Y = PLAYER_BAR_HEIGHT + CONTROLLED_ZONE_HEIGHT // 400px

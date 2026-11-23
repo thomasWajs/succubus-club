@@ -67,7 +67,6 @@ export function iconTextureKey(icon: IconName): string {
 // A horizontal fade, opaque white in the centre to transparent on both ends : stretched over a game
 // object and tinted, it gives a gradient that follows the object ( a post FX gradient spans the
 // whole screen instead )
-export const FADE_TEXTURE_KEY = 'fade-center'
 export const FADE_TEXTURE_WIDTH = 512
 export const FADE_TEXTURE_HEIGHT = 32
 
@@ -91,7 +90,18 @@ export function fadeDither(alpha: number, tint: Phaser.Display.Color, under: Pha
     return Math.min(FADE_DITHER_MAX, (FADE_DITHER_ON_SCREEN * 255) / (alpha * gap))
 }
 
-export function createFadeTexture(dither: number): HTMLCanvasElement {
+// The fade with this dithering, created on first use : the noise depends on the colours, so each
+// tint over each background has its own. Rounded, so close colours share one texture.
+export function fadeTextureKey(textures: Phaser.Textures.TextureManager, dither: number): string {
+    const level = Math.round(dither)
+    const key = `fade-center-${level}`
+    if (!textures.exists(key)) {
+        textures.addCanvas(key, createFadeTexture(level))
+    }
+    return key
+}
+
+function createFadeTexture(dither: number): HTMLCanvasElement {
     const canvas = document.createElement('canvas')
     canvas.width = FADE_TEXTURE_WIDTH
     canvas.height = FADE_TEXTURE_HEIGHT

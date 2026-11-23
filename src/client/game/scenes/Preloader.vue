@@ -14,10 +14,7 @@ import { useGameStateStore } from '@/client/store/gameState.ts'
 import { ATLASES } from '@/client/resources/cards.ts'
 import {
     CANVAS_ICONS,
-    createFadeTexture,
     enqueueTextureLoading,
-    FADE_TEXTURE_KEY,
-    fadeDither,
     getFrequentCards,
     iconTextureKey,
     preloadedAtlasTextures,
@@ -27,8 +24,6 @@ import {
     Texture,
 } from '@/client/resources/textures.ts'
 import { gameResources } from '@/shared/registries.ts'
-import { Colors } from '@/client/colors.ts'
-import { ACTIVE_PLAYER_GRADIENT_ALPHA } from '@/shared/const/game.ts'
 
 const gameState = useGameStateStore()
 
@@ -48,17 +43,6 @@ function preload(scene: Phaser.Scene) {
             scene.textures.addCanvas(iconTextureKey(icon), canvas)
         }
     }
-    // The active player's bar fade, see PlayerBarGo
-    scene.textures.addCanvas(
-        FADE_TEXTURE_KEY,
-        createFadeTexture(
-            fadeDither(
-                ACTIVE_PLAYER_GRADIENT_ALPHA,
-                Colors.ACTIVE_PLAYER_GRADIENT,
-                Colors.DARK_PLAYER_BAR,
-            ),
-        ),
-    )
 
     for (const atlasName of ATLASES) {
         scene.textures.addAtlas(
