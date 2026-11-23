@@ -56,12 +56,67 @@ async function preloadTexture(url: string, store: (img: HTMLImageElement) => voi
 }
 
 // Icons drawn on the canvas, keyed by `iconTextureKey`
-export const CANVAS_ICONS: IconName[] = ['burn', 'disconnected']
+export const CANVAS_ICONS: IconName[] = ['active', 'burn', 'decrease', 'disconnected', 'increase']
 export const CANVAS_ICON_SIZE = 64
 export const preloadedIconTextures: Partial<Record<IconName, HTMLCanvasElement>> = {}
 
 export function iconTextureKey(icon: IconName): string {
     return `icon-${icon}`
+}
+
+// A horizontal fade, opaque white in the centre to transparent on both ends : stretched over a game
+// object and tinted, it gives a gradient that follows the object ( a post FX gradient spans the
+// whole screen instead )
+export const FADE_TEXTURE_KEY = 'fade-center'
+export const FADE_TEXTURE_WIDTH = 512
+export const FADE_TEXTURE_HEIGHT = 32
+
+// Drawn faintly, a fade only spans a dozen colour levels on screen : the steps between them show as
+// vertical bars, all the more when the fade moves. A noise on the alpha ( dithering ) breaks them.
+// It is sized to about half a colour level once on screen : below, bands come back, above, it
+// shows as grain. So it depends on the opacity the fade is drawn at, and on the colour gap between
+// its tint and what it covers. Returns the noise amplitude, in alpha levels.
+const FADE_DITHER_ON_SCREEN = 0.6
+const FADE_DITHER_MAX = 64
+
+export function fadeDither(alpha: number, tint: Phaser.Display.Color, under: Phaser.Display.Color) {
+    const gap = Math.max(
+        Math.abs(tint.red - under.red),
+        Math.abs(tint.green - under.green),
+        Math.abs(tint.blue - under.blue),
+    )
+    if (alpha <= 0 || gap == 0) {
+        return 0
+    }
+    return Math.min(FADE_DITHER_MAX, (FADE_DITHER_ON_SCREEN * 255) / (alpha * gap))
+}
+
+export function createFadeTexture(dither: number): HTMLCanvasElement {
+    const canvas = document.createElement('canvas')
+    canvas.width = FADE_TEXTURE_WIDTH
+    canvas.height = FADE_TEXTURE_HEIGHT
+    const context = canvas.getContext('2d')
+    if (!context) {
+        return canvas
+    }
+    const image = context.createImageData(FADE_TEXTURE_WIDTH, FADE_TEXTURE_HEIGHT)
+    for (let x = 0; x < FADE_TEXTURE_WIDTH; x++) {
+        // A bell ( raised cosine ), flat at its top and at both ends : a straight fade creases
+        // there, and the crease shows as a line
+        const distance = Math.abs((x + 0.5) / FADE_TEXTURE_WIDTH - 0.5) * 2
+        const alpha = 255 * (0.5 + 0.5 * Math.cos(Math.PI * distance))
+        for (let y = 0; y < FADE_TEXTURE_HEIGHT; y++) {
+            // Triangular noise : smoother than a uniform one for the same amplitude
+            const noise = (Math.random() + Math.random() - 1) * dither
+            const index = (y * FADE_TEXTURE_WIDTH + x) * 4
+            image.data[index] = 255
+            image.data[index + 1] = 255
+            image.data[index + 2] = 255
+            image.data[index + 3] = Math.min(255, Math.max(0, Math.round(alpha + noise)))
+        }
+    }
+    context.putImageData(image, 0, 0)
+    return canvas
 }
 
 // Like on the HTML side, only the icon shape counts : it is filled with white, so a tint gives it

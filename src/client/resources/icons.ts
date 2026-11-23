@@ -6,12 +6,15 @@ import * as logging from '@/client/logging.ts'
 // Their shapes only count, never their colours : the HTML side paints them with the text colour
 // ( see Icon.vue ), the Phaser side tints them ( see CANVAS_ICONS in textures.ts ).
 const ICON_NAMES = [
+    'active',
     'burn',
     'camera',
     'chat',
+    'decrease',
     'disconnected',
     'error',
     'hidden',
+    'increase',
     'info',
     'locked',
     'manual',

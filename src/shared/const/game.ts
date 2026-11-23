@@ -91,6 +91,25 @@ export const PLAY_AREA_X = (WORLD_WIDTH - PLAY_AREA_WIDTH) / 2 // 469 px
 export const PLAY_AREA_Y = WORLD_HEIGHT * 0.25 + 1 // 271px
 
 export const PLAYER_BAR_HEIGHT = 3 * GRID_SIZE // 30px
+// The active player's bar differs by its background, and an icon after the name. Light : the seat
+// color, less greyed than the other bars ( desaturation, % ). Dark : the same grey as the other bars,
+// plus a purple ( DARK_ACTIVE_PLAYER_GLOW_COLOR ) at this opacity in the centre, fading out toward
+// both ends
+export const PLAYER_BAR_DESATURATE = 60
+export const ACTIVE_PLAYER_BAR_DESATURATE = 30
+export const ACTIVE_PLAYER_GRADIENT_ALPHA = 0.25
+// The purple slowly breathes, to show the player is acting : from the centre, it spreads from this
+// share of the bar width to the whole bar, then contracts back, over this period ( ms )
+export const ACTIVE_PLAYER_GRADIENT_MIN_REACH = 0.85
+export const ACTIVE_PLAYER_GRADIENT_PERIOD = 6000
+// Pool - / + buttons and the victory points badge of the player bar
+export const POOL_BUTTON_WIDTH = 28
+export const POOL_BUTTON_HEIGHT = 24
+export const POOL_BUTTON_OFFSET = 40 // From the pool diamond centre
+export const VP_BADGE_WIDTH = 30
+export const VP_BADGE_HEIGHT = 22
+// Dimmer than the pool diamond ( 0.6 ) : the pool stays the main figure of the bar
+export const VP_BADGE_FILL_ALPHA = 0.3
 export const CONTROLLED_ZONE_HEIGHT = 39 * GRID_SIZE // 370px
 export const TORPOR_ZONE_HEIGHT = 10 * GRID_SIZE // 100px
 export const TORPOR_ZONE_Y = PLAYER_BAR_HEIGHT + CONTROLLED_ZONE_HEIGHT // 400px
@@ -185,12 +204,16 @@ export const ORDERED_PLAYER_COLORS = [
 
 export const DARK_ACCENT_COLOR = 'rgb(56,39,73)' // $ui-accent
 export const DARK_ACCENT_LIGHT_COLOR = 'rgb(158,129,187)' // $ui-accent-light
+export const DARK_ACCENT_VIVID_COLOR = 'rgb(107,73,159)'
 export const DARK_CARD_OUTLINE_COLOR_SELECTED = 'rgb(204,176,232)'
 // The hover / area select highlight : a muted gold rather than the light theme's bright yellow
 export const DARK_HIGHLIGHT_COLOR = 'rgb(206,180,118)'
 export const DARK_CARD_OUTLINE_COLOR_INDIRECT_HOVER = 'rgb(176,166,140)'
 export const DARK_SURFACE_COLOR = 'rgb(30,29,32)' // $ui-surface
 export const DARK_SURFACE_RAISED_COLOR = 'rgb(46,45,49)' // $ui-surface-raised
+// The breathing centre of the active player's bar : a muted purple ( the light accent is too pale,
+// it reads as white )
+export const DARK_ACTIVE_PLAYER_GLOW_COLOR = 'rgb(110,80,150)'
 export const DARK_BORDER_COLOR = 'rgb(71,69,75)' // $ui-border
 // Darker than the play area background : a groove rather than a frame
 export const DARK_PLAY_AREA_EDGE_COLOR = 'rgb(38,37,41)'
