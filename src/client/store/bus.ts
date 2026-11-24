@@ -45,7 +45,8 @@ export const useBusStore = defineStore('bus', {
 
         isResyncing: false,
         hasBeenIdle: false,
-        updateAvailable: false,
+        // This client is outdated and must reload. Sticky : there is no way back but a reload.
+        updateRequired: false,
     }),
     actions: {
         alertError(message: string, { dismissible = true, blockInteraction = false } = {}) {

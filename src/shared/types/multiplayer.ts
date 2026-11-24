@@ -24,6 +24,9 @@ export type User = {
     name: string
     avatarId: AvatarId | null
     isReady: boolean
+    // The app version the user runs. Missing for clients from before it was announced,
+    // which are considered outdated.
+    version?: string
 }
 
 export type UserDecks = Record<PermanentId, DeckList>
@@ -38,6 +41,10 @@ export enum ScsStatus {
     Disconnecting = 'Disconnecting',
     Connected = 'Connected',
     Disconnected = 'Disconnected',
+    // The server refused us : this client is older than the server, and must reload.
+    Outdated = 'Outdated',
+    // The server is older than this client, it is being updated. We keep retrying.
+    Updating = 'Updating',
 }
 export const EMPTY_SEATING = 'EMPTY_SEATING'
 export type Seating = PermanentId[] | typeof EMPTY_SEATING
@@ -259,7 +266,12 @@ export enum MultiplayerMessageType {
     Chat = 'Chat',
 
     Error = 'Error',
+    VersionMismatch = 'VersionMismatch', // The server refuses a client of another version
 }
+
+// WebSocket close codes sent by the server along a VersionMismatch message
+export const SCS_CLOSE_CLIENT_OUTDATED = 4001
+export const SCS_CLOSE_SERVER_OUTDATED = 4002
 
 export type DeckMessage = {
     permId: PermanentId
@@ -329,6 +341,7 @@ export type SetUserMessage = {
     name: string
     isReady: boolean
     secret: string // Private to the client, proves ownership of the permId
+    version?: string // The app version of the client. Missing means a client too old to announce it.
 }
 
 export type ScsDeckMessage = DeckMessage & {
@@ -448,7 +461,17 @@ export type ScsChatMessage = {
     authorColorRgba?: string
 }
 
+// Server → client : the client's version is not the server's. The server closes the
+// connection right after. `clientOutdated` : the client must reload.
+// `serverOutdated` : the server is not updated yet, the client should retry later.
+export type ScsVersionMismatchMessage = {
+    type: MultiplayerMessageType.VersionMismatch
+    reason: 'clientOutdated' | 'serverOutdated'
+    serverVersion: string
+}
+
 export type ScsServerMessage =
+    | ScsVersionMismatchMessage
     | ScsDeckMessage
     | ScsRollSeatingMessage
     | ScsLaunchGameMessage

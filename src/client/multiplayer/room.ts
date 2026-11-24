@@ -65,6 +65,7 @@ import {
 } from '@/client/multiplayer/communication/scs.ts'
 import { NotInAGameRoom } from '@/client/types.ts'
 import { MAX_PLAYERS } from '@/shared/const/model.ts'
+import { checkPeerVersion } from '@/client/versionCheck.ts'
 
 export function getCommunication(gameRoom?: GameRoom): Communication {
     if (!gameRoom) {
@@ -192,6 +193,7 @@ export async function joinGameRoom(gameRoom: GameRoom, key?: Key) {
             const memberUser = member.data as User | undefined
             if (memberUser) {
                 multiplayer.upsertRoomMember(memberUser.permId)
+                checkPeerVersion(memberUser.version)
             }
         }
 
@@ -325,6 +327,7 @@ function onMemberJoin(presence: PresenceMessage) {
     // Track room presence, and make sure their name / avatar are known for display.
     multiplayer.upsertRoomMember(user.permId)
     multiplayer.upsertUser(user)
+    checkPeerVersion(user.version)
 
     // Resolve the (re)joining member's role from rtdb : a judge/spectator keeps the role
     // they hold there, a player gets their seat back if there's still room for them.
@@ -590,6 +593,12 @@ export async function launchGame() {
     // In Ably mode the room writer is also the one persisting isStarted to rtdb
     if (!multiplayer.selfIsRoomWriter) {
         throw new Error(`You are not the room host`)
+    }
+
+    // Clients of different versions can't play together : the game mutations may differ.
+    if (multiplayer.outdatedRoomUsers.length > 0) {
+        const names = multiplayer.outdatedRoomUsers.map(user => user.name).join(', ')
+        throw new Error(`${names} must reload the page to get the latest version`)
     }
 
     // Guard the player cap here : role writes don't enforce it atomically, so a race could

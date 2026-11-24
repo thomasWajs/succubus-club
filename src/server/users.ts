@@ -61,7 +61,7 @@ export async function handleSetUser(
     connection: ConnectionInfo,
     message: SetUserMessage,
 ): Promise<ConnectionInfo | undefined> {
-    const { permId, name, isReady, secret } = message
+    const { permId, name, isReady, secret, version } = message
 
     if (connection.permId && connection.permId != permId) {
         throw new Error(`Connection is already set for another user : ${connection.permId}`)
@@ -81,7 +81,7 @@ export async function handleSetUser(
         removeUser(permId)
     }
 
-    const user = { permId, name, isReady, avatarId: null }
+    const user = { permId, name, isReady, avatarId: null, version }
     upsertUser(permId, user, connection)
     logger.info(`Player ${name} set their data.`)
 

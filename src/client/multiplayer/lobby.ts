@@ -22,13 +22,18 @@ import { useBusStore } from '@/client/store/bus.ts'
 import {
     CommunicationMode,
     GameRoom,
+    MultiplayerMessageType,
     RoomId,
     RoomRole,
     ScsStatus,
 } from '@/shared/types/multiplayer.ts'
 import { getCommunication, joinGameRoom, leaveGameRoom } from '@/client/multiplayer/room.ts'
 import { computeKey } from '@/client/multiplayer/encryption.ts'
-import { scsCommunication } from '@/client/multiplayer/communication/scs.ts'
+import {
+    onReceiveVersionMismatch,
+    scsCommunication,
+} from '@/client/multiplayer/communication/scs.ts'
+import { checkServerVersion } from '@/client/versionCheck.ts'
 import { generateRoomId } from '@/shared/state/ids.ts'
 import { DbSavedGame } from '@/client/gateway/db.ts'
 
@@ -54,6 +59,7 @@ async function connectLobby() {
     await lobbyChannel.attach()
 
     const scsClient = getScsClient()
+    scsClient.on(MultiplayerMessageType.VersionMismatch, onReceiveVersionMismatch)
     scsClient.onOpen(scsCommunication.announce)
     scsClient.onClose(scsCommunication.handleDisconnect)
     scsClient.connect()
@@ -80,6 +86,10 @@ export async function joinLobby() {
     if (multiplayer.hasJoinedLobby) {
         return
     }
+
+    // Not awaited : if the check fails or lags, the user must not be stuck on it.
+    // The dialog shows up whenever the answer comes back stale.
+    checkServerVersion()
 
     multiplayer.upsertUser(multiplayer.selfUser)
     if (multiplayer.selfDeck) {
@@ -317,6 +327,12 @@ export async function createGameRoom(
     if (communication == CommunicationMode.SCS && multiplayer.scsStatus == ScsStatus.Disconnected) {
         const bus = useBusStore()
         bus.alertError('SCS is offline. You can use Direct Connection.')
+        return
+    }
+
+    if (communication == CommunicationMode.SCS && multiplayer.scsStatus == ScsStatus.Updating) {
+        const bus = useBusStore()
+        bus.alertError('SCS is being updated. Try again in a moment, or use Direct Connection.')
         return
     }
 

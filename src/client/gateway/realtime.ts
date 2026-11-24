@@ -79,7 +79,14 @@ export class ScsClient {
                 this.openHandler?.()
             })
             .onClose(() => {
-                multiplayer.scsStatus = ScsStatus.Disconnected
+                // The server closes right after telling us about a version mismatch :
+                // keep that status, it is more informative than a plain disconnection.
+                if (
+                    multiplayer.scsStatus != ScsStatus.Outdated &&
+                    multiplayer.scsStatus != ScsStatus.Updating
+                ) {
+                    multiplayer.scsStatus = ScsStatus.Disconnected
+                }
                 this.closeHandler?.()
             })
             .onMessage((_ws, event) => {
@@ -135,12 +142,18 @@ export class ScsClient {
         this.messageHandlers.get(type)?.add(handler as MessageHandler)
     }
 
+    // Close the connection for good : unlike a network loss, it is not retried.
+    stopReconnecting() {
+        this.ws?.close()
+    }
+
     disconnect() {
         const multiplayer = useMultiplayerStore()
 
         if (
             multiplayer.scsStatus == ScsStatus.Disconnected ||
-            multiplayer.scsStatus == ScsStatus.Disconnecting
+            multiplayer.scsStatus == ScsStatus.Disconnecting ||
+            multiplayer.scsStatus == ScsStatus.Outdated
         ) {
             return
         }

@@ -22,9 +22,14 @@ import {
 import {
     ErrorMessage,
     MultiplayerMessageType,
+    SCS_CLOSE_CLIENT_OUTDATED,
+    SCS_CLOSE_SERVER_OUTDATED,
     ScsClientMessage,
     ScsServerMessage,
+    ScsVersionMismatchMessage,
 } from '@/shared/types/multiplayer.ts'
+import { compareVersions } from '@/shared/multiplayer/version.ts'
+import { CURRENT_VERSION } from '@/shared/version.mjs'
 import { ClientId, ConnectionInfo } from './types.ts'
 import { generateClientId } from '@/shared/state/ids.ts'
 import { getUser, getUserConnection, handleSetUser, removeUser } from './users.ts'
@@ -172,6 +177,12 @@ wsServer.on('connection', (webSocket: WebSocket, request) => {
                         setUserTimeout = null
                     }
 
+                    // Only clients of the exact same version as the server can connect : the
+                    // game mutations may differ between versions.
+                    if (rejectVersionMismatch(webSocket, message.version)) {
+                        break
+                    }
+
                     disposeReplacedConnection(await handleSetUser(connection, message))
 
                     // A cron-job could call the cleanup periodically.
@@ -311,6 +322,39 @@ function disposeReplacedConnection(oldConnection: ConnectionInfo | undefined) {
     try {
         oldConnection.webSocket.close(4000, 'Replaced by a new connection')
     } catch {}
+}
+
+/**
+ * Refuse a client that does not run the server's version : tell it why, then close.
+ * Closing with an application close code, after the message, is the only way the browser
+ * can read the reason : an HTTP rejection during the handshake is opaque to it.
+ * Returns true when the client was refused.
+ */
+function rejectVersionMismatch(webSocket: WebSocket, clientVersion: string | undefined): boolean {
+    const comparison = compareVersions(clientVersion, CURRENT_VERSION)
+    if (comparison == 0) {
+        return false
+    }
+
+    const clientOutdated = comparison < 0
+    logger.info(
+        `Rejected connection : client version ${clientVersion ?? 'unknown'}, ` +
+            `server version ${CURRENT_VERSION}`,
+    )
+
+    const message: ScsVersionMismatchMessage = {
+        type: MultiplayerMessageType.VersionMismatch,
+        reason: clientOutdated ? 'clientOutdated' : 'serverOutdated',
+        serverVersion: CURRENT_VERSION,
+    }
+    send(webSocket, message)
+    try {
+        webSocket.close(
+            clientOutdated ? SCS_CLOSE_CLIENT_OUTDATED : SCS_CLOSE_SERVER_OUTDATED,
+            clientOutdated ? 'Client outdated' : 'Server outdated',
+        )
+    } catch {}
+    return true
 }
 
 /**

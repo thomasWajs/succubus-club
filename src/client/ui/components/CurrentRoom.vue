@@ -125,6 +125,13 @@
                             </div>
                             <div class="player-details">
                                 <span class="player-name">{{ user.name }}</span>
+                                <span
+                                    v-if="isUserOutdated(user)"
+                                    class="outdated-badge"
+                                    :title="getOutdatedTitle(user)"
+                                >
+                                    <Icon name="warning" /> Outdated
+                                </span>
                                 <button
                                     v-if="
                                         user.permId === multiplayer.selfUser.permId &&
@@ -190,6 +197,13 @@
                             </div>
                             <div class="player-details">
                                 <span class="player-name">{{ user.name }}</span>
+                                <span
+                                    v-if="isUserOutdated(user)"
+                                    class="outdated-badge"
+                                    :title="getOutdatedTitle(user)"
+                                >
+                                    <Icon name="warning" /> Outdated
+                                </span>
                                 <span
                                     v-if="!multiplayer.currentGameRoom.isStarted"
                                     class="player-status-text"
@@ -281,6 +295,13 @@
                                 fontSize="14px"
                             />
                             <span class="side-seat-name">{{ user.name }}</span>
+                            <span
+                                v-if="isUserOutdated(user)"
+                                class="outdated-badge"
+                                :title="getOutdatedTitle(user)"
+                            >
+                                <Icon name="warning" /> Outdated
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -304,6 +325,13 @@
                                 fontSize="14px"
                             />
                             <span class="side-seat-name">{{ user.name }}</span>
+                            <span
+                                v-if="isUserOutdated(user)"
+                                class="outdated-badge"
+                                :title="getOutdatedTitle(user)"
+                            >
+                                <Icon name="warning" /> Outdated
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -405,6 +433,16 @@
                             v-if="multiplayer.selfIsRoomWriter"
                             class="game-controls-right"
                         >
+                            <div
+                                v-if="multiplayer.outdatedRoomUsers.length > 0"
+                                class="outdated-message"
+                            >
+                                <Icon name="warning" />
+                                Cannot start the game : {{ outdatedUserNames }}
+                                {{ multiplayer.outdatedRoomUsers.length > 1 ? 'run' : 'runs' }}
+                                an outdated version and must reload the page.
+                            </div>
+
                             <template v-if="!isSavedGame">
                                 <div
                                     v-if="multiplayer.playerUsers.length == 0"
@@ -454,7 +492,9 @@
                                 class="start-game-btn"
                                 :disabled="!multiplayer.isRoomReady || isStartingGame"
                                 :title="
-                                    !multiplayer.areAllPlayerUsersReady ?
+                                    multiplayer.outdatedRoomUsers.length > 0 ?
+                                        'Some users run an outdated version and must reload'
+                                    : !multiplayer.areAllPlayerUsersReady ?
                                         'Wait for all players to be ready'
                                     : !multiplayer.isSeatingReady ?
                                         'Pick or roll seating to start the game'
@@ -792,6 +832,27 @@ async function changeRoomRole(role: RoomRole) {
 }
 
 /**
+ *  Outdated users : they run an older version than the newest one in the room
+ */
+
+const outdatedPermIds = computed(
+    () => new Set(multiplayer.outdatedRoomUsers.map(user => user.permId)),
+)
+
+const outdatedUserNames = computed(() =>
+    multiplayer.outdatedRoomUsers.map(user => user.name).join(', '),
+)
+
+function isUserOutdated(user: User) {
+    return outdatedPermIds.value.has(user.permId)
+}
+
+function getOutdatedTitle(user: User) {
+    const version = user.version ? `version ${user.version}` : 'a version too old to tell'
+    return `Runs ${version}, while the room is on ${multiplayer.newestRoomVersion}. Must reload the page.`
+}
+
+/**
  *  Helper functions on User status
  */
 
@@ -1077,6 +1138,18 @@ async function startConnectIntoGame(gameRoom?: any) {
     }
 }
 
+.outdated-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    width: fit-content;
+    font-size: 0.7rem;
+    color: $warm-coral;
+    background: rgba($wine-crimson, 0.3);
+    padding: 0.15rem 0.4rem;
+    border: 1px solid $warm-coral;
+}
+
 .deck-warnings {
     display: flex;
     gap: 0.15rem;
@@ -1274,7 +1347,8 @@ async function startConnectIntoGame(gameRoom?: any) {
 
 .host-message,
 .spectate-disallowed,
-.wait-for-players {
+.wait-for-players,
+.outdated-message {
     color: $pale-grey;
     font-style: italic;
     @include active-gradient;
@@ -1286,6 +1360,12 @@ async function startConnectIntoGame(gameRoom?: any) {
     padding: 0.5rem 1rem;
     display: flex;
     align-items: center;
+}
+
+.outdated-message {
+    gap: 0.4rem;
+    color: $warm-coral;
+    border-color: $warm-coral;
 }
 
 .no-deck-message {

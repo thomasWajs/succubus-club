@@ -25,6 +25,8 @@ import { fetchAvatar } from '@/client/gateway/user.ts'
 import { AvatarId, DeckList } from '@/shared/types/gateway.ts'
 import { MutationHistoryEntry } from '@/shared/types/history.ts'
 import { DbSavedGame } from '@/client/gateway/db.ts'
+import { compareVersions, newestVersion } from '@/shared/multiplayer/version.ts'
+import { CURRENT_VERSION } from '@/shared/version.mjs'
 
 function getRoomUsers(
     gameRoom: GameRoom | undefined,
@@ -108,7 +110,22 @@ export const useMultiplayerStore = defineStore('multiplayer', {
                 name: core.userProfile.playerName,
                 avatarId: core.userProfile.avatarFirebaseId,
                 isReady: state.selfIsReady,
+                version: CURRENT_VERSION,
             }
+        },
+
+        // Newest version among the users actually in the room ( room presence ).
+        // Judges and spectators count too : they receive the game mutations like anybody.
+        newestRoomVersion(state): string | undefined {
+            return newestVersion([...state.roomMembers].map(permId => state.users[permId]?.version))
+        },
+
+        // Room members older than the newest version in the room. They must reload.
+        outdatedRoomUsers(state): User[] {
+            const newest = this.newestRoomVersion
+            return [...state.roomMembers]
+                .map(permId => state.users[permId])
+                .filter(user => user && compareVersions(user.version, newest) < 0)
         },
 
         selfDeck: (): DeckList | null => {
@@ -228,7 +245,11 @@ export const useMultiplayerStore = defineStore('multiplayer', {
         },
 
         isRoomReady(): boolean {
-            return this.areAllPlayerUsersReady && this.isSeatingReady
+            return (
+                this.areAllPlayerUsersReady &&
+                this.isSeatingReady &&
+                this.outdatedRoomUsers.length == 0
+            )
         },
     },
     actions: {

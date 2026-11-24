@@ -11,6 +11,7 @@ import {
     ScsRandomResultRequestMessage,
     ScsShuffleCardRegionMessage,
     ScsStatus,
+    ScsVersionMismatchMessage,
     VersioningTarget,
 } from '@/shared/types/multiplayer.ts'
 import { Key } from '@/client/multiplayer/encryption.ts'
@@ -41,6 +42,21 @@ interface ScsCommunication extends Communication {
 
 export function onReceiveServerError(message: ErrorMessage) {
     useBusStore().alertError(`SCS ${message.message}`)
+}
+
+// The server only talks to clients of its own version, and closes right after this message.
+export function onReceiveVersionMismatch(message: ScsVersionMismatchMessage) {
+    const multiplayer = useMultiplayerStore()
+
+    if (message.reason == 'clientOutdated') {
+        // No point in retrying : the server will refuse us until we reload.
+        multiplayer.scsStatus = ScsStatus.Outdated
+        getScsClient().stopReconnecting()
+        useBusStore().updateRequired = true
+    } else {
+        // The server is the one lagging behind : the connection is retried automatically.
+        multiplayer.scsStatus = ScsStatus.Updating
+    }
 }
 
 export async function onReceiveMutationRejected(message: ScsMutationRejectedMessage) {
@@ -145,6 +161,7 @@ export const scsCommunication: ScsCommunication = {
             permId: multiplayer.selfUser.permId,
             name: multiplayer.selfUser.name,
             isReady: multiplayer.selfUser.isReady,
+            version: multiplayer.selfUser.version,
             secret: useCoreStore().userProfile.secret ?? '',
         })
     },

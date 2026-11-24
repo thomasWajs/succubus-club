@@ -70,20 +70,18 @@
                     <div
                         class="scs-status"
                         :class="{
-                            'scs-connecting': multiplayer.scsStatus === ScsStatus.Connecting,
+                            'scs-connecting':
+                                multiplayer.scsStatus === ScsStatus.Connecting ||
+                                multiplayer.scsStatus === ScsStatus.Updating,
                             'scs-online': multiplayer.scsStatus === ScsStatus.Connected,
-                            'scs-offline': multiplayer.scsStatus === ScsStatus.Disconnected,
+                            'scs-offline':
+                                multiplayer.scsStatus === ScsStatus.Disconnected ||
+                                multiplayer.scsStatus === ScsStatus.Outdated,
                         }"
+                        :title="scsStatusTitle"
                     >
                         <span class="scs-indicator" />
-                        <span class="scs-label"
-                            >SCS :
-                            {{
-                                multiplayer.scsStatus === ScsStatus.Connecting ? 'Connecting'
-                                : multiplayer.scsStatus === ScsStatus.Connected ? 'Online'
-                                : 'Offline'
-                            }}</span
-                        >
+                        <span class="scs-label">SCS : {{ scsStatusLabel }}</span>
                     </div>
                 </div>
 
@@ -351,6 +349,31 @@ const core = useCoreStore()
 const multiplayer = useMultiplayerStore()
 const bus = useBusStore()
 const languagePreference = useLanguagePreferenceStore()
+
+/**
+ *  SCS status pill
+ */
+
+const SCS_STATUS_LABELS: Record<ScsStatus, string> = {
+    [ScsStatus.Connecting]: 'Connecting',
+    [ScsStatus.Connected]: 'Online',
+    [ScsStatus.Disconnecting]: 'Offline',
+    [ScsStatus.Disconnected]: 'Offline',
+    [ScsStatus.Outdated]: 'Outdated',
+    [ScsStatus.Updating]: 'Updating',
+}
+
+const scsStatusLabel = computed(() => SCS_STATUS_LABELS[multiplayer.scsStatus])
+
+const scsStatusTitle = computed(() => {
+    if (multiplayer.scsStatus === ScsStatus.Outdated) {
+        return 'Your version is older than the server. Reload the page to connect.'
+    }
+    if (multiplayer.scsStatus === ScsStatus.Updating) {
+        return 'The server is being updated. Reconnecting...'
+    }
+    return ''
+})
 
 /**
  *  Lobby chat. One append-only channel per official language, backed by RTDB and
