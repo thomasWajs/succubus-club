@@ -10,10 +10,19 @@ Both are wired from the repo-root `firebase.json`.
 
 ## Access model
 
-The backend is fronted by **App Check** (reCAPTCHA v3, configured via
+The backend is fronted by **App Check** (reCAPTCHA Enterprise, configured via
 `VITE_FIREBASE_APPCHECK_SITE_KEY`, see `initAppCheck` in
 `src/client/gateway/realtime.ts`). App Check is the primary guard: it rejects
 requests that don't originate from our real web app.
+
+Each App Check token fetch is a billed reCAPTCHA assessment, and the free tier is
+10k per month. To stay within it:
+
+- Token auto-refresh is disabled, so tokens are fetched on demand only.
+- The token time-to-live is set to a long value (App Check settings in the Firebase
+  console, up to 7 days).
+- Keep a Cloud Monitoring alert on the assessment count, since enforcement breaks the
+  app for legitimate users once the quota runs out.
 
 On top of App Check:
 

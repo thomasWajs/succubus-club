@@ -309,9 +309,10 @@ export function getFirebase(): FirebaseApp {
     return firebase
 }
 
-// App Check attests that requests come from our real web app ( via reCAPTCHA v3 ),
+// App Check attests that requests come from our real web app ( via reCAPTCHA Enterprise ),
 // blocking scripts that hit the Firebase backend directly. It's opt-in through the
 // env var so environments without a site key configured keep working unchanged.
+// Each token fetch is a billed reCAPTCHA assessment ( free tier : 10k per month ).
 function initAppCheck(app: FirebaseApp) {
     const siteKey = import.meta.env.VITE_FIREBASE_APPCHECK_SITE_KEY
     if (!siteKey) {
@@ -326,7 +327,9 @@ function initAppCheck(app: FirebaseApp) {
     }
     initializeAppCheck(app, {
         provider: new ReCaptchaEnterpriseProvider(siteKey),
-        isTokenAutoRefreshEnabled: true,
+        // Off on purpose : a token is only fetched when a request needs one, so idle
+        // tabs and visitors who never reach Firebase don't consume assessments.
+        isTokenAutoRefreshEnabled: false,
     })
 }
 

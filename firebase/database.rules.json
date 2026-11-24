@@ -3,7 +3,7 @@
     //
     // Access posture
     // --------------
-    // The backend is fronted by App Check (reCAPTCHA v3, see initAppCheck in
+    // The backend is fronted by App Check (reCAPTCHA Enterprise, see initAppCheck in
     // src/client/gateway/realtime.ts), which is the primary guard against non-app
     // clients. gameRooms is a legacy path : intentionally public (no auth) because
     // it is written before an anonymous session is guaranteed. The rules below add

@@ -4,7 +4,7 @@ rules_version = '2';
 //
 // Access posture
 // --------------
-// The Firebase backend is fronted by App Check (reCAPTCHA v3, see initAppCheck in
+// The Firebase backend is fronted by App Check (reCAPTCHA Enterprise, see initAppCheck in
 // src/client/gateway/realtime.ts), which rejects requests that don't come from our
 // real web app. That is the primary guard against drive-by / bot abuse.
 //
