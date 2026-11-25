@@ -112,7 +112,7 @@
             :color="playerColor"
             :dropColor="dropColor"
             :cardRegion="player.library"
-            :showTopCard="true"
+            :showTopCard="player == players.selfPlayer"
             draw="library"
         />
         <RegionCardStackGo
@@ -124,7 +124,7 @@
             :color="playerColor"
             :dropColor="dropColor"
             :cardRegion="player.crypt"
-            :showTopCard="true"
+            :showTopCard="player == players.selfPlayer"
             draw="crypt"
         />
         <RegionCardStackGo
