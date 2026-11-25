@@ -93,7 +93,7 @@
 
         <button
             class="menu-button"
-            @click="bus.isUserProfilePanelOpen = true"
+            @click="openPreferences"
         >
             User preferences
         </button>
@@ -312,6 +312,11 @@ function toggleEnlarged() {
 function openArchive() {
     isEnlarged.value = true
     showArchive.value = true
+}
+
+function openPreferences() {
+    bus.userPanelInitialTab = 'preferences'
+    bus.isUserProfilePanelOpen = true
 }
 
 /** Logs Tab **/
