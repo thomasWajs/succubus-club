@@ -193,6 +193,85 @@
     border-color: $mist-grey;
 }
 
+// Icon buttons of the column tab bars ( see column-bar-button ), and the gap kept below them
+$column-bar-button-size: 30px;
+$column-bar-button-lift: 4px;
+$column-tab-underline: 2px;
+
+// In-game right column : a row of tab buttons sitting on top of their content
+@mixin column-tab-bar {
+    display: flex;
+    align-items: flex-end;
+
+    // Plain labels : the active one is upright, in full contrast and underlined with the accent.
+    // Every tab keeps a transparent underline so they all stay the same height.
+    // As tall as an icon button and its gap, the label centred on the same line as the icons
+    .tab-button {
+        box-sizing: border-box;
+        height: $column-bar-button-size + $column-bar-button-lift;
+        margin-right: 6px;
+        padding: 0 5px $column-bar-button-lift - $column-tab-underline 5px;
+        border: none;
+        border-bottom: solid $column-tab-underline transparent;
+        white-space: nowrap;
+        font-size: 14px;
+        font-weight: 600;
+        font-style: italic;
+        color: var(--ui-bar-text-muted);
+        background: transparent;
+        cursor: pointer;
+        transition: all 0.2s ease;
+
+        &.active {
+            color: var(--ui-bar-text);
+            border-bottom-color: var(--ui-accent-line);
+            font-style: normal;
+            cursor: default;
+        }
+
+        // A muted underline previews the active one
+        &:hover:not(.active):not(:disabled) {
+            color: var(--ui-bar-text);
+            border-bottom-color: var(--ui-bar-text-muted);
+        }
+
+        &:disabled {
+            opacity: 0.5;
+            cursor: default;
+        }
+
+        // Nothing to show in it, but still clickable
+        &.empty:not(.active) {
+            opacity: 0.6;
+        }
+    }
+}
+
+// Icon button in a column tab bar : a bare muted icon, like the plain tab labels, with a soft square
+// behind it on hover. Taller than the tabs, it sets the bar height, and keeps a gap above the bar
+// bottom edge that the tabs sit on
+@mixin column-bar-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    height: $column-bar-button-size;
+    min-width: $column-bar-button-size;
+    margin-bottom: $column-bar-button-lift;
+    padding: 0 6px;
+    border: none;
+    background: transparent;
+    color: var(--ui-bar-text-muted);
+    font-size: 19px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:hover {
+        color: var(--ui-bar-text);
+        background: light-dark(rgba(black, 0.08), rgba(white, 0.08));
+    }
+}
+
 @mixin active-gradient {
     background: linear-gradient(135deg, rgba($shadow-purple, 0.3) 0%, rgba($deep-purple, 0.5) 100%);
 }

@@ -1,89 +1,75 @@
 <template>
     <div id="RightColumnPlayers">
+        <div class="separator">Players</div>
         <div
-            class="header"
-            @click="isCollapsed = !isCollapsed"
+            v-for="player in gameState.players"
+            :key="player.oid"
+            class="player"
+            :class="{
+                acting: player === gameState.activePlayer,
+                ousted: player.isOusted,
+                disconnected: players.disconnectedPlayers.has(player.oid),
+            }"
         >
-            <span class="header-text">Connected ({{ connectedUsersCount }})</span>
+            <Icon
+                v-if="players.disconnectedPlayers.has(player.oid)"
+                class="disconnected-icon"
+                name="disconnected"
+                title="Disconnected"
+            />
+            <Icon
+                v-if="player.isOusted"
+                class="ousted-icon"
+                name="ousted"
+                title="Ousted"
+            />
             <span
-                class="toggle-arrow"
-                :class="{ isCollapsed }"
-                >▼</span
+                class="player-name"
+                :style="{ color: playerNameRgba(player) }"
             >
+                {{ player.shortName }}
+            </span>
+
+            <Icon
+                class="visibility-icon"
+                :name="players.hiddenPlayers.has(player.oid) ? 'hidden' : 'visible'"
+                :title="players.hiddenPlayers.has(player.oid) ? 'Hidden' : 'Visible'"
+                @click="players.toggleHidden(player.oid)"
+            />
         </div>
-        <div v-if="!isCollapsed">
-            <div class="separator">Players</div>
-            <div
-                v-for="player in gameState.players"
-                :key="player.oid"
-                class="player"
-                :class="{
-                    acting: player === gameState.activePlayer,
-                    ousted: player.isOusted,
-                    disconnected: players.disconnectedPlayers.has(player.oid),
-                }"
-            >
-                <Icon
-                    v-if="players.disconnectedPlayers.has(player.oid)"
-                    class="disconnected-icon"
-                    name="disconnected"
-                    title="Disconnected"
-                />
-                <Icon
-                    v-if="player.isOusted"
-                    class="ousted-icon"
-                    name="ousted"
-                    title="Ousted"
-                />
-                <span
-                    class="player-name"
-                    :style="{ color: playerNameRgba(player) }"
+
+        <template v-if="gameState.gameType == GameType.Multiplayer">
+            <template v-if="multiplayer.judgeUsers.length > 0">
+                <div class="separator">Judges</div>
+                <div
+                    v-for="judge in multiplayer.judgeUsers"
+                    :key="judge.permId"
+                    class="player judge"
                 >
-                    {{ player.shortName }}
-                </span>
-
-                <Icon
-                    class="visibility-icon"
-                    :name="players.hiddenPlayers.has(player.oid) ? 'hidden' : 'visible'"
-                    :title="players.hiddenPlayers.has(player.oid) ? 'Hidden' : 'Visible'"
-                    @click="players.toggleHidden(player.oid)"
-                />
-            </div>
-
-            <template v-if="gameState.gameType == GameType.Multiplayer">
-                <template v-if="multiplayer.judgeUsers.length > 0">
-                    <div class="separator">Judges</div>
-                    <div
-                        v-for="judge in multiplayer.judgeUsers"
-                        :key="judge.permId"
-                        class="player judge"
-                    >
-                        <span class="player-name">
-                            {{ judge.name }}
-                        </span>
-                    </div>
-                </template>
-
-                <template v-if="multiplayer.spectatorUsers.length > 0">
-                    <div class="separator">Spectators</div>
-                    <div
-                        v-for="spectator in multiplayer.spectatorUsers"
-                        :key="spectator.permId"
-                        class="player spectator"
-                    >
-                        <span class="player-name">
-                            {{ spectator.name }}
-                        </span>
-                    </div>
-                </template>
+                    <span class="player-name">
+                        {{ judge.name }}
+                    </span>
+                </div>
             </template>
-        </div>
+
+            <template v-if="multiplayer.spectatorUsers.length > 0">
+                <div class="separator">Spectators</div>
+                <div
+                    v-for="spectator in multiplayer.spectatorUsers"
+                    :key="spectator.permId"
+                    class="player spectator"
+                >
+                    <span class="player-name">
+                        {{ spectator.name }}
+                    </span>
+                </div>
+            </template>
+        </template>
     </div>
 </template>
 
 <script setup lang="ts">
 import { useGameStateStore } from '@/client/store/gameState.ts'
-import { computed, ref } from 'vue'
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import { GameType } from '@/shared/types/state.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
@@ -93,48 +79,11 @@ import Icon from '@/client/ui/components/Icon.vue'
 const gameState = useGameStateStore()
 const multiplayer = useMultiplayerStore()
 const players = usePlayersStore()
-
-const isCollapsed = ref(true)
-
-const connectedUsersCount = computed(() => {
-    const playersCount = Object.values(gameState.players).filter(
-        player => !players.disconnectedPlayers.has(player.oid),
-    ).length
-    return playersCount + multiplayer.judgeUsers.length + multiplayer.spectatorUsers.length
-})
 </script>
 
 <style lang="scss" scoped>
-// Windows
-$window-top: 475px;
-$window-right: 340px;
-
 #RightColumnPlayers {
-    margin: 4px 0;
-    background: var(--ui-section-bg);
     color: var(--ui-panel-text);
-
-    .header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 6px 8px;
-        cursor: pointer;
-        user-select: none;
-
-        .header-text {
-            flex: 1;
-        }
-
-        .toggle-arrow {
-            transition: transform 0.2s ease;
-            font-size: 12px;
-
-            &.isCollapsed {
-                transform: rotate(-90deg);
-            }
-        }
-    }
 
     // A labelled rule : the two lines flank the centered title.
     // Both are empty, so flex: 1 splits the space exactly in half.

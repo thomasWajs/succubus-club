@@ -107,6 +107,12 @@ export function closeUpMaxHeight() {
     return Math.round((layout.rightColumnWidth - RIGHT_COLUMN_BORDER) / CARD_ASPECT)
 }
 
+// The close-up image is pushed to the top-left corner : this is its right edge. The zone is never
+// taller than the card at full width, so the card is as wide as the zone height allows
+export const closeUpCardWidth = computed(() =>
+    Math.min(layout.rightColumnWidth - RIGHT_COLUMN_BORDER, layout.closeUpHeight * CARD_ASPECT),
+)
+
 export function setRightColumnWidth(width: number) {
     layout.rightColumnWidth = clamp(width, RIGHT_COLUMN_MIN_WIDTH, RIGHT_COLUMN_MAX_WIDTH)
     localStorage.setItem(RIGHT_COLUMN_WIDTH_STORAGE_KEY, String(layout.rightColumnWidth))

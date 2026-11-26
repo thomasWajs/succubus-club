@@ -65,7 +65,10 @@ $library-green: #254028;
 $topbar-height: 60px;
 $about-navbar-height: 60px;
 $right-column-width: 338px;
-$right-column-section-bg: $pearl-grey;
+$right-column-section-bg: #bbb; // $pearl-grey;
+// Light theme : the right column fades from its darker top-left to its lighter bottom-right
+$right-column-gradient-top: #999;
+$right-column-gradient-bottom: #c9c9c9;
 
 // top area
 $central-panel-surface: rgba($pearl-grey, 0.7);

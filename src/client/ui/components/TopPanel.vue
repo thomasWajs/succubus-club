@@ -80,7 +80,9 @@ const handleOverlayClick = () => {
     width: 100%;
     height: 100%;
     background-color: rgba(black, 0.8);
-    z-index: 1000;
+    // Over the in-game UI ( right column tab bar 1001, floating actions, context menus 1050 ),
+    // under the alerts ( 1099+ ) and the modal dialogs ( 1200 )
+    z-index: 1090;
     display: flex;
     justify-content: center;
     align-items: start;

@@ -186,8 +186,19 @@ function openPreferences() {
     color: light-dark($shadow-grey, $ui-accent-light);
 }
 
-.preferences-link:hover {
+// Light theme : the link blue barely reads on the teal item, so dark text, underlined to read as a link
+.preferences-link {
+    color: light-dark($shadow-grey, $link-blue);
+    font-weight: 600;
     text-decoration: underline;
+    @include dark-ui {
+        font-weight: normal;
+        text-decoration: none;
+    }
+
+    &:hover {
+        text-decoration: underline;
+    }
 }
 
 .control-item {

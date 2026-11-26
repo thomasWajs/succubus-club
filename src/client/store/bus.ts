@@ -303,6 +303,12 @@ export const useGameBusStore = defineStore('gameBus', {
             this.closeUpCard = this.pinnedCloseUpCard
         },
 
+        // The close-up then shows only hovered cards, and the card back in between
+        unpinCloseUpCard() {
+            this.pinnedCloseUpCard = { card: null, canView: false }
+            this.closeUpCard = this.pinnedCloseUpCard
+        },
+
         hideContextSubmenu() {
             this.contextMenu.submenu.show = false
             this.contextMenu.submenu.component = null

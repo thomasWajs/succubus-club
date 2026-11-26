@@ -39,8 +39,12 @@
 
     // Sections of the right column, and the column itself
     @include token('section-bg', $right-column-section-bg, $ui-section);
-    @include token('column-bg', $purple-grey, $ui-background);
+    // The column, its tab bars and their contents are one surface, framed by the border
+    @include token('column-bg', $right-column-section-bg, $ui-background);
     @include token('column-border', $purple-grey, $ui-border);
+    // Tab labels and icon buttons of the column bars
+    @include token('bar-text', $shadow-grey, $ui-text);
+    @include token('bar-text-muted', $bone-grey, $ui-text-muted);
     @include token('label-text', $bone-grey, $ui-text-muted);
 
     // Raised plates : keys, chips, rows

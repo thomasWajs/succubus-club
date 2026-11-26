@@ -1,4 +1,49 @@
 <template>
+    <div class="tab-bar">
+        <div
+            v-for="tab in tabs"
+            :key="tab.id"
+            class="tab-slot"
+        >
+            <button
+                class="tab-button"
+                :class="{ active: activeTab === tab.id }"
+                @click="activeTab = tab.id"
+            >
+                {{ tab.title }}
+            </button>
+
+            <!--Heads-up on the Manual tab for first-time users -->
+            <div
+                v-if="tab.id === 'manual' && showManualHeadsUp"
+                class="manual-heads-up"
+            >
+                <div class="heads-up-arrow" />
+                <div class="heads-up-content">
+                    <div class="heads-up-message">
+                        <Icon name="manual" /> Check out the <strong>Manual</strong> tab for help &
+                        game commands !
+                    </div>
+                    <button
+                        class="heads-up-button"
+                        @click="dismissManualHeadsUp"
+                    >
+                        Got it
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <button
+            class="bar-button enlarge"
+            :class="{ active: isEnlarged }"
+            :title="isEnlarged ? 'Shrink' : 'Enlarge'"
+            @click="toggleEnlarged"
+        >
+            {{ isEnlarged ? '⇲' : '⇱' }}
+        </button>
+    </div>
+
     <div
         v-if="activeTab === 'logs'"
         class="tab logs"
@@ -59,69 +104,11 @@
     </div>
 
     <div
-        v-if="activeTab === 'menu'"
-        class="tab menu"
+        v-if="activeTab === 'players'"
+        class="tab players"
         :class="{ enlarged: isEnlarged }"
     >
-        <button
-            class="menu-button"
-            :disabled="gameBus.savingState != SavingState.None"
-            @click="saveGame(false)"
-        >
-            <template v-if="gameBus.savingState == SavingState.Saving">
-                <Icon name="save" /> Saving...
-            </template>
-            <template v-else-if="gameBus.savingState == SavingState.AutoSaving">
-                <Icon name="save" /> Auto-Saving...
-            </template>
-            <template v-else-if="gameBus.savingState == SavingState.Done">
-                <Icon name="success" /> Save OK
-            </template>
-            <template v-else-if="gameBus.savingState == SavingState.Error">
-                <Icon name="error" /> Save Error
-            </template>
-            <template v-else>Save Game</template>
-        </button>
-
-        <button
-            v-if="gameState.gameType == GameType.Multiplayer"
-            class="menu-button"
-            @click="requestResyncGameState(true)"
-        >
-            Resync Game
-        </button>
-
-        <button
-            class="menu-button"
-            @click="openPreferences"
-        >
-            User preferences
-        </button>
-
-        <button
-            v-if="isFeedbackAvailable()"
-            class="menu-button"
-            @click="openFeedbackForm"
-        >
-            Report a bug
-        </button>
-
-        <button
-            class="menu-button"
-            @click="leaveDialog?.showModal()"
-        >
-            Leave game
-        </button>
-
-        <button
-            v-if="gameState.gameType == GameType.Multiplayer"
-            class="menu-button"
-            :disabled="!multiplayer.selfIsRoomWriter"
-            :title="multiplayer.selfIsRoomWriter ? '' : 'Only the room host can start a new table'"
-            @click="newTableDialog?.showModal()"
-        >
-            New table
-        </button>
+        <RightColumnPlayers />
     </div>
 
     <div
@@ -137,146 +124,30 @@
         <UserManual />
     </div>
 
-    <div class="tabs">
-        <button
-            class="tab-button enlarge"
-            :class="{ active: isEnlarged }"
-            @click="toggleEnlarged"
-        >
-            {{ isEnlarged ? '⇲' : '⇱' }}
-        </button>
-
-        <button
-            v-for="tab in tabs"
-            :key="tab.id"
-            class="tab-button"
-            :class="{ active: activeTab === tab.id, enlarged: isEnlarged }"
-            @click="activeTab = tab.id"
-        >
-            {{ tab.title }}
-        </button>
-
-        <!-- Each side is drawn in the colours of its theme -->
-        <div
-            class="theme-toggle"
-            title="Interface theme"
-        >
-            <button
-                v-for="option in UI_THEME_CHOICES"
-                :key="option.value"
-                class="theme-option"
-                :class="[option.value, { active: uiThemeChoice === option.value }]"
-                @click="setUiThemeChoice(option.value)"
-            >
-                {{ option.label }}
-            </button>
-        </div>
-    </div>
-
-    <!--Heads-up on the Manual tab for first-time users -->
-    <div
-        v-if="showManualHeadsUp"
-        class="manual-heads-up"
-        :class="{ enlarged: isEnlarged }"
-    >
-        <div class="heads-up-content">
-            <div class="heads-up-message">
-                <Icon name="manual" /> Check out the <strong>Manual</strong> tab for help & game
-                commands !
-            </div>
-            <button
-                class="heads-up-button"
-                @click="dismissManualHeadsUp"
-            >
-                Got it
-            </button>
-        </div>
-        <div class="heads-up-arrow" />
-    </div>
-
     <!-- Overlay backdrop when enlarged -->
     <div
         v-if="isEnlarged"
         class="enlarged-backdrop"
         @click="toggleEnlarged"
     />
-
-    <!-- Leave game confirmation dialog -->
-    <dialog
-        ref="leaveDialog"
-        class="confirm-dialog"
-    >
-        <div class="dialog-content">
-            <h3>Leave Game?</h3>
-            <p>Are you sure you want to leave the game?</p>
-            <div class="dialog-buttons">
-                <button
-                    class="game-button cancel is-muted"
-                    @click="leaveDialog?.close()"
-                >
-                    Cancel
-                </button>
-                <button
-                    class="game-button"
-                    @click="leaveGame(true)"
-                >
-                    Leave
-                </button>
-            </div>
-        </div>
-    </dialog>
-
-    <!-- New table confirmation dialog -->
-    <dialog
-        ref="newTableDialog"
-        class="confirm-dialog"
-    >
-        <div class="dialog-content">
-            <h3>Start a new table?</h3>
-            <p>
-                The current game will be ended for everyone, and all players will be sent back to
-                the game room.
-            </p>
-            <div class="dialog-buttons">
-                <button
-                    class="game-button cancel is-muted"
-                    @click="newTableDialog?.close()"
-                >
-                    Cancel
-                </button>
-                <button
-                    class="game-button"
-                    @click="confirmNewTable"
-                >
-                    New table
-                </button>
-            </div>
-        </div>
-    </dialog>
 </template>
 
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
-import { useBusStore, useGameBusStore } from '@/client/store/bus.ts'
 import { useHistoryStore } from '@/client/store/history.ts'
-import { saveGame, SavingState } from '@/client/gateway/savedGames.ts'
 import { GameType } from '@/shared/types/state.ts'
-import { requestResyncGameState, sendChat, startNewTable } from '@/client/multiplayer/room.ts'
+import { sendChat } from '@/client/multiplayer/room.ts'
 import UserManual from '@/client/ui/ingame/rightColumn/UserManual.vue'
+import RightColumnPlayers from '@/client/ui/ingame/rightColumn/RightColumnPlayers.vue'
 import Icon from '@/client/ui/components/Icon.vue'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import LogLine from '@/client/ui/ingame/rightColumn/LogLine.vue'
-import { leaveGame } from '@/client/state/setup.ts'
 import { getAuthorColorRgba } from '@/shared/colors.ts'
-import { isFeedbackAvailable, openFeedbackForm } from '@/client/logging.ts'
-import { setUiThemeChoice, UI_THEME_CHOICES, uiThemeChoice } from '@/client/gateway/uiTheme.ts'
 
 const gameState = useGameStateStore()
 const players = usePlayersStore()
-const bus = useBusStore()
-const gameBus = useGameBusStore()
 const history = useHistoryStore()
 const multiplayer = useMultiplayerStore()
 
@@ -296,11 +167,19 @@ function toggleShowTime() {
     localStorage.setItem(SHOW_TIME_STORAGE_KEY, String(showTime.value))
 }
 
-const tabs = [
+// Seated players still connected, plus the judges and spectators
+const connectedUsersCount = computed(() => {
+    const playersCount = Object.values(gameState.players).filter(
+        player => !players.disconnectedPlayers.has(player.oid),
+    ).length
+    return playersCount + multiplayer.judgeUsers.length + multiplayer.spectatorUsers.length
+})
+
+const tabs = computed(() => [
     { id: 'logs', title: 'Logs' },
-    { id: 'menu', title: 'Menu' },
+    { id: 'players', title: `Connected (${connectedUsersCount.value})` },
     { id: 'manual', title: 'Manual' },
-]
+])
 
 function toggleEnlarged() {
     isEnlarged.value = !isEnlarged.value
@@ -312,11 +191,6 @@ function toggleEnlarged() {
 function openArchive() {
     isEnlarged.value = true
     showArchive.value = true
-}
-
-function openPreferences() {
-    bus.userPanelInitialTab = 'preferences'
-    bus.isUserProfilePanelOpen = true
 }
 
 /** Logs Tab **/
@@ -396,24 +270,6 @@ function sendChatMessage() {
     }
 }
 
-/** Menu actions **/
-
-const leaveDialog = ref<HTMLDialogElement>()
-const newTableDialog = ref<HTMLDialogElement>()
-
-async function confirmNewTable() {
-    newTableDialog.value?.close()
-    try {
-        await startNewTable()
-    } catch (error) {
-        let message = 'Could not start a new table'
-        if (error instanceof Error) {
-            message = `${message} : ${error.message}`
-        }
-        bus.alertError(message)
-    }
-}
-
 /** Manual Heads-up Management **/
 
 const MANUAL_HEADSUP_STORAGE_KEY = 'manual-headsup-dismissed'
@@ -436,14 +292,17 @@ function dismissManualHeadsUp() {
     overflow-y: auto;
     flex-grow: 1;
     padding: 4px;
-    background-color: var(--ui-section-bg);
+    // On the column's surface ( a gradient in the light theme )
+    background-color: transparent;
     color: var(--ui-panel-text);
     transition: 0.6s cubic-bezier(0.4, 0, 0.2, 1);
     transition-property: padding, transform, width, height, max-width, max-height, box-shadow;
     position: relative;
     z-index: 1;
 
+    // Floats over the tabletop : a flat fill of its own
     &.enlarged {
+        background-color: var(--ui-column-bg);
         padding: 12px;
         position: fixed;
         top: 50%;
@@ -457,10 +316,6 @@ function dismissManualHeadsUp() {
         box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
         border-radius: 4px;
         border: 2px solid var(--ui-column-border);
-    }
-
-    &.placeholder {
-        background-color: var(--ui-column-bg);
     }
 }
 
@@ -551,128 +406,31 @@ function dismissManualHeadsUp() {
     }
 }
 
-.menu {
-    padding: 10px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
-
-    .menu-button {
-        @include button-purple;
-        // Square corners, a tighter box than the lobby buttons
-        border-radius: 0;
-        padding: 8px 12px;
-        font-size: 15px;
-        width: 100%;
-        max-width: 200px;
-    }
-}
-
 .manual {
     padding: 12px;
 }
 
-.tabs {
-    padding-bottom: 4px;
+// Tab buttons above the content, the enlarge button at the right end.
+// A margin, not a padding : the close-up resize handle straddles the gap above
+.tab-bar {
+    @include column-tab-bar;
+    margin-top: 4px;
     position: relative;
     z-index: 1001; /* Above the enlarged tab */
-    display: flex;
-    align-items: flex-start;
-    // Below this width the theme toggle would run into the tabs : it hides
-    container-type: inline-size;
 
-    // Right end of the tab row. Each side previews its theme; the current one is the only one
-    // fully opaque ( no underline, it would read as a tab )
-    .theme-toggle {
-        display: flex;
-        flex-shrink: 0;
-        align-self: stretch; // As tall as the tabs
-        margin-left: auto;
-        border: 1px solid light-dark($slate-grey, $ui-border);
-        border-top: none;
-
-        @container (max-width: 330px) {
-            display: none;
-        }
-
-        .theme-option {
-            padding: 3px 6px;
-            border: none;
-            font-family: $ui-font;
-            font-size: 10px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            opacity: 0.55;
-            cursor: pointer;
-            transition: opacity 0.2s ease;
-
-            &.dark {
-                background: $ui-background;
-                color: $ui-text;
-            }
-
-            // A shade above the light column, so the swatch stands out on it
-            &.light {
-                background: $ghost-white;
-                color: $shadow-grey;
-            }
-
-            // In between : it resolves to either theme
-            &.system {
-                background: $mist-grey;
-                color: white;
-            }
-
-            &:hover {
-                opacity: 0.85;
-            }
-
-            &.active {
-                opacity: 1;
-                cursor: default;
-            }
-        }
+    .tab-slot {
+        position: relative;
     }
 
-    .tab-button {
-        margin: 0 6px 0 0;
-        padding: 4px 5px;
-        border-radius: 0 0 4px 4px;
-        border: none;
-        color: var(--ui-chrome-text-muted);
-        background: light-dark($purple-grey, $ui-surface-raised);
-        cursor: pointer;
-        transition: all 0.2s ease;
+    // Same icon button as the top bar. A toggle : when on, it stays filled
+    .bar-button.enlarge {
+        @include column-bar-button;
+        margin-left: auto;
+        margin-right: 5px;
 
-        &:not(.enlarge) {
-            font-weight: 600;
-            font-style: italic;
-        }
-
-        &.active:not(.enlarge) {
-            color: var(--ui-panel-text);
-            background: var(--ui-section-bg);
-            border-bottom: solid 2px var(--ui-accent-line);
-            cursor: default;
-        }
-
-        &:hover:not(.active) {
-            filter: brightness(150%);
-        }
-
-        &.enlarged {
-            border-radius: 4px;
-        }
-
-        &.enlarge {
-            min-width: 24px;
-
-            &.active {
-                color: light-dark($vibrant-emerald, $ui-text);
-                background-color: light-dark(rgba($vibrant-emerald, 0.3), $ui-accent);
-            }
+        &.active {
+            color: var(--ui-bar-text);
+            background-color: light-dark(rgba($vibrant-emerald, 0.3), $ui-accent);
         }
     }
 }
@@ -689,16 +447,13 @@ function dismissManualHeadsUp() {
     }
 }
 
+// Hangs below the Manual tab button, its arrow pointing up at it
 .manual-heads-up {
     position: absolute;
-    bottom: 10px;
-    right: 210px;
+    top: calc(100% + 8px);
+    right: 0;
     z-index: 1002;
     animation: headsUpAppear 0.5s ease-out;
-
-    &.enlarged {
-        display: none;
-    }
 
     .heads-up-content {
         background: var(--ui-callout-bg);
@@ -730,61 +485,24 @@ function dismissManualHeadsUp() {
 
     .heads-up-arrow {
         position: absolute;
-        right: -8px;
-        bottom: 0;
+        top: -8px;
+        right: 20px;
         width: 0;
         height: 0;
-        border-top: 8px solid transparent;
-        border-bottom: 8px solid transparent;
-        border-left: 8px solid var(--ui-callout-bg);
+        border-left: 8px solid transparent;
+        border-right: 8px solid transparent;
+        border-bottom: 8px solid var(--ui-callout-bg);
     }
 }
 
 @keyframes headsUpAppear {
     0% {
         opacity: 0;
-        transform: translateX(20px);
+        transform: translateY(10px);
     }
     100% {
         opacity: 1;
-        transform: translateX(0);
-    }
-}
-
-.confirm-dialog {
-    border: 2px solid var(--ui-border);
-    padding: 0;
-    background: var(--ui-floating-bg);
-    max-width: 400px;
-
-    &::backdrop {
-        background: rgba(0, 0, 0, 0.5);
-    }
-
-    .dialog-content {
-        padding: 24px;
-        color: var(--ui-text-on-dark);
-
-        h3 {
-            margin: 0;
-            font-size: 20px;
-        }
-
-        p {
-            margin: 12px 0 24px 0;
-            font-size: 15px;
-        }
-
-        .dialog-buttons {
-            display: flex;
-            gap: 12px;
-            justify-content: flex-end;
-
-            .game-button {
-                min-width: 80px;
-                border-color: var(--ui-border);
-            }
-        }
+        transform: translateY(0);
     }
 }
 </style>

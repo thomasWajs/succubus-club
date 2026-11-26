@@ -75,9 +75,11 @@ function onPointerDown(event: PointerEvent) {
     }
 
     // The horizontal handle is an absolute overlay straddling the boundary
-    // between the close-up zone and the players list, so it consumes no layout
-    // space (the visible gap stays at the players' 4px margin). Its `top` is set
-    // inline to the close-up height by the parent.
+    // between the close-up zone and the tab row, so it consumes no layout
+    // space (the visible gap stays at the tab row's 4px margin). Its `top` is set
+    // inline by the parent, to the bottom edge of the close-up panel.
+    // At rest it draws a divider line and a centered grip in the gap ( its lower half ), so the
+    // boundary reads as draggable whatever sits below it.
     &.horizontal {
         position: absolute;
         left: 0;
@@ -85,6 +87,29 @@ function onPointerDown(event: PointerEvent) {
         margin-top: -4px;
         height: 8px;
         cursor: ns-resize;
+
+        &::before,
+        &::after {
+            content: '';
+            position: absolute;
+            background: var(--ui-divider);
+            pointer-events: none;
+        }
+
+        &::before {
+            left: 0;
+            right: 0;
+            top: 5px;
+            height: 2px;
+        }
+
+        &::after {
+            left: 50%;
+            top: 4px;
+            width: 36px;
+            height: 4px;
+            margin-left: -18px;
+        }
     }
 }
 </style>
