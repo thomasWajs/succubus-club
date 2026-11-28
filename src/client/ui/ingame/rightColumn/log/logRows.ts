@@ -1,6 +1,6 @@
 import { LogEntry } from '@/shared/types/history.ts'
 import { GameMutationId } from '@/shared/state/gameMutations.ts'
-import { continuesLogGroup } from '@/shared/state/logEntries.ts'
+import { continuesLogGroup } from '@/shared/state/history/logEntries.ts'
 import { TurnSequence } from '@/shared/const/model.ts'
 import { PlayerOid } from '@/shared/types/model.ts'
 import { AMOUNT_LOG_PLACEHOLDER, COUNT_LOG_PLACEHOLDER } from '@/shared/const/game.ts'

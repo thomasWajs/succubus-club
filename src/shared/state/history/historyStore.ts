@@ -6,7 +6,7 @@ import {
     getActionLineFold,
     secureLogDetails,
     secureLogRefs,
-} from '@/shared/state/logEntries.ts'
+} from '@/shared/state/history/logEntries.ts'
 import {
     deserializeHistory,
     serializeGameMutation,

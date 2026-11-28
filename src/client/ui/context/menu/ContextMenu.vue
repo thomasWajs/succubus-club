@@ -121,7 +121,7 @@ import SubmenuContextMenuButton from '@/client/ui/context/menu/SubmenuContextMen
 import MarkersSubmenu from '@/client/ui/context/menu/MarkersSubmenu.vue'
 import CountersSubmenu from '@/client/ui/context/menu/CountersSubmenu.vue'
 import AttributesSubmenu from '@/client/ui/context/menu/AttributesSubmenu.vue'
-import { minionCanAttemptBlock } from '@/shared/state/actionState.ts'
+import { minionCanAttemptBlock } from '@/shared/state/gameplay/actionState.ts'
 import InfrequentMenuButtons from '@/client/ui/context/menu/InfrequentMenuButtons.vue'
 import { shuffleCardRegion } from '@/client/state/gameMutations.ts'
 import { computed } from 'vue'

@@ -2,7 +2,7 @@ import { ref, watch, watchEffect } from 'vue'
 import { useGameBusStore } from '@/client/store/bus.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
-import { isBleed } from '@/shared/state/minionActions.ts'
+import { isBleed } from '@/shared/state/gameplay/minionActions.ts'
 import { Arrow, TargetDeclaration } from '@/shared/types/state.ts'
 import { CardOid, PlayerOid, Point2D } from '@/shared/types/model.ts'
 

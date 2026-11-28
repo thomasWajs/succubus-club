@@ -208,12 +208,12 @@ import {
     NO_BLOCK,
     NO_REACTION,
 } from '@/shared/types/state.ts'
-import * as actions from '@/shared/state/minionActions.ts'
+import * as actions from '@/shared/state/gameplay/minionActions.ts'
 import { selfCanAttemptBlock, selfSecureName } from '@/client/state/self.ts'
 import PropertyStepper from '@/client/ui/components/PropertyStepper.vue'
 import DisciplineIcon from '@/client/ui/components/DisciplineIcon.vue'
 import CentralPanel from '@/client/ui/ingame/topArea/central/CentralPanel.vue'
-import { getBlockingDecision } from '@/shared/state/actionState.ts'
+import { getBlockingDecision } from '@/shared/state/gameplay/actionState.ts'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { LibraryCard } from '@/shared/model/Card.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'

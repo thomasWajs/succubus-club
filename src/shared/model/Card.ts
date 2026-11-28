@@ -11,7 +11,7 @@ import {
     TITLE_VOTES,
 } from '@/shared/const/model.ts'
 import { CRYPT_CARD_IMPLEMENTATIONS } from '@/shared/cardImpl'
-import * as cardVisibility from '@/shared/state/cardVisibility.ts'
+import * as cardVisibility from '@/shared/state/cards/cardVisibility.ts'
 import { GRID_SIZE } from '@/shared/const/game.ts'
 import { KrcgId } from '@/shared/types/gateway.ts'
 import { AnyCardRegion, CardOid, GameId, ObjectId, PlayerOid } from '@/shared/types/model.ts'

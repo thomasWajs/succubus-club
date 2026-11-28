@@ -21,7 +21,7 @@ import {
     serializeHistory,
 } from '@/shared/serialization.ts'
 import { LamportClock, VectorClock } from '@/shared/multiplayer/clock.ts'
-import { HistoryStore } from '@/shared/state/history.ts'
+import { HistoryStore } from '@/shared/state/history/historyStore.ts'
 
 const DB_PATH = process.env.SCS_DB_PATH || '../../data/game-server.db'
 

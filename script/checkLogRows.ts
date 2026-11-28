@@ -23,7 +23,7 @@ import {
     LogRow,
     reuseLogRows,
 } from '@/client/ui/ingame/rightColumn/log/logRows.ts'
-import { joinsUndoGroup } from '@/shared/state/logEntries.ts'
+import { joinsUndoGroup } from '@/shared/state/history/logEntries.ts'
 
 /**
  * Entries

@@ -79,7 +79,11 @@ import { useGameStateStore } from '@/client/store/gameState.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
 import { getCardRectangle, getScreenPoint, getScreenScale } from '@/client/game/utils.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
-import { getCastBallot, getCastVote, isBallotVampire } from '@/shared/state/referendumState.ts'
+import {
+    getCastBallot,
+    getCastVote,
+    isBallotVampire,
+} from '@/shared/state/gameplay/referendumState.ts'
 import { CastVote, VoteSide } from '@/shared/types/state.ts'
 import { Vampire } from '@/shared/model/Card.ts'
 import PropertyStepper from '@/client/ui/components/PropertyStepper.vue'

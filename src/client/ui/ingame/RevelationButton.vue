@@ -14,7 +14,7 @@ import { useGameBusStore } from '@/client/store/bus.ts'
 import { ALL_PLAYERS, CardRevelationViewer } from '@/shared/types/state.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
 import { computed } from 'vue'
-import { isRevealedToViewer } from '@/shared/state/cardVisibility.ts'
+import { isRevealedToViewer } from '@/shared/state/cards/cardVisibility.ts'
 import { AnyCardRegion } from '@/shared/types/model.ts'
 
 const { viewer, cardRegion } = defineProps<{

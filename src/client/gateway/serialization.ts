@@ -13,7 +13,7 @@ import {
     serializeHistory,
 } from '@/shared/serialization.ts'
 import { GameState } from '@/shared/state/gameState.ts'
-import { HistoryStore } from '@/shared/state/history.ts'
+import { HistoryStore } from '@/shared/state/history/historyStore.ts'
 
 export function serializeGame(): SerializedGame {
     const rawState = useGameStateStore().$state

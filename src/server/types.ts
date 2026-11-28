@@ -9,7 +9,7 @@ import {
 import { WebSocket } from 'ws'
 import { GameId } from '@/shared/types/model.ts'
 import { LamportClock, VectorClock } from '@/shared/multiplayer/clock.ts'
-import { HistoryStore } from '@/shared/state/history.ts'
+import { HistoryStore } from '@/shared/state/history/historyStore.ts'
 import { GameState } from '@/shared/state/gameState.ts'
 
 export const SERVER_PERM_ID = '0000_SCS'

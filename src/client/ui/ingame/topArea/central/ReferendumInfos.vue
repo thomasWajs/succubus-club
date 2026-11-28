@@ -197,7 +197,7 @@ import {
     SUBREFERENDUM_VOTE_GRANT,
     tallySubReferendum,
     tallyVotes,
-} from '@/shared/state/referendumState.ts'
+} from '@/shared/state/gameplay/referendumState.ts'
 import { Player } from '@/shared/model/Player.ts'
 import PropertyStepper from '@/client/ui/components/PropertyStepper.vue'
 import CentralPanel from '@/client/ui/ingame/topArea/central/CentralPanel.vue'

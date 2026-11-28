@@ -29,7 +29,7 @@ import { useSelection } from '@/client/game/composables/useSelection.ts'
 import { Card, Minion } from '@/shared/model/Card.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
 import { selfCanAttemptBlock } from '@/client/state/self.ts'
-import { getBlockingDecision } from '@/shared/state/actionState.ts'
+import { getBlockingDecision } from '@/shared/state/gameplay/actionState.ts'
 
 const gameBus = useGameBusStore()
 const gameState = useGameStateStore()

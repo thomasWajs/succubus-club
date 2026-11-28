@@ -11,7 +11,7 @@ import {
     NO_COMBAT,
     NO_REACTION,
 } from '@/shared/types/state.ts'
-import * as actions from '@/shared/state/minionActions.ts'
+import * as actions from '@/shared/state/gameplay/minionActions.ts'
 import { LibraryCard, Minion } from '@/shared/model/Card.ts'
 import * as logging from '@/client/logging.ts'
 import { declareAction, playCard } from '@/client/game/declaration.ts'

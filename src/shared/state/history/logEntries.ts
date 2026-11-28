@@ -2,7 +2,7 @@ import { AnyGameMutation } from '@/shared/state/gameMutations.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { LogDetail, LogEntry, LogFold } from '@/shared/types/history.ts'
 import { GameState } from '@/shared/state/gameState.ts'
-import { getPlayerVision } from '@/shared/state/cardVisibility.ts'
+import { getPlayerVision } from '@/shared/state/cards/cardVisibility.ts'
 import { cardLogRef, LOG_REF_REGEX, REVEALED_CARD_LOG_REF_REGEX } from '@/shared/const/game.ts'
 import { getAuthorColorRgba } from '@/shared/colors.ts'
 

@@ -48,8 +48,8 @@ import {
     VersioningTarget,
 } from '@/shared/types/multiplayer.ts'
 import { AnyCardRegion, CardOid, GameId, PlayerOid, Point2D } from '@/shared/types/model.ts'
-import { getCardAttribute, setCardAttribute } from '@/shared/state/cardAttributes.ts'
-import { isRevealedToViewer, secureName } from '@/shared/state/cardVisibility.ts'
+import { getCardAttribute, setCardAttribute } from '@/shared/state/cards/cardAttributes.ts'
+import { isRevealedToViewer, secureName } from '@/shared/state/cards/cardVisibility.ts'
 import { useTimer } from '@/shared/state/useTimer.ts'
 import { freeTableCryptSlotPosition } from '@/shared/state/freeTableLayout.ts'
 import {
@@ -58,8 +58,8 @@ import {
     getBlockingMinion,
     passImpulse,
     regainImpulse,
-} from '@/shared/state/actionState.ts'
-import { createCombatState, inflictDamage } from '@/shared/state/combatState.ts'
+} from '@/shared/state/gameplay/actionState.ts'
+import { createCombatState, inflictDamage } from '@/shared/state/gameplay/combatState.ts'
 import {
     createReferendumState,
     createVoteCount,
@@ -70,8 +70,8 @@ import {
     interruptsReferendumLastCall,
     isBallotVampire,
     tallyVotes,
-} from '@/shared/state/referendumState.ts'
-import * as actions from '@/shared/state/minionActions.ts'
+} from '@/shared/state/gameplay/referendumState.ts'
+import * as actions from '@/shared/state/gameplay/minionActions.ts'
 import { GameState } from '@/shared/state/gameState.ts'
 import { getGameState, getMutationTrigger } from '@/shared/registries.ts'
 import { hashObject, rehydrateCard, serializeObject } from '@/shared/serialization.ts'
@@ -89,7 +89,7 @@ import {
     logRegion,
     logRevealedCard,
     poolDetail,
-} from '@/shared/state/mutationLog.ts'
+} from '@/shared/state/history/mutationLog.ts'
 
 export type GameMutationId = number
 export interface GameMutationParams {

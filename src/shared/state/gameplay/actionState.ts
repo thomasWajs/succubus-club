@@ -2,7 +2,7 @@ import { Card, Minion } from '@/shared/model/Card.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
 import { ActionState, BlockingDecision, MinionAction, NO_BLOCK } from '@/shared/types/state.ts'
-import * as actions from '@/shared/state/minionActions.ts'
+import * as actions from '@/shared/state/gameplay/minionActions.ts'
 import { GameState } from '@/shared/state/gameState.ts'
 
 export function createActionState(minionAction: MinionAction): ActionState {

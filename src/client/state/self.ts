@@ -6,12 +6,12 @@ import { useGameStateStore } from '@/client/store/gameState.ts'
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
 import { Card, LibraryCard } from '@/shared/model/Card.ts'
-import * as cardVisibility from '@/shared/state/cardVisibility.ts'
-import { secureName } from '@/shared/state/cardVisibility.ts'
+import * as cardVisibility from '@/shared/state/cards/cardVisibility.ts'
+import { secureName } from '@/shared/state/cards/cardVisibility.ts'
 import { TurnPhase } from '@/shared/const/model.ts'
 import { Player } from '@/shared/model/Player.ts'
 import { GameType } from '@/shared/types/state.ts'
-import { playerCanAttemptBlock } from '@/shared/state/actionState.ts'
+import { playerCanAttemptBlock } from '@/shared/state/gameplay/actionState.ts'
 
 /**
  * A judge oversees the game : they see and peek every card.

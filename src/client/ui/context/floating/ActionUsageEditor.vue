@@ -112,12 +112,12 @@ import { usePlayersStore } from '@/client/state/players.ts'
 import { display } from '@/client/game/display.ts'
 import { getCardRectangle, getScreenPoint } from '@/client/game/utils.ts'
 import { DisciplineUse, LibraryCardUsage, MinionActionType } from '@/shared/types/state.ts'
-import { parseCardUsage } from '@/shared/state/usageParsing.ts'
+import { parseCardUsage } from '@/shared/state/gameplay/usageParsing.ts'
 import { gameMutations } from '@/shared/state/gameMutations.ts'
 import { startTargetDeclaration } from '@/client/game/declaration.ts'
 import { useUIFeatures } from '@/client/game/composables/useUIFeatures.ts'
 import DisciplineIcon from '@/client/ui/components/DisciplineIcon.vue'
-import * as actions from '@/shared/state/minionActions.ts'
+import * as actions from '@/shared/state/gameplay/minionActions.ts'
 
 const gameBus = useGameBusStore()
 const gameState = useGameStateStore()

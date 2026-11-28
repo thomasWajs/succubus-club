@@ -5,13 +5,13 @@ import { useGameStateStore } from '@/client/store/gameState.ts'
 import { Discipline, DisciplineLevel } from '@/shared/const/model.ts'
 import { NO_ACTION_MODIFIER, NO_BLOCK, NO_COMBAT } from '@/shared/types/state.ts'
 import { GRID_SIZE } from '@/shared/const/game.ts'
-import { getBlockingMinion } from '@/shared/state/actionState.ts'
+import { getBlockingMinion } from '@/shared/state/gameplay/actionState.ts'
 import {
     createActionCardAction,
     createActionModifier,
     createHuntAction,
     singleDisciplineUsage,
-} from '@/shared/state/minionActions.ts'
+} from '@/shared/state/gameplay/minionActions.ts'
 import { NEXT_PHASE, NEXT_TURN } from '@/shared/const/bot.ts'
 import { DeckList } from '@/shared/types/gateway.ts'
 

@@ -4,7 +4,7 @@ import { cardLogRef, playerLogRef, revealedCardLogRef } from '@/shared/const/gam
 import { MinionAction, MinionActionType } from '@/shared/types/state.ts'
 import { AnyCardRegion } from '@/shared/types/model.ts'
 import { LogDetail, LogDetailIcon } from '@/shared/types/history.ts'
-import * as actions from '@/shared/state/minionActions.ts'
+import * as actions from '@/shared/state/gameplay/minionActions.ts'
 import { disciplineUsesImg } from '@/shared/disciplineIcons.ts'
 
 // Helpers writing the log texts and details of the mutations

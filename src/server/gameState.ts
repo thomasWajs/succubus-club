@@ -25,7 +25,7 @@ import { GameState } from '@/shared/state/gameState.ts'
 import { setupMultiplayerGameState } from '@/shared/state/setup.ts'
 import { getUser } from './users.ts'
 import { KnownCards } from '@/shared/types/state.ts'
-import { anyoneCanSee, canSeeOrPeek } from '@/shared/state/cardVisibility.ts'
+import { anyoneCanSee, canSeeOrPeek } from '@/shared/state/cards/cardVisibility.ts'
 import { UNKNOWN_MINION_ATTRS, UNKNOWN_VAMPIRE_ATTRS } from '@/shared/model/Card.ts'
 import {
     hashObject,
