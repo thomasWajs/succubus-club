@@ -1,12 +1,17 @@
 import { AnyGameMutation, GameMutationId } from '@/shared/state/gameMutations.ts'
-import { Player } from '@/shared/model/Player.ts'
 import { ChatMessage, LogEntry, MutationHistoryEntry } from '@/shared/types/history.ts'
+import {
+    authorFromPlayer,
+    DEFAULT_CHAT_AUTHOR_COLOR_RGBA,
+    getActionLineFold,
+    secureLogDetails,
+    secureLogRefs,
+} from '@/shared/state/logEntries.ts'
 import {
     deserializeHistory,
     serializeGameMutation,
     serializeHistory,
 } from '@/shared/serialization.ts'
-import { getAuthorColorRgba } from '@/shared/colors.ts'
 import { SerializedHistory } from '@/shared/types/multiplayer.ts'
 import { GameId, PlayerOid } from '@/shared/types/model.ts'
 import LZString from 'lz-string'
@@ -14,15 +19,6 @@ import { getLogger } from '@/shared/registries.ts'
 
 const HISTORY_ARCHIVE_THRESHOLD = 150
 const HISTORY_KEEP_RECENT = 100
-
-// Neutral colour for chat authors that have no game colour yet
-// ( e.g. messages sent from the game room, before the game starts ).
-const DEFAULT_CHAT_AUTHOR_COLOR_RGBA = 'rgba(150, 150, 150, 1)'
-
-const authorFromPlayer = (player: Player) => ({
-    authorName: player.name,
-    authorColorRgba: getAuthorColorRgba(player.rgbaColor),
-})
 
 type Transformer = <T extends object>(value: T) => T
 
@@ -65,37 +61,41 @@ export class HistoryStore {
 
         this.gameMutations.push(mutation)
 
-        const text = gameMutation.formatForLog()
-        if (text) {
-            let cancelText: string | undefined
+        const gameState = gameMutation.gameState
+        const unsecuredText = gameMutation.formatForLog()
+        if (unsecuredText) {
+            const text = secureLogRefs(unsecuredText, gameState)
+            let resolvesConflict: boolean | undefined
             let { authorName, authorColorRgba } = authorFromPlayer(gameMutation.author)
 
-            if (gameMutation.cancelsMutationId) {
-                const cancelledMutation = this.gameMutationsMap[gameMutation.cancelsMutationId]
-                if (cancelledMutation) {
-                    // Find the text at the moment the mutation was applied
-                    cancelText = this.logEntries.find(
-                        l => l.mutationId == cancelledMutation.id,
-                    )?.text
-                    // strip tags from cancel text
-                    cancelText = cancelText?.replace(/<\/?[^>]+(>|$)/g, '')
-
-                    if (gameMutation.cancelToResolveConflict) {
-                        authorName = 'Conflict resolver'
-                        authorColorRgba = 'rgba(255, 0, 0, 0.5)'
-                    }
-                }
+            const cancelsMutationId = gameMutation.cancelsMutationId
+            if (
+                cancelsMutationId &&
+                gameMutation.cancelToResolveConflict &&
+                this.gameMutations.some(m => m.id == cancelsMutationId)
+            ) {
+                authorName = 'Conflict resolver'
+                authorColorRgba = 'rgba(255, 0, 0, 0.5)'
+                resolvesConflict = true
             }
 
-            let logEntry = {
+            let logEntry: LogEntry = {
                 text,
                 timestamp: gameMutation.timestamp,
                 authorName,
                 authorColorRgba,
-                cancelText,
                 playerVision: gameMutation.playerVision,
                 card: gameMutation.card ?? undefined,
                 mutationId: gameMutation.id,
+                mutationName: gameMutation.name,
+                turnNumber: gameState.turnNumber,
+                turnPhaseIndex: gameState.turnPhaseIndex,
+                activePlayerOid: gameState.activePlayer?.oid,
+                cancelsMutationId: gameMutation.cancelsMutationId,
+                resolvesConflict,
+                details: secureLogDetails(gameMutation.formatLogDetails(), gameState),
+                group: gameMutation.logGroup ?? undefined,
+                fold: getActionLineFold(gameMutation, this.logEntries),
             }
             if (transformer) {
                 logEntry = transformer(logEntry)

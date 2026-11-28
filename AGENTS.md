@@ -73,6 +73,7 @@ or with an authoritative central server ("Succubus Club Server" ==> SCS mode).
 - **Test Suite**: Currently, there is no automated test suite configured in the repository.
 - **Live-testing**: Do not try to start vite, SCS server, or validate in-browser rendering (playwright or such other tools).
 - **Code Quality**: When changes are made, use `npm run lint:check` and `npm run format:check` to ensure correct formatting.
+- **Logs**: When touching the game log (log texts and groups of mutations, `LogEntry`, `history.ts`, the rows of `src/client/ui/ingame/rightColumn`), run `npm run log:check`. It builds the log rows of hand-written entries (`script/checkLogRows.ts`) and must pass; add a case for any new log behaviour.
 
 ---
 *End of Document*

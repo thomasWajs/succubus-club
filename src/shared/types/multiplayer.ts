@@ -10,7 +10,7 @@ import { KnownCards } from '@/shared/types/state.ts'
 import { Card } from '@/shared/model/Card.ts'
 import { ChatMessage } from '@/shared/types/history.ts'
 import { GameState } from '@/shared/state/gameState.ts'
-import { GameId, ObjectId } from '@/shared/types/model.ts'
+import { GameId, ObjectId, PlayerOid } from '@/shared/types/model.ts'
 
 /**
  * Types for user matching
@@ -201,10 +201,19 @@ export type InternedLogEntry = {
     i: string // timestamp
     a: InternId // authorName as string index in stringPool
     r: InternId // authorColorRgba as string index in stringPool
-    n?: InternId // cancelText as string index in stringPool
     p?: InternedObject // playerVision
     c?: JsonValue // card
     m?: GameMutationId // mutationId
+    k?: InternId // mutationName as string index in stringPool
+    u?: number // turnNumber
+    h?: number // turnPhaseIndex
+    w?: PlayerOid // activePlayerOid
+    x?: GameMutationId // cancelsMutationId
+    f?: true // resolvesConflict
+    d?: InternId // details, as a json string index in stringPool
+    // group key as string index in stringPool, group amount, 1 for a toggle
+    g?: [InternId, number] | [InternId, number, 1]
+    o?: [GameMutationId, 0 | 1] // fold : the entry folded into, 1 when silent
 }
 
 // Use a more compact InternedGameMutation, instead of SerializedGameMutation

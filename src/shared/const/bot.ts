@@ -1,4 +1,4 @@
-export const NB_BOTS = 4
+export const NB_BOTS = 1
 export const BOT_NAME = 'Bot'
 export const BOT_PERM_ID = 'Bot'
 

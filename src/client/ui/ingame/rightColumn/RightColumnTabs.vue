@@ -34,14 +34,26 @@
             </div>
         </div>
 
-        <button
-            class="bar-button enlarge"
-            :class="{ active: isEnlarged }"
-            :title="isEnlarged ? 'Shrink' : 'Enlarge'"
-            @click="toggleEnlarged"
-        >
-            {{ isEnlarged ? '⇲' : '⇱' }}
-        </button>
+        <div class="bar-buttons">
+            <button
+                v-if="activeTab === 'logs'"
+                class="bar-button"
+                :class="{ off: !showTime }"
+                :title="showTime ? 'Hide the log times' : 'Show the log times'"
+                @click="toggleShowTime"
+            >
+                <Icon name="time" />
+            </button>
+
+            <button
+                class="bar-button"
+                :class="{ active: isEnlarged }"
+                :title="isEnlarged ? 'Shrink' : 'Enlarge'"
+                @click="toggleEnlarged"
+            >
+                <Icon :name="isEnlarged ? 'shrink' : 'enlarge'" />
+            </button>
+        </div>
     </div>
 
     <div
@@ -50,18 +62,34 @@
         :class="{ enlarged: isEnlarged }"
     >
         <div class="log-lines-container">
-            <button
-                class="toggle-time-button"
-                :title="showTime ? 'Hide timestamps' : 'Show timestamps'"
-                @click="toggleShowTime"
-            >
-                [HH:MM]
-            </button>
-
             <div
                 ref="logLines"
                 class="log-lines"
+                @scroll="onLogScroll"
             >
+                <!-- The turn and phase of the lines at the top, once their separators are
+                scrolled out. No height : the lines don't move when it shows -->
+                <div class="sticky-top">
+                    <button
+                        v-if="stickyTurn"
+                        class="log-sticky-header"
+                        title="Go to the start of the turn"
+                        @click="scrollToRow(stickyTurn.key)"
+                    >
+                        Turn {{ stickyTurn.turnNumber }}
+                        <template v-if="stickyPlayer">
+                            <span class="sticky-dot">·</span>
+                            <span :style="{ color: stickyPlayer.color }">
+                                {{ stickyPlayer.name }}
+                            </span>
+                        </template>
+                        <template v-if="stickyPhase">
+                            <span class="sticky-dot">·</span>
+                            {{ stickyPhase.phaseName }} phase
+                        </template>
+                    </button>
+                </div>
+
                 <button
                     v-if="history.archive !== ''"
                     class="archive-button"
@@ -70,13 +98,39 @@
                     {{ showArchive ? 'Showing full history' : 'View full history' }}
                 </button>
 
-                <LogLine
-                    v-for="(logEntry, index) in displayedLogEntries"
-                    :key="'logEntry-' + index"
-                    :logEntry="logEntry"
-                    :index="index"
-                    :showTime="showTime"
-                />
+                <template
+                    v-for="row in logRows"
+                    :key="row.key"
+                >
+                    <LogLine
+                        v-if="row.kind === 'line'"
+                        :entries="row.entries"
+                        :folded="row.folded"
+                        :showAuthor="row.showAuthor"
+                        :timeVisible="showTime"
+                        :isMostRecent="rowEntries(row).includes(lastLogEntry)"
+                        :isHighlighted="isHighlighted(row)"
+                        @link="linkedMutationId = $event"
+                    />
+                    <LogSeparator
+                        v-else
+                        :row="row"
+                        :isHighlighted="isHighlighted(row)"
+                        :data-row-key="row.key"
+                        @link="linkedMutationId = $event"
+                    />
+                </template>
+
+                <!-- Lines added while reading higher up : the log doesn't jump down to them -->
+                <div class="sticky-bottom">
+                    <button
+                        v-if="newLinesCount > 0"
+                        class="new-lines-button"
+                        @click="scrollLog"
+                    >
+                        {{ newLinesCount }} new
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -133,7 +187,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, ref, shallowRef, watch } from 'vue'
 import { useHistoryStore } from '@/client/store/history.ts'
 import { GameType } from '@/shared/types/state.ts'
 import { sendChat } from '@/client/multiplayer/room.ts'
@@ -143,8 +197,19 @@ import Icon from '@/client/ui/components/Icon.vue'
 import { useGameStateStore } from '@/client/store/gameState.ts'
 import { usePlayersStore } from '@/client/state/players.ts'
 import { useMultiplayerStore } from '@/client/store/multiplayer.ts'
-import LogLine from '@/client/ui/ingame/rightColumn/LogLine.vue'
+import LogLine from '@/client/ui/ingame/rightColumn/log/LogLine.vue'
+import LogSeparator from '@/client/ui/ingame/rightColumn/log/LogSeparator.vue'
+import {
+    buildLogRows,
+    LogRow,
+    reuseLogRows,
+    rowEntries,
+    rowMutationIds,
+} from '@/client/ui/ingame/rightColumn/log/logRows.ts'
 import { getAuthorColorRgba } from '@/shared/colors.ts'
+import { GameMutationId } from '@/shared/state/gameMutations.ts'
+import { LogEntry } from '@/shared/types/history.ts'
+import { logPlayerName } from '@/client/ui/ingame/rightColumn/log/logText.ts'
 
 const gameState = useGameStateStore()
 const players = usePlayersStore()
@@ -211,6 +276,23 @@ const displayedLogEntries = computed(() => {
     return history.logEntries
 })
 
+const logRows = computed<LogRow[]>(previousRows =>
+    reuseLogRows(previousRows, buildLogRows(displayedLogEntries.value, history.cancelledMutations)),
+)
+
+const lastLogEntry = computed(() => history.logEntries[history.logEntries.length - 1])
+// The last entry when the log was last at the bottom : the lines below it are new
+const lastSeenEntry = shallowRef<LogEntry | undefined>(lastLogEntry.value)
+
+/** Undos : hovering one highlights the undone entry, always close above **/
+
+const linkedMutationId = ref<GameMutationId | null>(null)
+
+function isHighlighted(row: LogRow) {
+    const linked = linkedMutationId.value
+    return linked !== null && rowMutationIds(row).includes(linked)
+}
+
 function scrollLog() {
     nextTick(() => {
         const scrollContainer = logLines.value
@@ -220,20 +302,101 @@ function scrollLog() {
         scrollContainer.scrollTop = scrollContainer.scrollHeight
     })
 }
-function scrollLogIfAtBottom() {
+
+function isLogAtBottom(): boolean {
+    const scrollContainer = logLines.value
+    if (!scrollContainer) {
+        return true
+    }
+    return (
+        scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight < 80
+    )
+}
+
+// Before the new entry is rendered : the log was at the bottom, it follows
+watch(lastLogEntry, entry => {
+    if (isLogAtBottom()) {
+        lastSeenEntry.value = entry
+        scrollLog()
+    }
+})
+watch(activeTab, scrollLog)
+
+function onLogScroll() {
+    if (isLogAtBottom()) {
+        lastSeenEntry.value = lastLogEntry.value
+    }
+    updateStickyHeader()
+}
+
+/** New lines : added below while reading higher up **/
+
+const newLinesCount = computed(() => {
+    const seen = lastSeenEntry.value
+    if (seen === undefined || seen === lastLogEntry.value) {
+        return 0
+    }
+    const rows = logRows.value
+    const seenIndex = rows.findIndex(row => rowEntries(row).includes(seen))
+    return seenIndex === -1 ? 0 : (
+            rows.slice(seenIndex + 1).filter(row => row.kind === 'line').length
+        )
+})
+
+/** Sticky header : the turn and phase of the lines at the top **/
+
+const stickyTurnKey = ref<string | null>(null)
+const stickyPhaseKey = ref<string | null>(null)
+
+const rowByKey = computed(() => new Map(logRows.value.map(row => [row.key, row])))
+
+function rowOfKey<Kind extends LogRow['kind']>(
+    key: string | null,
+    kind: Kind,
+): Extract<LogRow, { kind: Kind }> | null {
+    const row = key !== null ? rowByKey.value.get(key) : undefined
+    return row?.kind === kind ? (row as Extract<LogRow, { kind: Kind }>) : null
+}
+
+const stickyTurn = computed(() => rowOfKey(stickyTurnKey.value, 'turn'))
+const stickyPhase = computed(() => rowOfKey(stickyPhaseKey.value, 'phase'))
+const stickyPlayer = computed(() => {
+    const playerOid = stickyTurn.value?.activePlayerOid
+    return playerOid ? logPlayerName(playerOid) : null
+})
+
+// The last turn separator scrolled out above the top, and the last phase separator after it
+function updateStickyHeader() {
     const scrollContainer = logLines.value
     if (!scrollContainer) {
         return
     }
-    const isAtBottom =
-        scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight < 80
-    if (isAtBottom) {
-        scrollLog()
+    const top = scrollContainer.getBoundingClientRect().top
+    let turnKey: string | null = null
+    let phaseKey: string | null = null
+    for (const element of scrollContainer.querySelectorAll<HTMLElement>('[data-row-key]')) {
+        if (element.getBoundingClientRect().bottom > top) {
+            break
+        }
+        const row = rowByKey.value.get(element.dataset.rowKey ?? '')
+        if (row?.kind === 'turn') {
+            turnKey = row.key
+            phaseKey = null
+        } else if (row?.kind === 'phase') {
+            phaseKey = row.key
+        }
     }
+    stickyTurnKey.value = turnKey
+    stickyPhaseKey.value = phaseKey
 }
 
-watch(() => history.logEntries.length, scrollLogIfAtBottom)
-watch(activeTab, scrollLog)
+watch([logRows, isEnlarged], () => nextTick(updateStickyHeader))
+
+function scrollToRow(key: string) {
+    logLines.value
+        ?.querySelector(`[data-row-key="${CSS.escape(key)}"]`)
+        ?.scrollIntoView({ block: 'start' })
+}
 
 const chatMessageText = ref('')
 const chatInput = ref<HTMLInputElement>()
@@ -339,7 +502,6 @@ function dismissManualHeadsUp() {
         @include button-grey;
         font-size: 15px;
         padding: 6px 10px;
-        margin-bottom: 8px;
     }
 
     .chat-box {
@@ -373,31 +535,75 @@ function dismissManualHeadsUp() {
         overflow: hidden;
         position: relative;
 
-        .toggle-time-button {
+        .log-lines {
+            height: 100%;
+            overflow-x: hidden;
+            overflow-y: scroll;
+            font-size: 14px;
+        }
+
+        // Stuck to the top and bottom of the scrolled lines, without a height of their own
+        .sticky-top,
+        .sticky-bottom {
+            position: sticky;
+            height: 0;
+            z-index: 2;
+        }
+        .sticky-top {
+            top: 0;
+        }
+        .sticky-bottom {
+            bottom: 0;
+        }
+
+        // Like a phase separator, on a flat fill over the lines
+        .log-sticky-header {
             position: absolute;
             top: 0;
-            right: 20px;
-            z-index: 10;
-            font-size: 11px;
-            padding: 2px;
+            left: 0;
+            right: 0;
+            padding: 3px 8px;
+            border: none;
+            border-bottom: solid 1px light-dark(rgba($shadow-grey, 0.45), $ui-border);
+            background-color: var(--ui-column-bg);
+            color: var(--ui-panel-text-muted);
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
             cursor: pointer;
-            border: 1px solid var(--ui-toggle-border);
-            background: var(--ui-toggle-bg);
-            color: var(--ui-chrome-text-muted);
-            opacity: 0.6;
-            font-family: $font-mono;
 
             &:hover {
-                opacity: 1;
-                color: var(--ui-text-on-dark);
+                color: var(--ui-panel-text);
+            }
+
+            .sticky-dot {
+                margin: 0 2px;
+                opacity: 0.6;
             }
         }
 
-        .log-lines {
-            height: 100%;
-            overflow-x: auto;
-            overflow-y: scroll;
-            font-size: 15px;
+        .new-lines-button {
+            position: absolute;
+            bottom: 6px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 2px 10px;
+            border: solid 1px var(--ui-border);
+            background: var(--ui-control-bg);
+            color: var(--ui-contrast-text);
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+            cursor: pointer;
+
+            &:hover {
+                filter: brightness(125%);
+            }
         }
     }
 
@@ -422,28 +628,28 @@ function dismissManualHeadsUp() {
         position: relative;
     }
 
-    // Same icon button as the top bar. A toggle : when on, it stays filled
-    .bar-button.enlarge {
-        @include column-bar-button;
+    // Log times and enlarge, at the right end
+    .bar-buttons {
+        display: flex;
+        flex-shrink: 0;
+        gap: 4px;
         margin-left: auto;
         margin-right: 5px;
+    }
+
+    // Same icon buttons as the top bar. Enlarge stays filled while on ; the time toggle is
+    // dimmed while off ( it is on most of the time )
+    .bar-button {
+        @include column-bar-button;
 
         &.active {
             color: var(--ui-bar-text);
             background-color: light-dark(rgba($vibrant-emerald, 0.3), $ui-accent);
         }
-    }
-}
 
-@keyframes logAppear {
-    0% {
-        background-color: transparent;
-    }
-    10% {
-        background-color: light-dark($light-teal, $ui-accent);
-    }
-    100% {
-        background-color: transparent;
+        &.off {
+            opacity: 0.45;
+        }
     }
 }
 

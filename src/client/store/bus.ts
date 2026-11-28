@@ -90,6 +90,8 @@ export const useGameBusStore = defineStore('gameBus', {
         dragAttrs: null as DragAttrs | null,
         hoveredCard: null as Card | null,
         zoomHoveredCard: false,
+        // The card under the pointer in the log : outlined on the table
+        logHoveredCard: null as CardOid | null,
 
         /** Close-up card **/
         closeUpCard: {

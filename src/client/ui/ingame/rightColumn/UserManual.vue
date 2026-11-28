@@ -56,7 +56,7 @@
             <div class="controls-list">
                 <div class="control-item">
                     <span class="action"><kbd>Backspace</kbd></span>
-                    <span class="result">Cancel last action</span>
+                    <span class="result">Undo last action</span>
                 </div>
                 <div class="control-item">
                     <span class="action"><kbd>→</kbd> / <kbd>Space</kbd></span>

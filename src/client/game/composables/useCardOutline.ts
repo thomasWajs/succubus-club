@@ -88,6 +88,7 @@ export function useCardOutline(
     const isActingMinionCandidate = computed(() => {
         return gameBus.dropMinionCandidate?.oid == cardRef.value.oid
     })
+    const isLogHovered = computed(() => gameBus.logHoveredCard === cardRef.value.oid)
     const isIndirectHovered = computed(() => {
         return gameBus.indirectHoveredCards.includes(cardRef.value.oid)
     })
@@ -98,7 +99,7 @@ export function useCardOutline(
             return Colors.ACTION_DECLARATION_OUTLINE.color
         } else if (isInCardGroupCandidate.value) {
             return Colors.CARD_GROUP_OUTLINE.color
-        } else if (isHovered.value || isUnderSelectionArea()) {
+        } else if (isHovered.value || isLogHovered.value || isUnderSelectionArea()) {
             return Colors.CARD_OUTLINE_HOVER.color
         } else if (isIndirectHovered.value) {
             return Colors.CARD_OUTLINE_INDIRECT_HOVER.color

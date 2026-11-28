@@ -11,7 +11,7 @@ import { useHistoryStore } from '@/client/store/history.ts'
 import { useCoreStore } from '@/client/store/core.ts'
 import { ALL_PLAYERS } from '@/shared/types/state.ts'
 import { startTargetDeclaration } from '@/client/game/declaration.ts'
-import { cancelMutation } from '@/client/state/gameMutations.ts'
+import { undoLastAction } from '@/client/state/gameMutations.ts'
 import { GRID_SIZE } from '@/shared/const/game.ts'
 import KeyCodes = Phaser.Input.Keyboard.KeyCodes
 
@@ -324,6 +324,29 @@ function createCommands(): Commands {
                 }
             },
         }),
+        // The inverse of Influence : blood back to the pool
+        Retro: createCardCommand({
+            name: 'Retro',
+            label: 'Retro',
+            isDisabled: () => {
+                return (
+                    gameBus.selectedCards.filter(card => card.isIn.uncontrolled && card.blood > 0)
+                        .length == 0
+                )
+            },
+            cardAction: (card: Card) => {
+                if (
+                    card.canBeInfluenced() &&
+                    card.controller == players.selfPlayer &&
+                    card.blood > 0
+                ) {
+                    gameMutations.influence.actSelf({
+                        card,
+                        amount: -1,
+                    })
+                }
+            },
+        }),
 
         TakeControl: createCardCommand({
             name: 'TakeControl',
@@ -403,20 +426,16 @@ function createCommands(): Commands {
             },
         }),
 
+        // Named "Cancel" in the saved key bindings
         Cancel: createCommand({
             name: 'Cancel',
-            label: 'Cancel',
+            label: 'Undo',
             repr: '⟵',
             keyCodes: [KeyCodes.BACKSPACE],
             isDisabled: () => {
                 return !useHistoryStore().nextCancellableMutation
             },
-            trigger: () => {
-                const mutationEntry = useHistoryStore().nextCancellableMutation
-                if (mutationEntry) {
-                    cancelMutation(mutationEntry)
-                }
-            },
+            trigger: undoLastAction,
         }),
 
         MoveToAshHeap: createCardCommand({

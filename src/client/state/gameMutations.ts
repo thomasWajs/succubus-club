@@ -147,6 +147,14 @@ export function cancelMutation(mutationEntry: MutationHistoryEntry) {
     dispatchMutation(mutation.getCancelMutation())
 }
 
+// Undo the last action of the self player, with the mutations grouped with it ( see
+// nextUndoGroup )
+export function undoLastAction() {
+    for (const mutationEntry of useHistoryStore().nextUndoGroup) {
+        cancelMutation(mutationEntry)
+    }
+}
+
 /**
  * Shuffle Card Region
  */

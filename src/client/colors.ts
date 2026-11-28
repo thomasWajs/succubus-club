@@ -158,13 +158,17 @@ export function playerTagStyle(player: Player | null | undefined): Record<string
 }
 
 // Log entries store the light author tag color ( a pastel of the seat color ) : map it back
-const darkAuthorColors = new Map(
-    Object.entries(DARK_PLAYER_COLORS).map(([light, dark]) => [getAuthorColorRgba(light), dark]),
+const authorSeatColors = new Map(
+    Object.keys(DARK_PLAYER_COLORS).map(seatColor => [getAuthorColorRgba(seatColor), seatColor]),
 )
 
-/** The dark name color of a log author, or null when it doesn't come from a seat color. */
-export function darkAuthorRgba(authorColorRgba: string): string | null {
-    return darkAuthorColors.get(authorColorRgba) ?? null
+/**
+ * The name color of a log author in the current theme, or null when the author has no seat
+ * ( chat before the game, conflict resolver ).
+ */
+export function logAuthorRgba(authorColorRgba: string): string | null {
+    const seatColor = authorSeatColors.get(authorColorRgba)
+    return seatColor ? nameRgba(seatColor) : null
 }
 
 /** A color depending on the UI theme. Read it in a reactive context to follow theme changes. */

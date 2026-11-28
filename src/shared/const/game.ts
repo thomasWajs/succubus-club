@@ -362,7 +362,30 @@ export const DRAG_DISTANCE_THRESHOLD = 5
 export const TOUCH_DRAG_DISTANCE_THRESHOLD = 12
 // Holding a finger still this long (ms) acts as a right click
 export const LONG_PRESS_DELAY = 500
+// The card of the log entry ( `LogEntry.card` ), whose name depends on the reader's vision
 export const CARD_LOG_PLACEHOLDER = '[CARD]'
+// The amount of a counter change ( see LogGroup ), filled with the total of its log line :
+// signed ( "+3", "-2", "±0" ), or its size when the text says the way ( "Retro 2" )
+export const AMOUNT_LOG_PLACEHOLDER = '[AMOUNT]'
+export const COUNT_LOG_PLACEHOLDER = '[COUNT]'
+// Other cards and players in a log text, referenced by oid : the client renders their name
+// ( short vampire name, player color, card hover ) instead of a name frozen in the text.
+// A card hidden to some players when it was logged ends with the players who could see it
+// ( "[CARD:oid:player-1,player-2]", none : "[CARD:oid:]" ) : the others read "hidden card",
+// even once they get to know it
+export const LOG_REF_REGEX = /\[(CARD|PLAYER):([^\]:]+)(?::([^\]]*))?\]/g
+export function cardLogRef(oid: string, viewers?: string[]): string {
+    return viewers ? `[CARD:${oid}:${viewers.join(',')}]` : `[CARD:${oid}]`
+}
+export function playerLogRef(oid: string): string {
+    return `[PLAYER:${oid}]`
+}
+// A card the log text itself reveals ( the card of a declared action ) : shown to all players,
+// whatever its region. Becomes a plain card reference when logged
+export const REVEALED_CARD_LOG_REF_REGEX = /\[REVEALED:([^\]]+)\]/g
+export function revealedCardLogRef(oid: string): string {
+    return `[REVEALED:${oid}]`
+}
 
 /**
  * Free Table

@@ -38,6 +38,7 @@
         "type:check": "vue-tsc --noEmit",
         "lint:check": "eslint .",
         "lint:fix": "eslint . --fix",
+        "log:check": "tsx --tsconfig tsconfig.json script/checkLogRows.ts",
         "format:check": "prettier --check .",
         "format:fix": "prettier --write .",
         "server:dev": "cd src/server && npm run dev",

@@ -18,6 +18,7 @@ import { AnyGameMutation, GameMutationName, gameMutations } from '@/shared/state
 import { GameId, PlayerCardRegions, PlayerOid } from '@/shared/types/model.ts'
 import { getGameState, registerGameState } from '@/shared/registries.ts'
 import { HistoryStore } from '@/shared/state/history.ts'
+import { LogDetail } from '@/shared/types/history.ts'
 import { PlayerVision } from '@/shared/types/state.ts'
 import { Card, CryptCard, LibraryCard } from '@/shared/model/Card.ts'
 import { GameState } from '@/shared/state/gameState.ts'
@@ -308,10 +309,22 @@ export function serializeHistory(history: HistoryStore, withArchive: boolean): S
             i: serializeValueRecursive(logEntry.timestamp) as string,
             a: internString(logEntry.authorName),
             r: internString(logEntry.authorColorRgba),
-            n: logEntry.cancelText ? internString(logEntry.cancelText) : undefined,
             p: playerVision,
             c: logEntry.card ? serializeValueRecursive(logEntry.card) : undefined,
             m: logEntry.mutationId,
+            k: logEntry.mutationName ? internString(logEntry.mutationName) : undefined,
+            u: logEntry.turnNumber,
+            h: logEntry.turnPhaseIndex,
+            w: logEntry.activePlayerOid,
+            x: logEntry.cancelsMutationId,
+            f: logEntry.resolvesConflict ? true : undefined,
+            d: logEntry.details ? internString(JSON.stringify(logEntry.details)) : undefined,
+            g:
+                !logEntry.group ? undefined
+                : logEntry.group.isToggle ?
+                    [internString(logEntry.group.key), logEntry.group.amount, 1]
+                :   [internString(logEntry.group.key), logEntry.group.amount],
+            o: logEntry.fold ? [logEntry.fold.into, logEntry.fold.isSilent ? 1 : 0] : undefined,
         }
     })
 
@@ -371,10 +384,26 @@ export function deserializeHistory(
             timestamp: deserializeValueRecursive(logEntry.i, gameId) as Date,
             authorName: resolveString(logEntry.a),
             authorColorRgba: resolveString(logEntry.r),
-            cancelText: logEntry.n ? resolveString(logEntry.n) : undefined,
             playerVision,
             card: logEntry.c ? (deserializeValueRecursive(logEntry.c, gameId) as Card) : undefined,
             mutationId: logEntry.m,
+            mutationName: logEntry.k ? (resolveString(logEntry.k) as GameMutationName) : undefined,
+            turnNumber: logEntry.u,
+            turnPhaseIndex: logEntry.h,
+            activePlayerOid: logEntry.w,
+            cancelsMutationId: logEntry.x,
+            resolvesConflict: logEntry.f,
+            details:
+                logEntry.d ? (JSON.parse(resolveString(logEntry.d)) as LogDetail[]) : undefined,
+            group:
+                logEntry.g ?
+                    {
+                        key: resolveString(logEntry.g[0]),
+                        amount: logEntry.g[1],
+                        isToggle: logEntry.g[2] === 1 ? true : undefined,
+                    }
+                :   undefined,
+            fold: logEntry.o ? { into: logEntry.o[0], isSilent: logEntry.o[1] === 1 } : undefined,
         }
     })
 

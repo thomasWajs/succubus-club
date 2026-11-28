@@ -10,7 +10,7 @@
                 :command="commands.Cancel"
                 :disabled="!history.nextCancellableMutation"
             >
-                Cancel
+                Undo
             </CommandButton>
 
             <PopupMenu label="Display">

@@ -402,6 +402,23 @@ $column-tab-underline: 2px;
     background: $twilight-blue;
 }
 
+// An info tag of the log ( "Undo", "Back" ) : flat, borderless and uppercase, so it doesn't
+// read as a button like the bordered undo button
+@mixin log-info-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 4px;
+    border: none;
+    background: light-dark(rgba($dark-blood, 0.12), rgba($rose-red, 0.16));
+    color: light-dark($dark-blood, $rose-red);
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    line-height: 15px;
+    text-transform: uppercase;
+}
+
 @mixin new-badge {
     align-self: flex-start;
     margin-left: -0.35rem;

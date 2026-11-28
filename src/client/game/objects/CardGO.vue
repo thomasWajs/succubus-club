@@ -199,21 +199,40 @@
 
         <!-- Influence -->
         <ButtonGO
-            v-if="card.canBeInfluenced() && card.controller == players.selfPlayer"
+            v-if="canInfluence"
             ref="influenceButton"
             :key="key + 'influenceButton'"
             name="influenceButton"
             :x="overlays.influence.x"
             :y="overlays.influence.y"
-            :width="CARD_WIDTH * CARD_IN_PLAY_BASE_SCALE * 0.95"
-            :height="OVERLAY_BUTTON_SIZE"
+            :width="INFLUENCE_BUTTON_WIDTH"
+            :height="INFLUENCE_BUTTON_HEIGHT"
             :scale="scale"
             :rotation="ownerFacingRotation"
-            text="Influence"
-            :textStyle="{ fontSize: '12px' }"
+            text="Influ"
+            :textStyle="INFLUENCE_BUTTON_TEXT_STYLE"
             @pointerover="onPointerOver"
             @pointerout="onPointerOut"
             @click="overlayClick($event, commands.Influence.cardAction)"
+        />
+
+        <!-- Retro : the inverse of Influence, left of its button -->
+        <ButtonGO
+            v-if="canRetro"
+            ref="retroButton"
+            :key="key + 'retroButton'"
+            name="retroButton"
+            :x="overlays.retro.x"
+            :y="overlays.retro.y"
+            :width="INFLUENCE_BUTTON_WIDTH"
+            :height="INFLUENCE_BUTTON_HEIGHT"
+            :scale="scale"
+            :rotation="ownerFacingRotation"
+            text="Retro"
+            :textStyle="INFLUENCE_BUTTON_TEXT_STYLE"
+            @pointerover="onPointerOver"
+            @pointerout="onPointerOut"
+            @click="overlayClick($event, commands.Retro.cardAction)"
         />
     </template>
 
@@ -422,6 +441,7 @@ const burnBloodButton = ref<typeof ButtonGO>()
 const gainBloodButton = ref<typeof ButtonGO>()
 const ashHeapButton = ref<typeof ButtonGO>()
 const influenceButton = ref<typeof ButtonGO>()
+const retroButton = ref<typeof ButtonGO>()
 
 function registerMarkersRectangles(index: number, rectangle: typeof Rectangle | null) {
     markersRectangles[index] = rectangle?.object ?? null
@@ -549,7 +569,13 @@ function bringToTop() {
     ]) {
         if (gameObject.value) container.bringToTop(gameObject.value)
     }
-    for (const button of [burnBloodButton, gainBloodButton, ashHeapButton, influenceButton]) {
+    for (const button of [
+        burnBloodButton,
+        gainBloodButton,
+        ashHeapButton,
+        influenceButton,
+        retroButton,
+    ]) {
         button.value?.bringToTop()
     }
     markersRectangles.forEach(rectangle => {
@@ -569,6 +595,17 @@ function bringToTop() {
  */
 
 const ASH_HEAP_BUTTON_SIZE = OVERLAY_BUTTON_SIZE * 0.8
+const INFLUENCE_BUTTON_TEXT_STYLE = { fontSize: '12px' }
+// Influence and Retro share one row along the card edge, in two halves : Retro on the left,
+// Influence on the right. Influence keeps its half when there's no blood to retro, so it
+// doesn't jump.
+const INFLUENCE_ROW_WIDTH = CARD_WIDTH * CARD_IN_PLAY_BASE_SCALE * 0.95
+const INFLUENCE_ROW_GAP = 0
+const INFLUENCE_BUTTON_WIDTH = (INFLUENCE_ROW_WIDTH - INFLUENCE_ROW_GAP) / 2
+const INFLUENCE_BUTTON_HEIGHT = 30
+
+const canInfluence = computed(() => card.canBeInfluenced() && card.controller == players.selfPlayer)
+const canRetro = computed(() => canInfluence.value && card.blood > 0)
 
 const showOverlay = computed(() => {
     return (
@@ -611,6 +648,10 @@ const overlays = computed(() => {
         scale.value
     // Distance from the card edges to the ash heap button center : the button sits in the corner
     const ashHeapInset = (ASH_HEAP_BUTTON_SIZE / 2 + OVERLAY_BUTTON_EDGE_GAP) * scale.value
+    // From the card edge center to the influence ( right ) and retro ( left ) button centers
+    const halfRowOffset = ((INFLUENCE_BUTTON_WIDTH + INFLUENCE_ROW_GAP) / 2) * scale.value
+    // Distance from the card edge to the influence row center : the row sits on the edge
+    const influenceInset = (INFLUENCE_BUTTON_HEIGHT / 2 + OVERLAY_BUTTON_EDGE_GAP) * scale.value
 
     let bloodX,
         bloodY,
@@ -636,7 +677,7 @@ const overlays = computed(() => {
         ashHeapX = card.x + displaySize.value.width - ashHeapInset
         ashHeapY = card.y + displaySize.value.height - ashHeapInset
         influenceX = card.x + displaySize.value.width / 2
-        influenceY = card.y + displaySize.value.height - counterRadius
+        influenceY = card.y + displaySize.value.height - influenceInset
     }
     // Locked card
     else {
@@ -650,7 +691,7 @@ const overlays = computed(() => {
         ashHeapX = card.x + ashHeapInset
         ashHeapY = card.y + displaySize.value.width - ashHeapInset
         influenceX = card.x + displaySize.value.height / 2
-        influenceY = card.y + counterRadius
+        influenceY = card.y + influenceInset
     }
 
     return {
@@ -661,7 +702,8 @@ const overlays = computed(() => {
         burnBlood: rotateAroundCardCenter({ x: bloodX - changeBloodOffset, y: bloodY }),
         gainBlood: rotateAroundCardCenter({ x: bloodX + changeBloodOffset, y: bloodY }),
         ashHeap: rotateAroundCardCenter({ x: ashHeapX, y: ashHeapY }),
-        influence: rotateAroundCardCenter({ x: influenceX, y: influenceY }),
+        influence: rotateAroundCardCenter({ x: influenceX + halfRowOffset, y: influenceY }),
+        retro: rotateAroundCardCenter({ x: influenceX - halfRowOffset, y: influenceY }),
     }
 })
 

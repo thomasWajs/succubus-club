@@ -9,7 +9,9 @@ import {
 } from '@/shared/model/Card.ts'
 import { Marker, TurnSequence } from '@/shared/const/model.ts'
 import {
+    AMOUNT_LOG_PLACEHOLDER,
     CARD_LOG_PLACEHOLDER,
+    COUNT_LOG_PLACEHOLDER,
     CONTROLLED_ZONE_HEIGHT,
     PLAY_AREA_WIDTH,
     TORPOR_ZONE_Y,
@@ -75,6 +77,19 @@ import { getGameState, getMutationTrigger } from '@/shared/registries.ts'
 import { hashObject, rehydrateCard, serializeObject } from '@/shared/serialization.ts'
 import { simpleEscapeHtml } from '@/shared/utils.ts'
 import { disciplineUsesImg } from '@/shared/disciplineIcons.ts'
+import { LogDetail, LogGroup } from '@/shared/types/history.ts'
+import {
+    ActionLineFold,
+    bloodDetail,
+    counterDetail,
+    declarationLogText,
+    logActionName,
+    logCard,
+    logPlayer,
+    logRegion,
+    logRevealedCard,
+    poolDetail,
+} from '@/shared/state/mutationLog.ts'
 
 export type GameMutationId = number
 export interface GameMutationParams {
@@ -106,6 +121,8 @@ export abstract class GameMutation<ParamsType extends GameMutationParams> {
             t: this.timestamp.getTime(),
             a: this.author.oid,
             ...serializeObject(this.params),
+            // Undoing a group creates several identical cancels in the same millisecond
+            ...(cancelsMutationId !== undefined ? { _c: cancelsMutationId } : {}),
         })
     }
 
@@ -216,8 +233,33 @@ export abstract class GameMutation<ParamsType extends GameMutationParams> {
         return null
     }
 
-    formatPlayerHand(player: Player) {
-        return `(hand: ${player.hand.length} | lib: ${player.library.length})`
+    // State infos shown apart from the log text, right after the mutation is applied
+    formatLogDetails(): LogDetail[] | null {
+        return null
+    }
+
+    // Counter changes : consecutive changes of the same group make a single log line
+    get logGroup(): LogGroup | null {
+        return null
+    }
+
+    // Completes the action in progress : shown in the line of its declaration, replacing its
+    // text ( the whole declaration logged again ) or silently ( the card played for it )
+    get actionLineFold(): ActionLineFold {
+        return null
+    }
+
+    // After a draw : the hand and the library left
+    playerHandDetails(player: Player): LogDetail[] {
+        return [
+            ...this.handSizeDetails(player),
+            { label: 'lib', value: `${player.library.length}` },
+        ]
+    }
+
+    // After a discard
+    handSizeDetails(player: Player): LogDetail[] {
+        return [{ label: 'hand', value: `${player.hand.length}` }]
     }
 }
 
@@ -341,7 +383,7 @@ class BecomeMinion extends CardMutation {
     }
 
     formatForLog() {
-        return `${CARD_LOG_PLACEHOLDER} become an ally`
+        return `${CARD_LOG_PLACEHOLDER} becomes an ally`
     }
 
     getCancelMutation(): AnyGameMutation {
@@ -364,7 +406,7 @@ class BecomeVampire extends CardMutation {
     }
 
     formatForLog() {
-        return `${CARD_LOG_PLACEHOLDER} become a vampire`
+        return `${CARD_LOG_PLACEHOLDER} becomes a vampire`
     }
 
     getCancelMutation(): AnyGameMutation {
@@ -386,7 +428,7 @@ class BecomeVampireInverse extends CardMutation {
     }
 
     formatForLog() {
-        return `${CARD_LOG_PLACEHOLDER} not a minion anymore`
+        return `${CARD_LOG_PLACEHOLDER} is no longer a minion`
     }
 }
 
@@ -421,8 +463,15 @@ class ChangeBlood extends ChangeCounterMutation {
     }
 
     formatForLog() {
-        const stateLog = `(now: ${this.params.card.blood})`
-        return `${this.params.amount > 0 ? '+' : ''}${this.params.amount} ${this.params.card.bloodName} on ${CARD_LOG_PLACEHOLDER} ${stateLog}`
+        return `${AMOUNT_LOG_PLACEHOLDER} ${this.params.card.bloodName} on ${CARD_LOG_PLACEHOLDER}`
+    }
+
+    formatLogDetails() {
+        return [bloodDetail(this.params.card, this.params.amount)]
+    }
+
+    get logGroup(): LogGroup {
+        return { key: `${this.name}-${this.params.card.oid}`, amount: this.params.amount }
     }
 
     getCancelMutation(): AnyGameMutation {
@@ -463,7 +512,26 @@ class ChangeCounter extends ChangeCounterMutation<ChangeColoredCounterParams> {
     }
 
     formatForLog() {
-        return `${this.params.amount > 0 ? '+' : ''}${this.params.amount} ${this.params.color} counter on ${CARD_LOG_PLACEHOLDER}`
+        return `${AMOUNT_LOG_PLACEHOLDER} ${this.params.color} counter on ${CARD_LOG_PLACEHOLDER}`
+    }
+
+    formatLogDetails() {
+        const value = this.params.card[COUNTER_FIELDS[this.params.color]]
+        return [
+            counterDetail(
+                `${this.params.color} counter`,
+                value,
+                this.params.amount,
+                this.params.color,
+            ),
+        ]
+    }
+
+    get logGroup(): LogGroup {
+        return {
+            key: `${this.name}-${this.params.card.oid}-${this.params.color}`,
+            amount: this.params.amount,
+        }
     }
 
     getCancelMutation(): AnyGameMutation {
@@ -568,8 +636,19 @@ class ChangeCardAttribute extends GameMutation<ChangeCardAttributeParams> {
     }
 
     formatForLog() {
+        return `${AMOUNT_LOG_PLACEHOLDER} base ${this.params.attribute} on ${CARD_LOG_PLACEHOLDER}`
+    }
+
+    formatLogDetails() {
         const value = getCardAttribute(this.params.card, this.params.attribute) ?? 0
-        return `${this.params.amount > 0 ? '+' : ''}${this.params.amount} base ${this.params.attribute} on ${CARD_LOG_PLACEHOLDER} (now: ${value})`
+        return [counterDetail(this.params.attribute, value, this.params.amount)]
+    }
+
+    get logGroup(): LogGroup {
+        return {
+            key: `${this.name}-${this.params.card.oid}-${this.params.attribute}`,
+            amount: this.params.amount,
+        }
     }
 
     getCancelMutation(): AnyGameMutation {
@@ -614,8 +693,15 @@ class ChangePool extends GameMutation<ChangePoolParams> {
     }
 
     formatForLog() {
-        const stateLog = `(now: ${this.params.player.pool})`
-        return `${this.params.amount > 0 ? '+' : ''}${this.params.amount} pool on ${this.params.player.name} ${stateLog}`
+        return `${AMOUNT_LOG_PLACEHOLDER} pool on ${logPlayer(this.params.player)}`
+    }
+
+    formatLogDetails() {
+        return [poolDetail(this.params.player, this.params.amount)]
+    }
+
+    get logGroup(): LogGroup {
+        return { key: `${this.name}-${this.params.player.oid}`, amount: this.params.amount }
     }
 
     getCancelMutation(): AnyGameMutation {
@@ -647,10 +733,13 @@ class ChangeTheEdgeControl extends GameMutation<ChangeTheEdgeControlParams> {
     }
 
     formatForLog() {
-        if (this.params.theEdgeController) {
-            return `${this.params.theEdgeController.name} gains the Edge`
+        const theEdgeController = this.params.theEdgeController
+        if (theEdgeController) {
+            return theEdgeController.oid === this.author.oid ?
+                    `Take the Edge`
+                :   `Give the Edge to ${logPlayer(theEdgeController)}`
         } else {
-            return `Burns the Edge`
+            return `Burn the Edge`
         }
     }
 
@@ -687,7 +776,11 @@ class Discard extends CardMutation {
     }
 
     formatForLog() {
-        return `Discard ${CARD_LOG_PLACEHOLDER} ${this.formatPlayerHand(this.params.card.controller)}`
+        return `Discard ${CARD_LOG_PLACEHOLDER}`
+    }
+
+    formatLogDetails() {
+        return this.handSizeDetails(this.params.card.controller)
     }
 
     getCancelMutation(): AnyGameMutation {
@@ -725,7 +818,11 @@ class DiscardAtRandom extends CardMutation {
     }
 
     formatForLog() {
-        return `Discard at random ${CARD_LOG_PLACEHOLDER} ${this.formatPlayerHand(this.params.card.controller)}`
+        return `Discard at random ${CARD_LOG_PLACEHOLDER}`
+    }
+
+    formatLogDetails() {
+        return this.handSizeDetails(this.params.card.controller)
     }
 
     getCancelMutation(): AnyGameMutation {
@@ -768,7 +865,19 @@ class DrawCrypt extends PlayerMutation {
     }
 
     formatForLog() {
-        return `Draw Crypt (uncontrolled: ${this.params.player.uncontrolled.length} | crypt: ${this.params.player.crypt.length})`
+        return `Draw ${COUNT_LOG_PLACEHOLDER} from crypt`
+    }
+
+    formatLogDetails() {
+        return [
+            { label: 'uncontrolled', value: `${this.params.player.uncontrolled.length}` },
+            { label: 'crypt', value: `${this.params.player.crypt.length}` },
+        ]
+    }
+
+    // Consecutive draws : "Draw 3 from crypt"
+    get logGroup(): LogGroup {
+        return { key: `${this.name}-${this.params.player.oid}`, amount: 1 }
     }
 
     getCancelMutation(): AnyGameMutation {
@@ -812,7 +921,16 @@ class DrawLibrary extends PlayerMutation {
     }
 
     formatForLog() {
-        return `Draw Library ${this.formatPlayerHand(this.params.player)}`
+        return `Draw ${COUNT_LOG_PLACEHOLDER} from library`
+    }
+
+    formatLogDetails() {
+        return this.playerHandDetails(this.params.player)
+    }
+
+    // Consecutive draws : "Draw 3 from library"
+    get logGroup(): LogGroup {
+        return { key: `${this.name}-${this.params.player.oid}`, amount: 1 }
     }
 
     getCancelMutation(): AnyGameMutation {
@@ -901,8 +1019,14 @@ class GoToTurnPhase extends GameMutation<ChangeIndexParams> {
 }
 
 /**
- * Influence
+ * Influence : pool to blood, a transfer per blood. A negative amount is a retro ( blood back to
+ * the pool ), so it groups with the influences in the log : 2 transfers per blood. The undo of
+ * either is an influence too, giving back the transfers it cost
  */
+
+function influenceTransfers(amount: number): number {
+    return amount > 0 ? amount : -amount * 2
+}
 
 class Influence extends ChangeCounterMutation {
     readonly syncMode = MutationSyncMode.Merge
@@ -910,6 +1034,10 @@ class Influence extends ChangeCounterMutation {
     getValidity() {
         if (!this.params.card.canBeInfluenced()) {
             return Invalid('Influence must be done on uncontrolled vampires')
+        }
+        // Retro ( a negative amount ) : the blood goes back to the pool, it must be there
+        if (this.params.card.blood + this.params.amount < 0) {
+            return Invalid('Not enough blood to move back to the pool')
         }
         return VALID
     }
@@ -926,12 +1054,31 @@ class Influence extends ChangeCounterMutation {
         const card = this.params.card
         card.changeBlood(this.params.amount)
         card.controller.changePool(-this.params.amount)
-        gameState.turnResources.transfers -= this.params.amount
+        // An undo has the opposite amount of the influence it undoes
+        gameState.turnResources.transfers +=
+            this.cancelsMutationId !== undefined ?
+                influenceTransfers(-this.params.amount)
+            :   -influenceTransfers(this.params.amount)
     }
 
+    // A retro gives its size, unsigned : the log groups it with the influences all the same
     formatForLog() {
-        const stateLog = `(blood: ${this.params.card.blood} | pool: ${this.params.card.controller.pool})`
-        return `Influence ${this.params.amount} on ${CARD_LOG_PLACEHOLDER} ${stateLog}`
+        if (this.params.amount < 0) {
+            return `Retro ${COUNT_LOG_PLACEHOLDER} on ${CARD_LOG_PLACEHOLDER}`
+        }
+        return `Influence ${COUNT_LOG_PLACEHOLDER} on ${CARD_LOG_PLACEHOLDER}`
+    }
+
+    // The pool pays for the blood
+    formatLogDetails() {
+        return [
+            bloodDetail(this.params.card, this.params.amount),
+            poolDetail(this.params.card.controller, -this.params.amount),
+        ]
+    }
+
+    get logGroup(): LogGroup {
+        return { key: `${this.name}-${this.params.card.oid}`, amount: this.params.amount }
     }
 
     getCancelMutation(): AnyGameMutation {
@@ -994,8 +1141,21 @@ class MoveCard extends GameMutation<MoveCardParams> {
         if (this.params.card.isIn.hand || this.params.card.isIn.play) {
             return null
         }
+        return `Reorder ${CARD_LOG_PLACEHOLDER} in ${logRegion(this.params.card.region, this.author)}`
+    }
+
+    formatLogDetails() {
+        if (this.params.card.isIn.hand || this.params.card.isIn.play) {
+            return null
+        }
         const previousPosition = (this.previousState.position ?? 0) as number
-        return `Reorder ${this.params.card.region.name} : ${CARD_LOG_PLACEHOLDER} position ${previousPosition + 1} --> ${this.params.card.position + 1}`
+        return [
+            {
+                label: 'position',
+                from: `${previousPosition + 1}`,
+                value: `${this.params.card.position + 1}`,
+            },
+        ]
     }
 
     get card() {
@@ -1098,16 +1258,39 @@ class MoveCardToRegion extends GameMutation<MoveCardToRegionParams> {
     formatForLog() {
         if (this.params.fromCardRegion.is.hand) {
             if (this.params.toCardRegion.is.ready) {
-                return this.params.byMinion ?
-                        `${secureName(this.params.byMinion, this.author)} plays ${CARD_LOG_PLACEHOLDER}`
-                    :   `Play ${CARD_LOG_PLACEHOLDER}`
+                const byMinion = this.params.byMinion
+                if (!byMinion) {
+                    return `Play ${CARD_LOG_PLACEHOLDER}`
+                }
+                return `${logCard(byMinion)} plays ${CARD_LOG_PLACEHOLDER}`
             }
             if (this.params.toCardRegion.is.ashHeap) {
-                return `Discard ${CARD_LOG_PLACEHOLDER} ${this.formatPlayerHand(this.params.card.controller)}`
+                return `Discard ${CARD_LOG_PLACEHOLDER}`
             }
         }
 
-        return `Move ${CARD_LOG_PLACEHOLDER} from ${this.params.fromCardRegion.owner?.name}'s ${this.params.fromCardRegion.name} to ${this.params.toCardRegion.owner?.name}'s ${this.params.toCardRegion.name}`
+        const from = logRegion(this.params.fromCardRegion, this.author)
+        const to = logRegion(this.params.toCardRegion, this.author)
+        return `Move ${CARD_LOG_PLACEHOLDER} from ${from} to ${to}`
+    }
+
+    formatLogDetails() {
+        if (this.params.fromCardRegion.is.hand && this.params.toCardRegion.is.ashHeap) {
+            return this.handSizeDetails(this.params.card.controller)
+        }
+        return null
+    }
+
+    // The card of the action in progress, played from hand : the declaration already names it
+    get actionLineFold(): ActionLineFold {
+        const minionAction = this.gameState.action?.minionAction
+        return (
+                this.params.fromCardRegion.is.hand &&
+                    minionAction?.type == MinionActionType.ActionCardFromHand &&
+                    minionAction.card.oid === this.params.card.oid
+            ) ?
+                'silent'
+            :   null
     }
 
     get card() {
@@ -1196,7 +1379,7 @@ class MoveToBottom extends GameMutation<MoveToBottomParams> {
     }
 
     formatForLog() {
-        return `Move ${CARD_LOG_PLACEHOLDER} to the bottom of ${this.params.toCardRegion.name}`
+        return `Move ${CARD_LOG_PLACEHOLDER} to the bottom of ${logRegion(this.params.toCardRegion, this.author)}`
     }
 
     get card() {
@@ -1249,7 +1432,7 @@ class PlayFaceDown extends CardMutation {
     }
 
     formatForLog() {
-        return `Play ${CARD_LOG_PLACEHOLDER} Face Down `
+        return `Play ${CARD_LOG_PLACEHOLDER} Face Down`
     }
 
     getCancelMutation(): AnyGameMutation {
@@ -1310,13 +1493,13 @@ class Reveal extends GameMutation<RevealParams> {
 
     formatForLog() {
         const viewerString =
-            this.params.viewer === ALL_PLAYERS ? 'All players' : this.params.viewer.name
+            this.params.viewer === ALL_PLAYERS ? 'All players' : logPlayer(this.params.viewer)
 
         const cardRegion =
             this.params.target instanceof CardRegion ?
                 this.params.target
             :   this.params.target.region
-        const cardRegionString = `${cardRegion.owner?.name}'s ${cardRegion.name}`
+        const cardRegionString = logRegion(cardRegion, this.author)
 
         let verb, particle
         if (isRevealedToViewer(this.params.target, this.params.viewer)) {
@@ -1365,11 +1548,15 @@ export class RandomResult extends GameMutation<RandomResultParams> {
     }
 
     formatForLog() {
+        return this.params.randomType === 'coin' ? `Flip a coin` : `Roll a d6`
+    }
+
+    // The result, after a coin or a die
+    formatLogDetails(): LogDetail[] {
         if (this.params.randomType === 'coin') {
-            const face = this.params.result === 1 ? 'Heads' : 'Tails'
-            return `${this.author.name} flips a coin: ${face}`
+            return [{ icon: 'coin', value: this.params.result === 1 ? 'Heads' : 'Tails' }]
         }
-        return `${this.author.name} rolls a d6: ${this.params.result}`
+        return [{ icon: 'dice', value: `${this.params.result}` }]
     }
 }
 
@@ -1390,7 +1577,7 @@ export class SecretAnnounce extends GameMutation<EmptyParams> {
     }
 
     formatForLog() {
-        return `has chosen a secret`
+        return `Choose a secret`
     }
 }
 
@@ -1407,7 +1594,12 @@ export class SecretReveal extends GameMutation<RevealSecretParams> {
     }
 
     formatForLog() {
-        return `reveals their secret: <strong>${simpleEscapeHtml(this.params.secret)}</strong>`
+        return `Reveal the secret`
+    }
+
+    // The secret, typed by the author : escaped
+    formatLogDetails() {
+        return [{ value: simpleEscapeHtml(this.params.secret) }]
     }
 }
 
@@ -1483,6 +1675,15 @@ class SetLock extends ChangeCardBoolMutation {
         return `${this.params.card.isLocked ? 'Lock' : 'Unlock'} ${CARD_LOG_PLACEHOLDER}`
     }
 
+    // Locked then unlocked by mistake : a single muted line
+    get logGroup(): LogGroup {
+        return {
+            key: `${this.name}-${this.params.card.oid}`,
+            amount: this.params.newValue ? 1 : -1,
+            isToggle: true,
+        }
+    }
+
     getCancelMutation(): AnyGameMutation {
         return gameMutations.setLock.createCancelMutation(this, {
             card: this.params.card,
@@ -1530,7 +1731,7 @@ class TakeControl extends GameMutation<TakeControlParams> {
 
     formatForLog() {
         return this.params.controller ?
-                `${this.params.controller.name} takes control of ${CARD_LOG_PLACEHOLDER}`
+                `${logPlayer(this.params.controller)} takes control of ${CARD_LOG_PLACEHOLDER}`
             :   `Control of ${CARD_LOG_PLACEHOLDER} reverts to its owner`
     }
 
@@ -1595,8 +1796,8 @@ class TakeRegionControl extends GameMutation<TakeRegionControlParams> {
         const { cardRegion, controller } = this.params
         const owner = cardRegion.owner
         return controller && controller.oid != owner?.oid ?
-                `${owner?.name} gives control of ${cardRegion.name} to ${controller.name}`
-            :   `Control of ${owner?.name}'s ${cardRegion.name} ends`
+                `${logPlayer(owner)} gives control of ${cardRegion.name} to ${logPlayer(controller)}`
+            :   `Control of ${logPlayer(owner)}'s ${cardRegion.name} ends`
     }
 
     getCancelMutation(): AnyGameMutation {
@@ -1664,7 +1865,7 @@ export class Shuffle extends GameMutation<ShuffleParams> {
     }
 
     formatForLog() {
-        return `${this.cancelsMutationId ? 'Rewind shuffle' : 'Shuffle'} ${this.params.cardRegion.owner?.name}'s ${this.params.cardRegion.name}`
+        return `${this.cancelsMutationId ? 'Rewind shuffle' : 'Shuffle'} ${logPlayer(this.params.cardRegion.owner)}'s ${this.params.cardRegion.name}`
     }
 
     getCancelMutation(): AnyGameMutation {
@@ -1721,7 +1922,12 @@ class UnlockAll extends PlayerMutation {
     }
 
     formatForLog() {
-        return `Unlock All`
+        return `Unlock all`
+    }
+
+    // The unlocked cards
+    formatLogDetails() {
+        return lockedCardsLogDetails(this.previousState.cards)
     }
 
     getCancelMutation(): AnyGameMutation {
@@ -1743,8 +1949,18 @@ class UnlockAllInverse extends GameMutation<UnlockAllInverseParams> {
     }
 
     formatForLog() {
-        return `Lock some cards`
+        return `Lock the unlocked cards`
     }
+
+    // The cards locked again
+    formatLogDetails() {
+        return lockedCardsLogDetails(this.params.cards)
+    }
+}
+
+// The cards of an Unlock All, named to the players who can see them
+function lockedCardsLogDetails(cards: Card[]): LogDetail[] {
+    return cards.map(card => ({ value: logCard(card) }))
 }
 
 /**
@@ -1771,7 +1987,20 @@ class ChangeActionProperty extends GameMutation<ChangeActionPropertyParams> {
     }
 
     formatForLog() {
-        return `${this.params.amount > 0 ? '+' : ''}${this.params.amount} ${this.params.propertyName} for the action`
+        return `${AMOUNT_LOG_PLACEHOLDER} ${this.params.propertyName} for the action`
+    }
+
+    formatLogDetails() {
+        const action = this.gameState.action
+        if (!action) {
+            return null
+        }
+        const value = action[this.params.propertyName]
+        return [counterDetail(this.params.propertyName, value, this.params.amount)]
+    }
+
+    get logGroup(): LogGroup {
+        return { key: `${this.name}-${this.params.propertyName}`, amount: this.params.amount }
     }
 
     getCancelMutation(): AnyGameMutation {
@@ -1812,25 +2041,7 @@ class DeclareAction extends GameMutation<DeclareActionParams> {
     }
 
     formatForLog() {
-        let actionVerb = ''
-        let actionCard = ''
-        let disciplines = ''
-        if (
-            this.params.minionAction.type == MinionActionType.ActionCardFromHand &&
-            this.params.minionAction.card.actionVerb
-        ) {
-            actionVerb = `${this.params.minionAction.card.actionVerb} `
-            disciplines =
-                disciplineUsesImg(this.params.minionAction.usage.disciplines ?? []) +
-                actions.usageXLog(this.params.minionAction.usage)
-        }
-        if (
-            this.params.minionAction.type == MinionActionType.ActionInPlay &&
-            this.params.minionAction.card
-        ) {
-            actionCard = ` ( ${this.params.minionAction.card.name} )`
-        }
-        return `Declare ${actionVerb}${actions.getName(this.params.minionAction)}${disciplines}${actionCard} with ${CARD_LOG_PLACEHOLDER}`
+        return declarationLogText(this.params.minionAction)
     }
 
     getCancelMutation(): AnyGameMutation {
@@ -1853,7 +2064,7 @@ class DeclareActionInverse extends GameMutation<DeclareActionParams> {
     }
 
     formatForLog() {
-        return `Cancel ${actions.getName(this.params.minionAction)}`
+        return `Withdraw ${logActionName(this.params.minionAction)}`
     }
 }
 
@@ -1902,25 +2113,18 @@ class UpdateActionUsage extends GameMutation<UpdateActionUsageParams> {
         minionAction.target = this.params.usage.target
     }
 
+    // The whole declaration again, with the new usage : it replaces the text of the declaration
+    // line
     formatForLog() {
         const minionAction = this.gameState.action?.minionAction
         if (!minionAction || minionAction.type != MinionActionType.ActionCardFromHand) {
             return null
         }
-        // Report the discipline / level and the declared X value here : target
-        // changes are logged by their target-declaration arrow, mirroring how the
-        // initial declaration splits the two. Nothing to say when neither the
-        // disciplines nor the X value changed.
-        const previous = this.previousState.usage as LibraryCardUsage | undefined
-        if (
-            previous &&
-            actions.sameDisciplineUses(previous, this.params.usage) &&
-            previous.x === this.params.usage.x
-        ) {
-            return null
-        }
-        const disciplines = disciplineUsesImg(this.params.usage.disciplines ?? [])
-        return `Use ${disciplines}${actions.usageXLog(this.params.usage)} ( ${minionAction.card.name} )`
+        return declarationLogText(minionAction)
+    }
+
+    get actionLineFold(): ActionLineFold {
+        return 'replace'
     }
 
     getCancelMutation(): AnyGameMutation {
@@ -1959,10 +2163,10 @@ class DeclareActionModifier extends GameMutation<DeclareActionModifierParams> {
 
     formatForLog() {
         if (this.params.actionModifier === NO_ACTION_MODIFIER) {
-            return `No Action Modifier`
+            return `No action modifier`
         } else {
             const am = this.params.actionModifier
-            return `Declare ${am.card.name} ${disciplineUsesImg(am.usage.disciplines ?? [])}${actions.usageXLog(am.usage)}`
+            return `Declare ${logRevealedCard(am.card)} ${disciplineUsesImg(am.usage.disciplines ?? [])}${actions.usageXLog(am.usage)}`
         }
     }
 
@@ -2035,9 +2239,9 @@ class DeclareBlock extends GameMutation<DeclareBlockParams> {
         if (this.params.block === null) {
             return `End block`
         } else if (this.params.block === NO_BLOCK) {
-            return `No Block`
+            return `No block`
         } else {
-            return `Block attempt with ${CARD_LOG_PLACEHOLDER}`
+            return `Attempt to block with ${CARD_LOG_PLACEHOLDER}`
         }
     }
 
@@ -2077,9 +2281,9 @@ class DeclareReaction extends GameMutation<DeclareReactionParams> {
 
     formatForLog() {
         if (this.params.reaction === NO_REACTION) {
-            return `No Reaction`
+            return `No reaction`
         } else {
-            return `Reaction : ${CARD_LOG_PLACEHOLDER}`
+            return `React with ${CARD_LOG_PLACEHOLDER}`
         }
     }
 
@@ -2104,7 +2308,7 @@ class EndAction extends GameMutation<EmptyParams> {
     protected updateGameState(gameState: GameState) {
         // Store for use formatForLog()
         if (gameState.action) {
-            this.previousState.actionName = actions.getName(gameState.action.minionAction)
+            this.previousState.actionName = logActionName(gameState.action.minionAction)
         }
 
         endAction(gameState)
@@ -2137,7 +2341,7 @@ export class ResolveAction extends GameMutation<EmptyParams> {
             throw new Error('gameState.action is null')
         }
         // Store for use formatForLog()
-        this.previousState.actionName = actions.getName(gameState.action.minionAction)
+        this.previousState.actionName = logActionName(gameState.action.minionAction)
         actions.resolve(gameState.action.minionAction)
         gameState.action = null
     }
@@ -2308,10 +2512,17 @@ class CloseReferendum extends ReferendumMutation<EmptyParams> {
     }
 
     formatForLog() {
-        const tally = this.previousState.tally
         const ending =
             this.previousState.actionName ? ` and end ${this.previousState.actionName}` : ''
-        return `Close the referendum ( ${tally[VoteSide.InFavour]} in favour / ${tally[VoteSide.Against]} against )${ending}`
+        return `Close the referendum${ending}`
+    }
+
+    formatLogDetails() {
+        const tally = this.previousState.tally
+        return [
+            { label: 'for', value: `${tally[VoteSide.InFavour]}` },
+            { label: 'against', value: `${tally[VoteSide.Against]}` },
+        ]
     }
 }
 
@@ -2405,10 +2616,13 @@ interface ChangeVotesParams extends VampireVoteParams {
 }
 
 class ChangeReferendumVotes extends VampireVoteMutation<ChangeVotesParams> {
+    declare public previousState: { amount: number }
+
     protected updateGameState(gameState: GameState) {
         const referendum = this.getReferendum(gameState)
         const store = this.getVoteStore(referendum)
         const castVote = this.getCurrentCast(referendum)
+        this.previousState.amount = castVote.amount
 
         store[this.params.vampire.oid] = {
             ...castVote,
@@ -2418,13 +2632,26 @@ class ChangeReferendumVotes extends VampireVoteMutation<ChangeVotesParams> {
     }
 
     formatForLog() {
-        const isBallot = this.castsBallots
+        const unit = this.castsBallots ? 'ballot' : 'vote'
+        return `${AMOUNT_LOG_PLACEHOLDER} ${unit} on ${CARD_LOG_PLACEHOLDER}`
+    }
+
+    // The votes the vampire casts. Never below 0 : from the stored value, not the amount
+    formatLogDetails() {
         const referendum = this.gameState.referendum
         const store = referendum ? this.getVoteStore(referendum) : {}
         const amount = store[this.params.vampire.oid]?.amount ?? 0
-        return isBallot ?
-                `${CARD_LOG_PLACEHOLDER} now casts ${amount} ballot(s)`
-            :   `${CARD_LOG_PLACEHOLDER} now casts ${amount} vote(s)`
+        return [
+            {
+                label: this.castsBallots ? 'ballots' : 'votes',
+                from: `${this.previousState.amount ?? 0}`,
+                value: `${amount}`,
+            },
+        ]
+    }
+
+    get logGroup(): LogGroup {
+        return { key: `${this.name}-${this.params.vampire.oid}`, amount: this.params.amount }
     }
 }
 
@@ -2443,6 +2670,8 @@ interface ChangePlayerVotesParams extends GameMutationParams {
 }
 
 class ChangePlayerVotes extends ReferendumMutation<ChangePlayerVotesParams> {
+    declare public previousState: { votes: number }
+
     protected getStrictValidity(): Validity {
         return this.params.player.oid == this.author.oid ?
                 VALID
@@ -2452,6 +2681,7 @@ class ChangePlayerVotes extends ReferendumMutation<ChangePlayerVotesParams> {
     protected updateGameState(gameState: GameState) {
         const referendum = this.getReferendum(gameState)
         const playerVotes = getPlayerVotes(referendum, this.params.player)
+        this.previousState.votes = playerVotes[this.params.side]
 
         referendum.playerVotes[this.params.player.oid] = {
             ...playerVotes,
@@ -2460,11 +2690,33 @@ class ChangePlayerVotes extends ReferendumMutation<ChangePlayerVotesParams> {
         }
     }
 
+    private get sideName(): string {
+        return this.params.side == VoteSide.InFavour ? 'in favour' : 'against'
+    }
+
+    // The player is the author ( see getStrictValidity )
     formatForLog() {
+        return `${AMOUNT_LOG_PLACEHOLDER} extra vote ${this.sideName}`
+    }
+
+    // The extra votes of the player on that side. Never below 0 : from the stored value
+    formatLogDetails() {
         const votes =
             this.gameState.referendum?.playerVotes[this.params.player.oid]?.[this.params.side] ?? 0
-        const side = this.params.side == VoteSide.InFavour ? 'in favour' : 'against'
-        return `${this.params.player.shortName} now casts ${votes} extra vote(s) ${side}`
+        return [
+            {
+                label: `extra ${this.sideName}`,
+                from: `${this.previousState.votes ?? 0}`,
+                value: `${votes}`,
+            },
+        ]
+    }
+
+    get logGroup(): LogGroup {
+        return {
+            key: `${this.name}-${this.params.player.oid}-${this.params.side}`,
+            amount: this.params.amount,
+        }
     }
 }
 
@@ -2532,10 +2784,24 @@ class AddTargetDeclaration extends GameMutation<TargetDeclarationParams> {
 
     formatForLog() {
         if (this.params.target instanceof Card) {
-            return `Declare target ${CARD_LOG_PLACEHOLDER} for ${this.params.origin.name} `
+            return `Declare target ${CARD_LOG_PLACEHOLDER} for ${logCard(this.params.origin)}`
         } else {
-            return `Declare target ${this.params.target.name} for ${this.params.origin.name} `
+            return `Declare target ${logPlayer(this.params.target)} for ${logCard(this.params.origin)}`
         }
+    }
+
+    // The arrow of the target of the action in progress : the declaration already names it
+    get actionLineFold(): ActionLineFold {
+        const minionAction = this.gameState.action?.minionAction
+        if (!minionAction || minionAction.target?.oid !== this.params.target.oid) {
+            return null
+        }
+        const actionCard =
+            minionAction.type == MinionActionType.ActionCardFromHand ? minionAction.card : null
+        const origin = this.params.origin
+        return origin.oid === actionCard?.oid || origin.oid === minionAction.actingMinion.oid ?
+                'silent'
+            :   null
     }
 
     getCancelMutation(): AnyGameMutation {
@@ -2671,8 +2937,13 @@ class StartTimer extends GameMutation<TimerParams> {
     }
 
     formatForLog() {
+        return `Start timer`
+    }
+
+    formatLogDetails() {
         const timer = useTimer(this.gameId)
-        return `Start timer ( ${timer.formatTime(timer.getRemainingTimeAt(this.params.date.getTime()))} )`
+        const remainingTime = timer.getRemainingTimeAt(this.params.date.getTime())
+        return [{ label: 'left', value: timer.formatTime(remainingTime) }]
     }
 
     getCancelMutation(): AnyGameMutation {
@@ -2696,8 +2967,13 @@ class PauseTimer extends GameMutation<TimerParams> {
     }
 
     formatForLog() {
+        return `Pause timer`
+    }
+
+    formatLogDetails() {
         const timer = useTimer(this.gameId)
-        return `Pause timer ( ${timer.formatTime(timer.getRemainingTimeAt(this.params.date.getTime()))} )`
+        const remainingTime = timer.getRemainingTimeAt(this.params.date.getTime())
+        return [{ label: 'left', value: timer.formatTime(remainingTime) }]
     }
 
     getCancelMutation(): AnyGameMutation {
@@ -2835,7 +3111,15 @@ class FreeTableDrawCrypt extends GameMutation<FreeTableDrawCryptParams> {
     }
 
     formatForLog() {
-        return `Draw Crypt (crypt: ${this.params.player.crypt.length})`
+        return `Draw ${COUNT_LOG_PLACEHOLDER} from crypt`
+    }
+
+    formatLogDetails() {
+        return [{ label: 'crypt', value: `${this.params.player.crypt.length}` }]
+    }
+
+    get logGroup(): LogGroup {
+        return { key: `${this.name}-${this.params.player.oid}`, amount: 1 }
     }
 
     getCancelMutation(): AnyGameMutation {
